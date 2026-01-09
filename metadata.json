@@ -1,0 +1,8 @@
+{
+  "name": "DESARROLLO2 -- P2 -- GESTOR DE ESTANTERIAS ",
+  "description": "Una aplicación PWA para gestionar asignaciones de códigos de barras a ubicaciones de almacén, funcionando 100% offline usando localStorage.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
