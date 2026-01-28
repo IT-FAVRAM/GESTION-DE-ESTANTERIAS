@@ -2,186 +2,102 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // =========================================================================
-    // 🛡️ HELPER FUNCTIONS
-    // =========================================================================
-
+    // --- HELPER FUNCTIONS ---
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Role checks based on Custom Claims (Preferred) or DB (Fallback if needed)
-    // Note: The app uses 'users/{uid}' doc for roles in some places, but claims in others.
-    // We will check the 'users' collection to be safe and consistent with current usage.
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    // Role detection (Claims first, then DB fallback)
+    function getRole() {
+      return request.auth.token.role != null 
+        ? request.auth.token.role 
+        : get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    function hasRole(role) {
-      return isAuthenticated() && getUserData().role == role;
-    }
+    function isAdmin() { return isAuthenticated() && getRole() == 'ADMIN'; }
+    function isJefe() { return isAuthenticated() && getRole() == 'JEFE'; }
+    function isCarretillero() { return isAuthenticated() && getRole() == 'CARRETILLERO'; }
+    function isStaff() { return isAdmin() || isJefe() || isCarretillero(); }
 
-    function isAdmin() {
-      return hasRole('ADMIN');
-    }
+    // --- RULES ---
 
-    function isJefe() {
-      return hasRole('JEFE');
-    }
-
-    function isCarretillero() {
-      return hasRole('CARRETILLERO');
-    }
-
-    function isStaff() {
-      return isAdmin() || isJefe() || isCarretillero();
-    }
-
-    // =========================================================================
-    // 🧱 SCHEMA VALIDATION (STRICT WRITES)
-    // =========================================================================
-
-    // Validates that a History entry has the minimum required fields and correct types
-    function isValidHistoryEntry() {
-      let data = request.resource.data;
-      return data.keys().hasAll(['action', 'timestamp']) 
-             && (data.action is string)
-             && (data.timestamp is string); 
-    }
-
-    // Validates notification structure
-    function isValidNotification() {
-      let data = request.resource.data;
-      return data.keys().hasAll(['type', 'title', 'message', 'timestamp'])
-             && (data.type is string)
-             && data.type.size() > 0;
-    }
-
-    // Checks if the 'items' field is a list of valid items
-    // Note: iterating loops in rules is limited/expensive. 
-    // Ideally we check size or structural integrity. 
-    // Firestore Rules Map/List recursion limited.
-    // Hack: We can't robustly loop ALL items if list is huge (100+).
-    // Compromise: Check if 'items' IS a List.
-    function isValidLocationDoc() {
-       let data = request.resource.data;
-       // Must have 'items' and it must be list
-       return data.keys().hasAll(['items']) 
-              && (data.items is list);
-              // Deep validation of list elements is hard in rules v2 without 'loop'
-              // simpler is to just enforce types.
-    }
-
-    // =========================================================================
-    // 📂 COLLECTIONS RULES
-    // =========================================================================
-
-    // --- 1. USERS ---
+    // Users: Personal access or Admin management
     match /users/{userId} {
-      // Authenticated users can read valid users to know names/roles (for chat, etc)
       allow read: if isAuthenticated();
-      // Only Admin or the user themselves can write
       allow write: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
     }
 
-    // --- 2. ASSIGNMENTS (ROOT) ---
-    // App Structure: assignments/{warehouseId}/locations/{locationId}
+    // Inventory Assignments
     match /assignments/{warehouseId}/locations/{locationId} {
       allow read: if isAuthenticated();
-      // Only Staff (Carretillero/Jefe/Admin) can modify inventory
-      // Strict: Must be a Staff member AND valid schema
-      allow write: if isStaff() && isValidLocationDoc();
+      allow write: if isStaff();
     }
 
-    // --- 3. WORKING ITEMS ---
+    // Production Workflow
     match /workingItems/{itemId} {
       allow read: if isAuthenticated();
-      // Carretilleros move items here.
       allow write: if isStaff();
     }
-
-    // --- 4. FINISHED ITEMS ---
     match /finishedItems/{itemId} {
       allow read: if isAuthenticated();
-      // Staff marks items as finished
       allow write: if isStaff();
     }
 
-    // --- 5. HISTORY (STRICT) ---
-    // Prevent arbitrary garbage writes.
+    // History (Audit Log)
     match /history/{entryId} {
       allow read: if isAuthenticated();
-      // Allow Create ONLY. No edits/deletes of history log.
-      // Must pass schema validation.
-      allow create: if isAuthenticated() && isValidHistoryEntry();
-      allow update, delete: if isAdmin(); // Only Admin can potentially correct history
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
     }
 
-    // --- 6. NOTIFICATIONS ---
+    // Supplies (Fix: using supplies_carts instead of genericSupplies)
+    match /supplies_carts/{cartId} {
+      allow read: if isAuthenticated();
+      allow write: if isStaff();
+      
+      match /items/{itemId} {
+        allow read: if isAuthenticated();
+        allow write: if isStaff();
+      }
+    }
+
+    // Notifications
     match /notifications/{notificationId} {
       allow read: if isAuthenticated();
-      allow create: if canCreateNotification(request.resource.data);
+      allow create: if isAuthenticated();
       allow update: if isAuthenticated() && (resource.data.toUid == request.auth.uid || isAdmin());
       allow delete: if isAdmin();
     }
 
-    // --- 7. CHATS & MESSAGES ---
+    // Chat System
     match /chats/{chatId} {
-      // Participants field must contain auth.uid
-      function isParticipant() {
-        return request.auth.uid in resource.data.participants;
-      }
-      function isNewParticipant() {
-        return request.auth.uid in request.resource.data.participants;
-      }
+      allow read: if isAuthenticated() && (request.auth.uid in resource.data.participants || resource.data.isBroadcast == true);
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && request.auth.uid in resource.data.participants;
 
-      allow read: if isAuthenticated() && isParticipant();
-      allow create: if isAuthenticated() && isNewParticipant();
-      allow update: if isAuthenticated() && isParticipant(); // e.g. updating "lastMessage"
-
-      // Subcollection: Messages
       match /messages/{msgId} {
-        // Parent context is available via get() but expensive.
-        // Usually, checking if user can read parent doc (Chat) logic is repeated here 
-        // OR we rely on the fact they must have list rights.
-        // Better: Duplicate participant check using `get` on parent.
-        function isParentParticipant() {
-           let chatData = get(/databases/$(database)/documents/chats/$(chatId)).data;
-           return request.auth.uid in chatData.participants;
-        }
-
-        allow read: if isAuthenticated() && isParentParticipant();
-        allow create: if isAuthenticated() && isParentParticipant(); 
+        allow read: if isAuthenticated() && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants || get(/databases/$(database)/documents/chats/$(chatId)).data.isBroadcast == true);
+        allow create: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
       }
     }
 
-    // --- 8. WAREHOUSE META/CONFIG ---
+    // Inbound Orders (Procurement)
+    match /inboundOrders/{orderId} {
+      allow read: if isAdmin() || isJefe();
+      allow write: if isAdmin() || isJefe();
+    }
+
+    // Configuration
     match /meta/warehouseConfig {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
 
     match /meta/backups/{backupId} {
-       allow read, write: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
-    match /genericSupplies/{supplyId} {
-      allow read: if isAuthenticated();
-      allow write: if isStaff();
-    }
-
-    // --- 10. INBOUND ORDERS (LEAD TIME) ---
-    match /inboundOrders/{orderId} {
-      // Only Admin / Jefe can see/manage orders.
-      allow read: if isAdmin() || isJefe();
-      
-      // Strict: Only Admin/Jefe can create/update.
-      allow create: if (isAdmin() || isJefe()) && request.resource.data.keys().hasAll(['orderNumber', 'supplierId', 'fecha_solicitud', 'status']);
-      allow update: if isAdmin() || isJefe();
-      allow delete: if isAdmin();
-    }
-    
-    // --- 9. DEFAULT DENY ---
+    // Default Deny
     match /{document=**} {
       allow read, write: if false;
     }

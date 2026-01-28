@@ -35,7 +35,10 @@ export const generateLayoutLocations = (whCode: string): LocationId[] => {
             break;
         case 'SOL':
             for (let i = 1; i <= 4; i++) locs.push(`SOL-E1-B1-SOL ${pad3(i)}` as LocationId);
-            for (let i = 5; i <= 40; i++) locs.push(`SOL-E2-B1-SOL ${pad3(i)}` as LocationId);
+            for (let i = 5; i <= 70; i++) {
+                const suffix = i >= 41 ? i.toString() : pad3(i);
+                locs.push(`SOL-E2-B1-SOL ${suffix}` as LocationId);
+            }
             break;
         case 'RSO':
             for (let i = 1; i <= 8; i++) locs.push(`RSO-E1-B1-ROB.SOL ${pad3(i)}` as LocationId);

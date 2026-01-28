@@ -1,6 +1,7 @@
 
 import React, { useCallback } from 'react';
 import { Assignments, AssignmentItem, LocationId, ActionType, WarehouseCode, ShelfNumber, RACKS, POSITIONS, isUrgentLocation, PackageType } from '../lib/warehouseData';
+import { TransactionResult } from '../lib/inventoryTransactions';
 import { useHistory } from './useHistory';
 import { NotificationType } from '../components/NotificationToast';
 import { BatchItem } from '../App';
@@ -142,7 +143,7 @@ export const useInventoryOperations = (
             const failures = results.filter(r => !r.success);
 
             if (failures.length > 0) {
-                throw new Error(failures[0].error || "Error en asignación múltiple");
+                throw new Error((failures[0] as TransactionResult).error || "Error en asignación múltiple");
             }
 
             // Success Notification
@@ -295,7 +296,15 @@ export const useInventoryOperations = (
 
     // --- DEPRECATED / UTILS ---
     const batchAssign = useCallback(() => { }, []);
-    const batchAssignToSingleLocation = useCallback(() => { }, []); // Should ideally reuse assignItem
+    const batchAssignToSingleLocation = useCallback(async (items: any[], location: LocationId) => {
+        // Basic iterative assignment
+        for (const item of items) {
+            // Check if item has barcode/orderId
+            if (item.barcode) {
+                await assignItem(item.barcode, item.orderId || 'SIN_OF', location, { allowMultiLocation: true });
+            }
+        }
+    }, [assignItem]);
     const batchAssignToMultipleLocations = useCallback(() => { }, []);
 
     const relocateLocationContents = useCallback(async (fromLoc: LocationId, toLoc: LocationId) => {

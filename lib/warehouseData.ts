@@ -22,6 +22,7 @@ export const DEFAULT_WAREHOUSE_NAMES: Record<string, string> = {
 export const DEFAULT_SHELVES = [1, 2, 3];
 export const DEFAULT_RACKS = [1, 2, 3];
 export const DEFAULT_POSITIONS = ['IZQ', 'CENTRO', 'DRCH'];
+export const HISTORY_LIMIT = 100;
 
 // Types are now strings/numbers to allow dynamic user input
 export type WarehouseCode = string;

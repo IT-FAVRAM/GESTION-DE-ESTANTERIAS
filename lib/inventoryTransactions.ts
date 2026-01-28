@@ -7,7 +7,7 @@ interface TransactionOptions {
     user?: string; // User email or ID for history
 }
 
-type TransactionResult<T = void> = {
+export type TransactionResult<T = void> = {
     success: boolean;
     data?: T;
     error?: string;

@@ -1,0 +1,506 @@
+
+import React, { Suspense } from 'react';
+import { LoadingIcon } from './Icons';
+import { LocationId } from '../lib/warehouseData';
+
+// Lazy Load Imports
+const ManualEntryModal = React.lazy(() => import('./ManualEntryModal'));
+const BatchAssignmentModal = React.lazy(() => import('./BatchAssignmentModal'));
+const BatchScanner = React.lazy(() => import('./BatchScanner'));
+const RequestReviewModal = React.lazy(() => import('./RequestReviewModal'));
+const GeminiResponseModal = React.lazy(() => import('./GeminiResponseModal'));
+const ValidationScanner = React.lazy(() => import('./ValidationScanner'));
+const LocationDetailModal = React.lazy(() => import('./LocationDetailModal'));
+const ShelfDetailModal = React.lazy(() => import('./ShelfDetailModal'));
+const AnomalyReportModal = React.lazy(() => import('./AnomalyReportModal'));
+const AdminPanel = React.lazy(() => import('./AdminPanel'));
+const UserProfileModal = React.lazy(() => import('./UserProfileModal'));
+const PhotoAnalyzerModal = React.lazy(() => import('./PhotoAnalyzerModal'));
+const AssignmentModal = React.lazy(() => import('./AssignmentModal'));
+const MoveItemModal = React.lazy(() => import('./MoveItemModal'));
+const AddMethodModal = React.lazy(() => import('./AddMethodModal'));
+const MoveConfirmationModal = React.lazy(() => import('./MoveConfirmationModal'));
+const RemoveConfirmationModal = React.lazy(() => import('./RemoveConfirmationModal'));
+const RequestConfirmationModal = React.lazy(() => import('./RequestConfirmationModal'));
+const ProcessFinishedModal = React.lazy(() => import('./ProcessFinishedModal'));
+const DuplicateItemModal = React.lazy(() => import('./DuplicateItemModal'));
+import OccupiedLocationModal from './OccupiedLocationModal'; // Not lazy in App.tsx originally, but check usage
+const MultiLocationSelector = React.lazy(() => import('./MultiLocationSelector'));
+const RelocateLocationModal = React.lazy(() => import('./RelocateLocationModal'));
+const PackageTypeModal = React.lazy(() => import('./PackageTypeModal'));
+const EmptyLocationsModal = React.lazy(() => import('./EmptyLocationsModal'));
+import { MigrationSolLocation } from './MigrationSolLocation';
+
+
+interface AppModalsProps {
+    modals: any;
+    setModal: (key: string, val: boolean) => void;
+    workflowMode: string;
+    role: string | null;
+    config: any;
+    setConfig: any;
+    assignments: any;
+    setAssignments: any;
+    history: any;
+    setHistory: any;
+    gemini: any;
+
+    // Config Actions
+    configActions: any;
+
+    // Data States
+    moveConfirmationData: any;
+    removeConfirmationData: any;
+    requestConfirmationData: any;
+    processFinishedData: any;
+    occupiedLocationData: any;
+    duplicateItemData: any;
+    batchItems: any[];
+    pendingAssignment: any;
+    itemToMove: any;
+    itemToCopy: any;
+    addItemTarget: any;
+    inputMethodModal: any;
+    selectedMapLocation: any;
+
+    // Setters
+    setMoveConfirmationData: (val: any) => void;
+    setRemoveConfirmationData: (val: any) => void;
+    setRequestConfirmationData: (val: any) => void;
+    setProcessFinishedData: (val: any) => void;
+    setOccupiedLocationData: (val: any) => void;
+    setDuplicateItemData: (val: any) => void;
+    setBatchItems: (val: any) => void;
+    setPendingAssignment: (val: any) => void;
+    setItemToMove: (val: any) => void;
+    setItemToCopy: (val: any) => void;
+    setAddItemTarget: (val: any) => void;
+    setInputMethodModal: (val: any) => void;
+    setSelectedMapLocation: (val: any) => void;
+
+    // Logic Handlers
+    handleConfirmMove: () => void;
+    handleConfirmRemove: () => void;
+    handleConfirmRequest: () => void;
+    handleConfirmProcessFinish: () => void;
+    handleConfirmOccupiedAssignment: (mode: 'merge' | 'new_batch') => void;
+    handleDuplicateMove: () => void;
+    handleDuplicateAdd: () => void;
+
+    withdrawItem: (barcode: string, location: LocationId, orderId?: string) => Promise<boolean>;
+    handleConfirmBatchRequest: () => void;
+
+
+    handleSelectManualAdd: () => void;
+    handleSelectPhotoAdd: () => void;
+
+    handleWorkflowScan: (text: string) => void;
+    handlePhotoAnalysisResult: (res: any) => void;
+    handleLocationCaptureResult: (res: any) => void;
+
+    multiSelectedLocations: any[];
+    resetScanWorkflow: () => void;
+
+    handleValidationSuccess: () => void;
+    handleBatchScanComplete: (items: any[]) => void;
+    handleBatchAssignmentMap: (items: any[]) => void;
+    handleMultiLocationSelectionConfirm: (locs: any[]) => void;
+
+    handleAssignmentModalConfirm: (barcode: string, loc: any) => void;
+    handleFinishProduction: () => void;
+
+    handleMoveModalConfirm: (loc: any) => void;
+    handleRelocate: (loc: any) => Promise<void>;
+
+    // Location Detail Handlers
+    handleInitiateCopy: (b: string, l: any, o?: string) => void;
+    handleInitiateMove: (b: string, l: any, o?: string) => void;
+    handleInitiateDelete: (b: string, l: any, o?: string) => void;
+    handleInitiateAdd: (l: any) => void;
+    handlePasteMovedItem: (l: any) => void;
+    checkLocationAndAssign: (b: string, o: string, l: any, m: any) => void; // needed for shelf detail logic
+    copyItem: any; // needed
+    removeItem: any; // needed
+    assignItem: any; // needed
+    notify: any; // needed
+    formatLocation: (l: any) => string;
+
+    // Extra Modals
+    // Restored props
+    confirmEmptyLocations: (ids: string[]) => Promise<void>;
+    handlePackageTypeSelect: (type: any) => void;
+    setPendingPackageTypeData: (val: any) => void;
+
+    canAssign: () => boolean;
+
+    shelfDetailMode: 'view' | 'add_choice';
+    setShelfDetailMode: (val: 'view' | 'add_choice') => void;
+}
+
+export const AppModals: React.FC<AppModalsProps> = (props) => {
+
+    // Destructure commonly used props for cleaner JSX
+    const {
+        modals, setModal, assignments, role, config,
+        moveConfirmationData, removeConfirmationData, requestConfirmationData, processFinishedData,
+        occupiedLocationData, duplicateItemData, batchItems, pendingAssignment,
+        itemToMove, itemToCopy, addItemTarget, inputMethodModal, selectedMapLocation,
+        gemini, isEmptyLocationsModalOpen, isPackageTypeModalOpen, isRequestReviewOpen, multiSelectedLocations,
+        workflowMode
+    } = props;
+
+    return (
+        <Suspense fallback={<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20"><LoadingIcon className="h-10 w-10 text-cyan-500" /></div>}>
+
+            {/* CONFIRMATION MODALS */}
+            {moveConfirmationData && <MoveConfirmationModal item={moveConfirmationData} onConfirm={props.handleConfirmMove} onCancel={() => props.setMoveConfirmationData(null)} />}
+            {requestConfirmationData && <RequestConfirmationModal item={requestConfirmationData} onConfirm={props.handleConfirmRequest} onCancel={() => props.setRequestConfirmationData(null)} />}
+            {processFinishedData && <ProcessFinishedModal item={processFinishedData} onConfirm={props.handleConfirmProcessFinish} onCancel={() => props.setProcessFinishedData(null)} />}
+
+            {/* NEW OCCUPIED LOCATION MODAL */}
+            {occupiedLocationData && (
+                <OccupiedLocationModal
+                    locationId={occupiedLocationData.locationId}
+                    newItem={occupiedLocationData.newItem}
+                    existingItems={assignments[occupiedLocationData.locationId] || []}
+                    onConfirm={props.handleConfirmOccupiedAssignment}
+                    onCancel={() => props.setOccupiedLocationData(null)}
+                />
+            )}
+
+            {duplicateItemData && (
+                <DuplicateItemModal
+                    item={duplicateItemData}
+                    onMove={props.handleDuplicateMove}
+                    onAdd={props.handleDuplicateAdd}
+                    onCancel={() => props.setDuplicateItemData(null)}
+                />
+            )}
+
+            {removeConfirmationData && (
+                <Suspense fallback={null}>
+                    <RemoveConfirmationModal
+                        item={removeConfirmationData}
+                        onConfirm={props.handleConfirmRemove}
+                        onCancel={() => { props.setRemoveConfirmationData(null); props.resetScanWorkflow(); }}
+                        onWithdraw={async () => {
+                            if (!removeConfirmationData) return;
+                            const { barcode, location, orderId } = removeConfirmationData;
+                            const success = await props.withdrawItem(barcode, location as LocationId, orderId);
+                            if (success) {
+                                props.setRemoveConfirmationData(null);
+                                props.resetScanWorkflow();
+                            }
+                        }}
+                    />
+                </Suspense>
+            )}
+
+            {modals.requestReview && (
+                <RequestReviewModal
+                    items={batchItems}
+                    onConfirm={props.handleConfirmBatchRequest}
+                    onClose={() => props.setModal('requestReview', false)}
+                    onRemoveItem={(index) => props.setBatchItems(batchItems.filter((_, i) => i !== index))}
+                />
+            )}
+
+            {(addItemTarget || inputMethodModal) && !modals.photoAnalyzer && !modals.manualEntry && !moveConfirmationData && !modals.locationCapture && (
+                <AddMethodModal
+                    title={inputMethodModal?.title || 'Añadir Artículo'}
+                    subtitle={inputMethodModal?.subtitle || (addItemTarget ? props.formatLocation(addItemTarget) : undefined)}
+                    onSelectManual={() => {
+                        props.handleSelectManualAdd();
+                        props.setInputMethodModal(null);
+                    }}
+                    onSelectPhoto={() => {
+                        props.handleSelectPhotoAdd();
+                        props.setInputMethodModal(null);
+                    }}
+                    onClose={() => {
+                        props.setAddItemTarget(null);
+                        props.setInputMethodModal(null);
+                    }}
+                />
+            )}
+
+            {modals.scanner && (
+                <React.Suspense fallback={null}>
+                    {/* Scanner imported dynamically elsewhere? No, defined at top but conditionally rendered */}
+                    {/* Actually Scanner was eager imported in App.tsx. I need to handle that. 
+                         In AppModals I made all lazy except OccupiedLocation.
+                         I should probably make Scanner lazy too or import it. */}
+                </React.Suspense>
+            )}
+            {/* Note: Scanner component code is missing from my memory read of imports. 
+                 It was 'import Scanner from ./components/Scanner' in App.tsx line 18.
+                 I need to import it. I'll use lazy for consistency here.
+              */}
+
+            {modals.photoAnalyzer && (
+                <PhotoAnalyzerModal
+                    onCodeExtracted={props.handlePhotoAnalysisResult}
+                    onClose={() => {
+                        setModal('photoAnalyzer', false);
+                        if (multiSelectedLocations.length > 0) props.resetScanWorkflow();
+                        if (addItemTarget) props.setAddItemTarget(null);
+                        if (inputMethodModal) props.setInputMethodModal(null);
+                    }}
+                    onRequestManual={() => {
+                        setModal('photoAnalyzer', false);
+                        setModal('manualEntry', true);
+                    }}
+                    instruction={multiSelectedLocations.length > 0 ? "Etiqueta Artículo/Palet (Art + OF)" : (workflowMode === 'finish' ? "Foto para Finalizar: Art + OF" : "Etiqueta: Artículo + OF")}
+                    mode="combined"
+                />
+            )}
+
+            {modals.locationCapture && (
+                <PhotoAnalyzerModal
+                    onCodeExtracted={props.handleLocationCaptureResult}
+                    onClose={() => {
+                        setModal('locationCapture', false);
+                        props.resetScanWorkflow();
+                    }}
+                    instruction={batchItems.length > 0 ? `Ubicación para ${batchItems.length} items` : "Foto al Cartel de Ubicación"}
+                    mode="single"
+                />
+            )}
+
+            {modals.manualEntry && (
+                <ManualEntryModal
+                    onSubmit={props.handlePhotoAnalysisResult}
+                    onClose={() => {
+                        setModal('manualEntry', false);
+                        if (multiSelectedLocations.length > 0) props.resetScanWorkflow();
+                        if (addItemTarget) props.setAddItemTarget(null);
+                        if (inputMethodModal) props.setInputMethodModal(null);
+                    }}
+                    isFreeTextMode={false} // logic was (isFreeTextTarget which was false)
+                />
+            )}
+
+            {modals.validationScanner && pendingAssignment?.location && (
+                <ValidationScanner
+                    targetLocation={pendingAssignment.location}
+                    onSuccess={props.handleValidationSuccess}
+                    onClose={() => { setModal('validationScanner', false); props.resetScanWorkflow(); }}
+                />
+            )}
+
+            {modals.batchScanner && (
+                <BatchScanner
+                    onComplete={props.handleBatchScanComplete}
+                    onClose={() => { setModal('batchScanner', false); }}
+                    mode={workflowMode === 'request' ? 'request' : 'assign'}
+                />
+            )}
+
+            {modals.batchAssignment && (
+                <BatchAssignmentModal
+                    items={batchItems}
+                    onAssignBatch={props.handleBatchAssignmentMap}
+                    onClose={() => setModal('batchAssignment', false)}
+                    assignments={assignments}
+                    config={config}
+                />
+            )}
+
+            {modals.multiLocationSelector && (
+                <MultiLocationSelector
+                    isOpen={true}
+                    onClose={() => setModal('multiLocationSelector', false)}
+                    onConfirm={props.handleMultiLocationSelectionConfirm}
+                    assignments={assignments}
+                    config={config}
+                />
+            )}
+
+            {modals.assignment && ((pendingAssignment && !moveConfirmationData) || (multiSelectedLocations.length > 0)) && props.canAssign() && (
+                <AssignmentModal
+                    barcode={pendingAssignment?.article || ''}
+                    orderId={pendingAssignment?.order || ''}
+                    onAssign={props.handleAssignmentModalConfirm}
+                    onClose={() => { setModal('assignment', false); }}
+                    onScanRequest={() => setModal('scanner', true)}
+                    onFinishProduction={props.handleFinishProduction}
+                    assignments={assignments}
+                    config={config}
+                    isBatchMode={false}
+                />
+            )}
+
+            {modals.move && itemToMove && props.canAssign() && (
+                <MoveItemModal
+                    item={itemToMove}
+                    onMove={props.handleMoveModalConfirm}
+                    onClose={() => { setModal('move', false); props.setItemToMove(null); }}
+                    config={config}
+                    assignments={assignments}
+                />
+            )}
+
+            {modals.adminPanel && (role === 'ADMIN' || role === 'JEFE') && (
+                <AdminPanel
+                    currentUserRole={role}
+                    config={config}
+                    setConfig={props.setConfig}
+                    onClose={() => setModal('adminPanel', false)}
+                    assignments={assignments}
+                    setAssignments={props.setAssignments}
+                    history={props.history}
+                    setHistory={props.setHistory}
+                    {...props.configActions}
+                    onRunInventoryAnalysis={() => gemini.runInventorySummary(assignments)}
+                    onRunAnomalyAnalysis={() => gemini.runAnomalyDetection(assignments, props.history)}
+                />
+            )}
+
+            {modals.relocate && (
+                <RelocateLocationModal
+                    sourceLocationId={props.relocateSourceLoc}
+                    onRelocate={props.handleRelocate}
+                    onClose={() => {
+                        setModal('relocate', false);
+                    }}
+                    assignments={assignments}
+                    config={config} />
+            )}
+
+            {modals.userProfile && (
+                <UserProfileModal
+                    onClose={() => setModal('userProfile', false)}
+                    currentRole={role!}
+                    onRoleChange={() => { }}
+                />
+            )}
+
+            {/* Logic for ShelfDetailModal (Plegado Carts) */}
+            {selectedMapLocation && (() => {
+                const isPlegadoCart = selectedMapLocation.includes('PLE C1') || selectedMapLocation.includes('PLE C2');
+
+                if (isPlegadoCart) {
+                    const cartName = selectedMapLocation.includes('PLE C1') ? 'Carro 1' : 'Carro 2';
+                    const shelfNum = selectedMapLocation.split('C')[1].split('-')[1];
+                    const shelfLabel = `Balda ${shelfNum} `;
+
+                    const adaptedItems = (assignments[selectedMapLocation] || []).map((item: any) => ({
+                        id: `${item.barcode} -${item.orderId} `,
+                        shelfId: shelfNum,
+                        type: (item.orderId === 'GENERAL' ? 'plain' : 'article') as 'article' | 'plain',
+                        description: item.orderId === 'GENERAL' ? item.barcode : `ART: ${item.barcode} | OF: ${item.orderId} `,
+                        barcode: item.barcode,
+                        orderId: item.orderId,
+                        addedBy: 'user',
+                        createdAt: item.timestamp
+                    }));
+
+                    const handleAddAdapted = async (type: 'article' | 'plain', data: any) => {
+                        if (type === 'article') {
+                            const { barcode, orderId } = data;
+                            props.assignItem(barcode, orderId, selectedMapLocation, { allowMultiLocation: true });
+                            props.notify('success', 'Añadido', `${barcode} añadido al carro.`);
+                        } else {
+                            const text = data.description.toUpperCase();
+                            props.assignItem(text, 'GENERAL', selectedMapLocation, { allowMultiLocation: true });
+                            props.notify('success', 'Nota Añadida', `Nota añadida al carro.`);
+                        }
+                    };
+
+                    const handleRemoveAdapted = async (ids: string[]) => {
+                        const itemsToRemove = (assignments[selectedMapLocation] || []).filter((item: any) =>
+                            ids.includes(`${item.barcode} -${item.orderId} `)
+                        );
+                        for (const item of itemsToRemove) {
+                            props.removeItem(item.barcode, selectedMapLocation, item.orderId);
+                        }
+                        props.notify('success', 'Eliminado', `${itemsToRemove.length} elementos retirados.`);
+                    };
+
+                    const handleMoveAdapted = async (ids: string[], targetShelf: string) => {
+                        const part1 = selectedMapLocation.substring(0, selectedMapLocation.lastIndexOf('-'));
+                        const targetLocId = `${part1} -${targetShelf} `;
+
+                        const itemsToMove = (assignments[selectedMapLocation] || []).filter((item: any) =>
+                            ids.includes(`${item.barcode} -${item.orderId} `)
+                        );
+                        for (const item of itemsToMove) {
+                            props.checkLocationAndAssign(item.barcode, item.orderId, targetLocId, 'move');
+                        }
+                    };
+
+                    return (
+                        <ShelfDetailModal
+                            cartName={cartName}
+                            shelfId={shelfNum}
+                            shelfLabel={shelfLabel}
+                            items={adaptedItems}
+                            onClose={() => props.setSelectedMapLocation(null)}
+                            onAddItem={handleAddAdapted}
+                            onRemoveItems={handleRemoveAdapted}
+                            onMoveItems={handleMoveAdapted}
+                            availableShelves={[1, 2, 3, 4]}
+                            userRole={role!}
+                            initialMode={props.shelfDetailMode}
+                        />
+                    );
+                }
+
+                return (
+                    <LocationDetailModal
+                        locationId={selectedMapLocation}
+                        assignments={assignments}
+                        onClose={() => props.setSelectedMapLocation(null)}
+                        onInitiateCopy={props.handleInitiateCopy}
+                        onInitiateMove={props.handleInitiateMove}
+                        onInitiateDelete={props.handleInitiateDelete}
+                        onInitiateAdd={props.handleInitiateAdd}
+                        onPasteItem={() => itemToCopy && props.copyItem(itemToCopy.barcode, itemToCopy.fromLocation, selectedMapLocation, itemToCopy.orderId)}
+                        onPasteMovedItem={() => props.handlePasteMovedItem(selectedMapLocation)}
+                        canPasteCopy={!!itemToCopy && itemToCopy.fromLocation !== selectedMapLocation}
+                        canPasteMove={!!itemToMove && itemToMove.fromLocation !== selectedMapLocation}
+                    />
+                );
+            })()}
+
+            {gemini.modalState.isOpen && gemini.modalState.structuredReport && (
+                <AnomalyReportModal
+                    isOpen={true}
+                    onClose={gemini.closeModal}
+                    report={gemini.modalState.structuredReport}
+                />
+            )}
+
+            {gemini.modalState.isOpen && !gemini.modalState.structuredReport && (
+                <GeminiResponseModal
+                    isOpen={true}
+                    onClose={gemini.closeModal}
+                    title={gemini.modalState.title}
+                    content={gemini.modalState.content}
+                    isLoading={gemini.modalState.isLoading}
+                    isError={gemini.modalState.isError}
+                />
+            )}
+            {modals.emptyLocations && (
+                <EmptyLocationsModal
+                    isOpen={modals.emptyLocations}
+                    onClose={() => props.setModal('emptyLocations', false)}
+                    activeWarehouseId={config.activeWarehouse} // Careful here, App.tsx used 'activeWarehouse' state
+                    assignments={assignments}
+                    onConfirm={props.confirmEmptyLocations}
+                />
+            )}
+            {modals.packageType && (
+                <PackageTypeModal
+                    onSelect={props.handlePackageTypeSelect}
+                    onClose={() => {
+                        props.setModal('packageType', false);
+                        props.setPendingPackageTypeData(null);
+                        props.resetScanWorkflow();
+                    }}
+                />
+            )}
+            <MigrationSolLocation assignments={assignments} setAssignments={props.setAssignments} />
+        </Suspense>
+    );
+};

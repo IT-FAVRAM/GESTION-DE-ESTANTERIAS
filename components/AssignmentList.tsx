@@ -662,7 +662,10 @@ const WarehouseViewFull: React.FC<Omit<AssignmentListProps, 'searchQuery' | 'sea
     }
     else if (activeWarehouse === 'SOL') {
         const sol1Pos = Array.from({ length: 4 }, (_, i) => `SOL ${pad3(i + 1)}`);
-        const sol2Pos = Array.from({ length: 66 }, (_, i) => `SOL ${pad3(i + 5)}`);
+        const sol2Pos = Array.from({ length: 66 }, (_, i) => {
+            const num = i + 5;
+            return num >= 41 ? `SOL ${num}` : `SOL ${pad3(num)}`;
+        });
         content = (
             <>
                 <ShelfViewImpl {...props} shelfName="🚨 ZONA URGENTE (001-004)" shelfId="1" isUrgent racks={[1]} positions={sol1Pos} forceCols={2} />
