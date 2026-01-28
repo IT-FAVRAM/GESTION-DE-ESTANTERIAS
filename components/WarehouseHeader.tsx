@@ -55,8 +55,6 @@ export const WarehouseHeader: React.FC<WarehouseHeaderProps> = ({
     canAnalyzeAnomalies,
     setWorkflowMode,
     resetScanWorkflow,
-    setWorkflowMode,
-    resetScanWorkflow,
     setModal,
     handleInitiateRemoveWorkflow,
     handleInitiateMultiOccupancy,

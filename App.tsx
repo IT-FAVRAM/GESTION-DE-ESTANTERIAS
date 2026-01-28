@@ -411,7 +411,6 @@ const App: React.FC = () => {
                 inputMethodModal={inputMethodModal}
                 selectedMapLocation={selectedMapLocation}
                 multiSelectedLocations={multiSelectedLocations}
-                multiSelectedLocations={multiSelectedLocations}
 
 
                 // Setters

@@ -573,7 +573,6 @@ export const useAppLogic = ({
         handleAssignmentModalConfirm,
         handleValidationSuccess,
         handleBatchScanComplete,
-        handleBatchScanComplete,
         handleBatchAssignmentMap,
         handleInitiateAdd,
         handleSelectManualAdd,
