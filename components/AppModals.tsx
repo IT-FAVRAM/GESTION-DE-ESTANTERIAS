@@ -2,6 +2,7 @@
 import React, { Suspense } from 'react';
 import { LoadingIcon } from './Icons';
 import { LocationId } from '../lib/warehouseData';
+import { validateCode } from '../lib/codeValidation';
 
 // Lazy Load Imports
 const ManualEntryModal = React.lazy(() => import('./ManualEntryModal'));
@@ -29,6 +30,7 @@ const MultiLocationSelector = React.lazy(() => import('./MultiLocationSelector')
 const RelocateLocationModal = React.lazy(() => import('./RelocateLocationModal'));
 const PackageTypeModal = React.lazy(() => import('./PackageTypeModal'));
 const EmptyLocationsModal = React.lazy(() => import('./EmptyLocationsModal'));
+const Scanner = React.lazy(() => import('./Scanner'));
 import { MigrationSolLocation } from './MigrationSolLocation';
 
 
@@ -145,7 +147,7 @@ export const AppModals: React.FC<AppModalsProps> = (props) => {
         moveConfirmationData, removeConfirmationData, requestConfirmationData, processFinishedData,
         occupiedLocationData, duplicateItemData, batchItems, pendingAssignment,
         itemToMove, itemToCopy, addItemTarget, inputMethodModal, selectedMapLocation,
-        gemini, isEmptyLocationsModalOpen, isPackageTypeModalOpen, isRequestReviewOpen, multiSelectedLocations,
+        gemini, multiSelectedLocations,
         workflowMode
     } = props;
 
@@ -226,10 +228,13 @@ export const AppModals: React.FC<AppModalsProps> = (props) => {
 
             {modals.scanner && (
                 <React.Suspense fallback={null}>
-                    {/* Scanner imported dynamically elsewhere? No, defined at top but conditionally rendered */}
-                    {/* Actually Scanner was eager imported in App.tsx. I need to handle that. 
-                         In AppModals I made all lazy except OccupiedLocation.
-                         I should probably make Scanner lazy too or import it. */}
+                    <Scanner
+                        onScan={props.handleWorkflowScan}
+                        onClose={() => setModal('scanner', false)}
+                        onValidate={(code) => validateCode(code, workflowMode as any)}
+                        onPhotoRequest={() => { setModal('scanner', false); setModal('photoAnalyzer', true); }}
+                        instruction={workflowMode === 'request' ? "Escanee artículo para solicitar" : "Escanee artículo o ubicación"}
+                    />
                 </React.Suspense>
             )}
             {/* Note: Scanner component code is missing from my memory read of imports. 

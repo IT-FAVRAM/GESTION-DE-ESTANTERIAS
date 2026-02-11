@@ -19,6 +19,7 @@ import Scanner from './components/Scanner';
 import SyncStatus from './components/SyncStatus';
 import HistoryView from './components/HistoryView';
 import StorageView from './components/StorageView';
+import WorkingItemsList from './components/WorkingItemsList';
 import GeminiButton from './components/GeminiButton';
 import ThemeToggle from './components/ThemeToggle';
 import NotificationToast, { Notification, NotificationType } from './components/NotificationToast';
@@ -55,6 +56,7 @@ import { exportInventoryToExcel } from './lib/excelExport';
 import { useAppStore, WorkflowMode } from './lib/store';
 import MainLayout from './components/Layout/MainLayout';
 import { useInventoryWorkflows } from './hooks/useInventoryWorkflows';
+import { useWorkingItems } from './hooks/useWorkingItems';
 import { MigrationSolLocation } from './components/MigrationSolLocation';
 
 
@@ -90,6 +92,26 @@ const App: React.FC = () => {
         setActiveWarehouse(code);
     };
 
+    // Firebase Auth Listener
+    useEffect(() => {
+        const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
+            setUser(firebaseUser);
+            setInitializingAuth(false);
+        });
+        return () => unsubscribe();
+    }, []);
+
+    const handleLogout = async () => {
+        try {
+            await auth.signOut();
+            setUser(null);
+            navigate('/');
+        } catch (error) {
+            console.error("Error signing out:", error);
+            notify("Error al cerrar sesión", 'error');
+        }
+    };
+
     const { assignments, setAssignments, syncAssignments, loading: assignmentsLoading, error: assignmentsError } = useAssignments();
     const { history, setHistory, addHistoryEntry, syncHistory, loading: historyLoading, error: historyError } = useHistory();
     const { finishedItems, addFinishedItem, syncFinishedItems } = useStorage();
@@ -97,6 +119,18 @@ const App: React.FC = () => {
     const { config, setConfig, ...configActions } = useWarehouseConfig(assignments);
     const configLoading = configActions.loading;
     const configError = configActions.error;
+
+    const globalError = assignmentsError || historyError || configError;
+
+    const handleSyncData = async () => {
+        try {
+            await Promise.all([syncAssignments(), syncHistory(), syncFinishedItems()]);
+            notify("Datos sincronizados correctamente", 'success');
+        } catch (error) {
+            console.error("Error syncing data:", error);
+            notify("Error al sincronizar datos", 'error');
+        }
+    };
 
     // Role Management
     const { role, section, loading: roleLoading, canEditStructure, canAnalyzeAnomalies, canAssign, canRemove, canRequestItems, shouldSkipValidation, canExport, canFinishProduction, canAccessChapero } = useRoles(user?.uid);
