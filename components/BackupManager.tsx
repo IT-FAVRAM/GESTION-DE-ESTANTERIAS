@@ -3,6 +3,7 @@ import React, { useRef } from 'react';
 import { Assignments, HistoryEntry } from '../lib/warehouseData';
 import { WarehouseConfig } from '../hooks/useWarehouseConfig';
 import { useBackupSystem } from '../hooks/useBackupSystem';
+import { backupToCloud } from '../lib/backup';
 import { DownloadIcon, UploadIcon, SaveIcon, CheckIcon, ErrorIcon, LoadingIcon } from './Icons';
 
 interface BackupManagerProps {
@@ -69,7 +70,7 @@ const BackupManager: React.FC<BackupManagerProps> = ({
 
                             // Let's implement specific handler here to be safe and explicit
                             const performCloudBackup = async () => {
-                                const { backupToCloud } = await import('../lib/backup');
+                                // const { backupToCloud } = await import('../lib/backup'); // Removed dynamic import
                                 try {
                                     // We need to show loading state. 
                                     // Since we don't have local state exposed easily without refactoring the whole component or hook,

@@ -4,7 +4,7 @@ import { WarehouseHeader } from '../WarehouseHeader';
 import WarehouseRoute from '../Routes/WarehouseRoute';
 import { LocationId } from '../../lib/warehouseData';
 
-interface WarehousePageProps {
+export interface WarehousePageProps {
     activeWarehouse: string;
     config: any;
     searchQuery: string;
@@ -44,21 +44,24 @@ interface WarehousePageProps {
     handleInitiateMultiOccupancy: () => void;
     handleInitiateRequestWorkflow: () => void;
     handleInitiateFinishWorkflow: () => void;
-    exportInventoryToExcel: () => void;
+    exportInventoryToExcel: (assignments: any, config: any) => void;
 
     handleInitiateCopy: (b: string, l: any, o?: string) => void;
     copyItem: any; // function
     handleInitiateMove: (b: string, l: any, o?: string) => void;
     handlePasteMovedItem: (l: any) => void;
-    handleDirectAssign: (l: any) => void;
-    handleDirectRemove: (b: string, l: any, o?: string) => void;
+    handleDirectAssign: (barcode: string, orderId: string, l: any) => void;
+    handleDirectRemove: (barcode: string, l: any, orderId: string) => void | Promise<void>;
     handleInitiateAdd: (l: any) => void;
     handleInitiateDelete: (b: string, l: any, o?: string) => void;
     handleConfirmDelete: () => void;
-    handleDragMove: (res: any) => void;
-    handleInitiateRequest: (l: any) => void;
-
-    handleInitiateRequest: (l: any) => void;
+    handleDragMove: (barcode: string, fromLoc: any, toLoc: any) => void;
+    handleInitiateRequest: (barcode: string, orderId: string, fromLoc: any) => void;
+    handleInitiateRelocate: (l: any) => void;
+    removeItem: any;
+    assignItem: any;
+    notify: any;
+    formatLocation: (l: any) => string;
 
     // UI Helpers
     selectedMapLocation: any;
@@ -154,3 +157,5 @@ export const WarehousePage: React.FC<WarehousePageProps> = (props) => {
         </>
     );
 };
+
+

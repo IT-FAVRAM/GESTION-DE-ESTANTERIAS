@@ -7,6 +7,7 @@ import { NotificationType } from '../components/NotificationToast';
 import { BatchItem } from '../App';
 import { SystemAlert } from './useSystemNotifications';
 import { assignItemTransaction, moveItemTransaction, removeItemTransaction } from '../lib/inventoryTransactions';
+import { moveToWorking } from '../lib/production';
 
 /**
  * This hook acts as a Facade for business logic.
@@ -347,7 +348,7 @@ export const useInventoryOperations = (
     const withdrawItem = useCallback(async (barcode: string, location: LocationId, orderId: string) => {
         // Call service normally
         try {
-            const { moveToWorking } = await import('../lib/production');
+            // const { moveToWorking } = await import('../lib/production'); // Removed dynamic import
             const item = assignments[location]?.find(i => i.barcode === barcode && i.orderId === orderId);
             if (!item) return false;
 

@@ -6,7 +6,7 @@ import { UserRole } from '../hooks/useRoles';
 import { GenericShelfListView } from './GenericShelfListView';
 
 interface WeldingSuppliesViewProps {
-    userRole: UserRole;
+    userRole: any;
 }
 
 const WeldingSuppliesView: React.FC<WeldingSuppliesViewProps> = ({ userRole }) => {

@@ -6,7 +6,7 @@ import { UserRole } from '../hooks/useRoles';
 import { GenericShelfListView } from './GenericShelfListView';
 
 interface GenericSuppliesSectionProps {
-    userRole: UserRole;
+    userRole: any;
     title: string;
     docId: string; // ID del documento en Firebase (ej: CARRO_SOLDADURA)
     totalShelves?: number;
@@ -26,7 +26,7 @@ const GenericSuppliesSection: React.FC<GenericSuppliesSectionProps> = ({ userRol
 
     return (
         <>
-            <GenericShelfListView 
+            <GenericShelfListView
                 title={title}
                 shelves={shelves}
                 getItemCount={getShelfItemCount}
@@ -43,7 +43,7 @@ const GenericSuppliesSection: React.FC<GenericSuppliesSectionProps> = ({ userRol
             />
 
             {activeShelfId && (
-                <ShelfDetailModal 
+                <ShelfDetailModal
                     cartName={title}
                     shelfId={activeShelfId}
                     shelfLabel={`Balda ${activeShelfId}`}

@@ -36,7 +36,7 @@ const CartCard: React.FC<CartCardProps> = ({ cart, onClick }) => {
 };
 
 interface CartsViewProps {
-    userRole: UserRole;
+    userRole: string;
 }
 
 const CartsView: React.FC<CartsViewProps> = ({ userRole }) => {

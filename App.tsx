@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useCallback, useMemo, Suspense, useRef, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import WarehouseRoute from './components/Routes/WarehouseRoute';
@@ -31,12 +29,8 @@ import { LogoIcon, HistoryIcon, CloseIcon, SettingsIcon, UserIcon, CheckIcon, Ca
 import { WarehouseHeader } from './components/WarehouseHeader';
 
 // Components - Lazy Load (Optimization)
-const AdminPanel = React.lazy(() => import('./components/AdminPanel')); // Kept as it is used? No, moved to AppModals
-// Actually I should remove ALL the Modal lazy imports from here
-// Keeping Views:
-// const LandingScreen = ...
+const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 const ChaperoCountView = React.lazy(() => import('./components/ChaperoCountView'));
-// EmptyLocationsModal moved
 const CarretilleroRequestsView = React.lazy(() => import('./components/CarretilleroRequestsView'));
 import { AppModals } from './components/AppModals';
 import { WarehousePage } from './components/Pages/WarehousePage';
@@ -58,8 +52,6 @@ import MainLayout from './components/Layout/MainLayout';
 import { useInventoryWorkflows } from './hooks/useInventoryWorkflows';
 import { useWorkingItems } from './hooks/useWorkingItems';
 import { MigrationSolLocation } from './components/MigrationSolLocation';
-
-
 
 export interface BatchItem {
     article: string;
@@ -84,10 +76,6 @@ const App: React.FC = () => {
         collapsedShelves, toggleShelf, toggleAllShelves
     } = useAppStore();
 
-
-
-
-
     const handleWarehouseChange = (code: string) => {
         setActiveWarehouse(code);
     };
@@ -108,7 +96,7 @@ const App: React.FC = () => {
             navigate('/');
         } catch (error) {
             console.error("Error signing out:", error);
-            notify("Error al cerrar sesión", 'error');
+            notify('error', "Error al cerrar sesión", "Ocurrió un error inesperado.");
         }
     };
 
@@ -116,6 +104,7 @@ const App: React.FC = () => {
     const { history, setHistory, addHistoryEntry, syncHistory, loading: historyLoading, error: historyError } = useHistory();
     const { finishedItems, addFinishedItem, syncFinishedItems } = useStorage();
     const { searchAssignments } = useIndexing(assignments, history);
+    const searchResults = useMemo(() => searchAssignments(searchQuery), [searchAssignments, searchQuery]);
     const { config, setConfig, ...configActions } = useWarehouseConfig(assignments);
     const configLoading = configActions.loading;
     const configError = configActions.error;
@@ -125,10 +114,10 @@ const App: React.FC = () => {
     const handleSyncData = async () => {
         try {
             await Promise.all([syncAssignments(), syncHistory(), syncFinishedItems()]);
-            notify("Datos sincronizados correctamente", 'success');
+            notify('success', "Datos sincronizados correctamente", "Base de datos local actualizada.");
         } catch (error) {
             console.error("Error syncing data:", error);
-            notify("Error al sincronizar datos", 'error');
+            notify('error', "Error al sincronizar datos", "No se pudieron obtener los datos remotos.");
         }
     };
 
@@ -140,31 +129,8 @@ const App: React.FC = () => {
 
     const { assignItem, requestItem, removeItem, moveItem, copyItem, relocateLocationContents, emptyShelf, batchAssign, batchAssignToSingleLocation, batchAssignToMultipleLocations, findItemLocation, adminClearLocations, withdrawItem } = useInventoryOperations(assignments, setAssignments, addHistoryEntry, notify, sendSystemAlert, user?.email || undefined);
 
-    // Deep Link Logic: Check URL for ?view=requests
-    // REMOVED in favor of React Router /requests path
-    /* useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        const viewParam = params.get('view');
-        if (viewParam === 'requests') {
-             // Navigate to /requests if needed, handled by router now
-        }
-    }, []); */
-
     const {
-        resetScanWorkflow,
-        processScanInput
-    } = useInventoryWorkflows(
-        { assignItem, requestItem, removeItem, moveItem, copyItem, relocateLocationContents, emptyShelf, batchAssign, batchAssignToSingleLocation, batchAssignToMultipleLocations, findItemLocation, adminClearLocations, withdrawItem },
-        assignments,
-        notify,
-        findItemLocation
-    );
-
-    const { workingItems } = useWorkingItems();
-    const gemini = useGeminiAnalysis();
-
-    // --- APP LOGIC HOOK ---
-    const {
+        // State
         multiSelectedLocations, setMultiSelectedLocations,
         relocateSourceLoc, setRelocateSourceLoc,
         pendingPackageTypeData, setPendingPackageTypeData,
@@ -182,6 +148,7 @@ const App: React.FC = () => {
         duplicateItemData, setDuplicateItemData,
         occupiedLocationData, setOccupiedLocationData,
 
+        // Handlers
         handleInitiateRemoveWorkflow,
         handleInitiateRequestWorkflow,
         handleInitiateFinishWorkflow,
@@ -204,9 +171,9 @@ const App: React.FC = () => {
         handleAssignmentModalConfirm,
         handleValidationSuccess,
         handleBatchScanComplete,
-
         handleBatchAssignmentMap,
         handleInitiateAdd,
+        resetScanWorkflow,
         handleSelectManualAdd,
         handleSelectPhotoAdd,
         handleFabClick,
@@ -219,7 +186,9 @@ const App: React.FC = () => {
         handlePendingDeleteConfirm: handleConfirmDelete,
         handleFinishProduction,
         handleInitiateRequest,
-        handleConfirmRequest
+        handleConfirmRequest,
+        handleInitiateRelocate,
+        handleRelocate
     } = useAppLogic({
         assignments,
         setAssignments,
@@ -235,84 +204,33 @@ const App: React.FC = () => {
         canRemove,
         canRequestItems,
         canFinishProduction,
+        relocateLocationContents,
         shouldSkipValidation,
-        resetScanWorkflow,
-        processScanInput
+        processScanInput: async (barcode: string, intent: any) => true,
+        withdrawItem
     });
 
-
-
-    const searchResults = useMemo(() => searchAssignments(searchQuery), [searchQuery, searchAssignments]);
-
-    const handleTabChange = (whCode: string) => {
-        handleWarehouseChange(whCode);
-        navigate(`/warehouse/${whCode}`);
+    const handleTabChange = (code: string) => {
+        setActiveWarehouse(code);
+        navigate(`/warehouse/${code}`);
     };
 
-    // --- RENDERING CONDITIONS & LOADERS ---
+    const { workingItems } = useWorkingItems();
 
-    // AUDIT BYPASS: REMOVED - Auth Restored
-    if (initializingAuth) {
+    const gemini = useGeminiAnalysis();
+
+
+    if (initializingAuth || roleLoading || assignmentsLoading || configLoading) {
         return (
-            <div className="fixed inset-0 bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center gap-4">
-                <LoadingIcon className="h-12 w-12 text-cyan-600 animate-spin" />
-                <p className="text-slate-600 dark:text-slate-300 font-bold text-lg">Cargando sesión...</p>
+            <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950">
+                <LoadingIcon className="h-12 w-12 text-blue-600 animate-spin mb-4" />
+                <p className="text-slate-600 dark:text-slate-400 font-medium animate-pulse">Cargando aplicación...</p>
             </div>
         );
     }
 
     if (!user) {
-        return <LoginScreen />;
-    }
-
-    if (roleLoading) {
-        return (
-            <div className="fixed inset-0 bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center gap-4">
-                <LoadingIcon className="h-12 w-12 text-purple-600 animate-spin" />
-                <p className="text-slate-600 dark:text-slate-300 font-bold text-lg">Cargando permisos...</p>
-            </div>
-        );
-    }
-
-    if (!role) {
-        return (
-            <div className="fixed inset-0 bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
-                <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-6 text-red-600 dark:text-red-400">
-                    <ErrorIcon className="h-10 w-10" />
-                </div>
-                <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Acceso No Autorizado</h1>
-                <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-sm">
-                    No tienes un rol asignado en el sistema. Por favor, contacta con administración para activar tu cuenta.
-                </p>
-                <div className="flex flex-col gap-3 w-full max-w-xs">
-                    <button
-                        onClick={handleLogout}
-                        className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-bold rounded-2xl shadow-lg shadow-red-900/20 transition-all flex items-center justify-center gap-3"
-                    >
-                        <LogOutIcon className="h-5 w-5" />
-                        Cerrar Sesión
-                    </button>
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="w-full py-4 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-2xl hover:bg-slate-300 dark:hover:bg-slate-700 transition-all"
-                    >
-                        Reintentar
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    // Data Loading Block
-    const isDataLoading = assignmentsLoading || historyLoading || configLoading;
-
-    if (isDataLoading) {
-        return (
-            <div className="fixed inset-0 bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center gap-4">
-                <LoadingIcon className="h-12 w-12 text-blue-500 animate-spin" />
-                <p className="text-slate-600 dark:text-slate-300 font-bold text-lg">Cargando datos del almacén...</p>
-            </div>
-        );
+        return <LoginScreen onSuccess={() => notify('success', "Bienvenido", "Has iniciado sesión correctamente.")} />;
     }
 
     return (
@@ -326,13 +244,7 @@ const App: React.FC = () => {
                 handleSyncData={handleSyncData}
                 canAccessChapero={canAccessChapero}
             >
-                {/* Notifications Toast Container */}
-                <div className="fixed top-4 right-4 z-[999] flex flex-col gap-2 w-full max-w-sm pointer-events-none px-4 md:px-0">
-                    {notifications.map(n => <NotificationToast key={n.id} notification={n} onClose={closeNotification} />)}
-                </div>
-
-                <main className="flex-grow p-3 md:p-4 max-w-7xl mx-auto w-full flex flex-col gap-4 md:gap-6">
-
+                <main className="max-w-[1600px] mx-auto p-4 md:p-6 space-y-6">
                     {/* Global Error Banner */}
                     {globalError && (
                         <div className="p-4 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-xl flex items-center gap-3">
@@ -366,36 +278,37 @@ const App: React.FC = () => {
                                 toggleShelf={toggleShelf}
                                 toggleAllShelves={toggleAllShelves}
                                 gemini={gemini}
-
                                 canAssign={canAssign}
                                 canRemove={canRemove}
                                 canRequestItems={canRequestItems}
                                 canFinishProduction={canFinishProduction}
                                 canExport={canExport}
                                 canAnalyzeAnomalies={canAnalyzeAnomalies}
-
                                 setWorkflowMode={setWorkflowMode}
                                 resetScanWorkflow={resetScanWorkflow}
                                 setModal={setModal}
-
                                 handleInitiateRemoveWorkflow={handleInitiateRemoveWorkflow}
                                 handleInitiateMultiOccupancy={handleInitiateMultiOccupancy}
                                 handleInitiateRequestWorkflow={handleInitiateRequestWorkflow}
                                 handleInitiateFinishWorkflow={handleInitiateFinishWorkflow}
                                 exportInventoryToExcel={() => exportInventoryToExcel(assignments, config)}
-
                                 handleInitiateCopy={handleInitiateCopy}
-                                copyItem={copyItem}
                                 handleInitiateMove={handleInitiateMove}
+                                handleInitiateDelete={handleInitiateDelete}
+                                handleInitiateAdd={handleInitiateAdd}
                                 handlePasteMovedItem={handlePasteMovedItem}
                                 handleDirectAssign={handleDirectAssign}
-                                handleDirectRemove={handleDirectRemove}
-                                handleInitiateAdd={handleInitiateAdd}
-                                handleInitiateDelete={handleInitiateDelete}
+                                handleDirectRemove={handleConfirmRemove}
                                 handleConfirmDelete={handleConfirmDelete}
                                 handleDragMove={handleDragMove}
                                 handleInitiateRequest={handleInitiateRequest}
-
+                                handleInitiateRelocate={handleInitiateRelocate}
+                                removeItem={removeItem}
+                                assignItem={assignItem}
+                                copyItem={copyItem}
+                                notify={notify}
+                                formatLocation={formatLocation}
+                                selectedMapLocation={selectedMapLocation}
                                 setSelectedMapLocation={setSelectedMapLocation}
                                 setShelfDetailMode={setShelfDetailMode}
                                 setRelocateSourceLoc={setRelocateSourceLoc}
@@ -415,8 +328,8 @@ const App: React.FC = () => {
             </MainLayout>
 
             {/* MODALS */}
-            {/* MODALS encapsulated in AppModals */}
             <AppModals
+                activeWarehouse={activeWarehouse}
                 modals={modals}
                 setModal={setModal}
                 workflowMode={workflowMode}
@@ -444,8 +357,8 @@ const App: React.FC = () => {
                 addItemTarget={addItemTarget}
                 inputMethodModal={inputMethodModal}
                 selectedMapLocation={selectedMapLocation}
+                relocateSourceLoc={relocateSourceLoc}
                 multiSelectedLocations={multiSelectedLocations}
-
 
                 // Setters
                 setMoveConfirmationData={setMoveConfirmationData}
@@ -462,7 +375,6 @@ const App: React.FC = () => {
                 setInputMethodModal={setInputMethodModal}
                 setSelectedMapLocation={setSelectedMapLocation}
                 setPendingPackageTypeData={setPendingPackageTypeData}
-
                 setShelfDetailMode={setShelfDetailMode}
                 shelfDetailMode={shelfDetailMode}
 
@@ -489,16 +401,13 @@ const App: React.FC = () => {
                 handleAssignmentModalConfirm={handleAssignmentModalConfirm}
                 handleFinishProduction={handleFinishProduction}
                 handleMoveModalConfirm={handleMoveModalConfirm}
-                handleRelocate={async (targetLoc) => {
-                    await relocateLocationContents(relocateSourceLoc!, targetLoc);
-                    setModal('relocate', false);
-                    setRelocateSourceLoc(null);
-                }}
+                handleInitiateDelete={handleInitiateDelete}
+                handlePendingDeleteConfirm={handleConfirmDelete}
+                handleRelocate={handleRelocate}
 
                 // Actions
                 handleInitiateCopy={handleInitiateCopy}
                 handleInitiateMove={handleInitiateMove}
-                handleInitiateDelete={handleInitiateDelete}
                 handleInitiateAdd={handleInitiateAdd}
                 handlePasteMovedItem={handlePasteMovedItem}
                 checkLocationAndAssign={checkLocationAndAssign}
@@ -513,12 +422,9 @@ const App: React.FC = () => {
                 }}
                 handlePackageTypeSelect={handlePackageTypeSelect}
                 canAssign={canAssign}
-                relocateSourceLoc={relocateSourceLoc}
             />
-            {/* End of AppModals */}
         </>
     );
 };
 
 export default App;
-

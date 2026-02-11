@@ -8,8 +8,8 @@ import { initPush, checkPushStatus, PushStatus } from '../lib/push';
 
 interface UserProfileModalProps {
     onClose: () => void;
-    currentRole: UserRole;
-    onRoleChange: (role: UserRole) => void; // Legacy prop signature, handled internally now
+    currentRole: any;
+    onRoleChange: (role: any) => void; 
 }
 
 const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, currentRole }) => {

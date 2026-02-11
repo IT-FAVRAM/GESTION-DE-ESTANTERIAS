@@ -12,7 +12,7 @@ interface GenericShelfListViewProps {
     onViewList: (shelfId: string) => void;
     onAdd: (shelfId: string) => void;
     loading: boolean;
-    userRole: UserRole;
+    userRole: string;
     onBack?: () => void;
 }
 

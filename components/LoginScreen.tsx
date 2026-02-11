@@ -3,7 +3,11 @@ import React, { useState } from 'react';
 import { LogoIcon, LoadingIcon, ErrorIcon } from './Icons';
 import { auth } from '../lib/firebase';
 
-const LoginScreen: React.FC = () => {
+interface LoginScreenProps {
+  onSuccess?: () => void;
+}
+
+const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -12,17 +16,18 @@ const LoginScreen: React.FC = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLoading) return;
-    
+
     setIsLoading(true);
     setError(null);
 
     try {
       await auth.signInWithEmailAndPassword(email, password);
+      if (onSuccess) onSuccess();
       // El cambio de estado se maneja en App.tsx vía onAuthStateChanged
     } catch (err: any) {
       console.error("Login failed", err);
       let msg = "Error al iniciar sesión.";
-      
+
       // Mapeo de errores comunes
       switch (err.code) {
         case 'auth/invalid-email':
@@ -43,7 +48,7 @@ const LoginScreen: React.FC = () => {
         default:
           if (err.message) msg = err.message;
       }
-      
+
       setError(msg);
       setIsLoading(false);
     }
@@ -52,7 +57,7 @@ const LoginScreen: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-6 animate-fade-in">
       <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800 p-8 flex flex-col gap-6">
-        
+
         <div className="flex flex-col items-center gap-4 mb-2">
           <div className="p-4 bg-cyan-50 dark:bg-slate-800 rounded-2xl shadow-sm border border-cyan-100 dark:border-slate-700">
             <LogoIcon className="h-12 w-12 text-cyan-600 dark:text-cyan-400" />
@@ -66,9 +71,9 @@ const LoginScreen: React.FC = () => {
         <form onSubmit={handleLogin} className="flex flex-col gap-4">
           <div>
             <label htmlFor="email" className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 ml-1">Correo Electrónico</label>
-            <input 
+            <input
               id="email"
-              type="email" 
+              type="email"
               required
               autoComplete="email"
               value={email}
@@ -78,12 +83,12 @@ const LoginScreen: React.FC = () => {
               placeholder="usuario@empresa.com"
             />
           </div>
-          
+
           <div>
             <label htmlFor="password" className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 ml-1">Contraseña</label>
-            <input 
+            <input
               id="password"
-              type="password" 
+              type="password"
               required
               autoComplete="current-password"
               value={password}
@@ -101,8 +106,8 @@ const LoginScreen: React.FC = () => {
             </div>
           )}
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={isLoading}
             className="mt-2 w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg"
           >
@@ -111,7 +116,7 @@ const LoginScreen: React.FC = () => {
         </form>
 
         <div className="text-center pt-2">
-           <p className="text-xs text-slate-400">Sistema de Gestión de Inventario v2.2</p>
+          <p className="text-xs text-slate-400">Sistema de Gestión de Inventario v2.2</p>
         </div>
       </div>
     </div>

@@ -7,7 +7,7 @@ import BackupManager from './BackupManager';
 import { exportInventoryToExcel } from '../lib/excelExport';
 import { useSystemNotifications } from '../hooks/useSystemNotifications';
 import { useRoles, UserRole } from '../hooks/useRoles';
-import { migrateAssignments } from '../lib/migration';
+import { migrateAssignments, migrateUserRoles } from '../lib/migration';
 // import { InboundManagement } from './InboundManagement';
 import { LeadTimeReport } from './LeadTimeReport';
 
@@ -724,7 +724,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                                                 if (!confirm("¿Normalizar roles de todos los usuarios?")) return;
                                                 setIsMigrating(true);
                                                 setMigrationProgress("Normalizando roles...");
-                                                const { migrateUserRoles } = await import('../lib/migration');
+                                                // const { migrateUserRoles } = await import('../lib/migration'); // Removed
                                                 const result = await migrateUserRoles((msg) => setMigrationProgress(msg));
                                                 setIsMigrating(false);
                                                 if (result.success) {

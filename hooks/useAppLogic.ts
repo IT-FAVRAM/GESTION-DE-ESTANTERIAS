@@ -14,21 +14,23 @@ interface UseAppLogicProps {
     addFinishedItem: (item: any) => void;
     notify: (type: any, title: string, message: string) => void;
     assignItem: (barcode: string, orderId: string, location: LocationId | LocationId[], options?: any) => void;
-    requestItem: (article: string, order: string) => void;
-    removeItem: (barcode: string, location: LocationId, orderId?: string) => boolean;
+    requestItem: (barcode: string, orderId: string, fromLocation?: string, priority?: 'normal' | 'high') => void;
+    removeItem: (barcode: string, location: LocationId, orderId?: string) => Promise<boolean>;
     findItemLocation: (barcode: string, orderId?: string) => LocationId | null;
-    batchAssignToSingleLocation: (items: BatchItem[], location: LocationId) => void;
+    batchAssignToSingleLocation: (items: any[], location: LocationId) => void;
+    withdrawItem: (barcode: string, location: LocationId, orderId: string) => Promise<boolean>;
     canAssign: () => boolean;
     canRemove: (loc?: string) => boolean;
     canRequestItems: () => boolean;
     canFinishProduction: () => boolean;
     shouldSkipValidation: () => boolean;
-    resetScanWorkflow: () => void;
     processScanInput: (code: string, orderId?: string) => void;
+    relocateLocationContents: (from: LocationId, to: LocationId) => Promise<void>;
 }
 
 export const useAppLogic = ({
     assignments,
+    setAssignments,
     addHistoryEntry,
     addFinishedItem,
     notify,
@@ -37,12 +39,13 @@ export const useAppLogic = ({
     removeItem,
     findItemLocation,
     batchAssignToSingleLocation,
+    withdrawItem,
     canAssign,
     canRemove,
     canRequestItems,
     canFinishProduction,
+    relocateLocationContents,
     shouldSkipValidation,
-    resetScanWorkflow,
     processScanInput
 }: UseAppLogicProps) => {
 
@@ -82,6 +85,13 @@ export const useAppLogic = ({
     // Occupied Data State
     const [occupiedLocationData, setOccupiedLocationData] = useState<{ locationId: LocationId; newItem: { barcode: string; orderId: string }; mode: 'move' | 'add' } | null>(null);
 
+
+    // --- HELPERS ---
+
+    const resetScanWorkflow = useCallback(() => {
+        setPendingAssignment(null);
+        setBatchItems([]);
+    }, [setPendingAssignment, setBatchItems]);
 
     // --- HANDLERS ---
 
@@ -227,7 +237,7 @@ export const useAppLogic = ({
         });
     };
 
-    const handleConfirmRemove = () => {
+    const handleConfirmRemove = async () => {
         if (!removeConfirmationData) return;
         const { barcode, location, orderId } = removeConfirmationData;
 
@@ -238,7 +248,7 @@ export const useAppLogic = ({
             return;
         }
 
-        const success = removeItem(barcode, location as LocationId, orderId);
+        const success = await removeItem(barcode, location as LocationId, orderId);
         if (success) {
             notify('success', 'Retirado', `${barcode} eliminado de ${formatLocation(location)}`);
         }
@@ -254,23 +264,34 @@ export const useAppLogic = ({
         setItemPendingDeletion({ barcode, location, orderId });
     };
 
-    const handlePendingDeleteConfirm = () => {
+    const handleInitiateRelocate = (location: LocationId) => {
+        setRelocateSourceLoc(location);
+        setModal('relocate', true);
+    };
+
+    const handleRelocate = async (toLocation: LocationId) => {
+        if (!relocateSourceLoc) return;
+        await relocateLocationContents(relocateSourceLoc, toLocation);
+        setRelocateSourceLoc(null);
+        setModal('relocate', false);
+        notify('success', 'Reubicado', 'Contenido de la ubicación reubicado correctamente.');
+    };
+
+    const handlePendingDeleteConfirm = async () => {
         if (!itemPendingDeletion) return;
-        const success = removeItem(itemPendingDeletion.barcode, itemPendingDeletion.location, itemPendingDeletion.orderId);
+        await removeItem(itemPendingDeletion.barcode, itemPendingDeletion.location, itemPendingDeletion.orderId);
         setItemPendingDeletion(null);
-        if (success) {
-            notify('success', 'Retirado', 'Artículo eliminado correctamente.');
-        }
+        notify('success', 'Retirado', 'Artículo eliminado correctamente.');
     };
 
 
-    const handleConfirmProcessFinish = () => {
+    const handleConfirmProcessFinish = async () => {
         if (!processFinishedData) return;
         const { barcode, orderId, location } = processFinishedData;
         const now = new Date().toISOString();
-        const success = removeItem(barcode, location as LocationId, orderId);
+        const success = await removeItem(barcode, location as LocationId, orderId);
 
-        if (success) {
+        if (success === true) {
             addHistoryEntry({ barcode, orderId, action: 'process_finished', fromLocation: location as LocationId, timestamp: now });
             addFinishedItem({ barcode, orderId, timestamp: now, finishedAt: now, status: 'FINALIZADO' });
             notify('success', 'Producción Finalizada', `El artículo ${barcode} ha pasado a ALMACÉN.`);
@@ -349,8 +370,8 @@ export const useAppLogic = ({
         notify('success', 'Añadido', `${barcode} añadido a ${formatLocation(location)}`);
     }, [assignItem, notify]);
 
-    const handleDirectRemove = useCallback((barcode: string, location: LocationId, orderId: string) => {
-        const success = removeItem(barcode, location, orderId);
+    const handleDirectRemove = useCallback(async (barcode: string, location: LocationId, orderId: string) => {
+        const success = await removeItem(barcode, location, orderId);
         if (success) notify('success', 'Eliminado', `${barcode} retirado de ${formatLocation(location)}`);
     }, [removeItem, notify]);
 
@@ -387,19 +408,19 @@ export const useAppLogic = ({
         processScanInput(barcode, orderId);
     };
 
-    const handleLocationCaptureResult = (extractedText: string | { article: string; order: string }) => {
+    const handleLocationCaptureResult = async (extractedText: string | { article: string; order: string }) => {
         let locationText = typeof extractedText === 'string' ? extractedText.toUpperCase().trim() : '';
         if (!locationText) return;
 
         if (locationText.includes("ALMACEN") || locationText.includes("ALMACÉN") || locationText.includes("FINAL")) {
             if (batchItems.length > 0) {
                 const now = new Date().toISOString();
-                batchItems.forEach(item => {
+                for (const item of batchItems) {
                     const currentLoc = findItemLocation(item.article, item.order);
-                    if (currentLoc) removeItem(item.article, currentLoc, item.order);
+                    if (currentLoc) await removeItem(item.article, currentLoc, item.order);
                     addHistoryEntry({ barcode: item.article, orderId: item.order, action: 'process_finished', fromLocation: currentLoc || undefined, timestamp: now });
                     addFinishedItem({ barcode: item.article, orderId: item.order, timestamp: now, finishedAt: now, status: 'FINALIZADO' });
-                });
+                }
                 notify('success', 'Lote Finalizado', `${batchItems.length} artículos movidos a ALMACÉN.`);
                 setModal('locationCapture', false);
                 setBatchItems([]);
@@ -575,6 +596,7 @@ export const useAppLogic = ({
         handleBatchScanComplete,
         handleBatchAssignmentMap,
         handleInitiateAdd,
+        resetScanWorkflow,
         handleSelectManualAdd,
         handleSelectPhotoAdd,
         handleFabClick,
@@ -587,6 +609,8 @@ export const useAppLogic = ({
         handlePendingDeleteConfirm,
         handleFinishProduction,
         handleInitiateRequest,
-        handleConfirmRequest
+        handleConfirmRequest,
+        handleInitiateRelocate,
+        handleRelocate
     };
 };

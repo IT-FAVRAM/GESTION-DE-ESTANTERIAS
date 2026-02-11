@@ -24,13 +24,12 @@ interface WarehouseHeaderProps {
     // Actions
     setWorkflowMode: (mode: any) => void;
     resetScanWorkflow: () => void;
-    resetScanWorkflow: () => void;
     setModal: (key: string, val: boolean) => void;
     handleInitiateRemoveWorkflow: () => void;
     handleInitiateMultiOccupancy: () => void;
     handleInitiateRequestWorkflow: () => void;
     handleInitiateFinishWorkflow: () => void;
-    exportInventoryToExcel: () => void;
+    exportInventoryToExcel: (assignments: any, config: any) => void;
 
     // Gemini
     gemini: any;

@@ -15,7 +15,7 @@ interface ShelfDetailModalProps {
     onRemoveItems: (ids: string[]) => Promise<void>;
     onMoveItems: (ids: string[], targetShelfId: string) => Promise<void>;
     availableShelves: number[]; // e.g. [1, 2, 3, 4]
-    userRole: UserRole;
+    userRole: string;
     initialMode?: 'view' | 'add_choice';
 }
 

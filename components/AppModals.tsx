@@ -5,18 +5,21 @@ import { LocationId } from '../lib/warehouseData';
 import { validateCode } from '../lib/codeValidation';
 
 // Lazy Load Imports
-const ManualEntryModal = React.lazy(() => import('./ManualEntryModal'));
+import ManualEntryModal from './ManualEntryModal';
+// const ManualEntryModal = React.lazy(() => import('./ManualEntryModal')); // Changed to static
 const BatchAssignmentModal = React.lazy(() => import('./BatchAssignmentModal'));
 const BatchScanner = React.lazy(() => import('./BatchScanner'));
 const RequestReviewModal = React.lazy(() => import('./RequestReviewModal'));
 const GeminiResponseModal = React.lazy(() => import('./GeminiResponseModal'));
 const ValidationScanner = React.lazy(() => import('./ValidationScanner'));
 const LocationDetailModal = React.lazy(() => import('./LocationDetailModal'));
-const ShelfDetailModal = React.lazy(() => import('./ShelfDetailModal'));
+import ShelfDetailModal from './ShelfDetailModal';
+// const ShelfDetailModal = React.lazy(() => import('./ShelfDetailModal')); // Changed to static
 const AnomalyReportModal = React.lazy(() => import('./AnomalyReportModal'));
 const AdminPanel = React.lazy(() => import('./AdminPanel'));
 const UserProfileModal = React.lazy(() => import('./UserProfileModal'));
-const PhotoAnalyzerModal = React.lazy(() => import('./PhotoAnalyzerModal'));
+import PhotoAnalyzerModal from './PhotoAnalyzerModal';
+// const PhotoAnalyzerModal = React.lazy(() => import('./PhotoAnalyzerModal')); // Changed to static
 const AssignmentModal = React.lazy(() => import('./AssignmentModal'));
 const MoveItemModal = React.lazy(() => import('./MoveItemModal'));
 const AddMethodModal = React.lazy(() => import('./AddMethodModal'));
@@ -30,11 +33,13 @@ const MultiLocationSelector = React.lazy(() => import('./MultiLocationSelector')
 const RelocateLocationModal = React.lazy(() => import('./RelocateLocationModal'));
 const PackageTypeModal = React.lazy(() => import('./PackageTypeModal'));
 const EmptyLocationsModal = React.lazy(() => import('./EmptyLocationsModal'));
-const Scanner = React.lazy(() => import('./Scanner'));
+import Scanner from './Scanner';
+// const Scanner = React.lazy(() => import('./Scanner')); // Changed to static
 import { MigrationSolLocation } from './MigrationSolLocation';
 
 
 interface AppModalsProps {
+    activeWarehouse: string;
     modals: any;
     setModal: (key: string, val: boolean) => void;
     workflowMode: string;
@@ -79,6 +84,7 @@ interface AppModalsProps {
     setAddItemTarget: (val: any) => void;
     setInputMethodModal: (val: any) => void;
     setSelectedMapLocation: (val: any) => void;
+    relocateSourceLoc: any;
 
     // Logic Handlers
     handleConfirmMove: () => void;
@@ -112,12 +118,13 @@ interface AppModalsProps {
     handleFinishProduction: () => void;
 
     handleMoveModalConfirm: (loc: any) => void;
-    handleRelocate: (loc: any) => Promise<void>;
+    handleRelocate: any;
 
     // Location Detail Handlers
     handleInitiateCopy: (b: string, l: any, o?: string) => void;
     handleInitiateMove: (b: string, l: any, o?: string) => void;
     handleInitiateDelete: (b: string, l: any, o?: string) => void;
+    handlePendingDeleteConfirm: () => Promise<void>;
     handleInitiateAdd: (l: any) => void;
     handlePasteMovedItem: (l: any) => void;
     checkLocationAndAssign: (b: string, o: string, l: any, m: any) => void; // needed for shelf detail logic
@@ -231,7 +238,15 @@ export const AppModals: React.FC<AppModalsProps> = (props) => {
                     <Scanner
                         onScan={props.handleWorkflowScan}
                         onClose={() => setModal('scanner', false)}
-                        onValidate={(code) => validateCode(code, workflowMode as any)}
+                        onValidate={(code) => {
+                            const result = validateCode(code, workflowMode === 'finish');
+                            return {
+                                isValid: result.isValid,
+                                message: result.message,
+                                details: result.details,
+                                type: result.severity as any
+                            };
+                        }}
                         onPhotoRequest={() => { setModal('scanner', false); setModal('photoAnalyzer', true); }}
                         instruction={workflowMode === 'request' ? "Escanee artículo para solicitar" : "Escanee artículo o ubicación"}
                     />
@@ -361,7 +376,7 @@ export const AppModals: React.FC<AppModalsProps> = (props) => {
                 />
             )}
 
-            {modals.relocate && (
+            {modals.relocate && props.relocateSourceLoc && (
                 <RelocateLocationModal
                     sourceLocationId={props.relocateSourceLoc}
                     onRelocate={props.handleRelocate}
@@ -372,10 +387,10 @@ export const AppModals: React.FC<AppModalsProps> = (props) => {
                     config={config} />
             )}
 
-            {modals.userProfile && (
+            {modals.profile && (
                 <UserProfileModal
-                    onClose={() => setModal('userProfile', false)}
-                    currentRole={role!}
+                    onClose={() => props.setModal('profile', false)}
+                    currentRole={props.role}
                     onRoleChange={() => { }}
                 />
             )}
@@ -490,7 +505,7 @@ export const AppModals: React.FC<AppModalsProps> = (props) => {
                 <EmptyLocationsModal
                     isOpen={modals.emptyLocations}
                     onClose={() => props.setModal('emptyLocations', false)}
-                    activeWarehouseId={config.activeWarehouse} // Careful here, App.tsx used 'activeWarehouse' state
+                    activeWarehouseId={config.activeWarehouseId}
                     assignments={assignments}
                     onConfirm={props.confirmEmptyLocations}
                 />

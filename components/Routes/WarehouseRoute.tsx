@@ -8,7 +8,7 @@ import GenericSuppliesSection from '../GenericSuppliesSection';
 import { UserRole } from '../../hooks/useRoles';
 
 interface WarehouseRouteProps {
-    role: UserRole;
+    role: any;
     assignments: any;
     config: any;
     searchQuery: string;
@@ -26,7 +26,7 @@ interface WarehouseRouteProps {
     onCancelDelete: () => void;
     onInitiateValidationFlow: (loc: any) => void;
     onDirectAssign: (barcode: string, orderId: string, loc: any) => void;
-    onDirectRemove: (barcode: string, loc: any, orderId: string) => void;
+    onDirectRemove: (barcode: string, loc: any, orderId: string) => void | Promise<void>;
     onViewLocationDetails: (locId: any) => void;
     onDragMove: (barcode: string, fromLoc: any, toLoc: any) => void;
     onInitiateRelocate: (loc: any) => void;
