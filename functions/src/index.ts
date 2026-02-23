@@ -1,4 +1,4 @@
-import * as functions from "firebase-functions";
+﻿import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { defineSecret } from "firebase-functions/params";
@@ -157,7 +157,7 @@ export const generateGeminiResponse = functions.runWith({ secrets: [GEMINI_API_K
             case 'textFromImage':
                 // payload: { image: base64 }
                 imagePart = { inlineData: { mimeType: 'image/jpeg', data: payload.image } };
-                prompt = 'Extrae código alfanumérico. Solo el texto.';
+                prompt = 'Extrae el texto y/o código alfanumérico visible en esta imagen. Devuelve SOLO el texto plano extraído, en Español.';
                 mimeType = "text/plain";
                 break;
 
@@ -192,7 +192,7 @@ Si falta alguno, intenta deducirlo o deja cadena vacía.`;
             case 'inventorySummary':
                 // payload: { assignmentsSummary: string }
                 prompt = `
-                    Eres experto logística. Resume en Markdown.
+                    Eres un experto logística. Resume en Markdown. TODA TU RESPUESTA DEBE ESTAR EN ESPAÑOL.
                     Datos (Items por almacén):
                     ${payload.assignmentsSummary}
 
@@ -207,7 +207,7 @@ Si falta alguno, intenta deducirlo o deja cadena vacía.`;
             case 'historySummary':
                 // payload: { historySummary: string }
                 prompt = `
-                    Analista operaciones. Resume actividad reciente (50 items) en Markdown.
+                    Analista de operaciones. Resume actividad reciente (50 items) en Markdown. RESPUESTA ESTRICTAMENTE EN ESPAÑOL.
                     Datos:
                     ${payload.historySummary}
 
@@ -222,7 +222,7 @@ Si falta alguno, intenta deducirlo o deja cadena vacía.`;
             case 'traceabilityReport':
                 // payload: { itemHistory: any[] }
                 prompt = `
-                    Auditor logística. Informe trazabilidad breve en Markdown.
+                    Auditor logística. Informe trazabilidad breve en Markdown. RESPONDE SIEMPRE EN ESPAÑOL.
                     Datos:
                     ${JSON.stringify(payload.itemHistory, null, 2)}
 
@@ -238,18 +238,18 @@ Si falta alguno, intenta deducirlo o deja cadena vacía.`;
             case 'anomalyDetection':
                 // payload: { duplicates, highDensity, history }
                 prompt = `
-                    Auditor Inventario IA. Detecta anomalías JSON.
+                    Auditor Inventario IA. Detecta anomalías JSON. TODO EL TEXTO DEBE ESTAR EN ESPAÑOL.
                     Datos:
                     1. Duplicados: ${JSON.stringify(payload.duplicates)}
                     2. Densidad Alta: ${JSON.stringify(payload.highDensity)}
                     3. Historial: ${JSON.stringify(payload.history)}
 
-                    Tarea: Reporte JSON estricto.
+                    Tarea: Reporte JSON estricto en Español.
                     Schema:
                      {
-                      "summary": "string (markdown)",
-                      "anomalies": [{ "type": "duplicate"|"overload"|"suspicious_movements"|"underused"|"other", "severity": "low"|"medium"|"high", "locationId": "string", "articleId": "string", "description": "string", "suggestions": "string" }],
-                      "recommendations": "string (markdown)"
+                      "summary": "string (markdown en español)",
+                      "anomalies": [{ "type": "duplicate"|"overload"|"suspicious_movements"|"underused"|"other", "severity": "low"|"medium"|"high", "locationId": "string", "articleId": "string", "description": "string en español", "suggestions": "string en español" }],
+                      "recommendations": "string (markdown en español)"
                     }
                 `;
                 schema = {
@@ -280,15 +280,15 @@ Si falta alguno, intenta deducirlo o deja cadena vacía.`;
             case 'locationPrediction':
                 // payload: { articleId, currentLocations, history }
                 prompt = `
-                    Detective almacén. Busca "${payload.articleId}".
+                    Detective almacén. Busca "${payload.articleId}". RESPONDE EN ESPAÑOL.
                     Actual en sistema: ${payload.currentLocations}.
                     Historial: ${JSON.stringify(payload.history)}
 
                     Output JSON:
                     {
-                        "summary": "markdown breve",
-                        "predictions": [{ "locationId": "string", "probability": number, "reason": "string" }],
-                        "notes": "string"
+                        "summary": "markdown breve en español",
+                        "predictions": [{ "locationId": "string", "probability": number, "reason": "explicación en español" }],
+                        "notes": "string en español"
                     }
                 `;
                 schema = {
