@@ -3,6 +3,8 @@ import React from 'react';
 import { WarehouseHeader } from '../WarehouseHeader';
 import WarehouseRoute from '../Routes/WarehouseRoute';
 import { LocationId } from '../../lib/warehouseData';
+import { usePullToRefresh } from '../../hooks/usePullToRefresh';
+import { LoadingIcon } from '../Icons';
 
 export interface WarehousePageProps {
     activeWarehouse: string;
@@ -58,6 +60,8 @@ export interface WarehousePageProps {
     handleDragMove: (barcode: string, fromLoc: any, toLoc: any) => void;
     handleInitiateRequest: (barcode: string, orderId: string, fromLoc: any) => void;
     handleInitiateRelocate: (l: any) => void;
+    handleInitiateEmptyShelf: (warehouse: any, shelf: any) => void | Promise<void>;
+    onNotifyFinishedItem: (barcode: string, location: string, orderId: string) => void;
     removeItem: any;
     assignItem: any;
     notify: any;
@@ -68,9 +72,15 @@ export interface WarehousePageProps {
     setSelectedMapLocation: (loc: any) => void;
     setShelfDetailMode: (mode: 'view' | 'add_choice') => void;
     setRelocateSourceLoc: (loc: any) => void;
+    onRefresh: () => Promise<void>;
 }
 
 export const WarehousePage: React.FC<WarehousePageProps> = (props) => {
+
+    // Pull to Refresh
+    const { isRefreshing, pullProgress } = usePullToRefresh(async () => {
+        await props.onRefresh();
+    });
 
     // Auto-expand shelf when location selected
     React.useEffect(() => {
@@ -80,7 +90,10 @@ export const WarehousePage: React.FC<WarehousePageProps> = (props) => {
                 const shelfId = parts[1];
                 // If it's in the list of collapsed shelves for this warehouse, toggle it (expand)
                 // collapsedShelves is { [wh]: [ids] }
-                const isCollapsed = props.collapsedShelves[props.activeWarehouse]?.includes(shelfId);
+                const warehouseState = props.collapsedShelves[props.activeWarehouse] || {};
+                const isAllCollapsed = warehouseState['@all'] === true;
+                const shelfValue = warehouseState[shelfId];
+                const isCollapsed = shelfValue !== undefined ? shelfValue : isAllCollapsed;
                 if (isCollapsed) {
                     props.toggleShelf(props.activeWarehouse, shelfId);
                 }
@@ -90,6 +103,18 @@ export const WarehousePage: React.FC<WarehousePageProps> = (props) => {
 
     return (
         <>
+            {/* Pull to Refresh Indicator */}
+            {(pullProgress > 0 || isRefreshing) && (
+                <div className="fixed top-16 left-0 right-0 z-50 flex justify-center pointer-events-none transition-all duration-200" style={{ transform: `translateY(${pullProgress > 0 ? pullProgress / 2 : 0}px)` }}>
+                    <div className="bg-white dark:bg-slate-900 rounded-full p-2 shadow-lg border border-slate-200 dark:border-slate-700 flex items-center gap-2">
+                        <span style={{ transform: `rotate(${pullProgress * 3.6}deg)` }}>
+                            <LoadingIcon className={`h-5 w-5 text-cyan-500 ${isRefreshing ? 'animate-spin' : ''}`} />
+                        </span>
+                        {isRefreshing && <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Actualizando...</span>}
+                    </div>
+                </div>
+            )}
+
 
             <WarehouseHeader
                 activeWarehouse={props.activeWarehouse}
@@ -145,6 +170,8 @@ export const WarehousePage: React.FC<WarehousePageProps> = (props) => {
                 }}
                 onDragMove={props.handleDragMove}
                 onInitiateRelocate={(loc: any) => { props.setRelocateSourceLoc(loc); props.setModal('relocate', true); }}
+                onInitiateEmptyShelf={props.handleInitiateEmptyShelf}
+                onNotifyFinishedItem={props.onNotifyFinishedItem}
                 collapsedShelves={props.collapsedShelves}
                 toggleShelf={props.toggleShelf}
                 toggleAllShelves={props.toggleAllShelves}
@@ -153,6 +180,7 @@ export const WarehousePage: React.FC<WarehousePageProps> = (props) => {
                 canRequestItems={props.canRequestItems}
                 onInitiateRequest={props.handleInitiateRequest}
                 workingItems={props.workingItems}
+                viewMode="grid"
             />
         </>
     );

@@ -24,8 +24,8 @@ const ForkliftBanner: React.FC<ForkliftBannerProps> = ({ count, onClick }) => {
                     <p className="text-xs text-red-100">Tienes {count} {count === 1 ? 'artículo' : 'artículos'} esperando recogida.</p>
                 </div>
             </div>
-            <button className="bg-white text-red-600 font-bold px-4 py-2 rounded-lg text-sm shadow active:scale-95 transition-transform">
-                VER
+            <button className="bg-white text-red-600 font-bold px-4 py-2 rounded-lg text-sm shadow active:scale-95 transition-transform" aria-label="Ver solicitudes pendientes">
+                VER SOLICITUDES
             </button>
         </div>
     );

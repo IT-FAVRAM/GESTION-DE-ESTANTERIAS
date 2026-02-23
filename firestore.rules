@@ -19,34 +19,132 @@ service cloud.firestore {
     function isCarretillero() { return isAuthenticated() && getRole() == 'CARRETILLERO'; }
     function isStaff() { return isAdmin() || isJefe() || isCarretillero(); }
 
+    function getSection() {
+      return request.auth.token.section != null
+        ? request.auth.token.section
+        : get(/databases/$(database)/documents/users/$(request.auth.uid)).data.section;
+    }
+
+    function sectionForWarehouse(warehouseId) {
+      return warehouseId == 'MEC' ? 'MECANIZADO'
+        : warehouseId == 'PLE' ? 'PLEGADORA'
+        : warehouseId == 'RPL' ? 'ROBOT_PLEGADO'
+        : (warehouseId == 'SOL' || warehouseId == 'RSO' || warehouseId == 'SXP') ? 'SOLDADURA'
+        : (warehouseId == 'REP' || warehouseId == 'PIN' || warehouseId == 'ZIN') ? 'REPASADO'
+        : 'OTROS';
+    }
+
+    function canWriteAssignments(warehouseId) {
+      return isAdmin()
+        || isCarretillero()
+        || (isJefe() && getSection() == sectionForWarehouse(warehouseId));
+    }
+
+    function validRole(role) {
+      return role == 'ADMIN' || role == 'JEFE' || role == 'CARRETILLERO';
+    }
+
+    function canCreateOwnUserDoc() {
+      return request.resource.data.keys().hasOnly(['displayName', 'photoURL', 'email', 'fcmTokens', 'createdAt', 'updatedAt', 'lastLoginAt'])
+        && (!('fcmTokens' in request.resource.data) || request.resource.data.fcmTokens is list)
+        && !('role' in request.resource.data)
+        && !('section' in request.resource.data)
+        && !('user' in request.resource.data);
+    }
+
+    function canUpdateOwnUserDoc() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['displayName', 'photoURL', 'email', 'fcmTokens', 'updatedAt', 'lastLoginAt'])
+        && (!('fcmTokens' in request.resource.data) || request.resource.data.fcmTokens is list)
+        && (!('role' in resource.data) || request.resource.data.role == resource.data.role)
+        && (!('section' in resource.data) || request.resource.data.section == resource.data.section)
+        && (!('user' in resource.data) || request.resource.data.user == resource.data.user);
+    }
+
+    function validNotificationCreate() {
+      return request.resource.data.keys().hasOnly(['senderRole', 'targetRole', 'type', 'title', 'message', 'timestamp', 'readBy', 'metadata', 'status'])
+        && request.resource.data.senderRole == getRole()
+        && request.resource.data.targetRole in ['ALL', 'ADMIN', 'JEFE', 'CARRETILLERO']
+        && request.resource.data.type in ['urgent_placement', 'request_material', 'admin_message', 'team_chat']
+        && request.resource.data.title is string
+        && request.resource.data.message is string
+        && request.resource.data.timestamp is string
+        && request.resource.data.readBy is list
+        && request.resource.data.readBy.size() == 0
+        && (!('status' in request.resource.data) || request.resource.data.status == 'PENDING')
+        && validRole(request.resource.data.senderRole);
+    }
+
+    function canCreateNotificationByType() {
+      return (request.resource.data.type == 'request_material' && request.resource.data.targetRole == 'CARRETILLERO' && (isJefe() || isAdmin()))
+        || (request.resource.data.type == 'urgent_placement' && isStaff())
+        || (request.resource.data.type == 'team_chat' && isStaff())
+        || (request.resource.data.type == 'admin_message' && isAdmin());
+    }
+
+    function isReadByUpdateOnly() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['readBy'])
+        && request.resource.data.readBy is list
+        && (resource.data.targetRole == 'ALL' || resource.data.targetRole == getRole())
+        && request.auth.uid in request.resource.data.readBy
+        && request.resource.data.readBy.size() >= resource.data.readBy.size();
+    }
+
+    function isRequestCompletionUpdate() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['status', 'completedBy', 'completedAt', 'readBy'])
+        && resource.data.type == 'request_material'
+        && resource.data.targetRole == 'CARRETILLERO'
+        && resource.data.status == 'PENDING'
+        && (isCarretillero() || isAdmin())
+        && request.resource.data.status == 'COMPLETED'
+        && request.resource.data.completedBy == request.auth.uid
+        && request.resource.data.completedAt is string
+        && request.resource.data.readBy is list
+        && request.auth.uid in request.resource.data.readBy
+        && request.resource.data.readBy.size() >= resource.data.readBy.size();
+    }
+
+    function validHistoryCreate() {
+      return request.resource.data.keys().hasOnly(['id', 'barcode', 'orderId', 'action', 'fromLocation', 'toLocation', 'timestamp', 'user', 'uid', 'role', 'opId', 'source', 'quantity', 'metadata'])
+        && request.resource.data.action in ['assigned', 'removed', 'relocated', 'requested', 'moved_to_working', 'process_finished', 'moved']
+        && request.resource.data.timestamp is string
+        && request.resource.data.barcode is string
+        && request.resource.data.orderId is string
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.role == getRole()
+        && request.resource.data.opId is string
+        && request.resource.data.source is string;
+    }
+
     // --- RULES ---
 
     // Users: Personal access or Admin management
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow create: if isAdmin() || (isAuthenticated() && request.auth.uid == userId && canCreateOwnUserDoc());
+      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId && canUpdateOwnUserDoc());
+      allow delete: if isAdmin();
     }
 
     // Inventory Assignments
     match /assignments/{warehouseId}/locations/{locationId} {
       allow read: if isAuthenticated();
-      allow write: if isStaff();
+      allow write: if isAdmin();
     }
 
     // Production Workflow
     match /workingItems/{itemId} {
       allow read: if isAuthenticated();
-      allow write: if isStaff();
+      allow write: if isAdmin();
     }
     match /finishedItems/{itemId} {
       allow read: if isAuthenticated();
-      allow write: if isStaff();
+      allow write: if isAdmin();
     }
 
     // History (Audit Log)
     match /history/{entryId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
+      allow create: if isAdmin() && validHistoryCreate();
       allow update, delete: if isAdmin();
     }
 
@@ -63,9 +161,9 @@ service cloud.firestore {
 
     // Notifications
     match /notifications/{notificationId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && (resource.data.toUid == request.auth.uid || isAdmin());
+      allow read: if isAdmin() || (isAuthenticated() && (resource.data.targetRole == 'ALL' || resource.data.targetRole == getRole()));
+      allow create: if isStaff() && validNotificationCreate() && canCreateNotificationByType();
+      allow update: if (isAuthenticated() && (isReadByUpdateOnly() || isRequestCompletionUpdate())) || isAdmin();
       allow delete: if isAdmin();
     }
 
@@ -93,7 +191,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    match /meta/backups/{backupId} {
+    match /meta/backups/snapshots/{backupId} {
       allow read, write: if isAdmin();
     }
 

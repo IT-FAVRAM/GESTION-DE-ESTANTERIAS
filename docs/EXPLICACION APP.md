@@ -1027,6 +1027,14 @@ firebase deploy --only hosting
 
 ## Información de Versión
 
+## Hardening Operativo (Febrero 2026)
+
+- Las operaciones críticas de inventario (asignar, retirar, mover, vaciar estantería) disponen de gateway backend callable `inventoryOperate`.
+- Se elimina el falso positivo de retirada cuando el artículo no existe (`ITEM_NOT_FOUND`).
+- Se refuerza auditoría con campos obligatorios: `uid`, `role`, `opId`, `source`.
+- El contador de pendientes de carretillero utiliza filtro server-side por `status=PENDING`.
+- La suscripción de asignaciones queda acotada al almacén activo para reducir carga.
+
 **Versión actual**: 2.0  
 **Última actualización**: Enero 2026  
 **Desarrollado por**: Equipo Técnico Interno

@@ -14,10 +14,15 @@ export interface SystemAlert {
     message: string;
     timestamp: string;
     readBy: string[]; // Array of UIDs
+    status?: 'PENDING' | 'COMPLETED';
+    completedBy?: string;
+    completedAt?: string;
     metadata?: {
         barcode?: string;
         location?: string;
         priority?: 'high' | 'normal';
+        orderId?: string;
+        type?: string;
     };
 }
 
@@ -73,13 +78,14 @@ export const useSystemNotifications = (
             snapshot.docChanges().forEach((change: any) => {
                 if (change.type === 'added') {
                     const data = change.doc.data() as SystemAlert;
-                    
+
                     // Client-side filtering for Role to avoid composite index requirement
                     const isForMe = data.targetRole === 'ALL' || data.targetRole === currentUserRole;
                     if (!isForMe) return;
 
                     // Ignorar si ya lo leí (aunque sea 'added' en snapshot inicial)
                     if (data.readBy && data.readBy.includes(auth.currentUser!.uid)) return;
+                    if (data.type === 'request_material' && data.status === 'COMPLETED') return;
 
                     let notifType: NotificationType = 'info';
                     let isUrgent = false;
@@ -90,7 +96,7 @@ export const useSystemNotifications = (
                     }
                     if (data.type === 'request_material') {
                         notifType = 'info';
-                        isUrgent = true; 
+                        isUrgent = true;
                     }
                     if (data.metadata?.priority === 'high') {
                         notifType = 'warning';
@@ -112,14 +118,24 @@ export const useSystemNotifications = (
         // Modificado para evitar errores de índice compuesto:
         // En lugar de .where('targetRole', ...).where('timestamp', ...),
         // Consultamos solo por timestamp (índice simple automático) y filtramos el rol en el cliente.
-        const qRecent = db.collection('notifications')
+        const qRecentRole = db.collection('notifications')
+            .where('targetRole', '==', currentUserRole)
             .where('timestamp', '>', fiveMinutesAgo)
-            .limit(50); // Límite razonable para "recientes"
+            .orderBy('timestamp', 'desc')
+            .limit(50);
 
-        const unsub = qRecent.onSnapshot(handleNewSnapshot);
+        const qRecentAll = db.collection('notifications')
+            .where('targetRole', '==', 'ALL')
+            .where('timestamp', '>', fiveMinutesAgo)
+            .orderBy('timestamp', 'desc')
+            .limit(50);
+
+        const unsubRole = qRecentRole.onSnapshot(handleNewSnapshot);
+        const unsubAll = qRecentAll.onSnapshot(handleNewSnapshot);
 
         return () => {
-            unsub();
+            unsubRole();
+            unsubAll();
         };
     }, [currentUserRole, notifyLocal]);
 
@@ -127,49 +143,35 @@ export const useSystemNotifications = (
     useEffect(() => {
         if (currentUserRole !== 'CARRETILLERO' || !auth.currentUser) return;
 
-        // Escuchar todas las 'request_material' que NO estén leídas por mi usuario
-        // Firestore no permite filtrar arrays por "no contiene", así que traemos las activas y filtramos en cliente
-        // Optimizamos trayendo solo las de las últimas 24h
-        const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
-        // Para esta query específica, intentamos simplificarla también si falla, 
-        // pero `where(a).where(b)` requiere índice compuesto.
-        // `targetRole` + `type` + `timestamp`. 
-        // Si falla, simplificamos a `timestamp` + client filter.
-        
-        // Vamos a usar una query segura sin índices compuestos complejos si es posible.
-        // Query principal: timestamp > yesterday.
         const qRequests = db.collection('notifications')
-            .where('timestamp', '>', yesterday);
+            .where('targetRole', '==', 'CARRETILLERO')
+            .where('type', '==', 'request_material')
+            .where('status', '==', 'PENDING')
+            .orderBy('timestamp', 'desc')
+            .limit(500);
 
         const unsub = qRequests.onSnapshot(snap => {
-                let count = 0;
-                const uid = auth.currentUser?.uid;
-                if (!uid) return;
-
-                snap.forEach(doc => {
-                    const data = doc.data() as SystemAlert;
-                    // Filtros Cliente
-                    if (data.targetRole === 'CARRETILLERO' && 
-                        data.type === 'request_material' &&
-                        (!data.readBy || !data.readBy.includes(uid))) {
-                        count++;
-                    }
-                });
-                setUnreadRequestsCount(count);
-            });
+            if (!auth.currentUser?.uid) return;
+            setUnreadRequestsCount(snap.size);
+        });
 
         return () => unsub();
     }, [currentUserRole]);
 
     const sendSystemAlert = useCallback(async (alert: Omit<SystemAlert, 'id' | 'readBy' | 'timestamp' | 'senderRole'>) => {
         try {
-            const sender = currentUserRole || 'SISTEMA';
+            if (!currentUserRole) {
+                console.warn('sendSystemAlert blocked: missing current user role');
+                return;
+            }
+
+            const sender = currentUserRole;
             await db.collection('notifications').add({
                 ...alert,
                 senderRole: sender,
                 timestamp: new Date().toISOString(),
-                readBy: []
+                readBy: [],
+                status: 'PENDING'
             });
         } catch (error) {
             console.error("Error enviando alerta:", error);

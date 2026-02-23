@@ -34,7 +34,7 @@ const ShelfDetailModal: React.FC<ShelfDetailModalProps> = ({
 }) => {
     const [mode, setMode] = useState<'view' | 'add_choice' | 'add_article' | 'add_text' | 'select'>(initialMode);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
-    
+
     // Inputs
     const [articleCode, setArticleCode] = useState('');
     const [orderId, setOrderId] = useState('');
@@ -88,9 +88,9 @@ const ShelfDetailModal: React.FC<ShelfDetailModalProps> = ({
     }, [items]);
 
     return (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-0 md:p-4" role="dialog">
-            <div className="w-full h-full md:h-auto md:max-w-lg bg-slate-50 dark:bg-slate-900 md:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-                
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-0 md:p-4 animate-fade-in" role="dialog">
+            <div className="w-full h-dvh md:h-auto md:max-h-[90vh] md:max-w-lg bg-slate-50 dark:bg-slate-900 md:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+
                 {/* Header */}
                 <header className="p-4 bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center shrink-0">
                     <div>
@@ -104,7 +104,7 @@ const ShelfDetailModal: React.FC<ShelfDetailModalProps> = ({
 
                 {/* Content */}
                 <div className="flex-grow overflow-y-auto p-4 space-y-3 bg-slate-100 dark:bg-black/20">
-                    
+
                     {/* LIST */}
                     {mode === 'view' || mode === 'select' ? (
                         <>
@@ -115,14 +115,13 @@ const ShelfDetailModal: React.FC<ShelfDetailModalProps> = ({
                                 </div>
                             ) : (
                                 sortedItems.map(item => (
-                                    <div 
-                                        key={item.id} 
+                                    <div
+                                        key={item.id}
                                         onClick={() => mode === 'select' && handleToggleSelect(item.id)}
-                                        className={`bg-white dark:bg-slate-800 p-4 rounded-xl border shadow-sm flex items-center gap-3 transition-all ${
-                                            mode === 'select' && selectedIds.includes(item.id) 
-                                                ? 'border-cyan-500 ring-1 ring-cyan-500 bg-cyan-50 dark:bg-cyan-900/20' 
+                                        className={`bg-white dark:bg-slate-800 p-4 rounded-xl border shadow-sm flex items-center gap-3 transition-all ${mode === 'select' && selectedIds.includes(item.id)
+                                                ? 'border-cyan-500 ring-1 ring-cyan-500 bg-cyan-50 dark:bg-cyan-900/20'
                                                 : 'border-slate-200 dark:border-slate-700'
-                                        }`}
+                                            }`}
                                     >
                                         {mode === 'select' && (
                                             <div className={`w-5 h-5 rounded border flex items-center justify-center ${selectedIds.includes(item.id) ? 'bg-cyan-500 border-cyan-500' : 'border-slate-400'}`}>
@@ -216,7 +215,7 @@ const ShelfDetailModal: React.FC<ShelfDetailModalProps> = ({
                 {mode === 'select' && (
                     <footer className="p-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shrink-0 space-y-3">
                         {targetShelf ? (
-                             <button onClick={handleConfirmMove} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg">
+                            <button onClick={handleConfirmMove} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg">
                                 Confirmar Mover a Balda {targetShelf}
                             </button>
                         ) : (
@@ -225,8 +224,8 @@ const ShelfDetailModal: React.FC<ShelfDetailModalProps> = ({
                                     <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Mover a:</label>
                                     <div className="flex gap-2 overflow-x-auto pb-2">
                                         {availableShelves.filter(s => String(s) !== shelfId).map(s => (
-                                            <button 
-                                                key={s} 
+                                            <button
+                                                key={s}
                                                 onClick={() => setTargetShelf(String(s))}
                                                 className="px-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg whitespace-nowrap font-bold text-sm"
                                             >

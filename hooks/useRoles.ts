@@ -5,9 +5,10 @@ import { useLocalStorage } from './useLocalStorage';
 import { db, auth } from '../lib/firebase';
 import firebase from 'firebase/compat/app';
 import { getSectionFromLocation, WarehouseSection } from '../lib/warehouseData';
+import { can, type PermissionRole } from '../lib/permissionMatrix';
 
 // Nuevos roles definidos
-export type UserRole = 'CARRETILLERO' | 'JEFE' | 'ADMIN';
+export type UserRole = PermissionRole;
 
 // Mapping para compatibilidad con datos antiguos (Migration Layer)
 const ROLE_MAPPING: Record<string, UserRole> = {
@@ -16,6 +17,12 @@ const ROLE_MAPPING: Record<string, UserRole> = {
     'CARRETILLERO': 'CARRETILLERO',
     'ADMIN': 'ADMIN',
     'JEFE': 'JEFE'
+};
+
+const normalizeRole = (value: unknown): UserRole | null => {
+    if (typeof value !== 'string') return null;
+    const normalized = ROLE_MAPPING[value.toUpperCase()] || ROLE_MAPPING[value];
+    return normalized || null;
 };
 
 interface RolePermissions {
@@ -112,14 +119,15 @@ export const useRoles = (uid?: string) => {
                 const claims = tokenResult.claims;
 
                 if (claims && claims.role) {
+                    const claimRole = normalizeRole(claims.role);
                     console.log("Rol obtenido por Claims:", claims.role, claims.section);
                     if (isMounted) {
-                        setRole(claims.role as UserRole);
+                        setRole(claimRole);
                         setSection(claims.section as WarehouseSection || null);
                         setLoading(false);
                         setClaimsLoaded(true);
                     }
-                    return;
+                    if (claimRole) return;
                 }
 
                 // 2. Fallback: Check 'users' collection in Firestore (Compat Syntax)
@@ -127,9 +135,10 @@ export const useRoles = (uid?: string) => {
 
                 if (userDocSnap.exists) {
                     const userData = userDocSnap.data();
+                    const dbRole = normalizeRole(userData?.role || userData?.user);
                     console.log("Rol obtenido por Firestore:", userData?.role, userData?.section);
                     if (isMounted) {
-                        setRole(userData?.role as UserRole);
+                        setRole(dbRole);
                         setSection(userData?.section || null);
                     }
                 } else {
@@ -214,6 +223,10 @@ export const useRoles = (uid?: string) => {
         canEditStructure: () => safePermissions.canEditStructure,
         shouldSkipValidation: () => safePermissions.skipLocationValidation,
         canFinishProduction: () => safePermissions.canFinishProduction,
+        canCopyPaste: () => can(role, 'copyPaste'),
+        canDragMove: () => can(role, 'dragMove'),
+        canEmptyShelf: () => can(role, 'emptyShelf'),
+        canEmptyLocation: () => can(role, 'emptyLocation'),
         canAccessChapero
     };
 };

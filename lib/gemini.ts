@@ -46,6 +46,11 @@ export interface MetalSheetCountResult {
     confidence: 'high' | 'medium' | 'low';
     reasoning: string;
     visualNotes: string;
+    countPassA?: number;
+    countPassB?: number;
+    separatorsDetected?: number;
+    patternRegularity?: 'high' | 'medium' | 'low';
+    recommendedSource?: 'cv' | 'ai' | 'hybrid';
 }
 
 // --- CLOUD FUNCTION CALLER ---
@@ -69,6 +74,12 @@ const callGeminiFunction = async <T>(type: string, payload: any): Promise<T> => 
         }
         if (error.code === 'resource-exhausted') {
             throw new GeminiError("Límite de cuota excedido. Intente más tarde.", 'API', error);
+        }
+        if (error.code === 'failed-precondition') {
+            throw new GeminiError("Gemini no está configurado en el servidor.", 'API', error);
+        }
+        if (error.code === 'permission-denied') {
+            throw new GeminiError("Sin permisos para ejecutar este análisis de IA.", 'API', error);
         }
 
         throw new GeminiError(
@@ -200,10 +211,25 @@ export const predictLikelyLocations = async (params: {
     });
 };
 
-export const countMetalSheets = async (base64Image: string, material: string, thicknessMm: number): Promise<MetalSheetCountResult> => {
+export const countMetalSheets = async (params: {
+    originalImage: string;
+    processedImage?: string;
+    material: string;
+    thicknessMm: number;
+    cvEstimate?: {
+        count: number;
+        confidence: 'high' | 'medium' | 'low';
+        signalQuality: number;
+        reasoning: string;
+    };
+    calibrationHeightPx?: number;
+}): Promise<MetalSheetCountResult> => {
     return callGeminiFunction<MetalSheetCountResult>('metalCount', {
-        image: base64Image,
-        material,
-        thickness: thicknessMm
+        image: params.originalImage,
+        processedImage: params.processedImage,
+        material: params.material,
+        thickness: params.thicknessMm,
+        cvEstimate: params.cvEstimate,
+        calibrationHeightPx: params.calibrationHeightPx
     });
 };

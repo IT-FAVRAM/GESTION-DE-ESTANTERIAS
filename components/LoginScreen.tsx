@@ -55,8 +55,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-6 animate-fade-in">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800 p-8 flex flex-col gap-6">
+    <div className="min-h-dvh flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 sm:p-6 animate-fade-in safe-area-inset-top safe-area-inset-bottom">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 flex flex-col gap-6">
 
         <div className="flex flex-col items-center gap-4 mb-2">
           <div className="p-4 bg-cyan-50 dark:bg-slate-800 rounded-2xl shadow-sm border border-cyan-100 dark:border-slate-700">
@@ -64,11 +64,11 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
           </div>
           <div className="text-center">
             <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">GESTOR ESTANTERÍAS</h1>
-            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Inicia sesión para acceder al inventario</p>
+            <p className="text-slate-500 dark:text-slate-400 text-base mt-1">Inicia sesión para acceder al inventario</p>
           </div>
         </div>
 
-        <form onSubmit={handleLogin} className="flex flex-col gap-4">
+        <form onSubmit={handleLogin} className="flex flex-col gap-5">
           <div>
             <label htmlFor="email" className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 ml-1">Correo Electrónico</label>
             <input
@@ -79,7 +79,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={isLoading}
-              className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-slate-900 dark:text-white transition-all font-medium disabled:opacity-50"
+              className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-slate-900 dark:text-white transition-all font-medium text-base disabled:opacity-50"
               placeholder="usuario@empresa.com"
             />
           </div>
@@ -94,7 +94,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={isLoading}
-              className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-slate-900 dark:text-white transition-all font-medium disabled:opacity-50"
+              className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none text-slate-900 dark:text-white transition-all font-medium text-base disabled:opacity-50"
               placeholder="••••••••"
             />
           </div>
@@ -109,9 +109,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
           <button
             type="submit"
             disabled={isLoading}
-            className="mt-2 w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg"
+            className="mt-2 w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg text-lg"
           >
-            {isLoading ? <LoadingIcon className="h-5 w-5" /> : "Iniciar Sesión"}
+            {isLoading ? <LoadingIcon className="h-6 w-6" /> : "Iniciar Sesión"}
           </button>
         </form>
 

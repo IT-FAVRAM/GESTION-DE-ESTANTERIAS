@@ -133,7 +133,12 @@ const PhotoAnalyzerModal: React.FC<PhotoAnalyzerModalProps> = ({ onCodeExtracted
 
             setStep('confirm');
         } catch (error) {
-            setErrorMessage((error as Error).message || "Error desconocido al analizar la imagen.");
+            const msg = (error as Error).message || "Error desconocido al analizar la imagen.";
+            if (msg.includes('API Key') || msg.includes('403') || msg.includes('unauthenticated')) {
+                setErrorMessage("⚠️ Error de Configuración: Falta la API KEY de Gemini en el servidor.");
+            } else {
+                setErrorMessage(msg);
+            }
             setStep('error');
         }
     };

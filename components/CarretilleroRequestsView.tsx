@@ -9,6 +9,9 @@ interface MaterialRequest {
     message: string;
     timestamp: string;
     readBy: string[];
+    status?: 'PENDING' | 'COMPLETED';
+    completedBy?: string;
+    completedAt?: string;
     metadata?: {
         barcode?: string;
         location?: string;
@@ -38,18 +41,16 @@ const CarretilleroRequestsView: React.FC<CarretilleroRequestsViewProps> = ({ onN
     const [processingId, setProcessingId] = useState<string | null>(null);
 
     useEffect(() => {
-        const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
         const unsub = db.collection('notifications')
-            .where('timestamp', '>', yesterday)
+            .where('targetRole', '==', 'CARRETILLERO')
+            .where('type', '==', 'request_material')
+            .orderBy('timestamp', 'desc')
+            .limit(1000)
             .onSnapshot(snap => {
                 const items: MaterialRequest[] = [];
                 snap.forEach(doc => {
                     const data = doc.data();
-                    // Filter for requests targeted at carretillero
-                    if (data.targetRole === 'CARRETILLERO' && data.type === 'request_material') {
-                        items.push({ id: doc.id, ...data } as MaterialRequest);
-                    }
+                    items.push({ id: doc.id, ...data } as MaterialRequest);
                 });
                 // Sort by timestamp descending
                 items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -65,6 +66,9 @@ const CarretilleroRequestsView: React.FC<CarretilleroRequestsViewProps> = ({ onN
         setProcessingId(requestId);
         try {
             await db.collection('notifications').doc(requestId).update({
+                status: 'COMPLETED',
+                completedBy: auth.currentUser.uid,
+                completedAt: new Date().toISOString(),
                 readBy: firebase.firestore.FieldValue.arrayUnion(auth.currentUser.uid)
             });
         } catch (e) {
@@ -74,9 +78,8 @@ const CarretilleroRequestsView: React.FC<CarretilleroRequestsViewProps> = ({ onN
         }
     };
 
-    const uid = auth.currentUser?.uid || '';
-    const pendingRequests = requests.filter(r => !r.readBy || !r.readBy.includes(uid));
-    const completedRequests = requests.filter(r => r.readBy && r.readBy.includes(uid));
+    const pendingRequests = requests.filter(r => r.status !== 'COMPLETED');
+    const completedRequests = requests.filter(r => r.status === 'COMPLETED');
 
     if (loading) {
         return (

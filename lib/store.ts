@@ -4,6 +4,17 @@ import { LocationId, WarehouseCode, PackageType } from './warehouseData';
 
 export type WorkflowMode = 'assign' | 'remove' | 'request' | 'finish';
 
+const safeParseCollapsedShelves = (): Record<string, Record<string, boolean>> => {
+    try {
+        const raw = localStorage.getItem('collapsed_shelves');
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        return typeof parsed === 'object' && parsed !== null ? parsed : {};
+    } catch {
+        return {};
+    }
+};
+
 export interface Notification {
     id: string;
     type: 'success' | 'error' | 'warning' | 'info';
@@ -132,7 +143,7 @@ export const useAppStore = create<AppState>((set) => ({
     batchItems: [],
     setBatchItems: (batchItems) => set({ batchItems }),
 
-    collapsedShelves: JSON.parse(localStorage.getItem('collapsed_shelves') || '{}'),
+    collapsedShelves: safeParseCollapsedShelves(),
     toggleShelf: (warehouse, shelfId) => set((state) => {
         const whState = state.collapsedShelves[warehouse] || {};
         const isAllCollapsed = whState['@all'] === true;

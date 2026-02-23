@@ -13,8 +13,8 @@ interface ProcessFinishedModalProps {
 
 const ProcessFinishedModal: React.FC<ProcessFinishedModalProps> = ({ item, onConfirm, onCancel }) => {
   return (
-    <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 animate-fade-in">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 flex flex-col gap-5">
+    <div className="fixed inset-0 bg-black/80 z-[100] flex items-end md:items-center justify-center md:p-4 animate-fade-in">
+      <div className="w-full md:max-w-md bg-white dark:bg-slate-900 rounded-t-2xl md:rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-5 md:p-6 flex flex-col gap-5 max-h-[90dvh] overflow-y-auto pb-safe">
         
         <div className="flex flex-col items-center text-center gap-2">
              <div className="p-4 bg-emerald-100 dark:bg-emerald-900/30 rounded-full text-emerald-600 dark:text-emerald-400">
@@ -39,13 +39,13 @@ const ProcessFinishedModal: React.FC<ProcessFinishedModalProps> = ({ item, onCon
         <div className="grid grid-cols-2 gap-4 mt-2">
             <button 
                 onClick={onCancel}
-                className="py-3.5 px-4 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
+                className="min-h-[44px] py-3.5 px-4 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
             >
                 Cancelar
             </button>
             <button 
                 onClick={onConfirm}
-                className="py-3.5 px-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-500 shadow-lg shadow-emerald-900/20 transition-all active:scale-95"
+                className="min-h-[44px] py-3.5 px-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-500 shadow-lg shadow-emerald-900/20 transition-all active:scale-95"
             >
                 Confirmar
             </button>

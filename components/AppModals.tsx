@@ -1,8 +1,9 @@
 
 import React, { Suspense } from 'react';
 import { LoadingIcon } from './Icons';
-import { LocationId } from '../lib/warehouseData';
+import { LocationId, WarehouseCode } from '../lib/warehouseData';
 import { validateCode } from '../lib/codeValidation';
+import { can } from '../lib/permissionMatrix';
 
 // Lazy Load Imports
 import ManualEntryModal from './ManualEntryModal';
@@ -387,9 +388,9 @@ export const AppModals: React.FC<AppModalsProps> = (props) => {
                     config={config} />
             )}
 
-            {modals.profile && (
+            {modals.userProfile && (
                 <UserProfileModal
-                    onClose={() => props.setModal('profile', false)}
+                    onClose={() => props.setModal('userProfile', false)}
                     currentRole={props.role}
                     onRoleChange={() => { }}
                 />
@@ -477,8 +478,24 @@ export const AppModals: React.FC<AppModalsProps> = (props) => {
                         onInitiateAdd={props.handleInitiateAdd}
                         onPasteItem={() => itemToCopy && props.copyItem(itemToCopy.barcode, itemToCopy.fromLocation, selectedMapLocation, itemToCopy.orderId)}
                         onPasteMovedItem={() => props.handlePasteMovedItem(selectedMapLocation)}
-                        canPasteCopy={!!itemToCopy && itemToCopy.fromLocation !== selectedMapLocation}
-                        canPasteMove={!!itemToMove && itemToMove.fromLocation !== selectedMapLocation}
+                        onEmptyLocation={async (locationId) => {
+                            const itemsInLocation = assignments[locationId] || [];
+                            if (itemsInLocation.length === 0) return;
+
+                            let removed = 0;
+                            for (const item of itemsInLocation) {
+                                const ok = await props.removeItem(item.barcode, locationId, item.orderId);
+                                if (ok) removed++;
+                            }
+
+                            if (removed === itemsInLocation.length) {
+                                props.notify('success', 'Ubicación vaciada', `${removed} artículo(s) retirados de ${locationId}.`);
+                            } else {
+                                props.notify('warning', 'Vaciado parcial', `Se retiraron ${removed}/${itemsInLocation.length} artículos de ${locationId}.`);
+                            }
+                        }}
+                        canPasteCopy={can(role, 'copyPaste') && !!itemToCopy && itemToCopy.fromLocation !== selectedMapLocation}
+                        canPasteMove={can(role, 'dragMove') && !!itemToMove && itemToMove.fromLocation !== selectedMapLocation}
                     />
                 );
             })()}
@@ -505,7 +522,7 @@ export const AppModals: React.FC<AppModalsProps> = (props) => {
                 <EmptyLocationsModal
                     isOpen={modals.emptyLocations}
                     onClose={() => props.setModal('emptyLocations', false)}
-                    activeWarehouseId={config.activeWarehouseId}
+                    activeWarehouseId={props.activeWarehouse as WarehouseCode}
                     assignments={assignments}
                     onConfirm={props.confirmEmptyLocations}
                 />

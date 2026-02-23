@@ -45,7 +45,7 @@ const SyncStatus: React.FC<SyncStatusProps> = ({ onSync }) => {
       <button
         onClick={handleSyncClick}
         disabled={status === 'syncing' || status === 'loading'}
-        className="p-2 md:px-4 md:py-2 text-sm font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-white rounded-lg hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+        className="h-11 w-11 md:h-auto md:w-auto md:px-4 md:py-2 text-sm font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-white rounded-lg hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         title="Sincronizar datos"
         aria-label="Sincronizar datos"
       >

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 export function useLocalStorage<T>(key: string, initialValue: T) {
   // Use a ref to track if it's the initial mount to avoid overwriting local storage on first render
   const isInitialMount = useRef(true);
+  const previousKeyRef = useRef(key);
 
   const [storedValue, setStoredValue] = useState<T>(() => {
     try {
@@ -14,6 +15,21 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
       return initialValue;
     }
   });
+
+  useEffect(() => {
+    if (previousKeyRef.current === key) return;
+    previousKeyRef.current = key;
+
+    try {
+      const item = window.localStorage.getItem(key);
+      setStoredValue(item ? JSON.parse(item) : initialValue);
+    } catch (error) {
+      console.error(`Error switching localStorage key "${key}":`, error);
+      setStoredValue(initialValue);
+    }
+
+    isInitialMount.current = true;
+  }, [key, initialValue]);
 
   useEffect(() => {
     if (isInitialMount.current) {

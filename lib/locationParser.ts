@@ -1,7 +1,16 @@
 
 import { LocationId } from './warehouseData';
+import { isValidLayoutLocation } from './warehouseLayout';
 
-export const parseLocationFromText = (extractedText: string, assignments: Record<string, any[]>): LocationId | null => {
+interface ParseLocationOptions {
+    strict?: boolean;
+}
+
+export const parseLocationFromText = (
+    extractedText: string,
+    assignments: Record<string, any[]>,
+    options: ParseLocationOptions = {}
+): LocationId | null => {
     const locationText = extractedText.toUpperCase().trim();
     if (!locationText) return null;
 
@@ -96,10 +105,14 @@ export const parseLocationFromText = (extractedText: string, assignments: Record
         else if (matchedCode === 'C2') matchedLocation = `PLE-E1-B1-PLE C2-${matchedNumber}` as LocationId;
     }
 
-    if (!matchedLocation) {
+    if (!matchedLocation && !options.strict) {
         // Soft match attempt
         const foundKey = Object.keys(assignments).find(k => k.endsWith(locationText) || k.includes(locationText));
         if (foundKey) matchedLocation = foundKey as LocationId;
+    }
+
+    if (matchedLocation && !isValidLayoutLocation(matchedLocation)) {
+        return null;
     }
 
     return matchedLocation;

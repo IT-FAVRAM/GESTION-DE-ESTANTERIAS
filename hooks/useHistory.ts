@@ -5,7 +5,8 @@ import { HistoryEntry } from '../lib/warehouseData';
 import { db, auth } from '../lib/firebase';
 
 export const useHistory = () => {
-  const [history, setHistory, syncHistory] = useLocalStorage<HistoryEntry[]>('warehouse_history', []);
+  const [storageScope, setStorageScope] = useState('guest');
+  const [history, setHistory, syncHistory] = useLocalStorage<HistoryEntry[]>(`warehouse_history_${storageScope}`, []);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -13,6 +14,7 @@ export const useHistory = () => {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setIsAuthenticated(!!user);
+      setStorageScope(user?.uid || 'guest');
       if (!user) setLoading(false);
     });
     return () => unsubscribe();

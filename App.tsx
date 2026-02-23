@@ -100,7 +100,7 @@ const App: React.FC = () => {
         }
     };
 
-    const { assignments, setAssignments, syncAssignments, loading: assignmentsLoading, error: assignmentsError } = useAssignments();
+    const { assignments, setAssignments, syncAssignments, loading: assignmentsLoading, error: assignmentsError } = useAssignments(activeWarehouse);
     const { history, setHistory, addHistoryEntry, syncHistory, loading: historyLoading, error: historyError } = useHistory();
     const { finishedItems, addFinishedItem, syncFinishedItems } = useStorage();
     const { searchAssignments } = useIndexing(assignments, history);
@@ -124,10 +124,28 @@ const App: React.FC = () => {
     // Role Management
     const { role, section, loading: roleLoading, canEditStructure, canAnalyzeAnomalies, canAssign, canRemove, canRequestItems, shouldSkipValidation, canExport, canFinishProduction, canAccessChapero } = useRoles(user?.uid);
 
+    useEffect(() => {
+        if (location.pathname !== '/' && !location.pathname.startsWith('/warehouse')) return;
+
+        const params = new URLSearchParams(location.search);
+        const requestedView = params.get('view');
+
+        if (requestedView === 'requests' && role === 'CARRETILLERO') {
+            navigate('/requests', { replace: true });
+        }
+    }, [location.pathname, location.search, role, navigate]);
+
     // System Notifications Hook & Forklift Banner Data
     const { sendSystemAlert, unreadRequestsCount } = useSystemNotifications(role, notify);
 
-    const { assignItem, requestItem, removeItem, moveItem, copyItem, relocateLocationContents, emptyShelf, batchAssign, batchAssignToSingleLocation, batchAssignToMultipleLocations, findItemLocation, adminClearLocations, withdrawItem } = useInventoryOperations(assignments, setAssignments, addHistoryEntry, notify, sendSystemAlert, user?.email || undefined);
+    const { assignItem, requestItem, removeItem, moveItem, copyItem, relocateLocationContents, emptyShelf, batchAssign, batchAssignToSingleLocation, batchAssignToMultipleLocations, findItemLocation, adminClearLocations, withdrawItem, notifyFinishedItem } = useInventoryOperations(assignments, setAssignments, addHistoryEntry, notify, sendSystemAlert, user?.email || undefined);
+
+    const { processScanInput: processWorkflowScanInput } = useInventoryWorkflows(
+        {},
+        assignments,
+        notify,
+        findItemLocation
+    );
 
     const {
         // State
@@ -190,6 +208,7 @@ const App: React.FC = () => {
         handleInitiateRelocate,
         handleRelocate
     } = useAppLogic({
+        role,
         assignments,
         setAssignments,
         addHistoryEntry,
@@ -206,7 +225,7 @@ const App: React.FC = () => {
         canFinishProduction,
         relocateLocationContents,
         shouldSkipValidation,
-        processScanInput: async (barcode: string, intent: any) => true,
+        processScanInput: processWorkflowScanInput,
         withdrawItem
     });
 
@@ -214,6 +233,15 @@ const App: React.FC = () => {
         setActiveWarehouse(code);
         navigate(`/warehouse/${code}`);
     };
+
+    const handleNavigateToRequestLocation = useCallback((locationId: string) => {
+        if (!locationId || !locationId.includes('-')) return;
+
+        const warehouseCode = locationId.split('-')[0] as WarehouseCode;
+        setActiveWarehouse(warehouseCode);
+        setSelectedMapLocation(locationId as LocationId);
+        navigate(`/warehouse/${warehouseCode}`);
+    }, [navigate, setActiveWarehouse, setSelectedMapLocation]);
 
     const { workingItems } = useWorkingItems();
 
@@ -244,7 +272,7 @@ const App: React.FC = () => {
                 handleSyncData={handleSyncData}
                 canAccessChapero={canAccessChapero}
             >
-                <main className="max-w-[1600px] mx-auto p-4 md:p-6 space-y-6">
+                <div className="w-full max-w-[1600px] md:mx-auto space-y-6 min-w-0">
                     {/* Global Error Banner */}
                     {globalError && (
                         <div className="p-4 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-xl flex items-center gap-3">
@@ -302,29 +330,32 @@ const App: React.FC = () => {
                                 handleConfirmDelete={handleConfirmDelete}
                                 handleDragMove={handleDragMove}
                                 handleInitiateRequest={handleInitiateRequest}
-                                handleInitiateRelocate={handleInitiateRelocate}
-                                removeItem={removeItem}
-                                assignItem={assignItem}
-                                copyItem={copyItem}
+                                 handleInitiateRelocate={handleInitiateRelocate}
+                                 handleInitiateEmptyShelf={emptyShelf}
+                                 onNotifyFinishedItem={notifyFinishedItem}
+                                 removeItem={removeItem}
+                                 assignItem={assignItem}
+                                 copyItem={copyItem}
                                 notify={notify}
                                 formatLocation={formatLocation}
                                 selectedMapLocation={selectedMapLocation}
                                 setSelectedMapLocation={setSelectedMapLocation}
                                 setShelfDetailMode={setShelfDetailMode}
                                 setRelocateSourceLoc={setRelocateSourceLoc}
+                                onRefresh={handleSyncData}
                             />
                         } />
 
                         <Route path="/storage" element={<StorageView finishedItems={finishedItems} />} />
-                        <Route path="/working" element={<WorkingItemsList userRole={role!} />} />
+                        <Route path="/working" element={<WorkingItemsList userRole={role!} notifyFinishedItem={notifyFinishedItem} />} />
                         <Route path="/messages" element={<MessagesView currentUserRole={role!} currentUserUid={user.uid} />} />
                         <Route path="/chapero" element={<ChaperoCountView />} />
                         <Route path="/history" element={<HistoryView history={history} onGenerateTraceabilityReport={(h) => gemini.runTraceabilityReport(h)} isTraceabilityLoading={gemini.isTraceabilityLoading} />} />
-                        <Route path="/requests" element={role === 'CARRETILLERO' ? <CarretilleroRequestsView onNavigateToLocation={(loc) => { setSelectedMapLocation(loc as LocationId); navigate(`/warehouse/${loc.split('-')[0]}`) }} /> : <Navigate to="/" />} />
+                        <Route path="/requests" element={role === 'CARRETILLERO' ? <CarretilleroRequestsView onNavigateToLocation={handleNavigateToRequestLocation} /> : <Navigate to="/" />} />
 
                         <Route path="*" element={<Navigate to={`/warehouse/${activeWarehouse || 'MEC'}`} replace />} />
                     </Routes>
-                </main>
+                </div>
             </MainLayout>
 
             {/* MODALS */}

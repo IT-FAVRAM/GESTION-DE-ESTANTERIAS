@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Assignments, LocationId, isUrgentLocation } from '../lib/warehouseData';
 import { WarehouseConfig } from '../hooks/useWarehouseConfig';
 import { CloseIcon, MoveIcon, InfoIcon } from './Icons';
+import { generateLayoutLocations } from '../lib/warehouseLayout';
 
 interface RelocateLocationModalProps {
     sourceLocationId: LocationId;
@@ -18,175 +19,43 @@ const RelocateLocationModal: React.FC<RelocateLocationModalProps> = ({ sourceLoc
     const activeWarehouse = sourceLocationId.split('-')[0];
     const warehouseName = config.warehouses.find(w => w.code === activeWarehouse)?.name || activeWarehouse;
 
-    const [activeShelfTab, setActiveShelfTab] = useState<string | number>(0);
+    const [activeShelfTab, setActiveShelfTab] = useState<string>('');
 
-    const currentStructure = useMemo(() => {
-        const pad3 = (n: number) => n.toString().padStart(3, '0');
+    const groupedLocations = useMemo(() => {
+        const byShelf: Record<string, LocationId[]> = {};
+        const locations = generateLayoutLocations(activeWarehouse);
 
-        if (activeWarehouse === 'MEC') {
-            return {
-                shelves: ['URGENTE', 'GEN_A', 'GEN_B', 'GEN_C', 'GEN_D'],
-                racks: [1],
-                positions: (shelf: string | number) => {
-                    if (shelf === 'URGENTE') return Array.from({ length: 4 }, (_, i) => `MEC ${pad3(i + 1)}`);
-                    if (shelf === 'GEN_A') return Array.from({ length: 9 }, (_, i) => `MEC ${pad3(i + 5)}`);
-                    if (shelf === 'GEN_B') return Array.from({ length: 9 }, (_, i) => `MEC ${pad3(i + 14)}`);
-                    if (shelf === 'GEN_C') return Array.from({ length: 12 }, (_, i) => `MEC ${pad3(i + 23)}`);
-                    if (shelf === 'GEN_D') return Array.from({ length: 12 }, (_, i) => `MEC ${pad3(i + 35)}`);
-                    return [];
-                }
-            };
-        }
-
-        if (activeWarehouse === 'SXP') {
-            return {
-                shelves: ['SXP_MAIN'],
-                racks: [1],
-                positions: () => Array.from({ length: 10 }, (_, i) => `SXP ${pad3(i + 1)}`)
-            };
-        }
-        if (activeWarehouse === 'PLE') {
-            return {
-                shelves: ['EST_1_URGENTE', 'EST_1_GENERAL', 'EST_2', 'PUNZONADORA', 'CARRO_1', 'CARRO_2'],
-                racks: [1],
-                positions: (shelf: string | number) => {
-                    if (shelf === 'EST_1_URGENTE') return Array.from({ length: 6 }, (_, i) => `PLE ${pad3(i + 1)}`);
-                    if (shelf === 'EST_1_GENERAL') return Array.from({ length: 10 }, (_, i) => `PLE ${pad3(i + 7)}`);
-                    if (shelf === 'EST_2') return Array.from({ length: 14 }, (_, i) => `PLE ${pad3(i + 17)}`);
-                    if (shelf === 'PUNZONADORA') return Array.from({ length: 23 }, (_, i) => `PLE ${pad3(i + 31)}`);
-                    if (shelf === 'CARRO_1') return Array.from({ length: 4 }, (_, i) => `PLE C1-${i + 1}`);
-                    if (shelf === 'CARRO_2') return Array.from({ length: 4 }, (_, i) => `PLE C2-${i + 1}`);
-                    return [];
-                }
-            };
-        }
-        if (activeWarehouse === 'REP') {
-            return {
-                shelves: ['URGENTE', 'ALUMINIO', 'NORMAL', 'MODULAR'],
-                racks: [1],
-                positions: (shelf: string | number) => {
-                    if (shelf === 'URGENTE') return Array.from({ length: 4 }, (_, i) => `REP ${pad3(i + 1)}`);
-                    if (shelf === 'ALUMINIO') return Array.from({ length: 10 }, (_, i) => `REP ${pad3(i + 5)}`);
-                    if (shelf === 'NORMAL') return Array.from({ length: 10 }, (_, i) => `REP ${pad3(i + 15)}`);
-                    if (shelf === 'MODULAR') return Array.from({ length: 15 }, (_, i) => `REP ${pad3(i + 25)}`);
-                    return [];
-                }
-            }
-        }
-        if (activeWarehouse === 'PIN') {
-            return {
-                shelves: ['DENTRO', 'FUERA'],
-                racks: [1],
-                positions: (shelf: string | number) => {
-                    if (shelf === 'DENTRO') return Array.from({ length: 15 }, (_, i) => `PIN ${pad3(i + 1)}`);
-                    if (shelf === 'FUERA') return Array.from({ length: 12 }, (_, i) => `PIN ${pad3(i + 16)}`);
-                    return [];
-                }
-            };
-        }
-        if (activeWarehouse === 'COM') {
-            return {
-                shelves: ['1'],
-                racks: [1],
-                positions: () => Array.from({ length: 18 }, (_, i) => `COM ${pad3(i + 1)}`)
-            };
-        }
-        if (activeWarehouse === 'RPL') {
-            return {
-                shelves: ['EST1', 'EST2'],
-                racks: [1],
-                positions: (shelf: string | number) => {
-                    if (shelf === 'EST1') return Array.from({ length: 14 }, (_, i) => `ROB.PLE ${pad3(i + 1)}`);
-                    if (shelf === 'EST2') return Array.from({ length: 21 }, (_, i) => `ROB.PLE ${pad3(i + 15)}`);
-                    return [];
-                }
-            };
-        }
-        if (activeWarehouse === 'SOL') {
-            return {
-                shelves: ['1', '2'],
-                racks: [1],
-                positions: (shelf: string | number) => {
-                    if (shelf === '1') return Array.from({ length: 4 }, (_, i) => `SOL ${pad3(i + 1)}`);
-                    if (shelf === '2') return Array.from({ length: 36 }, (_, i) => `SOL ${pad3(i + 5)}`);
-                    return [];
-                }
-            };
-        }
-        if (activeWarehouse === 'RSO') {
-            return {
-                shelves: ['1'],
-                racks: [1],
-                positions: () => [
-                    'ROB.SOL 001', 'ROB.SOL 002', 'ROB.SOL 003', 'ROB.SOL 004',
-                    'ROB.SOL 005', 'ROB.SOL 006', 'ROB.SOL 007', 'ROB.SOL 008'
-                ]
-            };
-        }
-        if (activeWarehouse === 'CAL') {
-            return {
-                shelves: ['RECHAZOS', 'GENERAL'],
-                racks: [1],
-                positions: (shelf: string | number) => {
-                    if (shelf === 'RECHAZOS') return Array.from({ length: 22 }, (_, i) => `CAL ${pad3(i + 1)}`);
-                    if (shelf === 'GENERAL') return Array.from({ length: 12 }, (_, i) => `CAL ${pad3(i + 23)}`);
-                    return [];
-                }
-            };
-        }
-        if (activeWarehouse === 'ZIN') {
-            return {
-                shelves: ['1'],
-                racks: [1, 2, 3, 4, 5],
-                positions: () => ['1']
-            };
-        }
-
-        return {
-            shelves: config.shelves,
-            racks: config.racks,
-            positions: () => config.positions
+        const shelfFromLocation = (locId: string) => {
+            const parts = locId.split('-');
+            if (parts[1] === 'E') return parts[2] || 'GENERAL';
+            if (parts[1]?.startsWith('E')) return parts[1].replace('E', '') || '1';
+            return 'GENERAL';
         };
-    }, [activeWarehouse, config]);
 
-    // Update active tab when structure changes
-    useMemo(() => {
-        if (currentStructure.shelves.length > 0) {
-            setActiveShelfTab(currentStructure.shelves[0]);
-        }
-    }, [currentStructure]);
+        locations.forEach((locId) => {
+            const shelf = shelfFromLocation(locId);
+            if (!byShelf[shelf]) byShelf[shelf] = [];
+            byShelf[shelf].push(locId);
+        });
 
-    const shelfDisplayName = (shelf: string | number) => {
-        if (activeWarehouse === 'MEC' && shelf === 'URGENTE') return 'ZONA URGENTE';
-        if (activeWarehouse === 'MEC' && shelf === 'GEN_A') return 'General A (05-13)';
-        if (activeWarehouse === 'MEC' && shelf === 'GEN_B') return 'General B (14-22)';
-        if (activeWarehouse === 'MEC' && shelf === 'GEN_C') return 'General C (23-34)';
-        if (activeWarehouse === 'MEC' && shelf === 'GEN_D') return 'General D (35-46)';
-        if (activeWarehouse === 'PLE' && shelf === 'EST_1_URGENTE') return 'Est 1 Urgente (1-6)';
-        if (activeWarehouse === 'PLE' && shelf === 'EST_1_GENERAL') return 'Est 1 General (7-16)';
-        if (activeWarehouse === 'PLE' && shelf === 'EST_2') return 'Estantería 2';
-        if (activeWarehouse === 'PLE' && shelf === 'PUNZONADORA') return 'Punzonadora';
-        if (activeWarehouse === 'PLE' && shelf === 'CARRO_1') return '🛒 CARRO 1';
-        if (activeWarehouse === 'PLE' && shelf === 'CARRO_2') return '🛒 CARRO 2';
-        if (activeWarehouse === 'REP') {
-            if (shelf === 'URGENTE') return 'URGENTE';
-            if (shelf === 'ALUMINIO') return 'ALUMINIO';
-            if (shelf === 'NORMAL') return 'NORMAL';
-            if (shelf === 'MODULAR') return 'ALM. MODULAR';
+        Object.keys(byShelf).forEach((shelf) => {
+            byShelf[shelf].sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
+        });
+
+        return byShelf;
+    }, [activeWarehouse]);
+
+    const shelves = useMemo(() => Object.keys(groupedLocations), [groupedLocations]);
+
+    useEffect(() => {
+        if (shelves.length > 0 && !activeShelfTab) {
+            setActiveShelfTab(shelves[0]);
         }
-        if (activeWarehouse === 'CAL') {
-            if (shelf === 'RECHAZOS') return '🛑 RECHAZOS';
-            if (shelf === 'GENERAL') return '📚 ESTANTERÍA 2';
-        }
-        if (activeWarehouse === 'RPL') {
-            if (shelf === 'EST1') return 'Estantería 1';
-            if (shelf === 'EST2') return 'Estantería 2';
-        }
-        if (activeWarehouse === 'PIN') {
-            if (shelf === 'DENTRO') return 'DENTRO';
-            if (shelf === 'FUERA') return 'FUERA';
-        }
-        if (activeWarehouse === 'ZIN') return 'Zincado';
+    }, [shelves, activeShelfTab]);
+
+    const shelfDisplayName = (shelf: string) => {
+        if (shelf === 'URGENTE') return 'ZONA URGENTE';
+        if (shelf === 'RECHAZOS') return 'RECHAZOS';
         return `Estantería ${shelf}`;
     };
 
@@ -221,9 +90,9 @@ const RelocateLocationModal: React.FC<RelocateLocationModalProps> = ({ sourceLoc
                 </div>
 
                 {/* SHELF TABS */}
-                {currentStructure.shelves.length > 1 && (
+                {shelves.length > 1 && (
                     <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-black/30 p-2 flex flex-wrap justify-center gap-2 flex-shrink-0">
-                        {currentStructure.shelves.map(shelf => (
+                        {shelves.map(shelf => (
                             <button
                                 key={shelf}
                                 onClick={() => setActiveShelfTab(shelf)}
@@ -243,43 +112,14 @@ const RelocateLocationModal: React.FC<RelocateLocationModalProps> = ({ sourceLoc
                 <div className="overflow-y-auto p-2 flex-grow bg-slate-50 dark:bg-black/20">
                     {(() => {
                         const shelf = activeShelfTab;
-                        const racks = Array.isArray(currentStructure.racks) ? currentStructure.racks : (currentStructure.racks as Function)(shelf);
+                        const shelfLocations = groupedLocations[String(shelf)] || [];
 
                         return (
                             <div className="space-y-4">
-                                {racks.map((rack: number) => (
-                                    <div key={`${activeWarehouse}-E${shelf}-B${rack}`} className="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
-                                        {(activeWarehouse === 'PIN' || racks.length > 1) && (
-                                            <h5 className="text-xs font-bold text-slate-400 mb-2 uppercase">Rack/Balda {rack}</h5>
-                                        )}
-                                        <div className={`grid gap-2 ${activeWarehouse === 'ZIN' ? 'grid-cols-1' : 'grid-cols-3 sm:grid-cols-4 md:grid-cols-6'}`}>
-                                            {(typeof currentStructure.positions === 'function' ? currentStructure.positions(shelf) : currentStructure.positions).map((pos: string) => {
-                                                // --- LOC ID GEN ---
-                                                let locId: string;
-                                                if (activeWarehouse === 'REP') locId = `REP-E-${shelf}-B1-${pos}`;
-                                                else if (activeWarehouse === 'SXP') locId = `SXP-E1-B1-${pos}`;
-                                                else if (activeWarehouse === 'PIN') locId = `PIN-E-${shelf}-B1-${pos}`;
-                                                else if (activeWarehouse === 'COM') locId = `COM-E1-B1-${pos}`;
-                                                else if (activeWarehouse === 'RPL') {
-                                                    const shelfIdNum = shelf === 'EST1' ? 1 : 2;
-                                                    locId = `RPL-E${shelfIdNum}-B1-${pos}`;
-                                                }
-                                                else if (activeWarehouse === 'SOL') {
-                                                    const shelfNum = shelf === '1' ? 1 : 2;
-                                                    locId = `SOL-E${shelfNum}-B1-${pos}`;
-                                                }
-                                                else if (activeWarehouse === 'RSO') locId = `RSO-E1-B1-${pos}`;
-                                                else if (activeWarehouse === 'MEC') locId = `MEC-E-${shelf}-B1-${pos}`;
-                                                else if (activeWarehouse === 'PLE') locId = `PLE-E1-B1-${pos}`;
-                                                else if (activeWarehouse === 'CAL') {
-                                                    locId = shelf === 'RECHAZOS' ? `CAL-E-RECHAZOS-B1-${pos}` : `CAL-E-GENERAL-B1-${pos}`;
-                                                }
-
-                                                else if (activeWarehouse === 'ZIN') locId = `ZIN-E1-B${rack}-1`;
-                                                else locId = `${activeWarehouse}-E${shelf}-B${rack}-${pos}`;
-
-                                                const finalLocId = locId as LocationId;
-                                                // --- END LOC ID ---
+                                <div className="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
+                                    <div className={`grid gap-2 ${activeWarehouse === 'ZIN' ? 'grid-cols-1' : 'grid-cols-3 sm:grid-cols-4 md:grid-cols-6'}`}>
+                                        {shelfLocations.map((finalLocId) => {
+                                                const pos = finalLocId.split('-').pop() || finalLocId;
 
                                                 const isSelected = selectedLocation === finalLocId;
                                                 const isCurrentLocation = finalLocId === sourceLocationId;
@@ -301,7 +141,7 @@ const RelocateLocationModal: React.FC<RelocateLocationModalProps> = ({ sourceLoc
                                                             }`}
                                                     >
                                                         <p className="font-bold text-center w-full text-xs mb-1">
-                                                            {(activeWarehouse === 'ZIN') ? `Balda ${rack}` : pos}
+                                                            {pos}
                                                         </p>
                                                         <div className="flex-grow flex items-center justify-center w-full">
                                                             {isCurrentLocation ? (
@@ -317,7 +157,6 @@ const RelocateLocationModal: React.FC<RelocateLocationModalProps> = ({ sourceLoc
                                             })}
                                         </div>
                                     </div>
-                                ))}
                             </div>
                         );
                     })()}

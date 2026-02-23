@@ -1,13 +1,14 @@
 
 import React, { useCallback } from 'react';
-import { Assignments, AssignmentItem, LocationId, ActionType, WarehouseCode, ShelfNumber, RACKS, POSITIONS, isUrgentLocation, PackageType } from '../lib/warehouseData';
+import { Assignments, AssignmentItem, LocationId, ActionType, WarehouseCode, ShelfNumber, isUrgentLocation, PackageType } from '../lib/warehouseData';
 import { TransactionResult } from '../lib/inventoryTransactions';
 import { useHistory } from './useHistory';
 import { NotificationType } from '../components/NotificationToast';
 import { BatchItem } from '../App';
 import { SystemAlert } from './useSystemNotifications';
-import { assignItemTransaction, moveItemTransaction, removeItemTransaction } from '../lib/inventoryTransactions';
-import { moveToWorking } from '../lib/production';
+import { withdrawToWorkingAtomic } from '../lib/production';
+import { useHaptic } from './useHaptic';
+import { inventoryApi } from '../lib/inventoryApi';
 
 /**
  * This hook acts as a Facade for business logic.
@@ -22,6 +23,39 @@ export const useInventoryOperations = (
     sendSystemAlert?: (alert: Omit<SystemAlert, 'id' | 'readBy' | 'timestamp'>) => Promise<void>,
     userEmail?: string
 ) => {
+
+    const { triggerHaptic } = useHaptic();
+
+    // --- NOTIFICATION: FINISHED ITEM ---
+    const notifyFinishedItem = useCallback((barcode: string, location: string, orderId: string) => {
+        // Local Toast
+        if (notify) notify('success', 'Aviso Enviado', `Carretillero notificado para retirar y reubicar ${barcode}`);
+
+        // System Alert (Firestore Notification)
+        if (sendSystemAlert) {
+            sendSystemAlert({
+                targetRole: 'CARRETILLERO',
+                type: 'request_material', // Reusing type or new 'finished_material'
+                title: '✅ Material Terminado',
+                message: `El artículo ${barcode} (OF: ${orderId}) en ${location} ha sido finalizado. Retirar y ubicar.`,
+                metadata: { barcode, location, orderId, type: 'finished' }
+            });
+        }
+    }, [notify, sendSystemAlert]);
+
+    // --- DUPLICATE CHECK ---
+    const checkDuplicateActiveOF = useCallback((barcode: string, currentOrderId: string): boolean => {
+        // Iterate all assignments to see if this barcode exists with a DIFFERENT Order ID
+        // useful to warn if we are manufacturing the same item for two different OFs concurrently
+        for (const loc in assignments) {
+            const items = assignments[loc as LocationId];
+            const duplicate = items.find(i => i.barcode === barcode && i.orderId !== currentOrderId);
+            if (duplicate) {
+                return true;
+            }
+        }
+        return false;
+    }, [assignments]);
 
     // --- HELPER: FIND ITEM LOCATION ---
     const findItemLocation = useCallback((barcode: string, orderId?: string): LocationId | null => {
@@ -55,6 +89,7 @@ export const useInventoryOperations = (
         const locations = Array.isArray(locationOrLocations) ? locationOrLocations : [locationOrLocations];
         const { allowMultiLocation = false, packageType } = options;
         const opId = crypto.randomUUID();
+        const effectiveAllowMultiLocation = allowMultiLocation || locations.length > 1;
 
         // 1. Urgency Check & Alerts
         let isUrgent = false;
@@ -64,6 +99,7 @@ export const useInventoryOperations = (
         });
 
         if (isUrgent) {
+            triggerHaptic('warning');
             if (notify) notify('warning', 'UBICACIÓN URGENTE', `El artículo se ha colocado en zona prioritaria.`);
             if (sendSystemAlert) {
                 sendSystemAlert({
@@ -79,7 +115,6 @@ export const useInventoryOperations = (
         // 2. Identify Moves vs New Assignments (Local check for context/alerting, but transaction handles consistency)
         // If !allowMultiLocation, we SHOULD try to remove from old location first.
         let previousLocations: LocationId[] = [];
-        const effectiveAllowMultiLocation = allowMultiLocation || locations.length > 1;
 
         if (!effectiveAllowMultiLocation) {
             for (const locId in assignments) {
@@ -109,12 +144,12 @@ export const useInventoryOperations = (
                 // Actually if allowMultiLocation=false, we expect 1 target.
                 // If we have 1 source, 1 target -> MoveTransaction
                 if (locations.length === 1) {
-                    promises.push(moveItemTransaction(barcode, prevLoc, locations[0], orderId, { opId, user: userEmail }));
+                    promises.push(inventoryApi.move({ barcode, orderId, fromLoc: prevLoc, toLoc: locations[0] }, opId).then(() => ({ success: true })).catch((e) => ({ success: false, error: (e as Error).message })));
                     // We don't need to assign again if we moved.
                     // But we might need to handle the loop carefully.
                 } else {
                     // Multi target from 1 source? Remove from source, assign to targets.
-                    promises.push(removeItemTransaction(barcode, prevLoc, orderId, { opId, user: userEmail }));
+                    promises.push(inventoryApi.remove({ barcode, orderId, locationId: prevLoc }, opId).then(() => ({ success: true })).catch((e) => ({ success: false, error: (e as Error).message })));
                 }
             }
 
@@ -122,7 +157,9 @@ export const useInventoryOperations = (
             if (previousLocations.length === 1 && locations.length === 1) {
                 const res = await promises[0];
                 if (!res.success) throw new Error(res.error);
+                if (!res.success) throw new Error(res.error);
                 if (notify) notify('success', 'Ubicado (M)', `${barcode} movido a ${locations[0]}`);
+                triggerHaptic('success');
                 return;
             }
 
@@ -137,7 +174,9 @@ export const useInventoryOperations = (
                 // Skip if we already did a move transaction to this loc
                 if (previousLocations.length === 1 && previousLocations[0] !== loc && locations.length === 1) return Promise.resolve({ success: true });
 
-                return assignItemTransaction(barcode, orderId, loc, { opId, user: userEmail }, { packageType });
+                return inventoryApi.assign({ barcode, orderId, locationId: loc, packageType }, opId)
+                    .then(() => ({ success: true }))
+                    .catch((e) => ({ success: false, error: (e as Error).message }));
             });
 
             const results = await Promise.all(assignPromises);
@@ -150,15 +189,21 @@ export const useInventoryOperations = (
             // Success Notification
             if (previousLocations.length > 0) {
                 if (notify) notify('success', 'Reubicado', `${barcode} movido a ${locations.length} ubicación(es).`);
+                triggerHaptic('success');
             } else {
                 // Determine notification text
                 const target = locations.length === 1 ? locations[0] : `${locations.length} ubicaciones`;
                 if (notify) notify('success', 'Asignado', `${barcode} asignado a ${target}`);
+                triggerHaptic('success');
             }
 
         } catch (err: any) {
             console.error("Assign Error:", err);
+            if ((err?.message || '').includes('permission-denied')) {
+                notify?.('error', 'Sin permisos', 'Tu rol no puede realizar esta operación (permission-denied).');
+            }
             if (notify) notify('error', 'Error de Asignación', err.message || "Fallo en la operación");
+            triggerHaptic('error');
         }
 
     }, [assignments, setAssignments, addHistoryEntry, notify, sendSystemAlert, userEmail]);
@@ -195,12 +240,22 @@ export const useInventoryOperations = (
     // --- DELETE ITEM ---
     const removeItem = useCallback(async (barcode: string, location: LocationId, orderId?: string): Promise<boolean> => {
         const opId = crypto.randomUUID();
+        const identityItem = assignments[location]?.find(i => i.barcode === barcode && (!orderId || i.orderId === orderId));
 
         try {
-            const result = await removeItemTransaction(barcode, location, orderId, { opId, user: userEmail });
+            const result = await inventoryApi.remove({
+                barcode,
+                orderId,
+                locationId: location,
+                itemKey: identityItem?.itemKey,
+                containerId: identityItem?.containerId
+            }, opId)
+                .then(() => ({ success: true }))
+                .catch((e) => ({ success: false, error: (e as Error).message }));
 
             if (!result.success) {
-                if (notify) notify('error', 'Error al retirar', result.error || "Fallo desconocido");
+                if (notify) notify('error', 'Error al retirar', (result as any).error || "Fallo desconocido");
+                triggerHaptic('error');
                 return false;
             }
 
@@ -213,7 +268,7 @@ export const useInventoryOperations = (
             console.error(e);
             return false;
         }
-    }, [notify, userEmail]);
+    }, [notify, userEmail, assignments]);
 
 
     // --- MOVE ITEM ---
@@ -237,6 +292,7 @@ export const useInventoryOperations = (
         // Urgency Check
         let isUrgent = isUrgentLocation(toLocation);
         if (isUrgent) {
+            triggerHaptic('warning');
             if (notify) notify('warning', 'AVISO DE URGENCIA', 'Movimiento a zona URGENTE detectado.');
             if (sendSystemAlert) {
                 sendSystemAlert({
@@ -249,51 +305,63 @@ export const useInventoryOperations = (
             }
         }
 
-        const result = await moveItemTransaction(barcode, fromLocation, toLocation, safeOrderId!, { opId, user: userEmail });
+        const sourceItem = assignments[fromLocation]?.find(i => i.barcode === barcode && i.orderId === safeOrderId);
+        const result = await inventoryApi.move({
+            barcode,
+            orderId: safeOrderId,
+            fromLoc: fromLocation,
+            toLoc: toLocation,
+            itemKey: sourceItem?.itemKey,
+            containerId: sourceItem?.containerId
+        }, opId)
+            .then(() => ({ success: true }))
+            .catch((e) => ({ success: false, error: (e as Error).message }));
 
         if (result.success) {
             if (notify) notify('success', 'Reubicado', `${barcode} movido a ${toLocation}`);
+            triggerHaptic('success');
         } else {
-            if (notify) notify('error', 'Error al mover', result.error || "Fallo de transacción");
+            if (notify) notify('error', 'Error al mover', (result as any).error || "Fallo de transacción");
+            triggerHaptic('error');
         }
 
     }, [assignments, notify, sendSystemAlert, userEmail]);
 
 
     // --- EMPTY SHELF (Admin) ---
-    // Keep local for now or TODO: refactor to transaction if critical. 
-    // Given the request asks for "Assign/Move/Remove", emptyShelf is lower priority but should ideally be safe.
-    // For now we keep the optimistic version to avoid breaking it, as it's a massive delete.
-    const emptyShelf = useCallback((warehouse: WarehouseCode, shelf: ShelfNumber) => {
-        const now = new Date().toISOString();
-        setAssignments(prevAssignments => {
-            const newAssignments: Assignments = { ...prevAssignments };
-            const locationsToRemove: LocationId[] = [];
-
-            for (const rack of RACKS) {
-                for (const pos of POSITIONS) {
-                    const locId = `${warehouse}-E${shelf}-B${rack}-${pos}` as LocationId;
-                    if (newAssignments[locId]) {
-                        newAssignments[locId].forEach(item => {
-                            addHistoryEntry({
-                                barcode: item.barcode,
-                                orderId: item.orderId,
-                                action: 'removed',
-                                fromLocation: locId,
-                                timestamp: now
-                            });
-                        });
-                        locationsToRemove.push(locId);
-                    }
-                }
+    const emptyShelf = useCallback(async (warehouse: WarehouseCode, shelf: ShelfNumber) => {
+        // 1. Identify items to remove
+        const itemsToRemove: { locId: LocationId, item: AssignmentItem }[] = [];
+        const prefix = `${warehouse}-E${shelf}-`;
+        Object.keys(assignments).forEach(key => {
+            if (key.startsWith(prefix)) {
+                const locId = key as LocationId;
+                assignments[locId].forEach(item => {
+                    itemsToRemove.push({ locId, item });
+                });
             }
-            locationsToRemove.forEach(locId => {
-                delete newAssignments[locId];
-            });
-            return newAssignments;
         });
-        if (notify) notify('success', 'Estantería Vaciada', `Estantería ${shelf} vaciada.`);
-    }, [setAssignments, addHistoryEntry, notify]);
+
+        if (itemsToRemove.length === 0) {
+            if (notify) notify('info', 'Vacío', 'La estantería ya está vacía.');
+            return;
+        }
+
+        const opId = crypto.randomUUID();
+        const result = await inventoryApi.emptyShelf({ warehouse, shelf }, opId)
+            .then(() => ({ success: true }))
+            .catch((e) => ({ success: false, error: (e as Error).message }));
+
+        if (!result.success) {
+            notify?.('error', 'Error de vaciado', (result as any).error || 'No se pudo completar el vaciado.');
+            triggerHaptic('error');
+            return;
+        }
+
+        if (notify) notify('success', 'Estantería Vaciada', `Se vació la estantería ${warehouse}-E${shelf}.`);
+        triggerHaptic('success');
+
+    }, [assignments, userEmail, notify, triggerHaptic]);
 
     // --- DEPRECATED / UTILS ---
     const batchAssign = useCallback(() => { }, []);
@@ -319,7 +387,7 @@ export const useInventoryOperations = (
         // Note: If we do this, the UI might flicker if we rely only on snapshot.
         // This is Admin only, so flickering is acceptable vs data loss.
         for (const item of items) {
-            await moveItemTransaction(item.barcode, fromLoc, toLoc, item.orderId, { user: userEmail });
+            await inventoryApi.move({ barcode: item.barcode, orderId: item.orderId, fromLoc, toLoc });
         }
         if (notify) notify('success', 'Ubicación Reubicada', `Contenido movido a ${toLoc}`);
 
@@ -339,23 +407,24 @@ export const useInventoryOperations = (
             // If we are strictly consistent, we should iterate.
             const items = assignments[locId as LocationId] || [];
             for (const item of items) {
-                await removeItemTransaction(item.barcode, locId as LocationId, item.orderId, { user: userEmail });
+                await inventoryApi.remove({ barcode: item.barcode, orderId: item.orderId, locationId: locId });
             }
         }
         if (notify) notify('success', 'Vaciado', `${locationIds.length} ubicaciones vaciadas.`);
     }, [assignments, userEmail, notify]);
 
     const withdrawItem = useCallback(async (barcode: string, location: LocationId, orderId: string) => {
-        // Call service normally
         try {
-            // const { moveToWorking } = await import('../lib/production'); // Removed dynamic import
             const item = assignments[location]?.find(i => i.barcode === barcode && i.orderId === orderId);
             if (!item) return false;
 
-            await moveToWorking(item, location); // This should be atomic ideally but it's external service.
-
-            // Now remove from our DB efficiently.
-            await removeItemTransaction(barcode, location, orderId, { user: userEmail });
+            await withdrawToWorkingAtomic(barcode, orderId, location, {
+                itemKey: item.itemKey,
+                containerId: item.containerId
+            }, {
+                uid: 'system',
+                displayName: userEmail || 'Sistema'
+            });
 
             if (notify) notify('success', 'En Trabajo', `Artículo ${barcode} movido a producción.`);
             return true;
@@ -373,6 +442,8 @@ export const useInventoryOperations = (
     }, [assignments, assignItem]);
 
     return {
+        notifyFinishedItem,
+        checkDuplicateActiveOF,
         assignItem,
         requestItem,
         findItemLocation,
@@ -382,7 +453,7 @@ export const useInventoryOperations = (
         relocateLocationContents,
         emptyShelf,
         batchAssign,
-        batchAssignToSingleLocation, // We might want to fix these to use assignItem logic too if they are used
+        batchAssignToSingleLocation,
         batchAssignToMultipleLocations,
         adminClearLocations,
         withdrawItem

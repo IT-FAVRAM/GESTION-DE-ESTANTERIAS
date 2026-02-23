@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { LocationId } from '../lib/warehouseData';
 import { CheckIcon, ErrorIcon, LoadingIcon, CameraIcon } from './Icons';
 import PhotoAnalyzerModal from './PhotoAnalyzerModal';
+import { parseLocationFromText } from '../lib/locationParser';
 
 interface ValidationScannerProps {
   targetLocation: LocationId;
@@ -21,34 +22,16 @@ const ValidationScanner: React.FC<ValidationScannerProps> = ({ targetLocation, o
       setValidationStatus('validating');
       setIsPhotoOpen(false);
 
-      // Simple fuzzy check: Does the extracted text contain the target parts?
-      // E.g. Target "MEC-E1-B2-IZQ". Sign might say "MEC 001" or "MEC 1".
-      const cleanTarget = targetLocation.replace(/-/g, ' '); // MEC E1 B2 IZQ
-      const parts = cleanTarget.split(' ');
-      
-      // Heuristic: Check if main warehouse code and shelf number are present
-      const whCode = parts[0]; // MEC
-      // Extract shelf number e.g. E1 -> 1
-      const shelfPart = parts.find(p => p.startsWith('E'))?.replace('E', '') || '';
-      
-      const scannedUpper = scannedText.toUpperCase();
-      
-      // Basic validation logic
-      const matchesWarehouse = scannedUpper.includes(whCode);
-      const matchesShelf = scannedUpper.includes(shelfPart) || scannedUpper.includes(` ${shelfPart} `) || scannedUpper.endsWith(` ${shelfPart}`);
-      
-      // If sign is "MEC 001", check if scanned has "MEC" and "001" or "1"
-      const shelfPad = shelfPart.padStart(3, '0');
-      const matchesShelfPad = scannedUpper.includes(shelfPad);
+      const parsedLocation = parseLocationFromText(scannedText, {}, { strict: true });
 
-      if (matchesWarehouse && (matchesShelf || matchesShelfPad)) {
+      if (parsedLocation && parsedLocation === targetLocation) {
           setValidationStatus('success');
           setTimeout(() => {
               onSuccess();
           }, 1500);
       } else {
           setValidationStatus('error');
-          setErrorMsg(`El cartel escaneado (${scannedText}) no parece coincidir con ${targetLocation}. Asegúrate de que se vea el código de almacén y estantería.`);
+          setErrorMsg(`El cartel escaneado (${scannedText}) no coincide exactamente con ${targetLocation}. Repite la foto enfocando mejor el código completo.`);
       }
   };
 

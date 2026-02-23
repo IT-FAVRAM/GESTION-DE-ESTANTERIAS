@@ -5,6 +5,8 @@ import firebase from 'firebase/compat/app';
 interface TransactionOptions {
     opId?: string; // Idempotency key
     user?: string; // User email or ID for history
+    itemKey?: string;
+    containerId?: string;
 }
 
 export type TransactionResult<T = void> = {
@@ -22,8 +24,32 @@ const sanitizeItem = (item: AssignmentItem): any => {
         assignedAt: item.assignedAt,
         movedAt: item.movedAt || null,
         packageType: item.packageType || null,
-        status: item.status || 'UBICADO'
+        status: item.status || 'UBICADO',
+        itemKey: item.itemKey || null,
+        quantity: item.quantity ?? 1,
+        containerId: item.containerId || null,
+        notes: item.notes || null
     };
+};
+
+const normalize = (value?: string | null) => (value || '').trim().toUpperCase();
+
+const isSameIdentity = (
+    item: AssignmentItem,
+    barcode: string,
+    orderId?: string,
+    itemKey?: string,
+    containerId?: string
+): boolean => {
+    const byKey = normalize(itemKey || item.itemKey);
+    if (byKey) {
+        return normalize(item.itemKey) === byKey;
+    }
+
+    const barcodeMatch = normalize(item.barcode) === normalize(barcode);
+    const orderMatch = !orderId || normalize(item.orderId) === normalize(orderId);
+    const containerMatch = !containerId || normalize(item.containerId) === normalize(containerId);
+    return barcodeMatch && orderMatch && containerMatch;
 };
 
 /**
@@ -56,7 +82,7 @@ export const assignItemTransaction = async (
 
             // check idempotency if we had a dedicated "operations" log, 
             // but here we can just check if the item is already there exactly as requested.
-            const exists = currentItems.some(i => i.barcode === barcode && i.orderId === orderId);
+            const exists = currentItems.some(i => isSameIdentity(i, barcode, orderId, itemData.itemKey, itemData.containerId));
             if (exists) {
                 // If it exists, we assume success (idempotent)
                 return;
@@ -69,6 +95,10 @@ export const assignItemTransaction = async (
                 assignedAt: now,
                 movedAt: undefined,
                 packageType: itemData.packageType,
+                itemKey: itemData.itemKey,
+                quantity: itemData.quantity ?? 1,
+                containerId: itemData.containerId,
+                notes: itemData.notes,
                 status: 'UBICADO'
             };
 
@@ -111,7 +141,7 @@ export const removeItemTransaction = async (
     orderId?: string,
     options: TransactionOptions = {}
 ): Promise<TransactionResult> => {
-    const { opId, user } = options;
+    const { opId, user, itemKey, containerId } = options;
     const now = new Date().toISOString();
 
     const whCode = locationId.split('-')[0];
@@ -132,7 +162,7 @@ export const removeItemTransaction = async (
             let resolvedOrderId = orderId;
 
             if (orderId) {
-                itemIndex = currentItems.findIndex(i => i.barcode === barcode && i.orderId === orderId);
+                itemIndex = currentItems.findIndex(i => isSameIdentity(i, barcode, orderId, itemKey, containerId));
             }
 
             // Fallback: Fuzzy search if explicit OrderID wasn't found or wasn't provided
@@ -142,7 +172,7 @@ export const removeItemTransaction = async (
                 if (matches.length === 1) {
                     // Safe to delete the only instance
                     resolvedOrderId = matches[0].orderId;
-                    itemIndex = currentItems.findIndex(i => i.barcode === barcode && i.orderId === resolvedOrderId);
+                    itemIndex = currentItems.findIndex(i => isSameIdentity(i, barcode, resolvedOrderId, itemKey, containerId));
                 } else if (matches.length > 1) {
                     // Ambiguous delete request without valid ID
                     throw new Error(`Ambiguous delete: Multiple items with barcode ${barcode} in location. OrderID required.`);
@@ -150,11 +180,7 @@ export const removeItemTransaction = async (
             }
 
             if (itemIndex === -1) {
-                // Item not found, treat as already done (idempotent success) or error? 
-                // For UI feedback, usually better to throw if user really expected it there.
-                // But if we want idempotency, we just return.
-                // Let's return success but log warning.
-                return;
+                throw new Error('ITEM_NOT_FOUND');
             }
 
             const itemToRemove = currentItems[itemIndex];
@@ -222,7 +248,7 @@ export const moveItemTransaction = async (
             if (!fromDoc.exists) throw new Error("Source location empty/missing");
             const sourceItems = (fromDoc.data()?.items as AssignmentItem[]) || [];
 
-            const itemIndex = sourceItems.findIndex(i => i.barcode === barcode && i.orderId === orderId);
+            const itemIndex = sourceItems.findIndex(i => isSameIdentity(i, barcode, orderId, options.itemKey, options.containerId));
             if (itemIndex === -1) {
                 throw new Error("Item not found in source location");
             }
@@ -235,7 +261,7 @@ export const moveItemTransaction = async (
             }
 
             // Check duplicate in target
-            if (targetItems.some(i => i.barcode === barcode && i.orderId === orderId)) {
+            if (targetItems.some(i => isSameIdentity(i, barcode, orderId, itemToMove.itemKey, itemToMove.containerId))) {
                 // Already in target! 
                 // We should check if it's still in source. If so, copy? Or logic error?
                 // Standard Logic: Fail to prevent duplicate, or assume "Already Moved" but we must remove from source if it's there?
@@ -257,7 +283,7 @@ export const moveItemTransaction = async (
             }
 
             // Add to target if not exists
-            const alreadyInTarget = targetItems.some(i => i.barcode === barcode && i.orderId === orderId);
+            const alreadyInTarget = targetItems.some(i => isSameIdentity(i, barcode, orderId, itemToMove.itemKey, itemToMove.containerId));
             if (!alreadyInTarget) {
                 const newItem: AssignmentItem = {
                     ...itemToMove,

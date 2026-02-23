@@ -1,43 +1,61 @@
-
-import React, { useState, useRef, useEffect } from 'react';
-import { CameraIcon, UploadIcon, LoadingIcon, SparklesIcon, LayersIcon, InfoIcon, CheckIcon, RulerIcon, CloseIcon } from './Icons';
+import React, { useMemo, useRef, useState } from 'react';
+import { CameraIcon, UploadIcon, LoadingIcon, LayersIcon, InfoIcon, CheckIcon, RulerIcon } from './Icons';
 import { countMetalSheets, MetalSheetCountResult } from '../lib/gemini';
+import { CvCountResult, NormalizedRect, countMetalSheetsCV, cropImageDataUrl, dataUrlToBase64, getImageDimensions, preprocessMetalImage, resizeImageDataUrl } from '../lib/metalVision';
 
 const MATERIALS = ['ACERO', 'INOX', 'ALUMINIO', 'GALVANIZADO', 'CORTEN'];
 
+type FinalSource = 'cv' | 'ai' | 'hybrid';
+
+interface FinalCountResult extends MetalSheetCountResult {
+    finalCount: number;
+    sourceUsed: FinalSource;
+    cvResult: CvCountResult;
+    aiRawCount: number;
+}
+
+const INITIAL_CROP: NormalizedRect = { x: 0.2, y: 0.2, w: 0.6, h: 0.6 };
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
 const ChaperoCountView: React.FC = () => {
     const [material, setMaterial] = useState('ACERO');
-    const [thickness, setThickness] = useState<string>(''); // Default empty string to force input
+    const [thickness, setThickness] = useState<string>('');
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    const [result, setResult] = useState<MetalSheetCountResult | null>(null);
+    const [result, setResult] = useState<FinalCountResult | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [manualFinalCount, setManualFinalCount] = useState<number | null>(null);
+    const [savedManual, setSavedManual] = useState(false);
 
-    // AR States
-    const [isARMode, setIsARMode] = useState(false);
-    const [arRefType, setArRefType] = useState<'CARD' | 'COIN'>('CARD');
-    const [arScale, setArScale] = useState(1.0); // Simple zoom factor for overlay
-    const arVideoRef = useRef<HTMLVideoElement>(null);
-    const [arStream, setArStream] = useState<MediaStream | null>(null);
+    const [isCameraActive, setIsCameraActive] = useState(false);
+    const [cropEnabled, setCropEnabled] = useState(false);
+    const [cropRect, setCropRect] = useState<NormalizedRect>(INITIAL_CROP);
+    const [isDrawingCrop, setIsDrawingCrop] = useState(false);
+    const [calibrationMode, setCalibrationMode] = useState(false);
+    const [calibrationPointsY, setCalibrationPointsY] = useState<number[]>([]);
+
+    const [analysisImages, setAnalysisImages] = useState<{ cropped: string; processed: string } | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
-    const [isCameraActive, setIsCameraActive] = useState(false);
+    const previewRef = useRef<HTMLDivElement>(null);
+    const pointerStart = useRef<{ x: number; y: number } | null>(null);
 
-    // --- STANDARD CAMERA HANDLERS ---
+    const calibrationDelta = useMemo(() => {
+        if (calibrationPointsY.length !== 2) return null;
+        return Math.abs(calibrationPointsY[0] - calibrationPointsY[1]);
+    }, [calibrationPointsY]);
+
     const startCamera = async () => {
-        setIsCameraActive(true);
         setError(null);
+        setIsCameraActive(true);
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: "environment" }
-            });
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-            }
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            if (videoRef.current) videoRef.current.srcObject = stream;
         } catch (err) {
             console.error(err);
-            setError("No se pudo acceder a la cámara.");
+            setError('No se pudo acceder a la camara.');
             setIsCameraActive(false);
         }
     };
@@ -45,290 +63,228 @@ const ChaperoCountView: React.FC = () => {
     const stopCamera = () => {
         if (videoRef.current && videoRef.current.srcObject) {
             const stream = videoRef.current.srcObject as MediaStream;
-            stream.getTracks().forEach(t => t.stop());
+            stream.getTracks().forEach(track => track.stop());
             videoRef.current.srcObject = null;
         }
         setIsCameraActive(false);
     };
 
+    const resetForNewImage = () => {
+        setResult(null);
+        setManualFinalCount(null);
+        setSavedManual(false);
+        setCropRect(INITIAL_CROP);
+        setCalibrationPointsY([]);
+        setAnalysisImages(null);
+        setError(null);
+    };
+
     const capturePhoto = () => {
         if (!videoRef.current) return;
+
         const canvas = document.createElement('canvas');
         canvas.width = videoRef.current.videoWidth;
         canvas.height = videoRef.current.videoHeight;
         const ctx = canvas.getContext('2d');
-        if (ctx) {
-            ctx.drawImage(videoRef.current, 0, 0);
-            const base64 = canvas.toDataURL('image/jpeg', 0.9); // High quality for visual counting
-            setImagePreview(base64);
-            stopCamera();
-        }
+        if (!ctx) return;
+
+        ctx.drawImage(videoRef.current, 0, 0);
+        const image = canvas.toDataURL('image/jpeg', 0.92);
+        stopCamera();
+        setImagePreview(image);
+        resetForNewImage();
     };
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
+    const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = (ev) => {
-            setImagePreview(ev.target?.result as string);
+        reader.onload = (e) => {
+            const value = e.target?.result as string;
+            setImagePreview(value);
+            resetForNewImage();
         };
         reader.readAsDataURL(file);
     };
 
-    const handleCount = async () => {
-        if (!imagePreview || !material || !thickness) {
-            setError("Por favor completa todos los campos (Grosor incluido) e incluye una imagen.");
+    const getRelativePoint = (clientX: number, clientY: number) => {
+        const box = previewRef.current?.getBoundingClientRect();
+        if (!box) return null;
+
+        const x = clamp((clientX - box.left) / box.width, 0, 1);
+        const y = clamp((clientY - box.top) / box.height, 0, 1);
+        return { x, y };
+    };
+
+    const handlePreviewPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+        if (calibrationMode) {
+            const p = getRelativePoint(event.clientX, event.clientY);
+            if (!p) return;
+            setCalibrationPointsY(prev => {
+                if (prev.length >= 2) return [p.y];
+                return [...prev, p.y];
+            });
             return;
         }
 
-        const thickVal = parseFloat(thickness.replace(',', '.'));
-        if (isNaN(thickVal) || thickVal <= 0) {
-            setError("Introduce un grosor válido en mm.");
+        if (!cropEnabled) return;
+
+        const p = getRelativePoint(event.clientX, event.clientY);
+        if (!p) return;
+
+        pointerStart.current = p;
+        setIsDrawingCrop(true);
+        setCropRect({ x: p.x, y: p.y, w: 0.001, h: 0.001 });
+    };
+
+    const handlePreviewPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+        if (!cropEnabled || !isDrawingCrop || !pointerStart.current) return;
+        const p = getRelativePoint(event.clientX, event.clientY);
+        if (!p) return;
+
+        const x1 = Math.min(pointerStart.current.x, p.x);
+        const y1 = Math.min(pointerStart.current.y, p.y);
+        const x2 = Math.max(pointerStart.current.x, p.x);
+        const y2 = Math.max(pointerStart.current.y, p.y);
+
+        setCropRect({
+            x: clamp(x1, 0, 1),
+            y: clamp(y1, 0, 1),
+            w: clamp(x2 - x1, 0.01, 1),
+            h: clamp(y2 - y1, 0.01, 1),
+        });
+    };
+
+    const handlePreviewPointerUp = () => {
+        setIsDrawingCrop(false);
+        pointerStart.current = null;
+    };
+
+    const handleCount = async () => {
+        if (!imagePreview || !material || !thickness) {
+            setError('Completa material, grosor e imagen para analizar.');
+            return;
+        }
+
+        const thicknessValue = Number.parseFloat(thickness.replace(',', '.'));
+        if (Number.isNaN(thicknessValue) || thicknessValue <= 0) {
+            setError('Introduce un grosor valido en mm.');
             return;
         }
 
         setLoading(true);
         setError(null);
         setResult(null);
+        setSavedManual(false);
 
         try {
-            // Remove header for API processing
-            const base64Data = imagePreview.split(',')[1];
-            const data = await countMetalSheets(base64Data, material, thickVal);
-            setResult(data);
+            const resized = await resizeImageDataUrl(imagePreview, 1280);
+            const cropped = cropEnabled ? await cropImageDataUrl(resized, cropRect) : resized;
+            const processed = await preprocessMetalImage(cropped);
+            const cvResult = await countMetalSheetsCV(processed);
+
+            const dimensions = await getImageDimensions(cropped);
+            const calibrationHeightPx = calibrationDelta ? Math.round(calibrationDelta * dimensions.height) : undefined;
+
+            const aiResult = await countMetalSheets({
+                originalImage: dataUrlToBase64(cropped),
+                processedImage: dataUrlToBase64(processed),
+                material,
+                thicknessMm: thicknessValue,
+                calibrationHeightPx,
+                cvEstimate: {
+                    count: cvResult.estimatedCount,
+                    confidence: cvResult.confidence,
+                    signalQuality: Number(cvResult.signalQuality.toFixed(3)),
+                    reasoning: cvResult.reasoning,
+                },
+            });
+
+            const cvStrong = cvResult.confidence === 'high' && cvResult.signalQuality >= 0.68 && cvResult.estimatedCount > 0;
+            const closeToAi = Math.abs(cvResult.estimatedCount - aiResult.estimatedCount) <= 1;
+
+            let sourceUsed: FinalSource = 'ai';
+            if (cvStrong && closeToAi) sourceUsed = 'hybrid';
+            else if (cvStrong) sourceUsed = 'cv';
+
+            const selectedCount = sourceUsed === 'ai' ? aiResult.estimatedCount : cvResult.estimatedCount;
+            const selectedConfidence = sourceUsed === 'hybrid'
+                ? 'high'
+                : sourceUsed === 'cv'
+                    ? cvResult.confidence
+                    : aiResult.confidence;
+
+            const finalResult: FinalCountResult = {
+                ...aiResult,
+                estimatedCount: selectedCount,
+                finalCount: selectedCount,
+                confidence: selectedConfidence,
+                sourceUsed,
+                cvResult,
+                aiRawCount: aiResult.estimatedCount,
+                theoreticalBlockHeightMm: selectedCount * thicknessValue,
+            };
+
+            setAnalysisImages({ cropped, processed });
+            setResult(finalResult);
+            setManualFinalCount(selectedCount);
         } catch (err: any) {
-            setError(err.message || "Error al procesar la imagen.");
+            setError(err?.message || 'No se pudo completar el conteo.');
         } finally {
             setLoading(false);
         }
     };
 
-    const resetForm = () => {
+    const saveManualCount = () => {
+        if (!result || manualFinalCount === null) return;
+        const thicknessValue = Number.parseFloat(thickness.replace(',', '.'));
+        const fallbackThickness = Number.isFinite(thicknessValue) ? thicknessValue : 1;
+
+        setResult(prev => prev ? {
+            ...prev,
+            finalCount: manualFinalCount,
+            estimatedCount: manualFinalCount,
+            theoreticalBlockHeightMm: manualFinalCount * fallbackThickness,
+        } : prev);
+
+        setSavedManual(true);
+    };
+
+    const resetAll = () => {
+        stopCamera();
         setImagePreview(null);
         setResult(null);
+        setManualFinalCount(null);
+        setSavedManual(false);
         setError(null);
-        setIsCameraActive(false);
-    };
-
-    // --- AR FUNCTIONS ---
-    const startAR = async () => {
-        setIsARMode(true);
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: "environment" }
-            });
-            setArStream(stream);
-            // Wait for ref to be available in render
-            setTimeout(() => {
-                if (arVideoRef.current) {
-                    arVideoRef.current.srcObject = stream;
-                }
-            }, 100);
-        } catch (err) {
-            console.error("AR Error", err);
-            alert("No se pudo iniciar la cámara para AR.");
-            setIsARMode(false);
-        }
-    };
-
-    const stopAR = () => {
-        if (arStream) {
-            arStream.getTracks().forEach(t => t.stop());
-            setArStream(null);
-        }
-        setIsARMode(false);
-    };
-
-    // Clean up AR on unmount
-    useEffect(() => {
-        return () => {
-            if (arStream) arStream.getTracks().forEach(t => t.stop());
-        };
-    }, []);
-
-    // --- AR OVERLAY COMPONENT ---
-    const renderAROverlay = () => {
-        if (!result) return null;
-
-        // Constants for reference objects (in mm)
-        // We use the "height" in the view as the measuring axis
-        const REF_HEIGHT_MM = arRefType === 'CARD' ? 53.98 : 23.25;
-
-        // Base pixels for reference box on screen (at scale 1)
-        const BASE_REF_PIXELS = 150;
-
-        // Dynamic pixels based on scale slider
-        const currentRefPixels = BASE_REF_PIXELS * arScale;
-
-        // Calculate Target Pixels based on ratio
-        // (TargetHeight / RefHeight) * RefPixels
-        const ratio = result.theoreticalBlockHeightMm / REF_HEIGHT_MM;
-        const targetPixels = currentRefPixels * ratio;
-
-        return (
-            <div className="fixed inset-0 z-[100] bg-black">
-                {/* Camera Feed */}
-                <video
-                    ref={arVideoRef}
-                    autoPlay
-                    playsInline
-                    className="absolute inset-0 w-full h-full object-cover"
-                />
-
-                {/* UI Overlay Layer */}
-                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-
-                    {/* Header */}
-                    <div className="bg-black/60 p-4 text-white pointer-events-auto flex justify-between items-start">
-                        <div>
-                            <h3 className="font-bold flex items-center gap-2">
-                                <RulerIcon className="h-5 w-5 text-cyan-400" />
-                                Regla AR
-                            </h3>
-                            <p className="text-xs opacity-80 max-w-[250px]">
-                                1. Coloca una <strong>{arRefType === 'CARD' ? 'Tarjeta' : 'Moneda 1€'}</strong> junto al bloque.
-                                <br />
-                                2. Aléjate hasta que encaje en el recuadro VERDE.
-                                <br />
-                                3. Verifica si el bloque llena la barra ROJA.
-                            </p>
-                        </div>
-                        <button onClick={stopAR} className="p-2 bg-white/20 rounded-full">
-                            <CloseIcon className="h-6 w-6" />
-                        </button>
-                    </div>
-
-                    {/* Augmented Reality Guides */}
-                    <div className="flex-grow relative flex items-center justify-center gap-8">
-
-                        {/* Reference Box (Green) */}
-                        <div
-                            className="border-4 border-green-500 bg-green-500/10 flex items-center justify-center relative transition-all duration-100"
-                            style={{
-                                height: `${currentRefPixels}px`,
-                                width: arRefType === 'CARD' ? `${currentRefPixels * 1.58}px` : `${currentRefPixels}px`, // Card ratio or square for coin
-                                borderRadius: arRefType === 'COIN' ? '50%' : '8px'
-                            }}
-                        >
-                            <span className="bg-green-500 text-black text-xs font-bold px-2 py-1 rounded">
-                                {arRefType === 'CARD' ? 'Tarjeta' : '1€'}
-                            </span>
-                            {/* Baseline Helper */}
-                            <div className="absolute -bottom-10 left-0 right-0 border-b-2 border-white/50 text-center text-white/50 text-[10px]">Línea Base</div>
-                        </div>
-
-                        {/* Target Height Bar (Red) */}
-                        <div className="flex flex-col items-center justify-end h-full absolute" style={{ bottom: '50%', transform: 'translateY(50%)' }}>
-                            {/* Only showing this relative to the center alignment is tricky without fixed baseline.
-                                 Let's visually align bottoms. */}
-                        </div>
-
-                        {/* Better Layout: Side by Side Bottom Aligned */}
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="flex items-end gap-8" style={{ height: Math.max(currentRefPixels, targetPixels) + 100 }}>
-                                {/* Reference Column */}
-                                <div className="flex flex-col items-center">
-                                    <div
-                                        className="border-4 border-green-500 bg-green-500/20 mb-0 flex items-center justify-center"
-                                        style={{
-                                            height: `${currentRefPixels}px`,
-                                            width: arRefType === 'CARD' ? `${currentRefPixels * 1.58}px` : `${currentRefPixels}px`,
-                                            borderRadius: arRefType === 'COIN' ? '50%' : '8px'
-                                        }}
-                                    >
-                                    </div>
-                                    <div className="text-green-400 font-bold text-xs mt-2 text-center">REFERENCIA<br />{REF_HEIGHT_MM}mm</div>
-                                </div>
-
-                                {/* Target Column */}
-                                <div className="flex flex-col items-center relative">
-                                    <div
-                                        className="border-4 border-red-500 bg-red-500/20 mb-0 flex flex-col justify-between"
-                                        style={{
-                                            height: `${targetPixels}px`,
-                                            width: '60px',
-                                        }}
-                                    >
-                                        <div className="w-full border-t border-red-500"></div>
-                                        <div className="w-full border-b border-red-500"></div>
-                                    </div>
-                                    <div className="text-red-400 font-bold text-xs mt-2 text-center">BLOQUE<br />~{result.theoreticalBlockHeightMm.toFixed(0)}mm</div>
-
-                                    {/* Compare line */}
-                                    <div className="absolute bottom-0 left-[-20px] right-[-20px] border-b border-dashed border-white/30"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-
-                    {/* Footer Controls */}
-                    <div className="bg-black/80 p-6 pointer-events-auto pb-10 safe-area-inset-bottom">
-                        <div className="flex items-center gap-4 mb-4">
-                            <span className="text-white font-bold text-xs">Escala</span>
-                            <input
-                                type="range"
-                                min="0.5"
-                                max="2.0"
-                                step="0.05"
-                                value={arScale}
-                                onChange={(e) => setArScale(parseFloat(e.target.value))}
-                                className="flex-grow accent-cyan-500"
-                            />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <button
-                                onClick={() => setArRefType('CARD')}
-                                className={`py-3 rounded-xl font-bold text-sm border ${arRefType === 'CARD' ? 'bg-cyan-600 border-cyan-600 text-white' : 'bg-transparent border-slate-600 text-slate-400'}`}
-                            >
-                                Usar Tarjeta
-                            </button>
-                            <button
-                                onClick={() => setArRefType('COIN')}
-                                className={`py-3 rounded-xl font-bold text-sm border ${arRefType === 'COIN' ? 'bg-cyan-600 border-cyan-600 text-white' : 'bg-transparent border-slate-600 text-slate-400'}`}
-                            >
-                                Usar Moneda 1€
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
+        setCropRect(INITIAL_CROP);
+        setCalibrationPointsY([]);
+        setAnalysisImages(null);
     };
 
     return (
-        <div className="max-w-2xl mx-auto pb-24">
-            {isARMode && renderAROverlay()}
-
-            <div className="flex flex-col items-center justify-center gap-3 mb-8 text-center relative">
-                <div className="p-4 bg-orange-100 dark:bg-orange-900/30 rounded-full text-orange-600 dark:text-orange-400 shadow-sm relative group cursor-help">
-                    <LayersIcon className="h-10 w-10" />
-                    <div className="absolute -top-1 -right-1 bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold animate-pulse">?</div>
-                </div>
-                <div>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Chapero Digital Pro</h2>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm mb-2">Conteo por Visión Artificial + Verificación Física.</p>
-                    <button
-                        onClick={() => alert(`CONSEJOS PARA FOTO PERFECTA:\n\n1. 📐 PERFIL PURO: Toma la foto exactamente de lado a las chapas, no desde arriba ni en ángulo.\n2. 💡 LUZ DIFUSA: Evita reflejos directos del sol o flash que oculten los bordes.\n3. 🔍 ENCUADRE: Acércate lo suficiente para ver las líneas de separación, pero abarca todo el bloque.\n4. 🚫背景 LIMPIO: Evita fondos confusos detrás del bloque.`)}
-                        className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center justify-center gap-1"
-                    >
-                        <InfoIcon className="h-3 w-3" /> Ver Guía de Captura
-                    </button>
+        <div className="max-w-3xl mx-auto pb-24">
+            <div className="mb-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
+                <h2 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Chapero Hibrido (CV + IA)</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Mayor fiabilidad con recorte, preprocesado y ajuste final en 2 segundos.</p>
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div className="rounded-lg bg-slate-100 dark:bg-slate-800 p-2">1) Perfil lateral limpio y camara paralela.</div>
+                    <div className="rounded-lg bg-slate-100 dark:bg-slate-800 p-2">2) Luz uniforme, sin reflejos fuertes.</div>
+                    <div className="rounded-lg bg-slate-100 dark:bg-slate-800 p-2">3) Recorta solo el canto del bloque de chapas.</div>
+                    <div className="rounded-lg bg-slate-100 dark:bg-slate-800 p-2">4) Si dudas: ajusta +/- y guarda conteo final.</div>
                 </div>
             </div>
 
             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-
-                {/* 1. Configuration Form */}
-                <div className="p-6 border-b border-slate-100 dark:border-slate-800 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 md:p-6 border-b border-slate-200 dark:border-slate-800 space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase mb-2 ml-1">Material</label>
                             <select
                                 value={material}
                                 onChange={e => setMaterial(e.target.value)}
-                                className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-transparent focus:border-orange-500 outline-none font-bold text-slate-800 dark:text-white"
+                                className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-transparent focus:border-cyan-500 outline-none font-bold text-slate-800 dark:text-white"
                             >
                                 {MATERIALS.map(m => <option key={m} value={m}>{m}</option>)}
                             </select>
@@ -342,59 +298,120 @@ const ChaperoCountView: React.FC = () => {
                                 placeholder="Ej: 1.5"
                                 value={thickness}
                                 onChange={e => setThickness(e.target.value)}
-                                className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-transparent focus:border-orange-500 outline-none font-bold text-slate-800 dark:text-white"
+                                className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-transparent focus:border-cyan-500 outline-none font-bold text-slate-800 dark:text-white"
                             />
                         </div>
                     </div>
-                    <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg flex items-center gap-3 text-xs text-blue-700 dark:text-blue-300">
-                        <SparklesIcon className="h-5 w-5 flex-shrink-0" />
-                        <p>La IA usará el <strong>grosor ({thickness || 'X'}mm)</strong> para validar si el conteo visual es físicamente posible.</p>
+
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={() => setCropEnabled(prev => !prev)}
+                            className={`min-h-[44px] px-3 py-2 rounded-lg text-sm font-bold border ${cropEnabled ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'}`}
+                        >
+                            {cropEnabled ? 'Recorte activo' : 'Activar recorte'}
+                        </button>
+                        <button
+                            onClick={() => setCalibrationMode(prev => !prev)}
+                            className={`min-h-[44px] px-3 py-2 rounded-lg text-sm font-bold border ${calibrationMode ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'}`}
+                        >
+                            <RulerIcon className="h-4 w-4 inline mr-1" />
+                            Modo calibracion (2 puntos)
+                        </button>
+                        <button
+                            onClick={() => {
+                                setCropRect(INITIAL_CROP);
+                                setCalibrationPointsY([]);
+                            }}
+                            className="min-h-[44px] px-3 py-2 rounded-lg text-sm font-bold border bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
+                        >
+                            Reset marcas
+                        </button>
+                    </div>
+
+                    <div className="text-xs text-slate-500 dark:text-slate-400 flex items-start gap-2">
+                        <InfoIcon className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                        {calibrationMode
+                            ? 'Toca dos puntos verticales (arriba/abajo del bloque) para ayudar a validar escala.'
+                            : 'Con recorte activo, arrastra sobre la foto para delimitar solo el canto de chapas.'}
                     </div>
                 </div>
 
-                {/* 2. Image Capture Area */}
-                <div className="relative bg-slate-50 dark:bg-black/40 min-h-[300px] flex flex-col items-center justify-center p-4">
+                <div className="relative bg-slate-50 dark:bg-black/30 p-4 min-h-[320px] flex items-center justify-center">
                     {isCameraActive ? (
-                        <div className="relative w-full h-full rounded-xl overflow-hidden shadow-lg">
-                            <video ref={videoRef} autoPlay playsInline className="w-full h-64 object-cover" />
+                        <div className="relative w-full max-w-2xl rounded-xl overflow-hidden shadow-lg">
+                            <video ref={videoRef} autoPlay playsInline className="w-full h-72 object-cover" />
+                            <div className="absolute inset-0 pointer-events-none border-2 border-cyan-400/70 rounded-xl" />
                             <button
                                 onClick={capturePhoto}
                                 className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white rounded-full p-1 shadow-lg active:scale-95 transition-transform"
                             >
-                                <div className="h-14 w-14 rounded-full border-4 border-orange-500 bg-white" />
+                                <div className="h-14 w-14 rounded-full border-4 border-cyan-500 bg-white" />
                             </button>
                             <button
                                 onClick={stopCamera}
-                                className="absolute top-4 right-4 bg-black/50 text-white p-2 rounded-full"
+                                className="absolute top-3 right-3 h-10 w-10 inline-flex items-center justify-center rounded-full bg-black/55 text-white"
                             >
-                                ✕
+                                X
                             </button>
                         </div>
                     ) : imagePreview ? (
-                        <div className="relative w-full">
-                            <img src={imagePreview} alt="Preview" className="w-full h-64 object-cover rounded-xl shadow-md" />
+                        <div
+                            ref={previewRef}
+                            className="relative w-full max-w-2xl rounded-xl overflow-hidden shadow-md select-none"
+                            onPointerDown={handlePreviewPointerDown}
+                            onPointerMove={handlePreviewPointerMove}
+                            onPointerUp={handlePreviewPointerUp}
+                            onPointerLeave={handlePreviewPointerUp}
+                        >
+                            <img src={imagePreview} alt="Captura chapero" className="w-full h-72 md:h-80 object-cover" />
+
+                            {cropEnabled && (
+                                <>
+                                    <div className="absolute inset-0 bg-black/35" />
+                                    <div
+                                        className="absolute border-2 border-cyan-400 bg-cyan-400/10"
+                                        style={{
+                                            left: `${cropRect.x * 100}%`,
+                                            top: `${cropRect.y * 100}%`,
+                                            width: `${cropRect.w * 100}%`,
+                                            height: `${cropRect.h * 100}%`,
+                                        }}
+                                    />
+                                </>
+                            )}
+
+                            {calibrationPointsY.map((y, idx) => (
+                                <div
+                                    key={`${y}-${idx}`}
+                                    className="absolute left-0 right-0 border-t-2 border-yellow-400"
+                                    style={{ top: `${y * 100}%` }}
+                                >
+                                    <span className="absolute right-2 -top-3 px-1.5 py-0.5 bg-yellow-400 text-black text-[10px] font-bold rounded">P{idx + 1}</span>
+                                </div>
+                            ))}
+
                             <button
-                                onClick={resetForm}
-                                className="absolute top-2 right-2 bg-black/60 text-white p-2 rounded-full hover:bg-black/80 transition-colors"
+                                onClick={resetAll}
+                                className="absolute top-3 right-3 h-10 w-10 inline-flex items-center justify-center rounded-full bg-black/60 text-white"
                             >
-                                ✕
+                                X
                             </button>
                         </div>
                     ) : (
                         <div className="flex flex-col items-center gap-4 py-8">
                             <button
                                 onClick={startCamera}
-                                className="flex flex-col items-center justify-center h-32 w-32 bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-2xl border-2 border-dashed border-orange-300 dark:border-orange-800 hover:scale-105 transition-transform"
+                                className="flex flex-col items-center justify-center h-32 w-32 bg-cyan-100 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-300 rounded-2xl border-2 border-dashed border-cyan-300 dark:border-cyan-700 hover:scale-105 transition-transform"
                             >
                                 <CameraIcon className="h-10 w-10 mb-2" />
-                                <span className="text-xs font-bold uppercase">Cámara</span>
+                                <span className="text-xs font-bold uppercase">Camara</span>
                             </button>
-                            <span className="text-slate-400 text-xs font-bold uppercase">- O -</span>
+                            <span className="text-slate-400 text-xs font-bold uppercase">o</span>
                             <button
                                 onClick={() => fileInputRef.current?.click()}
-                                className="px-6 py-2 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg font-bold text-sm flex items-center gap-2 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
+                                className="min-h-[44px] px-6 py-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg font-bold text-sm flex items-center gap-2"
                             >
-                                <UploadIcon className="h-4 w-4" /> Subir Foto
+                                <UploadIcon className="h-4 w-4" /> Subir foto
                             </button>
                             <input
                                 type="file"
@@ -407,92 +424,99 @@ const ChaperoCountView: React.FC = () => {
                     )}
                 </div>
 
-                {/* 3. Action / Result Area */}
-                <div className="p-6 border-t border-slate-100 dark:border-slate-800">
+                <div className="p-4 md:p-6 border-t border-slate-200 dark:border-slate-800">
                     {error && (
-                        <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg text-sm font-bold text-center">
+                        <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg text-sm font-bold text-center">
                             {error}
                         </div>
                     )}
 
-                    {!result && !loading && (
+                    {!loading && !result && (
                         <button
                             onClick={handleCount}
                             disabled={!imagePreview || !thickness}
-                            className="w-full py-4 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-xl shadow-lg shadow-orange-900/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
+                            className="w-full min-h-[48px] py-4 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <SparklesIcon className="h-5 w-5" />
-                            Analizar & Verificar
+                            <LayersIcon className="h-5 w-5" /> Analizar con CV + IA
                         </button>
                     )}
 
                     {loading && (
                         <div className="flex flex-col items-center justify-center py-4">
-                            <LoadingIcon className="h-8 w-8 text-orange-500 animate-spin mb-2" />
-                            <p className="text-sm font-bold text-slate-500 animate-pulse">
-                                IA contando cantos y calculando altura...
-                            </p>
+                            <LoadingIcon className="h-8 w-8 text-cyan-500 animate-spin mb-2" />
+                            <p className="text-sm font-bold text-slate-500 animate-pulse">Procesando: recorte, preprocesado, CV e IA...</p>
                         </div>
                     )}
 
                     {result && (
-                        <div className="animate-slide-up space-y-4">
-
-                            {/* Visual Count Card */}
-                            <div className="bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 rounded-xl p-5 border border-slate-300 dark:border-slate-700 text-center relative overflow-hidden">
-                                <div className="absolute top-0 right-0 p-2 opacity-10">
-                                    <LayersIcon className="h-16 w-16" />
-                                </div>
-                                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">Conteo Visual IA</span>
-                                <div className="text-6xl font-black text-slate-800 dark:text-white mb-2 leading-none">
-                                    {result.estimatedCount}
-                                </div>
-                                <span className="text-sm text-slate-500 font-bold uppercase">Chapas</span>
-                                <div className="flex justify-center gap-2 mt-3">
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${result.confidence === 'high' ? 'bg-green-100 text-green-700 border-green-200' :
-                                            result.confidence === 'medium' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' :
-                                                'bg-red-100 text-red-700 border-red-200'
-                                        }`}>
-                                        Confianza: {result.confidence === 'high' ? 'Alta' : result.confidence === 'medium' ? 'Media' : 'Baja'}
-                                    </span>
+                        <div className="space-y-4">
+                            <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                                <div className="text-xs uppercase tracking-wide text-slate-500 font-bold mb-1">Conteo final operativo</div>
+                                <div className="text-5xl font-black text-slate-900 dark:text-white leading-none">{result.finalCount}</div>
+                                <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                                    <span className="px-2 py-1 rounded bg-cyan-100 text-cyan-800 font-bold">Fuente: {result.sourceUsed.toUpperCase()}</span>
+                                    <span className="px-2 py-1 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold">AI: {result.aiRawCount}</span>
+                                    <span className="px-2 py-1 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold">CV: {result.cvResult.estimatedCount}</span>
+                                    <span className="px-2 py-1 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold">Confianza: {result.confidence.toUpperCase()}</span>
                                 </div>
                             </div>
 
-                            {/* Verification Card (The Logic Step) */}
-                            <div className="bg-cyan-50 dark:bg-cyan-900/10 p-4 rounded-xl border-l-4 border-cyan-500 shadow-sm">
-                                <h3 className="flex items-center gap-2 font-bold text-cyan-800 dark:text-cyan-300 mb-2">
-                                    <CheckIcon className="h-5 w-5" />
-                                    Validación de Coherencia
-                                </h3>
-                                <div className="text-sm text-slate-700 dark:text-slate-300 space-y-2">
-                                    <p>
-                                        Si hay <strong>{result.estimatedCount}</strong> chapas de <strong>{thickness}mm</strong>...
-                                    </p>
-                                    <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-cyan-100 dark:border-cyan-800/30 flex justify-between items-center">
-                                        <span className="text-xs uppercase font-bold text-slate-500">Altura del Bloque</span>
-                                        <span className="text-xl font-bold text-cyan-600 dark:text-cyan-400">
-                                            ~{(result.theoreticalBlockHeightMm / 10).toFixed(1)} cm
-                                        </span>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {analysisImages?.cropped && (
+                                    <div>
+                                        <p className="text-xs font-bold text-slate-500 mb-1 uppercase">Recorte usado</p>
+                                        <img src={analysisImages.cropped} alt="Recorte" className="w-full h-28 object-cover rounded-lg border border-slate-200 dark:border-slate-700" />
                                     </div>
-                                    <p className="text-xs italic text-slate-500 mt-2 border-t border-cyan-200 dark:border-cyan-800 pt-2">
-                                        "{result.visualNotes}"
-                                    </p>
+                                )}
+                                {analysisImages?.processed && (
+                                    <div>
+                                        <p className="text-xs font-bold text-slate-500 mb-1 uppercase">Version procesada</p>
+                                        <img src={analysisImages.processed} alt="Procesada" className="w-full h-28 object-cover rounded-lg border border-slate-200 dark:border-slate-700" />
+                                    </div>
+                                )}
+                            </div>
 
+                            <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border-l-4 border-indigo-500">
+                                <h3 className="font-bold text-indigo-800 dark:text-indigo-300 mb-2">Ajuste manual rapido</h3>
+                                <div className="flex items-center gap-2">
                                     <button
-                                        onClick={startAR}
-                                        className="w-full mt-2 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-[0.98]"
+                                        onClick={() => setManualFinalCount(prev => Math.max(1, (prev ?? result.finalCount) - 1))}
+                                        className="h-11 w-11 rounded-lg bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-700 font-black text-lg"
                                     >
-                                        <RulerIcon className="h-5 w-5" />
-                                        Verificar con Regla AR
+                                        -
+                                    </button>
+                                    <div className="flex-1 h-11 rounded-lg bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-700 flex items-center justify-center font-black text-xl">
+                                        {manualFinalCount ?? result.finalCount}
+                                    </div>
+                                    <button
+                                        onClick={() => setManualFinalCount(prev => (prev ?? result.finalCount) + 1)}
+                                        className="h-11 w-11 rounded-lg bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-700 font-black text-lg"
+                                    >
+                                        +
                                     </button>
                                 </div>
+                                <button
+                                    onClick={saveManualCount}
+                                    className="mt-3 w-full min-h-[44px] bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg flex items-center justify-center gap-2"
+                                >
+                                    <CheckIcon className="h-5 w-5" /> Guardar conteo final
+                                </button>
+                                {savedManual && (
+                                    <p className="text-xs text-emerald-700 dark:text-emerald-300 font-bold mt-2">Conteo final guardado para operacion.</p>
+                                )}
+                            </div>
+
+                            <div className="text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
+                                <p><strong>CV:</strong> {result.cvResult.reasoning}</p>
+                                <p className="mt-1"><strong>IA:</strong> {result.reasoning}</p>
+                                <p className="mt-1"><strong>Notas visuales:</strong> {result.visualNotes}</p>
                             </div>
 
                             <button
-                                onClick={resetForm}
-                                className="w-full py-3 bg-slate-800 dark:bg-slate-700 text-white font-bold rounded-xl hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors"
+                                onClick={resetAll}
+                                className="w-full min-h-[44px] py-3 bg-slate-800 dark:bg-slate-700 text-white font-bold rounded-xl"
                             >
-                                Nuevo Análisis
+                                Nuevo analisis
                             </button>
                         </div>
                     )}

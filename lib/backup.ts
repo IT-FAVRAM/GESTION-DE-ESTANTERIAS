@@ -83,7 +83,7 @@ export const readBackupFile = (file: File): Promise<WarehouseBackupData> => {
 };
 
 /**
- * Creates a cloud backup in Firestore at meta/backups/{timestamp}
+ * Creates a cloud backup in Firestore at meta/backups/snapshots/{timestamp}
  */
 import { db } from './firebase';
 

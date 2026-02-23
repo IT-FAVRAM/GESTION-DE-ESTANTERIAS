@@ -1,15 +1,22 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { defineSecret } from "firebase-functions/params";
 
 admin.initializeApp();
 
 // Configuration
-// Ensure you set this via: firebase functions:config:set gemini.key="YOUR_KEY"
-// Or use process.env if you prefer .env files
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || functions.config().gemini?.key;
-const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
+// Set secret via: firebase functions:secrets:set GEMINI_API_KEY
+const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
 const MODEL_NAME = 'gemini-2.0-flash'; // Optimized model
+
+const getGeminiClient = () => {
+    const apiKey = GEMINI_API_KEY.value() || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        throw new functions.https.HttpsError("failed-precondition", "AI not configured.");
+    }
+    return new GoogleGenerativeAI(apiKey);
+};
 
 // Rate Limiting (Simple In-Memory for this scale)
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
@@ -30,25 +37,75 @@ const checkRateLimit = (uid: string) => {
     requestLog[uid].push(now);
 };
 
-const sanitizeInput = (input: any): any => {
+const ALLOWED_AI_TYPES_BY_ROLE: Record<string, string[]> = {
+    ADMIN: [
+        "textFromImage", "combinedData", "codeFromImage", "inventorySummary", "historySummary",
+        "traceabilityReport", "anomalyDetection", "locationPrediction", "metalCount"
+    ],
+    JEFE: [
+        "textFromImage", "combinedData", "codeFromImage", "inventorySummary", "historySummary",
+        "traceabilityReport", "metalCount"
+    ],
+    CARRETILLERO: ["textFromImage", "combinedData", "codeFromImage", "metalCount"]
+};
+
+const normalize = (value?: string | null) => (value || "").trim().toUpperCase();
+
+const isSameIdentity = (
+    item: any,
+    barcode: string,
+    orderId?: string,
+    itemKey?: string,
+    containerId?: string
+) => {
+    const byKey = normalize(itemKey || item?.itemKey);
+    if (byKey) return normalize(item?.itemKey) === byKey;
+    const barcodeMatch = normalize(item?.barcode) === normalize(barcode);
+    const orderMatch = !orderId || normalize(item?.orderId) === normalize(orderId);
+    const containerMatch = !containerId || normalize(item?.containerId) === normalize(containerId);
+    return barcodeMatch && orderMatch && containerMatch;
+};
+
+const sectionForWarehouse = (warehouseId: string) => {
+    if (warehouseId === "MEC") return "MECANIZADO";
+    if (warehouseId === "PLE") return "PLEGADORA";
+    if (warehouseId === "RPL") return "ROBOT_PLEGADO";
+    if (["SOL", "RSO", "SXP"].includes(warehouseId)) return "SOLDADURA";
+    if (["REP", "PIN", "ZIN"].includes(warehouseId)) return "REPASADO";
+    return "OTROS";
+};
+
+const canOperateWarehouse = (role: string, section: string | null, warehouseId: string) => {
+    if (role === "ADMIN" || role === "CARRETILLERO") return true;
+    if (role === "JEFE") return !!section && section === sectionForWarehouse(warehouseId);
+    return false;
+};
+
+const NON_TRUNCATED_FIELDS = new Set(['image', 'processedImage']);
+
+const sanitizeInput = (input: any, parentKey?: string): any => {
     if (typeof input === 'string') {
-        // Remove control characters and limit length
-        return input.replace(/[\x00-\x1F\x7F]/g, "").substring(0, 5000);
+        // Remove control characters. Only truncate free-text fields.
+        const cleaned = input.replace(/[\x00-\x1F\x7F]/g, "");
+        if (parentKey && NON_TRUNCATED_FIELDS.has(parentKey)) {
+            return cleaned;
+        }
+        return cleaned.substring(0, 5000);
     }
     if (Array.isArray(input)) {
-        return input.map(item => sanitizeInput(item));
+        return input.map(item => sanitizeInput(item, parentKey));
     }
     if (typeof input === 'object' && input !== null) {
         const sanitized: any = {};
         for (const [key, value] of Object.entries(input)) {
-            sanitized[key] = sanitizeInput(value);
+            sanitized[key] = sanitizeInput(value, key);
         }
         return sanitized;
     }
     return input;
 };
 
-export const generateGeminiResponse = functions.https.onCall(async (data, context) => {
+export const generateGeminiResponse = functions.runWith({ secrets: [GEMINI_API_KEY] }).https.onCall(async (data, context) => {
     // 1. Authentication Check
     if (!context.auth) {
         return { success: false, error: "Usuario no autenticado." };
@@ -78,12 +135,14 @@ export const generateGeminiResponse = functions.https.onCall(async (data, contex
     }
 
     try {
-        if (!genAI) {
-            throw new Error("Gemini API Key not configured.");
-        }
-
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const genAI = getGeminiClient();
+        const model = genAI.getGenerativeModel({ model: MODEL_NAME });
         const { type, payload: rawPayload } = data;
+        const role = (context.auth.token.role as string) || "";
+        const allowedTypes = ALLOWED_AI_TYPES_BY_ROLE[role] || [];
+        if (!allowedTypes.includes(type)) {
+            throw new functions.https.HttpsError("permission-denied", "AI operation not allowed for this role.");
+        }
 
         // 3. Input Sanitization
         const payload = sanitizeInput(rawPayload);
@@ -255,44 +314,35 @@ Si falta alguno, intenta deducirlo o deja cadena vacía.`;
                 break;
 
             case 'metalCount':
-                // payload: { image: base64, material, thickness }
-                imagePart = { inlineData: { mimeType: 'image/jpeg', data: payload.image } };
+                // payload: { image: base64, processedImage?: base64, material, thickness, cvEstimate?, calibrationHeightPx? }
                 prompt = `
-                    ACTÚA COMO UN EXPERTO EN VISIÓN ARTIFICIAL Y METALURGIA.
-                    TU OBJETIVO: Contar con EXACTITUD CIENTÍFICA el número de chapas metálicas en una pila, basándote en su perfil lateral.
+                    Actua como experto en vision artificial industrial para conteo de chapas.
+                    Objetivo: estimar el numero de chapas con alta estabilidad y explicar por que.
 
-                    DATOS DE ENTRADA:
+                    Datos de entrada:
                     - Material: ${payload.material}
-                    - Grosor nominal de cada chapa: ${payload.thickness} mm
-                    
-                    PROTOCOLO DE ANÁLISIS VISUAL AVANZADO:
-                    1. **Escaneo de Patrones**: Identifica el patrón repetitivo de "Luz-Sombra-Luz" que forman los bordes de las chapas.
-                    2. **Discriminación de Artefactos**:
-                       - IGNORA sombras proyectadas por la iluminación ambiental.
-                       - IGNORA marcas de óxido superficial o manchas de aceite.
-                       - IGNORA líneas de corte de sierra si no coinciden con la separación física.
-                       - IGNORA separadores de madera o plásticos entre lotes.
-                    3. **Validación de Espesor**:
-                       - Estima visualmente cuántos píxeles ocupa UNA sola chapa.
-                       - Si detectas una línea mucho más delgada que el promedio, probablemente sea una marca superficial.
-                       - Si detectas un espacio mucho más grueso, puede ser un hueco.
-                    4. **Cálculo de Densidad**:
-                       - Observa la altura total del bloque en la imagen.
-                       - Divide mentalmente el bloque en segmentos para verificar consistencia.
+                    - Grosor nominal: ${payload.thickness} mm
+                    - Calibracion altura en pixeles (si existe): ${payload.calibrationHeightPx || 'no disponible'}
+                    - Pista CV clasico: ${payload.cvEstimate ? JSON.stringify(payload.cvEstimate) : 'sin pista CV'}
 
-                    VERIFICACIÓN LÓGICA (SANITY CHECK):
-                    - Si cuentas N chapas, la altura física teórica será N * ${payload.thickness}.
-                    - ¿Es esa altura coherente con la perspectiva de la imagen?
-                    - SÉ CONSERVADOR. Ante la duda, si una línea no es un borde claro, NO la cuentes.
+                    Vas a recibir 1 o 2 imagenes:
+                    - Imagen original
+                    - Imagen procesada (grayscale/contraste/enfoque) para reforzar bordes
 
-                    SALIDA REQUERIDA (JSON ESTRICTO):
-                    {
-                        "estimatedCount": (Entero),
-                        "theoreticalBlockHeightMm": (Número),
-                        "confidence": "high" | "medium" | "low",
-                        "reasoning": "Explica tu proceso...",
-                        "visualNotes": "Comentario sobre la coherencia altura/cantidad."
-                    }
+                    Protocolo obligatorio:
+                    1) Haz un conteo independiente A (sin mirar el resultado final) usando la imagen original.
+                    2) Haz un conteo independiente B usando la imagen procesada priorizando bordes repetitivos.
+                    3) Detecta y excluye separadores, sombras duras, suciedad, cortes y artefactos.
+                    4) Evalua regularidad del patron de separaciones entre chapas (high|medium|low).
+                    5) Compara A y B y decide estimacion final conservadora.
+                    6) Si la pista CV tiene confianza alta y coincide +-1 con tu estimacion, recomienda fuente "hybrid" o "cv".
+
+                    Reglas:
+                    - No inventes precision si la imagen es mala.
+                    - Si hay duda fuerte, confidence baja.
+                    - theoreticalBlockHeightMm = estimatedCount * ${payload.thickness}.
+
+                    Devuelve JSON estricto con este schema.
                 `;
                 schema = {
                     type: SchemaType.OBJECT,
@@ -301,9 +351,14 @@ Si falta alguno, intenta deducirlo o deja cadena vacía.`;
                         theoreticalBlockHeightMm: { type: SchemaType.NUMBER },
                         confidence: { type: SchemaType.STRING, enum: ["high", "medium", "low"] },
                         reasoning: { type: SchemaType.STRING },
-                        visualNotes: { type: SchemaType.STRING }
+                        visualNotes: { type: SchemaType.STRING },
+                        countPassA: { type: SchemaType.INTEGER },
+                        countPassB: { type: SchemaType.INTEGER },
+                        separatorsDetected: { type: SchemaType.INTEGER },
+                        patternRegularity: { type: SchemaType.STRING, enum: ["high", "medium", "low"] },
+                        recommendedSource: { type: SchemaType.STRING, enum: ["cv", "ai", "hybrid"] }
                     },
-                    required: ["estimatedCount", "theoreticalBlockHeightMm", "confidence", "reasoning", "visualNotes"],
+                    required: ["estimatedCount", "theoreticalBlockHeightMm", "confidence", "reasoning", "visualNotes", "countPassA", "countPassB", "separatorsDetected", "patternRegularity", "recommendedSource"],
                 };
                 break;
 
@@ -313,7 +368,16 @@ Si falta alguno, intenta deducirlo o deja cadena vacía.`;
 
         // Execute Call
         const parts: any[] = [{ text: prompt }];
-        if (imagePart) parts.push(imagePart); // imagePart usually goes with text in parts
+        if (type === 'metalCount') {
+            parts.push({ text: 'Imagen 1: ORIGINAL' });
+            parts.push({ inlineData: { mimeType: 'image/jpeg', data: payload.image } });
+            if (payload.processedImage) {
+                parts.push({ text: 'Imagen 2: PROCESADA (usar para reforzar conteo de bordes)' });
+                parts.push({ inlineData: { mimeType: 'image/jpeg', data: payload.processedImage } });
+            }
+        } else if (imagePart) {
+            parts.push(imagePart);
+        }
 
         const generationConfig: any = {
             temperature: 0.4,
@@ -403,7 +467,7 @@ export const notifyCarretilleroRequest = functions.firestore
                 body: data.message || "Tienes una nueva solicitud pendiente.",
             },
             data: {
-                url: "/?view=requests",
+                url: "/requests",
                 requestId: context.params.notificationId,
                 priority: data.metadata?.priority || "normal"
             },
@@ -418,19 +482,19 @@ export const notifyCarretilleroRequest = functions.firestore
                     Urgency: "high"
                 },
                 fcmOptions: {
-                    link: "/?view=requests"
+                    link: "/requests"
                 }
             }
         };
 
         try {
-            const response = await admin.messaging().sendMulticast(payload);
+            const response = await admin.messaging().sendEachForMulticast(payload);
             console.log(`Successfully sent message: ${response.successCount} success, ${response.failureCount} failure`);
 
             if (response.failureCount > 0) {
                 const cleanupPromises: Promise<any>[] = [];
 
-                response.responses.forEach((resp, idx) => {
+                response.responses.forEach((resp: admin.messaging.SendResponse, idx: number) => {
                     if (!resp.success && resp.error) {
                         const errorState = resp.error.code;
                         const badToken = tokens[idx];
@@ -597,12 +661,12 @@ export const leadTimeDataset = functions.https.onCall(async (data, context) => {
 /**
  * Callable: Generate AI Report for Lead Time (Inventory Cycle)
  */
-export const leadTimeAIReport = functions.https.onCall(async (data, context) => {
+export const leadTimeAIReport = functions.runWith({ secrets: [GEMINI_API_KEY] }).https.onCall(async (data, context) => {
     // 1. Auth Check
     if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "User must be logged in.");
     if (context.auth.token.role !== 'ADMIN') throw new functions.https.HttpsError('permission-denied', 'Only Admins can access AI analysis.');
 
-    if (!genAI) throw new functions.https.HttpsError("failed-precondition", "AI not configured.");
+    const genAI = getGeminiClient();
 
     // Rate Limit
     checkRateLimit(context.auth.uid);
@@ -646,4 +710,189 @@ export const leadTimeAIReport = functions.https.onCall(async (data, context) => 
         console.error("AI Report Error:", error);
         throw new functions.https.HttpsError("internal", "AI Generation Failed");
     }
+});
+
+export const inventoryOperate = functions.https.onCall(async (data, context) => {
+    if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "auth required");
+
+    const uid = context.auth.uid;
+    const role = (context.auth.token.role as string) || "";
+    const section = (context.auth.token.section as string) || null;
+    const user = (context.auth.token.email as string) || "unknown";
+    const op = data?.op as string;
+    const payload = data?.payload || {};
+    const opId = (data?.opId as string) || admin.firestore().collection("_ops").doc().id;
+    const now = new Date().toISOString();
+
+    if (!["ADMIN", "JEFE", "CARRETILLERO"].includes(role)) {
+        throw new functions.https.HttpsError("permission-denied", "Invalid role");
+    }
+
+    const writeHistory = (tx: FirebaseFirestore.Transaction, entry: any) => {
+        const historyRef = admin.firestore().collection("history").doc();
+        tx.set(historyRef, {
+            ...entry,
+            id: historyRef.id,
+            timestamp: now,
+            uid,
+            role,
+            user,
+            opId,
+            source: "inventoryOperate"
+        });
+    };
+
+    if (op === "emptyShelf") {
+        if (role !== "ADMIN") {
+            throw new functions.https.HttpsError("permission-denied", "Only admin can empty shelves");
+        }
+        const warehouse = payload?.warehouse as string;
+        const shelf = payload?.shelf as string;
+        if (!warehouse || !shelf) throw new functions.https.HttpsError("invalid-argument", "Missing warehouse/shelf");
+
+        const prefix = `${warehouse}-E${shelf}-`;
+        const snapshot = await admin.firestore().collection("assignments").doc(warehouse).collection("locations").get();
+        const docs = snapshot.docs.filter((d) => d.id.startsWith(prefix));
+
+        await admin.firestore().runTransaction(async (tx) => {
+            for (const doc of docs) {
+                const items = (doc.data()?.items || []) as any[];
+                tx.delete(doc.ref);
+                items.forEach((item) => {
+                    writeHistory(tx, {
+                        barcode: item.barcode || "",
+                        orderId: item.orderId || "",
+                        action: "removed",
+                        fromLocation: doc.id,
+                        toLocation: null
+                    });
+                });
+            }
+        });
+
+        return { ok: true, opId, removedLocations: docs.length };
+    }
+
+    const barcode = (payload?.barcode as string) || "";
+    const orderId = (payload?.orderId as string) || "";
+
+    if (op === "assign") {
+        const locationId = payload?.locationId as string;
+        if (!locationId || !barcode || !orderId) throw new functions.https.HttpsError("invalid-argument", "Missing assign payload");
+        const warehouseId = locationId.split("-")[0];
+        if (!canOperateWarehouse(role, section, warehouseId)) {
+            throw new functions.https.HttpsError("permission-denied", "Warehouse out of scope");
+        }
+
+        const locRef = admin.firestore().collection("assignments").doc(warehouseId).collection("locations").doc(locationId);
+        await admin.firestore().runTransaction(async (tx) => {
+            const doc = await tx.get(locRef);
+            const items = (doc.data()?.items || []) as any[];
+            const exists = items.some((i) => isSameIdentity(i, barcode, orderId, payload?.itemKey, payload?.containerId));
+            if (!exists) {
+                const newItem = {
+                    barcode,
+                    orderId,
+                    timestamp: now,
+                    assignedAt: now,
+                    movedAt: null,
+                    packageType: payload?.packageType || null,
+                    itemKey: payload?.itemKey || null,
+                    quantity: payload?.quantity ?? 1,
+                    containerId: payload?.containerId || null,
+                    notes: payload?.notes || null,
+                    status: "UBICADO"
+                };
+                tx.set(locRef, { items: [...items, newItem], updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+                writeHistory(tx, {
+                    barcode,
+                    orderId,
+                    action: "assigned",
+                    fromLocation: null,
+                    toLocation: locationId
+                });
+            }
+        });
+        return { ok: true, opId };
+    }
+
+    if (op === "remove") {
+        const locationId = payload?.locationId as string;
+        if (!locationId || !barcode) throw new functions.https.HttpsError("invalid-argument", "Missing remove payload");
+        const warehouseId = locationId.split("-")[0];
+        if (!canOperateWarehouse(role, section, warehouseId)) {
+            throw new functions.https.HttpsError("permission-denied", "Warehouse out of scope");
+        }
+
+        const locRef = admin.firestore().collection("assignments").doc(warehouseId).collection("locations").doc(locationId);
+        await admin.firestore().runTransaction(async (tx) => {
+            const doc = await tx.get(locRef);
+            if (!doc.exists) throw new functions.https.HttpsError("not-found", "LOCATION_NOT_FOUND");
+            const items = (doc.data()?.items || []) as any[];
+            const idx = items.findIndex((i) => isSameIdentity(i, barcode, orderId, payload?.itemKey, payload?.containerId));
+            if (idx < 0) throw new functions.https.HttpsError("not-found", "ITEM_NOT_FOUND");
+            const item = items[idx];
+            const next = [...items];
+            next.splice(idx, 1);
+            if (next.length === 0) tx.delete(locRef);
+            else tx.set(locRef, { items: next, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+
+            writeHistory(tx, {
+                barcode,
+                orderId: orderId || item?.orderId || "",
+                action: "removed",
+                fromLocation: locationId,
+                toLocation: null
+            });
+        });
+        return { ok: true, opId };
+    }
+
+    if (op === "move") {
+        const fromLoc = payload?.fromLoc as string;
+        const toLoc = payload?.toLoc as string;
+        if (!fromLoc || !toLoc || !barcode || !orderId) throw new functions.https.HttpsError("invalid-argument", "Missing move payload");
+        const fromWh = fromLoc.split("-")[0];
+        const toWh = toLoc.split("-")[0];
+        if (!canOperateWarehouse(role, section, fromWh) || !canOperateWarehouse(role, section, toWh)) {
+            throw new functions.https.HttpsError("permission-denied", "Warehouse out of scope");
+        }
+
+        const fromRef = admin.firestore().collection("assignments").doc(fromWh).collection("locations").doc(fromLoc);
+        const toRef = admin.firestore().collection("assignments").doc(toWh).collection("locations").doc(toLoc);
+
+        await admin.firestore().runTransaction(async (tx) => {
+            const [fromDoc, toDoc] = await Promise.all([tx.get(fromRef), tx.get(toRef)]);
+            if (!fromDoc.exists) throw new functions.https.HttpsError("not-found", "SOURCE_NOT_FOUND");
+            const fromItems = (fromDoc.data()?.items || []) as any[];
+            const idx = fromItems.findIndex((i) => isSameIdentity(i, barcode, orderId, payload?.itemKey, payload?.containerId));
+            if (idx < 0) throw new functions.https.HttpsError("not-found", "ITEM_NOT_FOUND");
+
+            const item = fromItems[idx];
+            const nextSource = [...fromItems];
+            nextSource.splice(idx, 1);
+            if (nextSource.length === 0) tx.delete(fromRef);
+            else tx.set(fromRef, { items: nextSource, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+
+            const toItems = (toDoc.data()?.items || []) as any[];
+            const existsInTarget = toItems.some((i) => isSameIdentity(i, barcode, orderId, item?.itemKey, item?.containerId));
+            if (!existsInTarget) {
+                tx.set(toRef, {
+                    items: [...toItems, { ...item, timestamp: now, movedAt: now }],
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+            }
+
+            writeHistory(tx, {
+                barcode,
+                orderId,
+                action: "relocated",
+                fromLocation: fromLoc,
+                toLocation: toLoc
+            });
+        });
+        return { ok: true, opId };
+    }
+
+    throw new functions.https.HttpsError("invalid-argument", `Unknown op: ${op}`);
 });

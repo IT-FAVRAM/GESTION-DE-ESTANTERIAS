@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Assignments, LocationId } from '../lib/warehouseData';
 import { WarehouseConfig } from '../hooks/useWarehouseConfig';
 import { CloseIcon, InfoIcon, MultiLayerIcon, PlusCircleIcon, ScannerIcon, CheckIcon } from './Icons';
+import { generateLayoutLocations } from '../lib/warehouseLayout';
 
 interface AssignmentModalProps {
   barcode: string;
@@ -51,72 +52,30 @@ const AssignmentModal: React.FC<AssignmentModalProps> = ({ barcode, orderId, onA
     return false;
   }, [assignments, barcode, orderId, isBatchMode]);
 
-  const currentStructure = useMemo(() => {
-      const pad3 = (n: number) => n.toString().padStart(3, '0');
+  const groupedLocations = useMemo(() => {
+    const allLocations = generateLayoutLocations(activeWarehouse);
 
-      if (activeWarehouse === 'MEC') {
-          return {
-              shelves: ['URGENTE', 'GENERAL'],
-              racks: [1],
-              positions: (shelf: string | number) => {
-                  if (shelf === 'URGENTE') return Array.from({length: 4}, (_, i) => `MEC ${pad3(i + 1)}`);
-                  return Array.from({length: 18}, (_, i) => `MEC ${pad3(i + 5)}`);
-              }
-          };
-      }
-      if (activeWarehouse === 'PLE') {
-           return {
-              shelves: ['EST_1_URGENTE', 'EST_1_GENERAL', 'EST_2', 'PUNZONADORA'],
-              racks: [1],
-              positions: (shelf: string | number) => {
-                  if (shelf === 'EST_1_URGENTE') return Array.from({length: 6}, (_, i) => `PLE ${pad3(i + 1)}`); 
-                  if (shelf === 'EST_1_GENERAL') return Array.from({length: 10}, (_, i) => `PLE ${pad3(i + 7)}`); 
-                  if (shelf === 'EST_2') return Array.from({length: 16}, (_, i) => `PLE ${pad3(i + 17)}`); 
-                  if (shelf === 'PUNZONADORA') return Array.from({length: 21}, (_, i) => `PLE ${pad3(i + 33)}`);
-                  return [];
-              }
-          };
-      }
-      if (activeWarehouse === 'SOL') {
-          return {
-              shelves: ['1', '2'],
-              racks: [1],
-              positions: (shelf: string | number) => {
-                   if (shelf === '1') return Array.from({length: 4}, (_, i) => `SOL ${pad3(i + 1)}`);
-                   if (shelf === '2') return Array.from({length: 36}, (_, i) => `SOL ${pad3(i + 5)}`);
-                   return [];
-              }
-          };
-      }
-      if (activeWarehouse === 'COM') {
-          return {
-              shelves: [1,2,3,4,5,6],
-              racks: [1],
-              positions: (shelf: string | number) => {
-                  const s = typeof shelf === 'number' ? shelf : parseInt(shelf);
-                  const start = (s - 1) * 3 + 1;
-                  return [`COM ${pad3(start)}`, `COM ${pad3(start+1)}`, `COM ${pad3(start+2)}`];
-              }
-          };
-      }
-      if (activeWarehouse === 'RPL') {
-         return {
-            shelves: ['EST1', 'EST2'],
-            racks: [1],
-            positions: (shelf: string | number) => {
-                 if (shelf === 'EST1') return Array.from({length: 14}, (_, i) => `ROB.PLE ${pad3(i + 1)}`); 
-                 if (shelf === 'EST2') return Array.from({length: 21}, (_, i) => `ROB.PLE ${pad3(i + 15)}`); 
-                 return [];
-            }
-        };
-      }
-      
-      return {
-          shelves: config.shelves,
-          racks: config.racks,
-          positions: () => config.positions
-      };
-  }, [activeWarehouse, config]);
+    const shelfFromLocation = (locId: string) => {
+      const parts = locId.split('-');
+      if (parts.length < 3) return 'General';
+      if (parts[1] === 'E' && parts[2]) return parts[2];
+      if (parts[1].startsWith('E')) return parts[1].slice(1) || parts[1];
+      return parts[1] || 'General';
+    };
+
+    const grouped: Record<string, LocationId[]> = {};
+    allLocations.forEach((locId) => {
+      const shelf = shelfFromLocation(locId);
+      if (!grouped[shelf]) grouped[shelf] = [];
+      grouped[shelf].push(locId);
+    });
+
+    Object.keys(grouped).forEach((shelf) => {
+      grouped[shelf].sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
+    });
+
+    return grouped;
+  }, [activeWarehouse]);
 
   return (
     <div className="fixed inset-0 bg-white md:bg-black/90 z-50 flex items-center justify-center md:p-4" role="dialog" aria-modal="true">
@@ -181,9 +140,8 @@ const AssignmentModal: React.FC<AssignmentModalProps> = ({ barcode, orderId, onA
 
         <div className="overflow-y-auto p-2 md:p-6 flex-grow bg-slate-50 dark:bg-black/20">
             <div className="space-y-4 md:space-y-8">
-                {currentStructure.shelves.map(shelf => {
-                    const displayName = `Estantería ${shelf}`; 
-                    const racks = Array.isArray(currentStructure.racks) ? currentStructure.racks : (currentStructure.racks as Function)(shelf);
+                {Object.entries(groupedLocations).map(([shelf, locations]) => {
+                    const displayName = `Estantería ${shelf}`;
 
                     return (
                   <div 
@@ -195,24 +153,10 @@ const AssignmentModal: React.FC<AssignmentModalProps> = ({ barcode, orderId, onA
                     </h4>
                     
                     <div className="space-y-4">
-                      {racks.map((rack: number) => (
-                        <div key={`${activeWarehouse}-E${shelf}-B${rack}`}>
+                        <div>
                           <div className={`grid gap-2 grid-cols-3 sm:grid-cols-4 lg:grid-cols-6`}>
-                            {(typeof currentStructure.positions === 'function' ? currentStructure.positions(shelf) : currentStructure.positions).map((pos: string) => {
-                                let locId;
-                                if (activeWarehouse === 'SOL') {
-                                    const shelfNum = shelf === '1' ? 1 : 2;
-                                    locId = `SOL-E${shelfNum}-B1-${pos}`;
-                                } else if (activeWarehouse === 'COM') {
-                                    locId = `COM-E${shelf}-B1-${pos}`;
-                                } else if (activeWarehouse === 'RPL') {
-                                    const shelfIdNum = shelf === 'EST1' ? 1 : 2;
-                                    locId = `RPL-E${shelfIdNum}-B1-${pos}`;
-                                } else {
-                                    locId = `${activeWarehouse}-E${shelf}-B${rack}-${pos}`;
-                                }
-                                
-                                locId = locId as LocationId;
+                            {locations.map((locId: LocationId) => {
+                                const pos = locId.split('-').pop() || locId;
                                 const isSelected = selectedLocations.includes(locId);
                                 const occupiedItems = assignments[locId] || [];
                                 const isOccupied = occupiedItems.length > 0;
@@ -249,7 +193,6 @@ const AssignmentModal: React.FC<AssignmentModalProps> = ({ barcode, orderId, onA
                             })}
                           </div>
                         </div>
-                      ))}
                     </div>
                   </div>
                 );

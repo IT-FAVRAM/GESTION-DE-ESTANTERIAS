@@ -1,5 +1,6 @@
 
 import { useState, useCallback, useMemo } from 'react';
+import { useHaptic } from './useHaptic';
 import { LocationId, PackageType, formatLocation } from '../lib/warehouseData';
 import { BatchItem } from '../App';
 import { useAppStore } from '../lib/store';
@@ -8,6 +9,7 @@ import { parseLocationFromText } from '../lib/locationParser';
 
 // Type definitions for dependencies
 interface UseAppLogicProps {
+    role: string | null;
     assignments: Record<string, any[]>;
     setAssignments: (a: any) => void;
     addHistoryEntry: (entry: any) => void;
@@ -24,11 +26,12 @@ interface UseAppLogicProps {
     canRequestItems: () => boolean;
     canFinishProduction: () => boolean;
     shouldSkipValidation: () => boolean;
-    processScanInput: (code: string, orderId?: string) => void;
+    processScanInput: (code: string, orderId?: string) => { action: string; data: any } | null;
     relocateLocationContents: (from: LocationId, to: LocationId) => Promise<void>;
 }
 
 export const useAppLogic = ({
+    role,
     assignments,
     setAssignments,
     addHistoryEntry,
@@ -49,12 +52,16 @@ export const useAppLogic = ({
     processScanInput
 }: UseAppLogicProps) => {
 
+    const { triggerHaptic } = useHaptic();
+
     const {
         workflowMode, setWorkflowMode,
         setModal,
         pendingAssignment, setPendingAssignment,
         batchItems, setBatchItems
     } = useAppStore();
+
+    const isAdmin = role === 'ADMIN';
 
     // Local State
     const [multiSelectedLocations, setMultiSelectedLocations] = useState<LocationId[]>([]);
@@ -96,12 +103,14 @@ export const useAppLogic = ({
     // --- HANDLERS ---
 
     const handleInitiateRemoveWorkflow = () => {
+        triggerHaptic('selection');
         setWorkflowMode('remove');
         resetScanWorkflow();
         setInputMethodModal({ title: 'Retirar Artículo', subtitle: 'Seleccione cómo identificar el artículo' });
     };
 
     const handleInitiateRequestWorkflow = () => {
+        triggerHaptic('selection');
         if (!canRequestItems()) return;
         setWorkflowMode('request');
         resetScanWorkflow();
@@ -109,6 +118,7 @@ export const useAppLogic = ({
     };
 
     const handleInitiateFinishWorkflow = () => {
+        triggerHaptic('selection');
         if (!canFinishProduction()) return;
         setWorkflowMode('finish');
         resetScanWorkflow();
@@ -116,8 +126,10 @@ export const useAppLogic = ({
     };
 
     const handleInitiateAdd = (locationId: LocationId) => {
+        triggerHaptic('selection');
+        const role = localStorage.getItem('role_debug_info') || 'Unknown'; // Helper logic if needed, or rely on internal check
         if (!canAssign()) {
-            notify('error', 'Permiso Denegado', 'No tiene permisos para añadir artículos.');
+            notify('error', 'Permiso Denegado', `No tiene permisos para añadir artículos. (Rol: ${role})`);
             return;
         }
 
@@ -133,20 +145,28 @@ export const useAppLogic = ({
     };
 
     const handleSelectManualAdd = () => {
+        triggerHaptic('selection');
         setModal('manualEntry', true);
     };
 
     const handleSelectPhotoAdd = () => {
+        triggerHaptic('selection');
         setModal('photoAnalyzer', true);
     };
 
     const handleFabClick = () => {
+        triggerHaptic('selection');
         setWorkflowMode('assign');
         resetScanWorkflow();
         setModal('photoAnalyzer', true);
     };
 
     const handleInitiateCopy = (barcode: string, fromLocation: LocationId, orderId?: string) => {
+        triggerHaptic('selection');
+        if (!isAdmin) {
+            notify('error', 'Solo Admin', 'Copiar y pegar articulos solo esta permitido para Admin.');
+            return;
+        }
         if (!canAssign()) return;
         setItemToMove(null);
         setItemToCopy(prev => (prev?.barcode === barcode && prev?.fromLocation === fromLocation && prev?.orderId === orderId) ? null : { barcode, fromLocation, orderId });
@@ -154,7 +174,19 @@ export const useAppLogic = ({
     };
 
     const handleInitiateMove = (barcode: string, fromLocation: LocationId, orderId?: string) => {
+        triggerHaptic('selection');
         if (!canAssign()) return;
+
+        if (!isAdmin) {
+            setItemToCopy(null);
+            setItemToMove(null);
+            setPendingAssignment({ article: barcode, order: orderId || 'PENDIENTE', location: undefined, mode: 'move' });
+            setModal('locationCapture', true);
+            notify('info', 'Mover con foto', 'Haz una foto de la ubicacion final para completar el movimiento.');
+            if (selectedMapLocation) setSelectedMapLocation(null);
+            return;
+        }
+
         setItemToCopy(null);
         setItemToMove({ barcode, fromLocation, orderId });
         setModal('move', true);
@@ -162,12 +194,14 @@ export const useAppLogic = ({
     };
 
     const handlePasteMovedItem = (toLocation: LocationId) => {
+        if (!isAdmin) return;
         if (!itemToMove) return;
         checkLocationAndAssign(itemToMove.barcode, itemToMove.orderId || 'PENDIENTE', toLocation, 'move');
         setItemToMove(null);
     };
 
     const handleDragMove = (barcode: string, fromLocation: LocationId, toLocation: LocationId) => {
+        if (!isAdmin) return;
         if (!canAssign()) return;
         if (fromLocation === toLocation) return;
         const item = assignments[fromLocation]?.find(i => i.barcode === barcode);
@@ -177,6 +211,7 @@ export const useAppLogic = ({
     };
 
     const handleMoveItemModalConfirm = (toLocation: LocationId) => {
+        if (!isAdmin) return;
         if (itemToMove) {
             checkLocationAndAssign(itemToMove.barcode, itemToMove.orderId || 'PENDIENTE', toLocation, 'move');
             setModal('move', false);
@@ -186,6 +221,7 @@ export const useAppLogic = ({
 
 
     const handleInitiateMultiOccupancy = () => {
+        triggerHaptic('selection');
         if (!canAssign()) return;
         setWorkflowMode('assign');
         resetScanWorkflow();
@@ -242,7 +278,10 @@ export const useAppLogic = ({
         const { barcode, location, orderId } = removeConfirmationData;
 
         if (!canRemove(location)) {
-            notify('error', 'Permiso Denegado', `No tienes permisos para retirar artículos de ${formatLocation(location)}.`);
+            // Logic to determine WHY it failed for better error message
+            // We don't have direct access to 'role'/'section' vars here easily without prop drilling or context, 
+            // but we can infer or just give a better generic message asking to check section.
+            notify('error', 'Permiso Denegado', `No tienes permisos para retirar de ${formatLocation(location)}. (Solo puedes retirar de tu Sección asignada)`);
             setRemoveConfirmationData(null);
             resetScanWorkflow();
             return;
@@ -250,6 +289,7 @@ export const useAppLogic = ({
 
         const success = await removeItem(barcode, location as LocationId, orderId);
         if (success) {
+            triggerHaptic('success');
             notify('success', 'Retirado', `${barcode} eliminado de ${formatLocation(location)}`);
         }
         setRemoveConfirmationData(null);
@@ -265,6 +305,7 @@ export const useAppLogic = ({
     };
 
     const handleInitiateRelocate = (location: LocationId) => {
+        triggerHaptic('selection');
         setRelocateSourceLoc(location);
         setModal('relocate', true);
     };
@@ -292,6 +333,7 @@ export const useAppLogic = ({
         const success = await removeItem(barcode, location as LocationId, orderId);
 
         if (success === true) {
+            triggerHaptic('success');
             addHistoryEntry({ barcode, orderId, action: 'process_finished', fromLocation: location as LocationId, timestamp: now });
             addFinishedItem({ barcode, orderId, timestamp: now, finishedAt: now, status: 'FINALIZADO' });
             notify('success', 'Producción Finalizada', `El artículo ${barcode} ha pasado a ALMACÉN.`);
@@ -313,6 +355,7 @@ export const useAppLogic = ({
 
     const handleConfirmBatchRequest = () => {
         if (batchItems.length === 0) return;
+        triggerHaptic('success');
         batchItems.forEach(item => requestItem(item.article, item.order));
         notify('success', 'Solicitud Múltiple Enviada', `Se han notificado ${batchItems.length} artículos al carretillero.`);
         setBatchItems([]);
@@ -356,6 +399,7 @@ export const useAppLogic = ({
         if (!occupiedLocationData) return;
         const { newItem, locationId } = occupiedLocationData;
         const forceMulti = mode === 'new_batch';
+        triggerHaptic('success');
         assignItem(newItem.barcode, newItem.orderId, locationId, { allowMultiLocation: forceMulti });
 
         if (mode === 'merge') notify('success', 'Lote Actualizado', `${newItem.barcode} unificado en ${formatLocation(locationId)}`);
@@ -366,19 +410,24 @@ export const useAppLogic = ({
     };
 
     const handleDirectAssign = useCallback((barcode: string, orderId: string, location: LocationId) => {
+        triggerHaptic('success');
         assignItem(barcode, orderId, location, { allowMultiLocation: true });
         notify('success', 'Añadido', `${barcode} añadido a ${formatLocation(location)}`);
     }, [assignItem, notify]);
 
     const handleDirectRemove = useCallback(async (barcode: string, location: LocationId, orderId: string) => {
         const success = await removeItem(barcode, location, orderId);
-        if (success) notify('success', 'Eliminado', `${barcode} retirado de ${formatLocation(location)}`);
-    }, [removeItem, notify]);
+        if (success) {
+            triggerHaptic('success');
+            notify('success', 'Eliminado', `${barcode} retirado de ${formatLocation(location)}`);
+        }
+    }, [removeItem, notify, triggerHaptic]);
 
     const handlePackageTypeSelect = (packageType: PackageType) => {
         if (!pendingPackageTypeData) return;
         const { barcode, orderId, location, allowMultiLocation } = pendingPackageTypeData;
 
+        triggerHaptic('success');
         assignItem(barcode, orderId, location, { allowMultiLocation, packageType });
         const locText = Array.isArray(location) ? `${location.length} ubicaciones` : formatLocation(location);
         notify('success', 'Asignado', `${barcode} -> ${locText}`);
@@ -387,6 +436,64 @@ export const useAppLogic = ({
         setPendingPackageTypeData(null);
         resetScanWorkflow();
     };
+
+    const handleScanActionResult = useCallback((result: { action: string; data: any } | null) => {
+        if (!result) return;
+
+        switch (result.action) {
+            case 'remove': {
+                const { barcode, orderId, location } = result.data;
+                setRemoveConfirmationData({ barcode, orderId, location });
+                break;
+            }
+            case 'request': {
+                const { barcode, orderId, location } = result.data;
+                setRequestConfirmationData({ barcode, orderId, location });
+                break;
+            }
+            case 'finish': {
+                const { barcode, orderId, location } = result.data;
+                setProcessFinishedData({ barcode, orderId, location });
+                break;
+            }
+            case 'duplicate': {
+                const { barcode, orderId, location } = result.data;
+                setDuplicateItemData({ barcode, orderId, location });
+                break;
+            }
+            case 'assign_to_target': {
+                const { barcode, orderId, target } = result.data;
+                const intent = pendingAssignment?.mode || 'move';
+                if (intent === 'add') {
+                    checkLocationAndAssign(barcode, orderId, target as LocationId, 'add');
+                } else {
+                    const currentLoc = findItemLocation(barcode, orderId);
+                    if (currentLoc && currentLoc !== target) {
+                        setMoveConfirmationData({
+                            barcode,
+                            orderId,
+                            currentLoc,
+                            targetLoc: target
+                        });
+                    } else {
+                        checkLocationAndAssign(barcode, orderId, target as LocationId, 'move');
+                    }
+                }
+                break;
+            }
+            default:
+                break;
+        }
+    }, [
+        pendingAssignment?.mode,
+        findItemLocation,
+        checkLocationAndAssign,
+        setRemoveConfirmationData,
+        setRequestConfirmationData,
+        setProcessFinishedData,
+        setDuplicateItemData,
+        setMoveConfirmationData
+    ]);
 
     const handlePhotoAnalysisResult = (result: string | { article: string; order: string }) => {
         let barcode = '';
@@ -405,7 +512,8 @@ export const useAppLogic = ({
             resetScanWorkflow();
             return;
         }
-        processScanInput(barcode, orderId);
+        const scanResult = processScanInput(barcode, orderId);
+        handleScanActionResult(scanResult);
     };
 
     const handleLocationCaptureResult = async (extractedText: string | { article: string; order: string }) => {
@@ -486,8 +594,9 @@ export const useAppLogic = ({
             }
             return;
         }
-        processScanInput(code, 'PENDIENTE');
-    }, [pendingAssignment, findItemLocation, processScanInput]);
+        const scanResult = processScanInput(code, 'PENDIENTE');
+        handleScanActionResult(scanResult);
+    }, [pendingAssignment, findItemLocation, processScanInput, handleScanActionResult]);
 
     const handleAssignmentModalConfirm = (barcode: string, locationOrLocations: LocationId | LocationId[]) => {
         if (!canAssign()) return;

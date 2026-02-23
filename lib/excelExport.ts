@@ -1,5 +1,4 @@
 
-import * as XLSX from 'xlsx';
 import { Assignments, LocationId } from './warehouseData';
 import { WarehouseConfig } from '../hooks/useWarehouseConfig';
 
@@ -7,20 +6,6 @@ import { generateLayoutLocations } from './warehouseLayout';
 
 export const exportInventoryToExcel = (assignments: Assignments, config: WarehouseConfig) => {
     try {
-        const X = XLSX;
-        if (!X || !X.utils || !X.writeFile) {
-            console.error("Error crítico: Librería XLSX no cargada.");
-            return;
-        }
-
-        const workbook = X.utils.book_new();
-
-        // Helper to sanitize sheet names
-        const sanitizeSheetName = (name: string) => {
-            return name.replace(/[\\/?*[\]]/g, "").substring(0, 31) || "Hoja";
-        };
-
-        // Format location for display
         const formatLocDisplay = (locId: string): string => {
             return locId.split('-').pop() || locId;
         };
@@ -43,14 +28,15 @@ export const exportInventoryToExcel = (assignments: Assignments, config: Warehou
             return str;
         };
 
+        const rows: Record<string, any>[] = [];
+
         // Process each warehouse from config
-        config.warehouses.forEach(wh => {
+        config.warehouses.forEach((wh) => {
             const whCode = wh.code;
-            const sheetName = sanitizeSheetName(wh.name);
             const fullLayout = generateLayoutLocations(whCode);
 
             // Create rows for EVERY defined location in this warehouse
-            const sheetData = fullLayout.map(locId => {
+            const sheetData = fullLayout.map((locId) => {
                 const items = assignments[locId] || [];
                 const latestItem = items.reduce((latest, current) => {
                     if (!latest || (current.timestamp && new Date(current.timestamp) > new Date(latest.timestamp))) {
@@ -60,6 +46,7 @@ export const exportInventoryToExcel = (assignments: Assignments, config: Warehou
                 }, null as any);
 
                 return {
+                    "Almacén": sanitizeForExcel(wh.name),
                     "Ubicación": sanitizeForExcel(formatLocDisplay(locId)),
                     "Estado": items.length > 0 ? "OCUPADO" : "VACÍO",
                     "Nº Artículos": items.length,
@@ -70,20 +57,7 @@ export const exportInventoryToExcel = (assignments: Assignments, config: Warehou
                 };
             });
 
-            const worksheet = X.utils.json_to_sheet(sheetData);
-
-            // Column Widths
-            worksheet['!cols'] = [
-                { wch: 15 }, // Ubicación
-                { wch: 10 }, // Estado
-                { wch: 12 }, // Nº Artículos
-                { wch: 40 }, // Artículos
-                { wch: 30 }, // OFs
-                { wch: 20 }, // Última Entrada
-                { wch: 15 }  // Días
-            ];
-
-            X.utils.book_append_sheet(workbook, worksheet, sheetName);
+            rows.push(...sheetData);
         });
 
         // Handle Orphan Assignments (Locations in data not in any known layout)
@@ -101,13 +75,42 @@ export const exportInventoryToExcel = (assignments: Assignments, config: Warehou
             }
         });
 
-        if (orphans.length > 0) {
-            const orphanSheet = X.utils.json_to_sheet(orphans);
-            X.utils.book_append_sheet(workbook, orphanSheet, "EXTRAS");
-        }
+        if (orphans.length > 0) rows.push(...orphans.map((o) => ({ "Almacén": "EXTRAS", ...o })));
 
+        const headers = Object.keys(rows[0] || {
+            "Almacén": '',
+            "Ubicación": '',
+            "Estado": '',
+            "Nº Artículos": '',
+            "Artículos": '',
+            "OFs": '',
+            "Última Entrada": '',
+            "Días en Almacén": ''
+        });
+
+        const csvEscape = (value: any) => {
+            const stringValue = String(value ?? '');
+            const escaped = stringValue.replace(/"/g, '""');
+            return `"${escaped}"`;
+        };
+
+        const csvLines = [
+            headers.map(csvEscape).join(','),
+            ...rows.map((row) => headers.map((h) => csvEscape(row[h] ?? '')).join(','))
+        ];
+
+        const bom = '\uFEFF';
+        const blob = new Blob([bom + csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
         const dateStr = new Date().toISOString().split('T')[0];
-        X.writeFile(workbook, `Inventario_Global_${dateStr}.xlsx`);
+        link.href = url;
+        link.download = `Inventario_Global_${dateStr}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
 
     } catch (error) {
         console.error("Excepción en exportInventoryToExcel:", error);

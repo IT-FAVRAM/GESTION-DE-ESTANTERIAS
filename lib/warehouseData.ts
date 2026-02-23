@@ -50,6 +50,8 @@ export interface AssignmentItem {
   status?: ItemStatus;
   packageType?: PackageType;
   itemKey?: string; // Normalized key: ${barcode}__${orderId}
+  quantity?: number;
+  containerId?: string;
   notes?: string;
 }
 

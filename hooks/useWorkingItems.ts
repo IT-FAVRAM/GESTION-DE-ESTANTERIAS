@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '../lib/firebase';
-import { WorkingItem } from '../lib/warehouseData';
-import { finishWorkingItem } from '../lib/production';
+import { LocationId, WorkingItem } from '../lib/warehouseData';
+import { finishWorkingItem, locateWorkingItem } from '../lib/production';
 
 export const useWorkingItems = () => {
     const [workingItems, setWorkingItems] = useState<WorkingItem[]>([]);
@@ -13,7 +13,11 @@ export const useWorkingItems = () => {
             (snapshot) => {
                 const items: WorkingItem[] = [];
                 snapshot.forEach((doc) => {
-                    items.push(doc.data() as WorkingItem);
+                    const data = doc.data() as WorkingItem;
+                    items.push({
+                        ...data,
+                        itemKey: data.itemKey || doc.id,
+                    });
                 });
                 // Sort by withdrawnAt descending (newest first)
                 items.sort((a, b) => new Date(b.withdrawnAt).getTime() - new Date(a.withdrawnAt).getTime());
@@ -40,10 +44,21 @@ export const useWorkingItems = () => {
         }
     }, []);
 
+    const locateItem = useCallback(async (item: WorkingItem, toLocation: LocationId, user?: { uid: string; displayName: string }) => {
+        try {
+            await locateWorkingItem(item, toLocation, user);
+            return true;
+        } catch (e) {
+            console.error("Error locating item from working:", e);
+            throw e;
+        }
+    }, []);
+
     return {
         workingItems,
         loading,
         error,
-        finishItem
+        finishItem,
+        locateItem
     };
 };

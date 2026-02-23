@@ -42,11 +42,11 @@ const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ onSubmit, onClose, 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <div className="relative w-full max-w-md bg-slate-900 rounded-2xl shadow-2xl p-6 md:p-8 border border-slate-800">
+    <div className="fixed inset-0 bg-black/90 z-50 flex items-end md:items-center justify-center md:p-4" role="dialog" aria-modal="true">
+      <div className="relative w-full md:max-w-md bg-slate-900 md:rounded-2xl rounded-t-2xl shadow-2xl p-5 md:p-8 border border-slate-800 max-h-[90dvh] overflow-y-auto pb-safe">
         <button 
             onClick={onClose} 
-            className="absolute top-4 right-4 p-3 text-slate-400 hover:text-white bg-slate-800/50 rounded-full transition-colors"
+            className="absolute top-4 right-4 h-11 w-11 inline-flex items-center justify-center text-slate-400 hover:text-white bg-slate-800/50 rounded-full transition-colors"
         >
           <CloseIcon className="h-6 w-6" />
         </button>
@@ -64,8 +64,10 @@ const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ onSubmit, onClose, 
                 type="text"
                 value={barcode}
                 onChange={(e) => { setBarcode(e.target.value.toUpperCase()); setError(null); }}
+                inputMode="text"
+                autoCapitalize="characters"
                 autoFocus
-                className="w-full p-4 bg-slate-800 border-2 border-slate-700 rounded-xl focus:ring-0 focus:outline-none focus:border-cyan-500 text-white text-lg"
+                className="w-full p-4 bg-slate-800 border-2 border-slate-700 rounded-xl focus:ring-0 focus:outline-none focus:border-cyan-500 text-white text-base"
                 placeholder={isFreeTextMode ? "EJ: TORNILLOS, GUANTES..." : "EJ: REF-123"}
             />
           </div>
@@ -77,7 +79,9 @@ const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ onSubmit, onClose, 
                     type="text"
                     value={orderId}
                     onChange={(e) => { setOrderId(e.target.value.toUpperCase()); setError(null); }}
-                    className="w-full p-4 bg-slate-800 border-2 border-slate-700 rounded-xl focus:ring-0 focus:outline-none focus:border-purple-500 text-white text-lg"
+                    inputMode="text"
+                    autoCapitalize="characters"
+                    className="w-full p-4 bg-slate-800 border-2 border-slate-700 rounded-xl focus:ring-0 focus:outline-none focus:border-purple-500 text-white text-base"
                     placeholder="EJ: OF25-06771"
                 />
             </div>

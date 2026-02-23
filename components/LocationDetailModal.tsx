@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Assignments, LocationId, formatLocation } from '../lib/warehouseData';
 import { CloseIcon, TrashIcon, MoveIcon, PlusCircleIcon, ListIcon, CheckIcon } from './Icons';
 import { useRoles } from '../hooks/useRoles';
+import { can } from '../lib/permissionMatrix';
 
 interface LocationDetailModalProps {
   locationId: LocationId;
@@ -17,6 +18,7 @@ interface LocationDetailModalProps {
   onPasteMovedItem: () => void;
   canPasteCopy: boolean;
   canPasteMove: boolean;
+  onEmptyLocation?: (locationId: LocationId) => Promise<void>;
 }
 
 const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
@@ -30,15 +32,18 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
   onPasteItem,
   onPasteMovedItem,
   canPasteCopy,
-  canPasteMove
+  canPasteMove,
+  onEmptyLocation
 }) => {
   const items = assignments[locationId] || [];
   const isContainer = false;
 
-  const { canAssign, canRemove } = useRoles();
+  const { role, canAssign, canRemove } = useRoles();
   const canDeleteThis = canRemove(locationId);
+  const canEmptyLocation = can(role, 'emptyLocation');
 
   const [isRemoveMode, setIsRemoveMode] = useState(false);
+  const [isEmptyingLocation, setIsEmptyingLocation] = useState(false);
 
   const handleContainerRemoveClick = (item: { barcode: string, orderId: string }) => {
     if (confirm(`¿Retirar "${item.barcode}" del carro?`)) {
@@ -48,9 +53,26 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
     }
   };
 
+  const handleEmptyLocation = async () => {
+    if (!onEmptyLocation || items.length === 0 || isEmptyingLocation) return;
+
+    const confirmed = window.confirm(
+      `⚠️ ¿Vaciar ubicación completa?\n\nSe retirarán ${items.length} artículo(s) de ${formatLocation(locationId)}.`
+    );
+    if (!confirmed) return;
+
+    setIsEmptyingLocation(true);
+    try {
+      await onEmptyLocation(locationId);
+      setIsRemoveMode(false);
+    } finally {
+      setIsEmptyingLocation(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/80 z-[60] flex items-end md:items-center justify-center sm:p-4" onClick={onClose}>
-      <div className="bg-white dark:bg-slate-900 w-full md:max-w-md rounded-t-2xl md:rounded-2xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col animate-slide-up" onClick={e => e.stopPropagation()}>
+      <div className="bg-white dark:bg-slate-900 w-full md:max-w-md rounded-t-2xl md:rounded-2xl shadow-2xl overflow-hidden max-h-[90dvh] flex flex-col animate-slide-up" onClick={e => e.stopPropagation()}>
 
         {/* HEADER */}
         <header className={`${isRemoveMode ? 'bg-red-50 dark:bg-red-900/30' : 'bg-slate-50 dark:bg-slate-950'} p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center shrink-0 transition-colors duration-300`}>
@@ -58,9 +80,9 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
             <h3 className={`text-lg font-bold ${isRemoveMode ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>
               {isRemoveMode ? 'MODO RETIRADA' : 'Contenido'}
             </h3>
-            <p className="text-sm font-mono text-cyan-600 dark:text-cyan-400 break-all">{formatLocation(locationId)}</p>
+            <p className="text-sm font-mono text-cyan-600 dark:text-cyan-400 break-all pr-2">{formatLocation(locationId)}</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full text-slate-500 dark:text-slate-400 transition-colors">
+          <button onClick={onClose} className="h-11 w-11 inline-flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full text-slate-500 dark:text-slate-400 transition-colors">
             <CloseIcon className="h-5 w-5" />
           </button>
         </header>
@@ -107,13 +129,13 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
                     <div className="flex gap-1 shrink-0">
                       {canAssign() && (
                         <>
-                          <button onClick={(e) => { e.stopPropagation(); onInitiateMove(item.barcode, locationId, item.orderId) }} className="p-2.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg" title="Mover">
+                          <button onClick={(e) => { e.stopPropagation(); onInitiateMove(item.barcode, locationId, item.orderId) }} className="h-11 w-11 inline-flex items-center justify-center bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg" title="Mover">
                             <MoveIcon className="h-5 w-5" />
                           </button>
                         </>
                       )}
                       {canDeleteThis && (
-                        <button onClick={(e) => { e.stopPropagation(); onInitiateDelete(item.barcode, locationId, item.orderId) }} className="p-2.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg" title="Eliminar">
+                        <button onClick={(e) => { e.stopPropagation(); onInitiateDelete(item.barcode, locationId, item.orderId) }} className="h-11 w-11 inline-flex items-center justify-center bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg" title="Eliminar">
                           <TrashIcon className="h-5 w-5" />
                         </button>
                       )}
@@ -136,19 +158,31 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
         {!isContainer && canAssign() && (
           <footer className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col gap-2 shrink-0 safe-area-inset-bottom">
             {canPasteCopy && (
-              <button onClick={onPasteItem} className="w-full py-3.5 bg-green-600 text-white font-bold rounded-xl hover:bg-green-500 touch-manipulation">
+              <button onClick={onPasteItem} className="w-full min-h-[44px] py-3.5 bg-green-600 text-white font-bold rounded-xl hover:bg-green-500 touch-manipulation">
                 Pegar Artículo Aquí
               </button>
             )}
             {canPasteMove && items.length === 0 && (
-              <button onClick={onPasteMovedItem} className="w-full py-3.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-500 touch-manipulation">
+              <button onClick={onPasteMovedItem} className="w-full min-h-[44px] py-3.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-500 touch-manipulation">
                 Mover Aquí
               </button>
             )}
             {/* Fallback add button if needed */}
-            <button onClick={() => onInitiateAdd(locationId)} className="w-full py-3 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-300">
+            <button onClick={() => onInitiateAdd(locationId)} className="w-full min-h-[44px] py-3 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-300">
               + Asignar Manual
             </button>
+            {canEmptyLocation && items.length > 0 && (
+              <button
+                onClick={handleEmptyLocation}
+                disabled={isEmptyingLocation}
+                className={`w-full min-h-[44px] py-3 font-bold rounded-xl border transition-colors ${isEmptyingLocation
+                  ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                  : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800 dark:hover:bg-red-900/30'
+                  }`}
+              >
+                {isEmptyingLocation ? 'Vaciando ubicacion...' : 'Vaciar ubicacion'}
+              </button>
+            )}
           </footer>
         )}
       </div>

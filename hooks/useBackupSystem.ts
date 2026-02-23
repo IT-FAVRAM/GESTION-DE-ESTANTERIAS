@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { db } from '../lib/firebase';
-import { Assignments, HistoryEntry } from '../lib/warehouseData';
+import { Assignments, HistoryEntry, LocationId } from '../lib/warehouseData';
 import { WarehouseConfig } from './useWarehouseConfig';
 import { 
     WarehouseBackupData, 
@@ -23,9 +23,19 @@ export const useBackupSystem = (
     const handleExport = async () => {
         setIsLoading(true);
         try {
-            // 1. Assignments
-            const assignmentsSnap = await db.collection("meta").doc("assignments").get();
-            const assignmentsData = assignmentsSnap.exists ? (assignmentsSnap.data() as any).assignments : {};
+            // 1. Assignments (sharded by warehouse)
+            const assignmentsData: Assignments = {};
+            const warehouseCodes = (config.warehouses || []).map(w => w.code);
+
+            for (const whCode of warehouseCodes) {
+                const locationsSnap = await db.collection("assignments").doc(whCode).collection("locations").get();
+                locationsSnap.forEach((doc) => {
+                    const items = (doc.data()?.items as any[]) || [];
+                    if (items.length > 0) {
+                        assignmentsData[doc.id as LocationId] = items as any;
+                    }
+                });
+            }
 
             // 2. Config
             const configSnap = await db.collection("meta").doc("warehouseConfig").get();

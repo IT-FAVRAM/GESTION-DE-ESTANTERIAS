@@ -7,12 +7,18 @@
 
 
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Assignments, AssignmentItem, LocationId, WarehouseCode, ShelfNumber, formatLocation, isUrgentLocation, WorkingItem, WAREHOUSE_TO_SECTION, getSectionFromLocation } from '../lib/warehouseData';
 import { WarehouseConfig } from '../hooks/useWarehouseConfig';
-import { TrashIcon, PlusCircleIcon, MoveIcon, InfoIcon, ListIcon, ShoppingCartIcon, ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, BellIcon, LoadingIcon, CheckIcon } from './Icons';
+import { TrashIcon, PlusCircleIcon, MoveIcon, InfoIcon, ListIcon, ShoppingCartIcon, ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, BellIcon, LoadingIcon, CheckIcon, LayersIcon, SettingsIcon, CopyIcon } from './Icons';
 import { useRoles } from '../hooks/useRoles';
+import { can } from '../lib/permissionMatrix';
 import { CartWarehouseView } from './CartWarehouseView';
+import { useWorkingItems } from '../hooks/useWorkingItems';
+import { generateLayoutLocations } from '../lib/warehouseLayout';
+import AddMethodModal from './AddMethodModal';
+import PhotoAnalyzerModal from './PhotoAnalyzerModal';
+import ManualEntryModal from './ManualEntryModal';
 
 interface AssignmentListProps {
     assignments: Assignments;
@@ -40,6 +46,7 @@ interface AssignmentListProps {
     onDragMove?: (barcode: string, fromLocation: LocationId, toLocation: LocationId) => void;
     onInitiateRelocate: (locationId: LocationId) => void;
     onInitiateRequest?: (barcode: string, orderId: string, fromLocation: LocationId) => void; // New prop
+    onNotifyFinishedItem?: (barcode: string, location: string, orderId: string) => void;
     collapsedShelves?: Record<string, boolean>;
     onToggleShelf?: (shelfId: string) => void;
     onToggleAllShelves?: (collapsed: boolean) => void;
@@ -47,6 +54,7 @@ interface AssignmentListProps {
     canAssign: () => boolean;
     canRemove: (locationId?: string) => boolean;
     canRequestItems?: () => boolean; // New prop
+    viewMode?: 'grid' | 'list'; // New prop
 }
 
 const formatDate = (isoString: string) => {
@@ -69,7 +77,7 @@ function timeAgo(date: string) {
 
 // Optimization: Memoized Item Card
 const AssignedItemCardReal = React.memo(({ item, location, onInitiateCopy, isCopying, onInitiateMove, isMoving, onInitiateDelete, onConfirmDelete, onCancelDelete, isPendingDeletion, userRole, canAssign, canRemove, canRequestItems, onInitiateRequest }: any) => {
-    const canDrag = userRole === 'ADMIN';
+    const canDrag = can(userRole, 'dragMove');
 
     // Verify permission for this specific location
     const canDeleteThis = canRemove(location);
@@ -104,7 +112,7 @@ const AssignedItemCardReal = React.memo(({ item, location, onInitiateCopy, isCop
         <div
             draggable={!isPendingDeletion && canDrag}
             onDragStart={handleDragStart}
-            className={`p-2.5 md:p-4 rounded-xl mb-3 transition-all duration-200 border shadow-sm 
+            className={`p-2 md:p-4 rounded-xl mb-2 md:mb-3 transition-all duration-200 border shadow-sm 
             ${isCopying ? 'ring-2 ring-cyan-400 bg-cyan-50' : ''} 
             ${isMoving ? 'ring-2 ring-blue-400 bg-blue-50' : ''} 
             ${isPendingDeletion ? 'bg-red-50 ring-2 ring-red-500' : getStatusStyles()}
@@ -250,7 +258,7 @@ const LocationCell = React.memo(({
     canRemove,
     canRequestItems
 }: any) => {
-    const canDrop = userRole === 'ADMIN';
+    const canDrop = can(userRole, 'dragMove');
 
     if (isWide) {
         return (
@@ -348,10 +356,10 @@ const LocationCell = React.memo(({
                 </div>
             </div>
             {canPasteCopy && (
-                <button onClick={(e) => { e.stopPropagation(); actions.onPasteItem(locId); }} className="w-full mt-2 py-2 bg-green-600 text-white font-bold rounded-lg text-sm touch-manipulation">Pegar</button>
+                <button onClick={(e) => { e.stopPropagation(); actions.onPasteItem(locId); }} className="w-full mt-2 min-h-[44px] py-2 bg-green-600 text-white font-bold rounded-lg text-sm touch-manipulation">Pegar</button>
             )}
             {isMoveTarget && items.length === 0 && (
-                <button onClick={(e) => { e.stopPropagation(); actions.onPasteMovedItem(locId); }} className="w-full mt-2 py-2 bg-blue-600 text-white font-bold rounded-lg text-sm touch-manipulation">Mover Aquí</button>
+                <button onClick={(e) => { e.stopPropagation(); actions.onPasteMovedItem(locId); }} className="w-full mt-2 min-h-[44px] py-2 bg-blue-600 text-white font-bold rounded-lg text-sm touch-manipulation">Mover Aquí</button>
             )}
             {userRole === 'ADMIN' && items.length > 1 && (
                 <button
@@ -374,7 +382,7 @@ const ShelfViewImpl: React.FC<any> = ({ shelfName, racks, positions, activeWareh
         : forceCols === 2
             ? 'grid-cols-1 md:grid-cols-2'
             : forceCols === 5
-                ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
+                ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5'
                 : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
 
     const handleDragOver = (e: React.DragEvent) => {
@@ -451,10 +459,10 @@ const ShelfViewImpl: React.FC<any> = ({ shelfName, racks, positions, activeWareh
                 className={`flex justify-between items-center px-1 cursor-pointer select-none ${!isCollapsed ? 'mb-4 pb-2 border-b border-slate-200 dark:border-slate-800' : ''}`}
                 onClick={() => onToggleShelf && onToggleShelf(shelfId)}
             >
-                <div className="flex flex-wrap items-center gap-2 md:gap-4">
-                    <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 md:gap-4 flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
                         {isCollapsed ? <ChevronRightIcon className="h-5 w-5 text-slate-400" /> : <ChevronDownIcon className="h-5 w-5 text-slate-400" />}
-                        <h3 className={`text-lg md:text-2xl font-bold ${isUrgent ? 'text-red-600' : isYellow ? 'text-yellow-700' : 'text-slate-800 dark:text-slate-200'}`}>
+                        <h3 className={`text-base md:text-2xl font-bold break-words leading-tight ${isUrgent ? 'text-red-600' : isYellow ? 'text-yellow-700' : 'text-slate-800 dark:text-slate-200'}`}>
                             {shelfName}
                         </h3>
                     </div>
@@ -462,7 +470,7 @@ const ShelfViewImpl: React.FC<any> = ({ shelfName, racks, positions, activeWareh
                     {isYellow && <span className="text-[10px] font-bold bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">ALUMINIO</span>}
 
                     {isCollapsed && (
-                        <div className="flex items-center gap-2 ml-2">
+                        <div className="flex items-center gap-2 ml-2 flex-wrap">
                             <span className="bg-slate-200/50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 text-[10px] md:text-sm font-bold px-2 py-0.5 rounded-full">
                                 {stats.total} huecos
                             </span>
@@ -471,9 +479,27 @@ const ShelfViewImpl: React.FC<any> = ({ shelfName, racks, positions, activeWareh
                             </span>
                         </div>
                     )}
+
+                    {/* Empty Shelf Button */}
+                    {!isCollapsed && can(userRole, 'emptyShelf') && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm(`⚠️ ¿Estás seguro de que quieres VACIAR la estantería ${shelfName || shelfId}?\n\nEsta acción eliminará TODOS los artículos de esta estantería.`)) {
+                                    if (actions.onInitiateEmptyShelf) {
+                                        actions.onInitiateEmptyShelf(activeWarehouse, shelfId);
+                                    }
+                                }
+                            }}
+                            className="ml-auto md:ml-2 px-3 py-1.5 text-xs font-bold uppercase text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/40 rounded-lg transition-colors"
+                            title="Vaciar Estantería Completa"
+                        >
+                            Vaciar estantería
+                        </button>
+                    )}
                 </div>
                 <button
-                    className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors md:hidden"
+                    className="h-11 w-11 inline-flex items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors md:hidden"
                     onClick={(e) => { e.stopPropagation(); onToggleShelf && onToggleShelf(shelfId); }}
                 >
                     {isCollapsed ? <ChevronDownIcon className="h-6 w-6" /> : <ChevronUpIcon className="h-6 w-6" />}
@@ -526,7 +552,7 @@ const ShelfViewImpl: React.FC<any> = ({ shelfName, racks, positions, activeWareh
                                     const items = assignments[locIdTyped] || [];
                                     if (showEmptyOnly && items.length > 0) return null;
 
-                                    const canPasteCopy = actions.itemToCopy && actions.itemToCopy.fromLocation !== locIdTyped;
+                                    const canPasteCopy = can(userRole, 'copyPaste') && actions.itemToCopy && actions.itemToCopy.fromLocation !== locIdTyped;
                                     const isMoveTarget = actions.itemToMove && actions.itemToMove.fromLocation !== locIdTyped;
 
                                     let displayPos = posStr;
@@ -569,10 +595,166 @@ const ShelfViewImpl: React.FC<any> = ({ shelfName, racks, positions, activeWareh
     );
 };
 
+const ListViewImpl: React.FC<Omit<AssignmentListProps, 'searchQuery' | 'searchResults'>> = (props) => {
+    const { assignments, activeWarehouse, showEmptyOnly, itemToMove, itemToCopy, onPasteMovedItem, onPasteItem, onInitiateMove, onInitiateCopy, onViewLocationDetails, onInitiateValidationFlow, canAssign, userRole } = props;
+    const canCopyPaste = can(userRole, 'copyPaste');
+
+    // Grouping Logic for List View
+    const groupedGroups = useMemo(() => {
+        const groups: Record<string, { locId: LocationId, items: any[] }[]> = {};
+
+        Object.entries(assignments).forEach(([loc, items]) => {
+            if (!loc.startsWith(activeWarehouse)) return;
+
+            // Simple Shelf Grouping Heuristic
+            let shelfName = 'General';
+            const parts = loc.split('-');
+
+            // Standard Naming: WH-E[SHELF]-...
+            const shelfPart = parts.find(p => p.startsWith('E') && p.length > 1 && !isNaN(Number(p.substring(1))) || p.startsWith('E-'));
+            if (shelfPart) {
+                shelfName = shelfPart.replace('E-', 'Estantería ').replace('E', 'Estantería ');
+            } else if (parts.length > 1) {
+                shelfName = parts[1]; // Fallback to second segment
+            }
+
+            if (!groups[shelfName]) groups[shelfName] = [];
+            groups[shelfName].push({ locId: loc as LocationId, items: items || [] });
+        });
+
+        return groups;
+    }, [assignments, activeWarehouse]);
+
+    return (
+        <div className="space-y-4 pb-24">
+            {Object.keys(groupedGroups).length === 0 && (
+                <div className="text-center py-10 text-slate-500 italic">
+                    No hay elementos en esta vista.
+                </div>
+            )}
+
+            {Object.entries(groupedGroups).map(([shelf, locations]) => {
+                // Sort locations by ID
+                const sortedLocs = locations.sort((a, b) => a.locId.localeCompare(b.locId));
+
+                return (
+                    <div key={shelf} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+                        <div className="bg-slate-50 dark:bg-slate-800/80 px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between sticky top-0 z-10 backdrop-blur-sm">
+                            <h3 className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                <LayersIcon className="h-4 w-4 text-cyan-600" />
+                                {shelf}
+                            </h3>
+                            <span className="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full font-mono text-slate-600 dark:text-slate-300">
+                                {locations.length}
+                            </span>
+                        </div>
+                        <div className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                            {sortedLocs.map(({ locId, items }) => {
+                                const isEmpty = !items || items.length === 0;
+                                // Skip empty if not requested
+                                if (isEmpty && !showEmptyOnly) return null;
+
+                                const isTargetForMove = !!itemToMove && itemToMove.fromLocation !== locId;
+                                const canPasteCopy = canCopyPaste && !!itemToCopy && itemToCopy.fromLocation !== locId;
+
+                                return (
+                                    <div
+                                        key={locId}
+                                        onClick={() => {
+                                            if (isTargetForMove) onPasteMovedItem(locId);
+                                            else if (canPasteCopy) onPasteItem(locId);
+                                        }}
+                                        className={`p-2 md:p-3 transition-colors flex items-start gap-2 md:gap-3 content-visibility-auto
+                                            ${isTargetForMove ? 'cursor-pointer hover:bg-cyan-50 dark:hover:bg-cyan-900/10 ring-2 ring-cyan-500 ring-inset m-1 rounded-lg' : ''}
+                                            ${canPasteCopy ? 'cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/10 ring-2 ring-purple-500 ring-inset m-1 rounded-lg' : ''}
+                                        `}
+                                    >
+                                        {/* Location Badge */}
+                                        <div className="flex-shrink-0 w-14 pt-1">
+                                            <div className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono font-bold text-xs px-1.5 py-1 rounded text-center border border-slate-200 dark:border-slate-700 break-all">
+                                                {locId.split('-').pop()}
+                                            </div>
+                                        </div>
+
+                                        {/* Content */}
+                                        <div className="flex-grow min-w-0">
+                                            {isEmpty ? (
+                                                <div className="h-full flex items-center text-slate-400 text-sm italic py-1">
+                                                    Vacío
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    {items.map((item: any, idx: number) => (
+                                                        <div key={idx} className="flex items-start gap-3 bg-slate-50 dark:bg-slate-800/30 p-2 rounded-lg border border-slate-100 dark:border-slate-800/50">
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center gap-2 mb-0.5">
+                                                                    <span className="font-mono font-bold text-cyan-700 dark:text-cyan-400 text-sm truncate max-w-full block">{item.barcode}</span>
+                                                                    {item.quantity > 1 && <span className="text-[10px] bg-slate-200 dark:bg-slate-700 px-1.5 rounded-full font-bold">x{item.quantity}</span>}
+                                                                </div>
+                                                                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{item.description}</p>
+                                                            </div>
+                                                            <div className="flex items-center gap-1 opacity-80">
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); onInitiateMove(item.barcode, locId, item.orderId); }}
+                                                                    className="h-11 w-11 inline-flex items-center justify-center text-slate-400 hover:text-cyan-600 hover:bg-cyan-100 dark:hover:bg-cyan-900/30 rounded-lg transition-colors"
+                                                                >
+                                                                    <MoveIcon className="h-4 w-4" />
+                                                                </button>
+                                                                {canCopyPaste && (
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); onInitiateCopy(item.barcode, locId, item.orderId); }}
+                                                                        className="h-11 w-11 inline-flex items-center justify-center text-slate-400 hover:text-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-lg transition-colors"
+                                                                    >
+                                                                        <CopyIcon className="h-4 w-4" />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Row Actions */}
+                                        <div className="flex flex-col gap-1 pt-1">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); onViewLocationDetails(locId); }}
+                                                className="h-11 w-11 inline-flex items-center justify-center text-slate-300 hover:text-cyan-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+                                            >
+                                                <SettingsIcon className="h-4 w-4" />
+                                            </button>
+                                            {canAssign() && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); onInitiateValidationFlow(locId); }}
+                                                    className="h-11 w-11 inline-flex items-center justify-center text-slate-300 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-full transition-colors"
+                                                >
+                                                    <PlusCircleIcon className="h-4 w-4" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
+
 const WarehouseViewFull: React.FC<Omit<AssignmentListProps, 'searchQuery' | 'searchResults'>> = (props) => {
     const { activeWarehouse, config, userRole, canAssign, canRemove, workingItems } = props;
+    const { finishItem, locateItem } = useWorkingItems();
     const warehouseName = config.warehouses.find((w: any) => w.code === activeWarehouse)?.name || activeWarehouse;
     const pad3 = (n: number) => n.toString().padStart(3, '0');
+    const [processingWorkingKey, setProcessingWorkingKey] = useState<string | null>(null);
+    const [locatingItemKey, setLocatingItemKey] = useState<string | null>(null);
+    const [targetWarehouseByItem, setTargetWarehouseByItem] = useState<Record<string, string>>({});
+    const [targetLocationByItem, setTargetLocationByItem] = useState<Record<string, LocationId>>({});
+    const [locateValidationItem, setLocateValidationItem] = useState<WorkingItem | null>(null);
+    const [showLocatePhoto, setShowLocatePhoto] = useState(false);
+    const [showLocateManual, setShowLocateManual] = useState(false);
 
     // Filter working items for this section
     const sectionName = WAREHOUSE_TO_SECTION[activeWarehouse];
@@ -585,6 +767,117 @@ const WarehouseViewFull: React.FC<Omit<AssignmentListProps, 'searchQuery' | 'sea
         }
         return false;
     }) || [];
+
+    const getWorkingItemKey = (item: WorkingItem) => item.itemKey || `${item.barcode}-${item.orderId}`;
+
+    const getOtherOFs = (item: WorkingItem) => sectionWorkingItems
+        .filter(i => i.barcode === item.barcode && i.orderId !== item.orderId)
+        .map(i => i.orderId);
+
+    const ensureInitialLocateSelection = (item: WorkingItem) => {
+        const key = getWorkingItemKey(item);
+        const defaultWarehouse = (item.fromLocationId?.split('-')[0] || activeWarehouse) as string;
+        if (!targetWarehouseByItem[key]) {
+            const locations = generateLayoutLocations(defaultWarehouse);
+            setTargetWarehouseByItem(prev => ({ ...prev, [key]: defaultWarehouse }));
+            if (locations.length > 0) {
+                setTargetLocationByItem(prev => ({ ...prev, [key]: locations[0] }));
+            }
+        }
+    };
+
+    const handleFinishAndNotify = async (item: WorkingItem) => {
+        if (processingWorkingKey) return;
+        const confirmed = window.confirm(`Confirmar finalizacion de ${item.barcode} (OF: ${item.orderId}) y aviso al carretillero.`);
+        if (!confirmed) return;
+        const key = getWorkingItemKey(item);
+        setProcessingWorkingKey(key);
+        try {
+            if (props.onNotifyFinishedItem && item.fromLocationId) {
+                props.onNotifyFinishedItem(item.barcode, item.fromLocationId, item.orderId);
+            }
+            await finishItem(item, { uid: 'user', displayName: 'Usuario' });
+        } catch (e) {
+            console.error(e);
+            alert('Error al terminar el trabajo.');
+        } finally {
+            setProcessingWorkingKey(null);
+            setLocatingItemKey(null);
+        }
+    };
+
+    const validateLocateIdentity = (item: WorkingItem, barcode: string, orderId: string) => {
+        const sameBarcode = item.barcode.trim().toUpperCase() === barcode.trim().toUpperCase();
+        const sameOrder = item.orderId.trim().toUpperCase() === orderId.trim().toUpperCase();
+        if (!sameBarcode || !sameOrder) {
+            alert(`La lectura no coincide con ${item.barcode} / ${item.orderId}.`);
+            return false;
+        }
+        return true;
+    };
+
+    const openLocateAfterValidation = (item: WorkingItem) => {
+        const key = getWorkingItemKey(item);
+        ensureInitialLocateSelection(item);
+        setLocatingItemKey(key);
+        setLocateValidationItem(null);
+        setShowLocateManual(false);
+        setShowLocatePhoto(false);
+    };
+
+    const handleLocateManualSubmit = (barcode: string, orderId: string) => {
+        if (!locateValidationItem) return;
+        if (!validateLocateIdentity(locateValidationItem, barcode, orderId)) return;
+        openLocateAfterValidation(locateValidationItem);
+    };
+
+    const handleLocatePhotoExtracted = (result: string | { article: string; order: string }) => {
+        if (!locateValidationItem) return;
+        const extracted = typeof result === 'string' ? { article: result, order: '' } : result;
+        if (!validateLocateIdentity(locateValidationItem, extracted.article || '', extracted.order || '')) return;
+        openLocateAfterValidation(locateValidationItem);
+    };
+
+    const handleFinishAndLocate = async (item: WorkingItem) => {
+        if (processingWorkingKey) return;
+        const key = getWorkingItemKey(item);
+        const target = targetLocationByItem[key];
+        if (!target) {
+            alert('Selecciona una ubicacion de destino.');
+            return;
+        }
+
+        setProcessingWorkingKey(key);
+        try {
+            await locateItem(item, target, { uid: 'user', displayName: 'Usuario' });
+        } catch (e) {
+            console.error(e);
+            alert('Error al ubicar el articulo.');
+        } finally {
+            setProcessingWorkingKey(null);
+            setLocatingItemKey(null);
+        }
+    };
+
+    // If List View mode is active, override standard rendering
+    if (props.viewMode === 'list') {
+        return <ListViewImpl {...props} />;
+    }
+
+    const duplicatedWorkingByBarcode = useMemo(() => {
+        const byBarcode = new Map<string, Set<string>>();
+        sectionWorkingItems.forEach(item => {
+            if (!byBarcode.has(item.barcode)) byBarcode.set(item.barcode, new Set());
+            byBarcode.get(item.barcode)!.add(item.orderId);
+        });
+
+        return Array.from(byBarcode.entries())
+            .filter(([, orderIds]) => orderIds.size > 1)
+            .map(([barcode, orderIds]) => ({
+                barcode,
+                orderIds: Array.from(orderIds).sort()
+            }));
+    }, [sectionWorkingItems]);
 
     let content;
     // ... (Existing content logic preserved) 
@@ -746,18 +1039,18 @@ const WarehouseViewFull: React.FC<Omit<AssignmentListProps, 'searchQuery' | 'sea
 
     return (
         <div className="pb-16 md:pb-10">
-            <div className="flex justify-between items-center mb-4 md:mb-6 px-1">
-                <h2 className="text-xl md:text-2xl font-bold uppercase tracking-tight">{warehouseName}</h2>
-                <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4 md:mb-6 px-1 gap-2">
+                <h2 className="text-xl md:text-2xl font-bold uppercase tracking-tight break-words">{warehouseName}</h2>
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                     <button
                         onClick={() => props.onToggleAllShelves && props.onToggleAllShelves(true)}
-                        className="px-3 py-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors uppercase"
+                        className="min-h-[44px] px-3 py-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors uppercase"
                     >
                         Contraer Todo
                     </button>
                     <button
                         onClick={() => props.onToggleAllShelves && props.onToggleAllShelves(false)}
-                        className="px-3 py-1.5 text-xs font-bold bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 rounded-lg hover:bg-cyan-100 dark:hover:bg-cyan-900/50 transition-colors uppercase"
+                        className="min-h-[44px] px-3 py-1.5 text-xs font-bold bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 rounded-lg hover:bg-cyan-100 dark:hover:bg-cyan-900/50 transition-colors uppercase"
                     >
                         Expandir Todo
                     </button>
@@ -775,10 +1068,22 @@ const WarehouseViewFull: React.FC<Omit<AssignmentListProps, 'searchQuery' | 'sea
                         <span className="bg-indigo-100 dark:bg-indigo-800 text-indigo-700 dark:text-indigo-200 text-xs font-bold px-2 py-1 rounded-full">{sectionWorkingItems.length}</span>
                     </div>
                     <div className="bg-white dark:bg-slate-900 border-x border-b border-indigo-100 dark:border-indigo-800/50 rounded-b-2xl p-4 shadow-sm">
+                        {duplicatedWorkingByBarcode.length > 0 && (
+                            <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 text-xs md:text-sm text-red-700 dark:text-red-300">
+                                <p className="font-bold mb-2">Atencion: mismo articulo activo en distintas OF.</p>
+                                <div className="space-y-1">
+                                    {duplicatedWorkingByBarcode.map(item => (
+                                        <p key={item.barcode}>
+                                            <strong>{item.barcode}</strong>: {item.orderIds.join(', ')}
+                                        </p>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                             {sectionWorkingItems.map(item => (
                                 <div key={item.itemKey || `${item.barcode}-${item.orderId}`} className="border border-indigo-100 dark:border-indigo-900/50 rounded-xl p-3 bg-indigo-50/30 dark:bg-indigo-900/10 flex justify-between items-start">
-                                    <div>
+                                    <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-1">
                                             <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{item.barcode}</span>
                                             <span className="text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-1.5 rounded text-slate-500">{item.orderId}</span>
@@ -787,8 +1092,93 @@ const WarehouseViewFull: React.FC<Omit<AssignmentListProps, 'searchQuery' | 'sea
                                             <span>🕒 {timeAgo(item.withdrawnAt)}</span>
                                             {item.fromLocationId && <span className="font-mono">({formatLocation(item.fromLocationId)})</span>}
                                         </div>
+
+                                        {getOtherOFs(item).length > 0 && (
+                                            <div className="mt-2 text-[10px] md:text-xs bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 px-2 py-1 rounded-lg border border-rose-100 dark:border-rose-800 flex items-start gap-1">
+                                                <span className="text-base leading-none">⚠️</span>
+                                                <span>
+                                                    <strong>Duplicidad OF:</strong> este articulo tambien esta en fabricacion con OF <strong>{getOtherOFs(item).join(', ')}</strong>
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        <div className="mt-3 grid grid-cols-1 gap-2">
+                                            <button
+                                                onClick={() => handleFinishAndNotify(item)}
+                                                disabled={processingWorkingKey !== null}
+                                                className={`min-h-[36px] px-3 py-2 text-[11px] md:text-xs font-bold rounded-lg transition-colors ${processingWorkingKey !== null
+                                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                    : 'bg-amber-100 text-amber-800 border border-amber-200 hover:bg-amber-200'
+                                                    }`}
+                                            >
+                                                {processingWorkingKey === getWorkingItemKey(item) ? 'Procesando...' : 'Terminar trabajo y avisar al carretillero'}
+                                            </button>
+
+                                            <button
+                                                onClick={() => {
+                                                    const key = getWorkingItemKey(item);
+                                                    if (locatingItemKey === key) {
+                                                        setLocatingItemKey(null);
+                                                        return;
+                                                    }
+                                                    setLocateValidationItem(item);
+                                                }}
+                                                disabled={processingWorkingKey !== null}
+                                                className={`min-h-[36px] px-3 py-2 text-[11px] md:text-xs font-bold rounded-lg transition-colors ${processingWorkingKey !== null
+                                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                    : 'bg-indigo-600 text-white hover:bg-indigo-500'
+                                                    }`}
+                                            >
+                                                Terminar y ubicar
+                                            </button>
+                                        </div>
+
+                                        {locatingItemKey === getWorkingItemKey(item) && (
+                                            <div className="mt-3 p-2 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-white/90 dark:bg-slate-900/70 grid gap-2">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                    <select
+                                                        value={targetWarehouseByItem[getWorkingItemKey(item)] || activeWarehouse}
+                                                        onChange={(e) => {
+                                                            const selectedWarehouse = e.target.value;
+                                                            const key = getWorkingItemKey(item);
+                                                            const locations = generateLayoutLocations(selectedWarehouse);
+                                                            setTargetWarehouseByItem(prev => ({ ...prev, [key]: selectedWarehouse }));
+                                                            if (locations.length > 0) {
+                                                                setTargetLocationByItem(prev => ({ ...prev, [key]: locations[0] }));
+                                                            }
+                                                        }}
+                                                        className="w-full px-2 py-1.5 text-xs rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                                                    >
+                                                        {config.warehouses.map((wh: any) => (
+                                                            <option key={wh.code} value={wh.code}>{wh.name}</option>
+                                                        ))}
+                                                    </select>
+
+                                                    <select
+                                                        value={targetLocationByItem[getWorkingItemKey(item)] || ''}
+                                                        onChange={(e) => setTargetLocationByItem(prev => ({ ...prev, [getWorkingItemKey(item)]: e.target.value as LocationId }))}
+                                                        className="w-full px-2 py-1.5 text-xs rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                                                    >
+                                                        {generateLayoutLocations(targetWarehouseByItem[getWorkingItemKey(item)] || activeWarehouse).map((loc) => (
+                                                            <option key={loc} value={loc}>{formatLocation(loc)}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+
+                                                <button
+                                                    onClick={() => handleFinishAndLocate(item)}
+                                                    disabled={processingWorkingKey !== null || !targetLocationByItem[getWorkingItemKey(item)]}
+                                                    className={`min-h-[36px] px-3 py-2 text-[11px] md:text-xs font-bold rounded-lg transition-colors ${processingWorkingKey !== null || !targetLocationByItem[getWorkingItemKey(item)]
+                                                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                        : 'bg-emerald-600 text-white hover:bg-emerald-500'
+                                                        }`}
+                                                >
+                                                    Confirmar ubicacion
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
-                                    <span className="text-[10px] font-bold text-indigo-600 bg-indigo-100 dark:bg-indigo-900/50 px-2 py-0.5 rounded-full uppercase">
+                                    <span className="ml-2 text-[10px] font-bold text-indigo-600 bg-indigo-100 dark:bg-indigo-900/50 px-2 py-0.5 rounded-full uppercase self-start">
                                         En Trabajo
                                     </span>
                                 </div>
@@ -799,6 +1189,38 @@ const WarehouseViewFull: React.FC<Omit<AssignmentListProps, 'searchQuery' | 'sea
             )}
 
             {content}
+
+            {locateValidationItem && !showLocatePhoto && !showLocateManual && (
+                <AddMethodModal
+                    title="Validar Articulo para Ubicar"
+                    subtitle={`${locateValidationItem.barcode} | ${locateValidationItem.orderId}`}
+                    onSelectPhoto={() => setShowLocatePhoto(true)}
+                    onSelectManual={() => setShowLocateManual(true)}
+                    onClose={() => setLocateValidationItem(null)}
+                />
+            )}
+
+            {showLocatePhoto && locateValidationItem && (
+                <PhotoAnalyzerModal
+                    mode="combined"
+                    instruction="Foto para ubicar: Art + OF"
+                    onCodeExtracted={handleLocatePhotoExtracted}
+                    onClose={() => {
+                        setShowLocatePhoto(false);
+                        setLocateValidationItem(null);
+                    }}
+                />
+            )}
+
+            {showLocateManual && locateValidationItem && (
+                <ManualEntryModal
+                    onSubmit={handleLocateManualSubmit}
+                    onClose={() => {
+                        setShowLocateManual(false);
+                        setLocateValidationItem(null);
+                    }}
+                />
+            )}
         </div>
     );
 };
@@ -826,7 +1248,7 @@ const ItemLocationsGroup: React.FC<{ barcode: string, orderId: string, locations
                 </div>
             </div>
 
-            <div className="grid gap-3 md:gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                 {locations.map(loc => {
                     const isUrgent = isUrgentLocation(loc.id);
 

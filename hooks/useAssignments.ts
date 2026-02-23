@@ -2,11 +2,12 @@
 import { useEffect, useCallback, useState, useRef } from 'react';
 import { db, auth } from '../lib/firebase';
 import { useLocalStorage } from './useLocalStorage';
-import { Assignments, AssignmentItem, LocationId, WAREHOUSES } from '../lib/warehouseData';
+import { Assignments, AssignmentItem, LocationId } from '../lib/warehouseData';
 import firebase from "firebase/compat/app";
 
-export const useAssignments = () => {
-  const [assignments, setAssignments, syncAssignments] = useLocalStorage<Assignments>(`warehouse_assignments_all`, {} as Assignments);
+export const useAssignments = (activeWarehouse?: string) => {
+  const [storageScope, setStorageScope] = useState('guest');
+  const [assignments, setAssignments, syncAssignments] = useLocalStorage<Assignments>(`warehouse_assignments_all_${storageScope}`, {} as Assignments);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -17,6 +18,7 @@ export const useAssignments = () => {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setIsAuthenticated(!!user);
+      setStorageScope(user?.uid || 'guest');
       if (!user) setLoading(false);
     });
     return () => unsubscribe();
@@ -26,13 +28,16 @@ export const useAssignments = () => {
     if (!isAuthenticated) return;
 
     setLoading(true);
+    initializedWarehouses.current = new Set();
     const unsubscribes: (() => void)[] = [];
 
     // Internal state to accumulate assignments across all listeners
     // We use a local variable to merge updates before setting the state
     let globalAssignments: Assignments = { ...assignments };
 
-    WAREHOUSES.forEach(whCode => {
+    const warehousesToSubscribe = activeWarehouse ? [activeWarehouse] : ['MEC'];
+
+    warehousesToSubscribe.forEach(whCode => {
       const ref = db.collection("assignments").doc(whCode).collection("locations");
 
       const unsubscribe = ref.onSnapshot(
@@ -60,7 +65,7 @@ export const useAssignments = () => {
 
           // Track initialization
           initializedWarehouses.current.add(whCode);
-          if (initializedWarehouses.current.size === WAREHOUSES.length) {
+          if (initializedWarehouses.current.size === warehousesToSubscribe.length) {
             setLoading(false);
           }
           setError(null);
@@ -72,7 +77,7 @@ export const useAssignments = () => {
           }
           // Mark as initialized even on error to not block the app forever
           initializedWarehouses.current.add(whCode);
-          if (initializedWarehouses.current.size === WAREHOUSES.length) {
+          if (initializedWarehouses.current.size === warehousesToSubscribe.length) {
             setLoading(false);
           }
         }
@@ -83,7 +88,7 @@ export const useAssignments = () => {
     return () => {
       unsubscribes.forEach(unsub => unsub());
     };
-  }, [setAssignments, isAuthenticated]);
+  }, [setAssignments, isAuthenticated, activeWarehouse]);
 
   const saveAssignments = useCallback(async (nextOrUpdater: Assignments | ((prev: Assignments) => Assignments)) => {
     let next: Assignments;
@@ -108,7 +113,13 @@ export const useAssignments = () => {
             orderId: item.orderId,
             timestamp: item.timestamp || new Date().toISOString(),
             assignedAt: item.assignedAt || null,
-            movedAt: item.movedAt || null
+            movedAt: item.movedAt || null,
+            status: item.status || 'UBICADO',
+            packageType: item.packageType || null,
+            itemKey: item.itemKey || null,
+            quantity: item.quantity ?? 1,
+            containerId: item.containerId || null,
+            notes: item.notes || null
           }));
         }
       });

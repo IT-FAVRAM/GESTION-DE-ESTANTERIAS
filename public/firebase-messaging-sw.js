@@ -34,7 +34,7 @@ self.addEventListener('notificationclick', function (event) {
     event.notification.close();
 
     // Deep link logic
-    const deepLink = event.notification.data.url || '/?view=requests';
+    const deepLink = event.notification.data.url || '/requests';
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {

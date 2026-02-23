@@ -30,6 +30,8 @@ interface WarehouseRouteProps {
     onViewLocationDetails: (locId: any) => void;
     onDragMove: (barcode: string, fromLoc: any, toLoc: any) => void;
     onInitiateRelocate: (loc: any) => void;
+    onInitiateEmptyShelf: (warehouse: any, shelf: any) => void | Promise<void>;
+    onNotifyFinishedItem: (barcode: string, location: string, orderId: string) => void;
     collapsedShelves: any;
     toggleShelf: (wh: string, shelfId: string) => void;
     toggleAllShelves: (wh: string, collapsed: boolean) => void;
@@ -38,6 +40,7 @@ interface WarehouseRouteProps {
     canRequestItems: () => boolean;
     onInitiateRequest: (barcode: string, orderId: string, fromLoc: any) => void;
     workingItems: any;
+    viewMode: 'grid' | 'list';
 }
 
 const WarehouseRoute: React.FC<WarehouseRouteProps> = ({
@@ -63,6 +66,8 @@ const WarehouseRoute: React.FC<WarehouseRouteProps> = ({
     onViewLocationDetails,
     onDragMove,
     onInitiateRelocate,
+    onInitiateEmptyShelf,
+    onNotifyFinishedItem,
     collapsedShelves,
     toggleShelf,
     toggleAllShelves,
@@ -70,7 +75,8 @@ const WarehouseRoute: React.FC<WarehouseRouteProps> = ({
     canRemove,
     canRequestItems,
     onInitiateRequest,
-    workingItems
+    workingItems,
+    viewMode
 }) => {
     const { code } = useParams<{ code: string }>();
     const { setActiveWarehouse } = useAppStore();
@@ -115,13 +121,14 @@ const WarehouseRoute: React.FC<WarehouseRouteProps> = ({
                     onInitiateDelete={onInitiateDelete}
                     onConfirmDelete={onConfirmDelete}
                     onCancelDelete={onCancelDelete}
-                    onInitiateEmptyShelf={() => { }}
+                    onInitiateEmptyShelf={onInitiateEmptyShelf}
                     onInitiateValidationFlow={onInitiateValidationFlow}
                     onDirectAssign={onDirectAssign}
                     onDirectRemove={onDirectRemove}
                     onViewLocationDetails={onViewLocationDetails}
                     onDragMove={onDragMove}
                     onInitiateRelocate={onInitiateRelocate}
+                    onNotifyFinishedItem={onNotifyFinishedItem}
                     collapsedShelves={collapsedShelves[code || ''] || {}}
                     onToggleShelf={(shelfId: string) => toggleShelf(code || '', shelfId)}
                     onToggleAllShelves={(collapsed: boolean) => toggleAllShelves(code || '', collapsed)}
@@ -131,6 +138,7 @@ const WarehouseRoute: React.FC<WarehouseRouteProps> = ({
                     canRequestItems={canRequestItems}
                     onInitiateRequest={onInitiateRequest}
                     workingItems={workingItems}
+                    viewMode={viewMode}
                 />
             );
     }

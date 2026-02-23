@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Assignments, LocationId, WarehouseCode, formatLocation } from '../lib/warehouseData';
 import { CloseIcon, TrashIcon, CheckIcon } from './Icons';
+import { generateLayoutLocations } from '../lib/warehouseLayout';
 
 interface EmptyLocationsModalProps {
     isOpen: boolean;
@@ -20,13 +21,11 @@ const EmptyLocationsModal: React.FC<EmptyLocationsModalProps> = ({
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
 
-    // Generate all locations for the active warehouse
-    // Replicating the logic from AssignmentList.tsx for consistent layout
+    // Generate all locations from central layout source
     const warehouseLocations = useMemo(() => {
         const locations: { id: LocationId, code: string, count: number, isOccupied: boolean }[] = [];
-        const pad3 = (n: number) => n.toString().padStart(3, '0');
 
-        const addLoc = (id: string) => {
+        const addLoc = (id: LocationId) => {
             const locId = id as LocationId;
             const items = assignments[locId] || [];
             locations.push({
@@ -37,70 +36,7 @@ const EmptyLocationsModal: React.FC<EmptyLocationsModalProps> = ({
             });
         };
 
-        if (activeWarehouseId === 'MEC') {
-            const positions = [
-                ...Array.from({ length: 4 }, (_, i) => `MEC ${pad3(i + 1)}`), // Urgent
-                ...Array.from({ length: 9 }, (_, i) => `MEC ${pad3(i + 5)}`), // Gen A
-                ...Array.from({ length: 9 }, (_, i) => `MEC ${pad3(i + 14)}`) // Gen B
-            ];
-            positions.forEach(pos => {
-                const shelf = parseInt(pos.replace('MEC ', ''), 10) <= 4 ? 'URGENTE' : 'GENERAL';
-                addLoc(`MEC-E-${shelf}-B1-${pos}`);
-            });
-        }
-        else if (activeWarehouseId === 'PLE') {
-            const positions = [
-                ...Array.from({ length: 16 }, (_, i) => `PLE ${pad3(i + 1)}`),
-                ...Array.from({ length: 14 }, (_, i) => `PLE ${pad3(i + 17)}`),
-                ...Array.from({ length: 23 }, (_, i) => `PLE ${pad3(i + 31)}`),
-                ...Array.from({ length: 4 }, (_, i) => `PLE C1-${i + 1}`),
-                ...Array.from({ length: 4 }, (_, i) => `PLE C2-${i + 1}`)
-            ];
-            positions.forEach(pos => addLoc(`PLE-E1-B1-${pos}`));
-        }
-        else if (activeWarehouseId === 'SOL') {
-            const sol1Pos = Array.from({ length: 4 }, (_, i) => `SOL ${pad3(i + 1)}`);
-            const sol2Pos = Array.from({ length: 36 }, (_, i) => `SOL ${pad3(i + 5)}`);
-            sol1Pos.forEach(pos => addLoc(`SOL-E1-B1-${pos}`));
-            sol2Pos.forEach(pos => addLoc(`SOL-E2-B1-${pos}`));
-        }
-        else if (activeWarehouseId === 'RSO') {
-            Array.from({ length: 8 }, (_, i) => `ROB.SOL ${pad3(i + 1)}`).forEach(pos => addLoc(`RSO-E1-B1-${pos}`));
-        }
-        else if (activeWarehouseId === 'REP') {
-            const repUrgente = Array.from({ length: 4 }, (_, i) => `REP ${pad3(i + 1)}`);
-            const repAluminio = Array.from({ length: 10 }, (_, i) => `REP ${pad3(i + 5)}`);
-            const repNormal = Array.from({ length: 10 }, (_, i) => `REP ${pad3(i + 15)}`);
-            const repModular = Array.from({ length: 16 }, (_, i) => `REP ${pad3(i + 25)}`);
-            repUrgente.forEach(pos => addLoc(`REP-E-URGENTE-B1-${pos}`));
-            repAluminio.forEach(pos => addLoc(`REP-E-ALUMINIO-B1-${pos}`));
-            repNormal.forEach(pos => addLoc(`REP-E-NORMAL-B1-${pos}`));
-            repModular.forEach(pos => addLoc(`REP-E-MODULAR-B1-${pos}`));
-        }
-        else if (activeWarehouseId === 'PIN') {
-            Array.from({ length: 15 }, (_, i) => `PIN ${pad3(i + 1)}`).forEach(pos => addLoc(`PIN-E-DENTRO-B1-${pos}`));
-            Array.from({ length: 12 }, (_, i) => `PIN ${pad3(i + 16)}`).forEach(pos => addLoc(`PIN-E-FUERA-B1-${pos}`));
-        }
-        else if (activeWarehouseId === 'PRE') {
-            Array.from({ length: 30 }, (_, i) => `PRE ${pad3(i + 1)}`).forEach(pos => addLoc(`PRE-E1-B1-${pos}`));
-        }
-        else if (activeWarehouseId === 'SXP') {
-            Array.from({ length: 10 }, (_, i) => `SXP ${pad3(i + 1)}`).forEach(pos => addLoc(`SXP-E1-B1-${pos}`));
-        }
-        else if (activeWarehouseId === 'COM') {
-            Array.from({ length: 18 }, (_, i) => `COM ${pad3(i + 1)}`).forEach(pos => addLoc(`COM-E1-B1-${pos}`));
-        }
-        else if (activeWarehouseId === 'RPL') {
-            Array.from({ length: 14 }, (_, i) => `ROB.PLE ${pad3(i + 1)}`).forEach(pos => addLoc(`RPL-E1-B1-${pos}`));
-            Array.from({ length: 21 }, (_, i) => `ROB.PLE ${pad3(i + 15)}`).forEach(pos => addLoc(`RPL-E2-B1-${pos}`));
-        }
-        else if (activeWarehouseId === 'CAL') {
-            Array.from({ length: 22 }, (_, i) => `CAL ${pad3(i + 1)}`).forEach(pos => addLoc(`CAL-E-RECHAZOS-B1-${pos}`));
-            Array.from({ length: 12 }, (_, i) => `CAL ${pad3(i + 23)}`).forEach(pos => addLoc(`CAL-E-GENERAL-B1-${pos}`));
-        }
-        else if (activeWarehouseId === 'ZIN') {
-            [1, 2, 3, 4, 5].forEach(rack => addLoc(`ZIN-E1-B${rack}-1`));
-        }
+        generateLayoutLocations(activeWarehouseId).forEach(addLoc);
 
         return locations;
     }, [activeWarehouseId, assignments]);

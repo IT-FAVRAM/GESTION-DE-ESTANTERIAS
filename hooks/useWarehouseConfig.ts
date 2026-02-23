@@ -27,7 +27,8 @@ const INITIAL_CONFIG: WarehouseConfig = {
 };
 
 export const useWarehouseConfig = (assignments: Assignments) => {
-    const [config, setConfig] = useLocalStorage<WarehouseConfig>('warehouse_config', INITIAL_CONFIG);
+    const [storageScope, setStorageScope] = useState('guest');
+    const [config, setConfig] = useLocalStorage<WarehouseConfig>(`warehouse_config_${storageScope}`, INITIAL_CONFIG);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -35,6 +36,7 @@ export const useWarehouseConfig = (assignments: Assignments) => {
     useEffect(() => {
         const unsubscribe = auth.onAuthStateChanged((user) => {
             setIsAuthenticated(!!user);
+            setStorageScope(user?.uid || 'guest');
             if (!user) setLoading(false);
         });
         return () => unsubscribe();
