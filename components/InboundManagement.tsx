@@ -97,9 +97,9 @@ export const InboundManagement: React.FC<InboundManagementProps> = ({ role }) =>
                 <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 animate-slide-up">
                     <h4 className="font-bold text-cyan-400 mb-4">Registrar Nuevo Pedido</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <input type="text" placeholder="Número Pedido (OF)" value={newOrderNumber} onChange={e => setNewOrderNumber(e.target.value)} className="bg-slate-900 border border-slate-600 rounded p-2 text-white" />
-                        <input type="text" placeholder="ID Proveedor" value={newSupplier} onChange={e => setNewSupplier(e.target.value)} className="bg-slate-900 border border-slate-600 rounded p-2 text-white" />
-                        <input type="text" placeholder="Nombre Proveedor (Opcional)" value={newSupplierName} onChange={e => setNewSupplierName(e.target.value)} className="bg-slate-900 border border-slate-600 rounded p-2 text-white" />
+                        <input type="text" inputMode="text" autoCapitalize="characters" autoComplete="off" spellCheck="false" placeholder="Número Pedido (OF)" value={newOrderNumber} onChange={e => setNewOrderNumber(e.target.value.toUpperCase())} className="bg-slate-900 border border-slate-600 rounded p-2 text-white" />
+                        <input type="text" inputMode="text" autoCapitalize="characters" autoComplete="off" spellCheck="false" placeholder="ID Proveedor" value={newSupplier} onChange={e => setNewSupplier(e.target.value.toUpperCase())} className="bg-slate-900 border border-slate-600 rounded p-2 text-white" />
+                        <input type="text" inputMode="text" autoCapitalize="words" autoComplete="off" spellCheck="false" placeholder="Nombre Proveedor (Opcional)" value={newSupplierName} onChange={e => setNewSupplierName(e.target.value)} className="bg-slate-900 border border-slate-600 rounded p-2 text-white" />
                         <div className="flex gap-2">
                             <div className="flex-1">
                                 <label className="text-xs text-slate-400 block">Fecha Solicitud</label>

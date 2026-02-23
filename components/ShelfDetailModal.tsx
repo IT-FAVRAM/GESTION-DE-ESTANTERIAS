@@ -119,8 +119,8 @@ const ShelfDetailModal: React.FC<ShelfDetailModalProps> = ({
                                         key={item.id}
                                         onClick={() => mode === 'select' && handleToggleSelect(item.id)}
                                         className={`bg-white dark:bg-slate-800 p-4 rounded-xl border shadow-sm flex items-center gap-3 transition-all ${mode === 'select' && selectedIds.includes(item.id)
-                                                ? 'border-cyan-500 ring-1 ring-cyan-500 bg-cyan-50 dark:bg-cyan-900/20'
-                                                : 'border-slate-200 dark:border-slate-700'
+                                            ? 'border-cyan-500 ring-1 ring-cyan-500 bg-cyan-50 dark:bg-cyan-900/20'
+                                            : 'border-slate-200 dark:border-slate-700'
                                             }`}
                                     >
                                         {mode === 'select' && (
@@ -169,11 +169,11 @@ const ShelfDetailModal: React.FC<ShelfDetailModalProps> = ({
                         <div className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-4">
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Artículo</label>
-                                <input autoFocus value={articleCode} onChange={e => setArticleCode(e.target.value.toUpperCase())} className="w-full p-3 bg-slate-100 dark:bg-slate-900 rounded-lg border-2 border-transparent focus:border-cyan-500 outline-none text-lg font-bold" />
+                                <input autoFocus value={articleCode} onChange={e => setArticleCode(e.target.value.toUpperCase())} className="w-full p-3 bg-slate-100 dark:bg-slate-900 rounded-lg border-2 border-transparent focus:border-cyan-500 outline-none text-lg font-bold" inputMode="text" autoCapitalize="characters" autoComplete="off" spellCheck="false" aria-label="Artículo" />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">OF</label>
-                                <input value={orderId} onChange={e => setOrderId(e.target.value.toUpperCase())} className="w-full p-3 bg-slate-100 dark:bg-slate-900 rounded-lg border-2 border-transparent focus:border-purple-500 outline-none text-lg font-mono" />
+                                <input value={orderId} onChange={e => setOrderId(e.target.value.toUpperCase())} className="w-full p-3 bg-slate-100 dark:bg-slate-900 rounded-lg border-2 border-transparent focus:border-purple-500 outline-none text-lg font-mono" inputMode="text" autoCapitalize="characters" autoComplete="off" spellCheck="false" aria-label="Orden de Fabricación" />
                             </div>
                             <div className="flex gap-3 pt-2">
                                 <button onClick={() => setMode('view')} className="flex-1 py-3 bg-slate-200 dark:bg-slate-700 rounded-lg font-bold">Cancelar</button>
@@ -186,7 +186,7 @@ const ShelfDetailModal: React.FC<ShelfDetailModalProps> = ({
                         <div className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-4">
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Descripción</label>
-                                <textarea autoFocus rows={3} value={freeText} onChange={e => setFreeText(e.target.value)} className="w-full p-3 bg-slate-100 dark:bg-slate-900 rounded-lg border-2 border-transparent focus:border-purple-500 outline-none text-lg" placeholder="Ej: Tornillos M8..." />
+                                <textarea autoFocus rows={3} value={freeText} onChange={e => setFreeText(e.target.value)} className="w-full p-3 bg-slate-100 dark:bg-slate-900 rounded-lg border-2 border-transparent focus:border-purple-500 outline-none text-lg" placeholder="Ej: Tornillos M8..." inputMode="text" autoCapitalize="sentences" spellCheck="false" aria-label="Descripción libre" />
                             </div>
                             <div className="flex gap-3 pt-2">
                                 <button onClick={() => setMode('view')} className="flex-1 py-3 bg-slate-200 dark:bg-slate-700 rounded-lg font-bold">Cancelar</button>
