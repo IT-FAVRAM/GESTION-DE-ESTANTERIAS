@@ -1,0 +1,307 @@
+import { useState, useEffect, useCallback } from 'react';
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+  type User,
+} from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../lib/firebaseV3';
+import { fetchDeviceConfig, sendDeviceHeartbeat } from '../lib/deviceApi';
+import {
+  type UserRole,
+  type UserDoc,
+  type DeviceDoc,
+  type WarehouseSection,
+  COLLECTIONS,
+} from '../lib/firestoreSchema';
+import { validateOperarioId, type Operario } from '../lib/operarioApi';
+import {
+  AUTH_STORAGE_KEYS,
+  clearAllSessionData,
+  readGuestSession,
+  writeGuestSession,
+  getOrCreateDeviceId,
+} from '../domain/auth/authStorage';
+import { canViewReprocessCosts as resolveCanViewReprocessCosts } from '../domain/reprocesos/reprocesosVisibility';
+import type { AuthMethod } from '../domain/auth/authTypes';
+
+const SECTION_TO_SHELF: Partial<Record<WarehouseSection, string>> = {
+  MECANIZADO: 'MEC',
+  PRENSAS: 'PRE',
+  PLEGADORA: 'PLE',
+  SOLDADURA: 'SOL',
+  ROBOT_PLEGADO: 'RPL',
+  REPASADO: 'REP',
+  PINTURA: 'PIN',
+  CALIDAD: 'CAL',
+};
+
+type GuestSession = {
+  operarioId: string;
+  operario: Operario | null;
+  role: UserRole;
+  section?: WarehouseSection;
+  guest: true;
+  assignedShelf: string | null;
+  displayName: string;
+};
+
+const resolveAssignedShelf = (role: UserRole, section?: WarehouseSection): string | null => {
+  if (role === 'CALIDAD') return 'CAL';
+  if (role !== 'OPERARIO') return null;
+  return SECTION_TO_SHELF[section || 'MECANIZADO'] || 'MEC';
+};
+
+const buildGuestSession = (role: UserRole, section?: WarehouseSection): GuestSession => {
+  const assignedShelf = resolveAssignedShelf(role, section);
+  const displayNameByRole: Record<UserRole, string> = {
+    OPERARIO: 'Operario Desarrollo',
+    CARRETILLERO: 'Carretillero Desarrollo',
+    JEFE_SECCION: 'Jefe Desarrollo',
+    CALIDAD: 'Calidad Desarrollo',
+    ADMIN: 'Admin Desarrollo',
+    SUPERADMIN: 'Superadmin Desarrollo',
+  };
+
+  return {
+    operarioId: `dev-${role.toLowerCase()}`,
+    operario: role === 'OPERARIO'
+      ? { id: '9999', name: displayNameByRole[role], department: section || 'MECANIZADO', active: true }
+      : null,
+    role,
+    section,
+    guest: true,
+    assignedShelf,
+    displayName: displayNameByRole[role],
+  };
+};
+
+export type AuthMode = 'kiosk' | 'carretillero' | 'admin' | 'unassigned' | 'loading';
+
+export interface AuthState {
+  loading: boolean;
+  firebaseUser: User | null;
+  role: UserRole | null;
+  section: WarehouseSection | null;
+  operario: Operario | null;
+  operarioId: string | null;
+  displayName: string;
+  email: string | null;
+  isKioskSession: boolean;
+  assignedShelf: string | null;
+  deviceMode: AuthMode;
+  authMethod: AuthMethod | null;
+  error: string | null;
+}
+
+const getDeviceConfig = async (deviceId: string): Promise<DeviceDoc | null> => {
+  if (
+    window.location.hostname === 'localhost' ||
+    window.location.hostname.startsWith('10.') ||
+    window.location.hostname.startsWith('192.')
+  ) {
+    return {
+      type: 'CARRETILLERO',
+      assignedShelf: null,
+      name: 'Dispositivo Desarrollo',
+      lastSeen: new Date().toISOString(),
+      active: true,
+    };
+  }
+
+  try {
+    const result = await fetchDeviceConfig(deviceId);
+    if (result.exists && result.device) return result.device;
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const resolveUserProfile = async (user: User): Promise<UserDoc | null> => {
+  try {
+    const snap = await getDoc(doc(db, COLLECTIONS.USERS, user.uid));
+    if (snap.exists()) return snap.data() as UserDoc;
+  } catch (e) {
+    console.error('Error resolving profile', e);
+  }
+  return null;
+};
+
+export const useAuth = () => {
+  const deviceId = getOrCreateDeviceId();
+
+  const initialGuestSession = readGuestSession<GuestSession>();
+
+  const [state, setState] = useState<AuthState>({
+    loading: initialGuestSession ? false : true,
+    firebaseUser: null,
+    role: initialGuestSession?.role ?? null,
+    section: initialGuestSession?.section ?? null,
+    operario: initialGuestSession?.operario ?? null,
+    operarioId: initialGuestSession?.operarioId ?? null,
+    displayName: initialGuestSession?.displayName ?? '',
+    email: null,
+    isKioskSession: !!initialGuestSession,
+    assignedShelf: initialGuestSession?.assignedShelf ?? null,
+    deviceMode: initialGuestSession ? 'carretillero' : 'loading',
+    authMethod: initialGuestSession ? 'guest' : null,
+    error: null,
+  });
+
+  useEffect(() => {
+    const detectMode = async () => {
+      const deviceConfig = await getDeviceConfig(deviceId);
+      if (!deviceConfig) {
+        setState((prev) => ({ ...prev, deviceMode: 'admin', error: null }));
+        return;
+      }
+      setState((prev) => ({
+        ...prev,
+        deviceMode: (deviceConfig.type?.toLowerCase() as AuthMode) || 'admin',
+        assignedShelf: deviceConfig.assignedShelf || null,
+        error: null,
+      }));
+    };
+    detectMode();
+  }, [deviceId]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user || user.isAnonymous) {
+        const session = readGuestSession<GuestSession>();
+        if (session) {
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            firebaseUser: user,
+            role: session.role,
+            section: session.section || null,
+            operario: session.operario,
+            operarioId: session.operarioId,
+            assignedShelf: session.assignedShelf || prev.assignedShelf,
+            displayName: session.displayName || session.operario?.name || '',
+            isKioskSession: true,
+            authMethod: 'guest',
+            error: null,
+          }));
+          return;
+        }
+
+        setState((prev) => ({
+          ...prev,
+          loading: false,
+          firebaseUser: user,
+          role: null,
+          section: null,
+          displayName: '',
+          isKioskSession: false,
+          authMethod: null,
+          error: null,
+        }));
+        return;
+      }
+
+      const userData = await resolveUserProfile(user);
+      setState((prev) => ({
+        ...prev,
+        loading: false,
+        firebaseUser: user,
+        role: userData?.role || null,
+        section: userData?.section || null,
+        displayName: userData?.displayName || user.email || '',
+        email: user.email,
+        isKioskSession: false,
+        authMethod: 'email',
+        error: userData ? null : 'Usuario no configurado',
+      }));
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const loginAsGuest = useCallback(async (role: UserRole, section?: WarehouseSection) => {
+    setState((prev) => ({ ...prev, loading: true }));
+    try {
+      const session = buildGuestSession(role, section);
+      writeGuestSession(session);
+      setState((prev) => ({
+        ...prev,
+        loading: false,
+        firebaseUser: null,
+        role,
+        section: section || null,
+        operario: session.operario,
+        operarioId: session.operarioId,
+        assignedShelf: session.assignedShelf,
+        displayName: session.displayName,
+        isKioskSession: true,
+        authMethod: 'guest',
+        error: null,
+      }));
+      return true;
+    } catch {
+      localStorage.removeItem(AUTH_STORAGE_KEYS.GUEST_SESSION);
+      setState((prev) => ({ ...prev, loading: false, error: 'Error al iniciar sesion de desarrollo' }));
+      return false;
+    }
+  }, []);
+
+  const loginWithEmail = useCallback(async (email: string, password: string) => {
+    setState((prev) => ({ ...prev, loading: true }));
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged will fire and set authMethod: 'email'
+      return true;
+    } catch (e: any) {
+      const msg = e?.code === 'auth/invalid-credential'
+        ? 'Credenciales incorrectas'
+        : 'Error de conexión. Comprueba tu red.';
+      setState((prev) => ({ ...prev, loading: false, error: msg }));
+      return false;
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
+    clearAllSessionData();
+    try {
+      await signOut(auth);
+    } catch {
+      /* no-op if not signed in */
+    }
+    // Reset state — onAuthStateChanged will also fire (null user, no guest session)
+    setState((prev) => ({
+      ...prev,
+      loading: false,
+      firebaseUser: null,
+      role: null,
+      section: null,
+      operario: null,
+      operarioId: null,
+      displayName: '',
+      email: null,
+      isKioskSession: false,
+      assignedShelf: null,
+      authMethod: null,
+      error: null,
+    }));
+  }, []);
+
+  const isAuthenticated =
+    (state.firebaseUser !== null && state.role !== null) || state.isKioskSession;
+
+  return {
+    ...state,
+    loginAsGuest,
+    loginWithEmail,
+    logout,
+    isAuthenticated,
+    canEditCarts:
+      state.role === 'CARRETILLERO' ||
+      state.role === 'ADMIN' ||
+      state.role === 'SUPERADMIN',
+    canViewReprocessCosts: resolveCanViewReprocessCosts(state.role, state.authMethod),
+    deviceId,
+  };
+};
