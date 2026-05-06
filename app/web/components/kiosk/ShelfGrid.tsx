@@ -1,12 +1,6 @@
 /**
- * ShelfGrid — Visualización interactiva de estantería con tarjetas expandibles
- * Gestor de Estanterías WMS v3.0
- *
- * Diseño basado en las fotos de referencia:
- * - Bloques/zonas colapsables con cabecera (nombre de zona + badge URGENTE/VT)
- * - Cada ubicación es una tarjeta expandible
- * - Botones globales CONTRAER TODO / EXPANDIR TODO
- * - Grid de columnas adaptado al physicalBlock de cada zona
+ * ShelfGrid - Visualizacion interactiva de estanteria con tarjetas expandidas.
+ * Colapso individual por sección mediante chevron animado.
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
@@ -15,9 +9,12 @@ import {
   type Shelf,
   isTechReviewLocation,
   isUrgentLocation,
-  isReprocesosLocation,
+  isAluminioLocation,
 } from '../../lib/firestoreSchema';
 import ShelfGridCell from './ShelfGridCell';
+import ShelfGridLegend from './ShelfGridLegend';
+import ShelfGridStats from './ShelfGridStats';
+import ShelfRackView from './ShelfRackView';
 
 interface ShelfGridProps {
   locations: ShelfLocationState[];
@@ -27,100 +24,153 @@ interface ShelfGridProps {
   highlightedPositions?: string[];
   compact?: boolean;
   showReprocessCosts?: boolean;
+  fullscreenMode?: boolean;
 }
 
-const createEmptyLocation = (position: string, _shelfCode?: string): ShelfLocationState => ({
+const createEmptyLocation = (position: string, shelfCode?: string): ShelfLocationState => ({
   position,
   isEmpty: true,
   items: [],
-  locationId: `${_shelfCode || ''}_${position}`,
+  locationId: `${shelfCode || ''}_${position}`,
 });
 
-// ─── Block Header ────────────────────────────────────────────────
+// ─── Section Header ───────────────────────────────────────────────────────────
 
-interface BlockHeaderProps {
+interface SectionHeaderProps {
   title: string;
   subtitle?: string;
   isUrgent: boolean;
   isTechReview: boolean;
-  collapsed: boolean;
-  onToggle: () => void;
-  onExpandAll: () => void;
-  onCollapseAll: () => void;
+  isAluminio?: boolean;
   occupiedCount: number;
   totalCount: number;
+  totalArticles: number;
+  isCollapsed: boolean;
+  onToggle: () => void;
 }
 
-const BlockHeader: React.FC<BlockHeaderProps> = ({
-  title, subtitle, isUrgent, isTechReview, collapsed, onToggle,
-  onExpandAll, onCollapseAll, occupiedCount, totalCount,
+const SectionHeader: React.FC<SectionHeaderProps> = ({
+  title,
+  subtitle,
+  isUrgent,
+  isTechReview,
+  isAluminio,
+  occupiedCount,
+  totalCount,
+  totalArticles,
+  isCollapsed,
+  onToggle,
 }) => {
-  let headerBg = 'bg-slate-800/60 border-slate-700/40';
-  let titleCls = 'text-slate-200';
+  const pct = totalCount > 0 ? Math.round((occupiedCount / totalCount) * 100) : 0;
+
+  let wrapCls = 'bg-slate-900/95 border-slate-600/80 shadow-[0_10px_30px_rgba(15,23,42,0.26)] hover:bg-slate-800/95';
+  let titleCls = 'text-slate-100';
+  let accentBar = 'bg-cyan-500';
+  let pctBarCls = 'from-cyan-500 to-emerald-500';
+  let chevronCls = 'text-slate-300 group-hover:text-white';
+  let subtitleCls = 'text-slate-300';
+  let statsCls = 'text-slate-200';
   let badgeEl: React.ReactNode = null;
-  let icon = '📦';
 
   if (isUrgent) {
-    headerBg = 'bg-red-500/10 border-red-400/20';
-    titleCls = 'text-red-300';
-    icon = '🚨';
+    wrapCls = 'bg-red-950/90 border-red-400/60 shadow-[0_10px_30px_rgba(127,29,29,0.24)] hover:bg-red-950';
+    titleCls = 'text-red-100';
+    accentBar = 'bg-red-500';
+    pctBarCls = 'from-red-500 to-red-400';
+    chevronCls = 'text-red-200 group-hover:text-white';
+    subtitleCls = 'text-red-100/80';
+    statsCls = 'text-red-100';
     badgeEl = (
-      <span className="px-2 py-0.5 text-[10px] font-black bg-red-500/20 text-red-300 border border-red-400/20 rounded-lg uppercase tracking-widest">
-        URGENTE
+      <span className="flex items-center gap-1 px-2 py-0.5 text-[9px] font-black bg-red-100 text-red-950 border border-red-200 rounded-md uppercase tracking-widest">
+        <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+        URG
       </span>
     );
   } else if (isTechReview) {
-    headerBg = 'bg-amber-500/10 border-amber-400/20';
-    titleCls = 'text-amber-300';
-    icon = '🔬';
+    wrapCls = 'bg-amber-950/85 border-amber-400/55 shadow-[0_10px_30px_rgba(120,53,15,0.22)] hover:bg-amber-950';
+    titleCls = 'text-amber-100';
+    accentBar = 'bg-amber-500';
+    pctBarCls = 'from-amber-500 to-amber-400';
+    chevronCls = 'text-amber-100 group-hover:text-white';
+    subtitleCls = 'text-amber-100/80';
+    statsCls = 'text-amber-100';
     badgeEl = (
-      <span className="px-2 py-0.5 text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-400/20 rounded-lg uppercase">
-        VER. TÉCNICA
+      <span className="px-2 py-0.5 text-[9px] font-black bg-amber-50 text-amber-950 border border-amber-200 rounded-md uppercase tracking-widest">
+        VER. TÉC.
+      </span>
+    );
+  } else if (isAluminio) {
+    wrapCls = 'bg-yellow-950/85 border-yellow-400/55 shadow-[0_10px_30px_rgba(161,94,12,0.22)] hover:bg-yellow-950';
+    titleCls = 'text-yellow-100';
+    accentBar = 'bg-yellow-500';
+    pctBarCls = 'from-yellow-500 to-yellow-400';
+    chevronCls = 'text-yellow-200 group-hover:text-white';
+    subtitleCls = 'text-yellow-100/80';
+    statsCls = 'text-yellow-100';
+    badgeEl = (
+      <span className="px-2 py-0.5 text-[9px] font-black bg-yellow-100 text-yellow-950 border border-yellow-200 rounded-md uppercase tracking-widest">
+        ALU
       </span>
     );
   }
 
   return (
-    <div className={`rounded-xl border px-4 py-3 flex items-center justify-between gap-3 cursor-pointer select-none ${headerBg}`} onClick={onToggle}>
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className={`w-4 h-4 shrink-0 transition-transform duration-200 text-slate-500 ${collapsed ? '-rotate-90' : ''}`}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-        <span className="text-lg">{icon}</span>
-        <div className="min-w-0">
-          <span className={`text-sm font-black ${titleCls}`}>{title}</span>
-          {subtitle && <span className="text-xs text-slate-500 ml-2">{subtitle}</span>}
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`w-full rounded-xl border px-4 py-3 flex items-center gap-3 transition-all duration-200 cursor-pointer group ${wrapCls}`}
+    >
+      <div className={`w-0.5 h-6 rounded-full ${accentBar} opacity-70 shrink-0`} />
+
+      <div className="flex-1 min-w-0 text-left">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`text-sm font-black tracking-tight font-mono ${titleCls}`}>{title}</span>
+          {subtitle && (
+            <span className={`text-[11px] font-mono ${subtitleCls}`}>{subtitle}</span>
+          )}
+          {badgeEl}
         </div>
-        {badgeEl}
-        <span className="text-xs text-slate-500 hidden sm:block">
-          {occupiedCount}/{totalCount} ocup.
-        </span>
+        <div className="flex items-center gap-2 mt-1.5">
+          <div className="flex-1 max-w-[120px] h-1.5 bg-slate-950/70 rounded-full overflow-hidden">
+            <div
+              className={`h-full bg-gradient-to-r ${pctBarCls} rounded-full transition-all duration-700`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <span className={`text-[10px] font-mono tabular-nums ${statsCls}`}>
+            {occupiedCount}/{totalCount} · {totalArticles} art.
+          </span>
+        </div>
       </div>
-      {!collapsed && (
-        <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={onCollapseAll}
-            className="px-2 py-1 text-[10px] font-bold bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors uppercase tracking-wide"
-          >
-            Contraer
-          </button>
-          <button
-            onClick={onExpandAll}
-            className="px-2 py-1 text-[10px] font-bold bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors uppercase tracking-wide"
-          >
-            Expandir
-          </button>
-        </div>
-      )}
-    </div>
+
+      <svg
+        className={`w-4 h-4 shrink-0 transition-transform duration-300 ${chevronCls} ${isCollapsed ? '-rotate-90' : 'rotate-0'}`}
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2.5}
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+      </svg>
+    </button>
   );
 };
 
-// ─── Block with expandable cells ────────────────────────────────
+// ─── Collapsible content wrapper ──────────────────────────────────────────────
+
+const CollapsibleContent: React.FC<{ isCollapsed: boolean; children: React.ReactNode }> = ({
+  isCollapsed,
+  children,
+}) => (
+  <div
+    className="overflow-hidden transition-all duration-300 ease-in-out"
+    style={{ display: 'grid', gridTemplateRows: isCollapsed ? '0fr' : '1fr' }}
+  >
+    <div className="min-h-0">{children}</div>
+  </div>
+);
+
+// ─── Block (physical layout) ──────────────────────────────────────────────────
 
 interface BlockProps {
   block: {
@@ -128,107 +178,78 @@ interface BlockProps {
     title: string;
     subtitle?: string;
     zoneName?: string;
-    rows: Array<Array<number | null>>;
     fullWidth?: boolean;
+    rows: Array<Array<number | null>>;
   };
   shelfDef: Shelf;
   locationMap: Map<string, ShelfLocationState>;
   selectedPositions: string[];
   highlightedPositions: string[];
   onCellPress?: (location: ShelfLocationState) => void;
-  colsForBlock: (rows: Array<Array<number | null>>) => string;
-  globalExpanded: boolean | null; // null = no override
+  isCollapsed: boolean;
+  onToggle: () => void;
   showReprocessCosts: boolean;
 }
 
 const Block: React.FC<BlockProps> = ({
-  block, shelfDef, locationMap, selectedPositions, highlightedPositions,
-  onCellPress, colsForBlock, globalExpanded, showReprocessCosts,
+  block,
+  shelfDef,
+  locationMap,
+  selectedPositions,
+  highlightedPositions,
+  onCellPress,
+  isCollapsed,
+  onToggle,
+  showReprocessCosts,
 }) => {
-  const [collapsed, setCollapsed] = useState(false);
-  const [expandedCells, setExpandedCells] = useState(false);
-
-  // Handle global override
-  const prevGlobalExpanded = React.useRef<boolean | null>(null);
-  React.useEffect(() => {
-    if (globalExpanded !== null && globalExpanded !== prevGlobalExpanded.current) {
-      prevGlobalExpanded.current = globalExpanded;
-      setCollapsed(!globalExpanded);
-      setExpandedCells(globalExpanded);
-    }
-  }, [globalExpanded]);
-
   const zone = shelfDef.layout.zones.find((z) => z.name === block.zoneName);
   const isUrgent = zone?.isUrgent ?? false;
   const isTechReview = zone?.isTechReview ?? false;
+  const isAluminio = zone?.name === 'ALUMINIO';
 
-  // Count occupied in this block
-  const allPosInBlock = block.rows.flat().filter((p): p is number => p !== null);
-  const occupiedCount = allPosInBlock.filter((p) => {
+  const allPos = block.rows.flat().filter((p): p is number => p !== null);
+  const occupiedCount = allPos.filter((p) => {
     const loc = locationMap.get(p.toString().padStart(3, '0'));
     return loc && !loc.isEmpty;
   }).length;
-
-  const gridCols = colsForBlock(block.rows);
+  const totalArticles = allPos.reduce((sum, p) => {
+    const loc = locationMap.get(p.toString().padStart(3, '0'));
+    return sum + (loc?.items.length ?? 0);
+  }, 0);
 
   return (
     <div className="flex flex-col gap-2">
-      <BlockHeader
+      <SectionHeader
         title={block.title}
         subtitle={block.subtitle}
         isUrgent={isUrgent}
         isTechReview={isTechReview}
-        collapsed={collapsed}
-        onToggle={() => setCollapsed((c) => !c)}
-        onExpandAll={() => setExpandedCells(true)}
-        onCollapseAll={() => setExpandedCells(false)}
+        isAluminio={isAluminio}
         occupiedCount={occupiedCount}
-        totalCount={allPosInBlock.length}
+        totalCount={allPos.length}
+        totalArticles={totalArticles}
+        isCollapsed={isCollapsed}
+        onToggle={onToggle}
       />
-
-      {!collapsed && (
-        <div className="flex flex-col gap-2">
-          {block.rows.map((row, rowIdx) => (
-            <div
-              key={`${block.id}-r${rowIdx}`}
-              className={`grid gap-2 ${gridCols}`}
-            >
-              {row.map((posNum, colIdx) => {
-                if (posNum === null) {
-                  return <div key={`${block.id}-r${rowIdx}-c${colIdx}-empty`} className="opacity-0" />;
-                }
-                const pos = posNum.toString().padStart(3, '0');
-                const loc = locationMap.get(pos);
-                const shelfCode = shelfDef.code;
-                const posInt = posNum;
-
-                return (
-                  <ShelfGridCell
-                    key={pos}
-                    position={pos}
-                    location={loc}
-                    shelfCode={shelfCode}
-                    isUrgent={isUrgentLocation(shelfCode, posInt)}
-                    isTechReview={isTechReviewLocation(shelfCode, posInt)}
-                    isSelected={selectedPositions.includes(pos)}
-                    isHighlighted={highlightedPositions.includes(pos)}
-                    compact={false}
-                    forceExpanded={expandedCells}
-                    showReprocessCosts={showReprocessCosts}
-                    onPress={onCellPress}
-                    createEmptyLocation={createEmptyLocation}
-                  />
-                );
-              })}
-            </div>
-          ))}
+      <CollapsibleContent isCollapsed={isCollapsed}>
+        <div className="pt-1 pb-2">
+          <ShelfRackView
+            block={block as import('../../lib/firestoreSchema').ShelfPhysicalBlock}
+            shelfCode={shelfDef.code}
+            locationMap={locationMap}
+            selectedPositions={selectedPositions}
+            highlightedPositions={highlightedPositions}
+            onCellPress={onCellPress}
+            showReprocessCosts={showReprocessCosts}
+            createEmptyLocation={createEmptyLocation}
+          />
         </div>
-      )}
+      </CollapsibleContent>
     </div>
   );
 };
 
-// ─── Main ShelfGrid ──────────────────────────────────────────────
+// ─── ShelfGrid ────────────────────────────────────────────────────────────────
 
 const ShelfGrid: React.FC<ShelfGridProps> = ({
   locations,
@@ -238,8 +259,18 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
   highlightedPositions = [],
   compact = false,
   showReprocessCosts = false,
+  fullscreenMode = false,
 }) => {
-  const [globalExpanded, setGlobalExpanded] = useState<boolean | null>(null);
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+
+  const toggleSection = useCallback((id: string) => {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   const locationMap = useMemo(() => {
     const map = new Map<string, ShelfLocationState>();
@@ -248,13 +279,13 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
   }, [locations]);
 
   const totalSlots = shelfDef?.locationCount ?? locations.length;
-  const occupiedSlots = locations.filter((l) => !l.isEmpty).length;
-  const totalArticles = locations.reduce((s, l) => s + (l.items?.length ?? 0), 0);
+  const occupiedSlots = locations.filter((loc) => !loc.isEmpty).length;
+  const totalArticles = locations.reduce((sum, loc) => sum + (loc.items?.length ?? 0), 0);
   const pct = totalSlots > 0 ? Math.round((occupiedSlots / totalSlots) * 100) : 0;
+  const physicalBlocks = shelfDef?.layout.physicalBlocks ?? [];
 
-  // Determine number of columns based on max row width
   const colsForBlock = useCallback((rows: Array<Array<number | null>>): string => {
-    const maxCols = Math.max(...rows.map((r) => r.length), 1);
+    const maxCols = Math.max(...rows.map((row) => row.length), 1);
     const colMap: Record<number, string> = {
       1: 'grid-cols-1',
       2: 'grid-cols-2',
@@ -267,20 +298,19 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
     return colMap[maxCols] || `grid-cols-${maxCols}`;
   }, []);
 
-  // Compact mode — small squares (admin browser)
+  // ── Compact mode ────────────────────────────────────────────────────────────
   if (compact) {
-    const physicalBlocks = shelfDef?.layout.physicalBlocks ?? [];
     if (physicalBlocks.length > 0) {
       return (
         <div className="space-y-4">
           {physicalBlocks.map((block) => (
             <div key={block.id}>
-              <p className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">{block.title}</p>
+              <p className="text-xs font-bold font-mono text-slate-500 mb-2 uppercase tracking-wide">{block.title}</p>
               <div className="flex flex-col gap-1.5">
-                {block.rows.map((row, ri) => (
-                  <div key={ri} className={`grid gap-1.5 ${colsForBlock(block.rows)}`}>
-                    {row.map((posNum, ci) => {
-                      if (posNum === null) return <div key={ci} className="w-10 h-10 opacity-0" />;
+                {block.rows.map((row, rowIndex) => (
+                  <div key={rowIndex} className={`grid gap-1.5 ${colsForBlock(block.rows)}`}>
+                    {row.map((posNum, colIndex) => {
+                      if (posNum === null) return <div key={colIndex} className="w-10 h-10 opacity-0" />;
                       const pos = posNum.toString().padStart(3, '0');
                       const loc = locationMap.get(pos);
                       return (
@@ -291,6 +321,7 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
                           shelfCode={shelfDef?.code}
                           isUrgent={isUrgentLocation(shelfDef?.code || '', posNum)}
                           isTechReview={isTechReviewLocation(shelfDef?.code || '', posNum)}
+                          isAluminio={isAluminioLocation(shelfDef?.code || '', posNum)}
                           isSelected={selectedPositions.includes(pos)}
                           isHighlighted={highlightedPositions.includes(pos)}
                           compact
@@ -308,7 +339,6 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
         </div>
       );
     }
-    // Fallback flat compact
     return (
       <div className="flex flex-wrap gap-1.5">
         {locations.map((loc) => (
@@ -319,6 +349,7 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
             shelfCode={shelfDef?.code}
             isUrgent={isUrgentLocation(shelfDef?.code || '', parseInt(loc.position, 10))}
             isTechReview={isTechReviewLocation(shelfDef?.code || '', parseInt(loc.position, 10))}
+            isAluminio={isAluminioLocation(shelfDef?.code || '', parseInt(loc.position, 10))}
             isSelected={selectedPositions.includes(loc.position)}
             isHighlighted={highlightedPositions.includes(loc.position)}
             compact
@@ -331,111 +362,119 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
     );
   }
 
-  const physicalBlocks = shelfDef?.layout.physicalBlocks ?? [];
+   // ── Full mode ───────────────────────────────────────────────────────────────
+   return (
+     <div className="w-full">
+       {!fullscreenMode && (
+         <>
+           <ShelfGridStats
+             emptySlots={Math.max(totalSlots - occupiedSlots, 0)}
+             occupiedSlots={occupiedSlots}
+             totalSlots={totalSlots}
+             occupancy={pct}
+             compact={compact}
+           />
 
-  return (
-    <div className="w-full">
-      {/* Stats bar */}
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden min-w-[80px]">
-          <div
-            className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full transition-all duration-700"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-        <span className="text-xs text-slate-500">{occupiedSlots}/{totalSlots} ocupadas · {totalArticles} artículos</span>
-        <div className="flex gap-1 ml-auto">
-          <button
-            onClick={() => setGlobalExpanded(false)}
-            className="px-2 py-1 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg transition-colors uppercase"
-          >
-            Contraer todo
-          </button>
-          <button
-            onClick={() => setGlobalExpanded(true)}
-            className="px-2 py-1 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg transition-colors uppercase"
-          >
-            Expandir todo
-          </button>
-        </div>
-      </div>
+           <div className="mb-5 rounded-2xl border border-slate-700/80 bg-slate-900/90 px-4 py-3 shadow-[0_14px_40px_rgba(15,23,42,0.25)]">
+             <div className="flex items-center gap-3">
+               <div className="flex-1 h-2 bg-slate-950/80 rounded-full overflow-hidden min-w-[80px]">
+                 <div
+                   className="h-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-sky-500 rounded-full transition-all duration-700"
+                   style={{ width: `${pct}%` }}
+                 />
+               </div>
+               <span className="text-[11px] font-mono text-slate-100 tabular-nums shrink-0">
+                 {occupiedSlots}/{totalSlots} ocupadas · {totalArticles} artículos · {pct}%
+               </span>
+             </div>
+             <ShelfGridLegend compact={compact} />
+           </div>
+         </>
+       )}
 
-      {/* Blocks */}
-      {physicalBlocks.length > 0 ? (
-        <div className="space-y-4">
-          {physicalBlocks.map((block) => (
-            <Block
-              key={block.id}
-              block={block}
-              shelfDef={shelfDef!}
-              locationMap={locationMap}
-              selectedPositions={selectedPositions}
-              highlightedPositions={highlightedPositions}
-              onCellPress={onCellPress}
-              colsForBlock={colsForBlock}
-              globalExpanded={globalExpanded}
-              showReprocessCosts={showReprocessCosts}
-            />
-          ))}
-        </div>
-      ) : (
-        /* Fallback: zones without physicalBlocks */
-        <div className="space-y-4">
-          {shelfDef?.layout.zones.map((zone) => {
-            const positions: string[] = [];
-            for (let i = zone.range[0]; i <= zone.range[1]; i++) {
-              positions.push(i.toString().padStart(3, '0'));
-            }
-            const isUrgentZone = zone.isUrgent ?? false;
-            const isTechReviewZone = zone.isTechReview ?? false;
-            const occupiedInZone = positions.filter((p) => {
-              const l = locationMap.get(p);
-              return l && !l.isEmpty;
-            }).length;
+       {physicalBlocks.length > 0 ? (
+         <div className={`flex flex-wrap items-start gap-${fullscreenMode ? 2 : 3}`}>
+           {physicalBlocks.map((block) => (
+             <div key={block.id} className={block.fullWidth ? 'w-full' : 'flex-1 min-w-[220px]'}>
+               <Block
+                 block={block}
+                 shelfDef={shelfDef!}
+                 locationMap={locationMap}
+                 selectedPositions={selectedPositions}
+                 highlightedPositions={highlightedPositions}
+                 onCellPress={onCellPress}
+                 isCollapsed={collapsedSections.has(block.id)}
+                 onToggle={() => toggleSection(block.id)}
+                 showReprocessCosts={showReprocessCosts}
+               />
+             </div>
+           ))}
+         </div>
+       ) : (
+         <div className={`space-y-${fullscreenMode ? 2 : 3}`}>
+           {shelfDef?.layout.zones.map((zone) => {
+             const positions: string[] = [];
+             for (let i = zone.range[0]; i <= zone.range[1]; i++) {
+               positions.push(i.toString().padStart(3, '0'));
+             }
+const isUrgentZone = zone.isUrgent ?? false;
+              const isTechReviewZone = zone.isTechReview ?? false;
+              const isAluminioZone = zone.name === 'ALUMINIO';
+              const occupiedInZone = positions.filter((pos) => {
+               const loc = locationMap.get(pos);
+               return loc && !loc.isEmpty;
+             }).length;
+             const articlesInZone = positions.reduce((sum, pos) => {
+               const loc = locationMap.get(pos);
+               return sum + (loc?.items.length ?? 0);
+             }, 0);
+             const zoneId = `zone-${zone.name}`;
 
-            return (
-              <div key={zone.name} className="flex flex-col gap-2">
-                <BlockHeader
-                  title={zone.name}
-                  subtitle={`${zone.range[0].toString().padStart(3,'0')}–${zone.range[1].toString().padStart(3,'0')}`}
-                  isUrgent={isUrgentZone}
-                  isTechReview={isTechReviewZone}
-                  collapsed={false}
-                  onToggle={() => {}}
-                  onExpandAll={() => {}}
-                  onCollapseAll={() => {}}
-                  occupiedCount={occupiedInZone}
-                  totalCount={positions.length}
-                />
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {positions.map((pos) => {
-                    const posInt = parseInt(pos, 10);
-                    const loc = locationMap.get(pos);
-                    return (
-                      <ShelfGridCell
-                        key={pos}
-                        position={pos}
-                        location={loc}
-                        shelfCode={shelfDef?.code}
-                        isUrgent={isUrgentZone || isUrgentLocation(shelfDef?.code || '', posInt)}
-                        isTechReview={isTechReviewZone || isTechReviewLocation(shelfDef?.code || '', posInt)}
-                        isSelected={selectedPositions.includes(pos)}
-                        isHighlighted={highlightedPositions.includes(pos)}
-                        forceExpanded={globalExpanded === true}
-                        showReprocessCosts={showReprocessCosts}
-                        onPress={onCellPress}
-                        createEmptyLocation={createEmptyLocation}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
+             return (
+               <div key={zone.name} className="flex flex-col gap-2">
+<SectionHeader
+                    title={zone.name}
+                    subtitle={`${zone.range[0].toString().padStart(3, '0')}–${zone.range[1].toString().padStart(3, '0')}`}
+                    isUrgent={isUrgentZone}
+                    isTechReview={isTechReviewZone}
+                    isAluminio={isAluminioZone}
+                    occupiedCount={occupiedInZone}
+                    totalCount={positions.length}
+                    totalArticles={articlesInZone}
+                    isCollapsed={collapsedSections.has(zoneId)}
+                    onToggle={() => toggleSection(zoneId)}
+                  />
+                 <CollapsibleContent isCollapsed={collapsedSections.has(zoneId)}>
+                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 pb-1">
+                     {positions.map((pos) => {
+                       const posInt = parseInt(pos, 10);
+                       const loc = locationMap.get(pos);
+                       return (
+                         <ShelfGridCell
+                           key={pos}
+                           position={pos}
+                           location={loc}
+                           shelfCode={shelfDef?.code}
+                           isUrgent={isUrgentZone || isUrgentLocation(shelfDef?.code || '', posInt)}
+                           isTechReview={isTechReviewZone || isTechReviewLocation(shelfDef?.code || '', posInt)}
+                           isAluminio={isAluminioLocation(shelfDef?.code || '', posInt)}
+                           isSelected={selectedPositions.includes(pos)}
+                           isHighlighted={highlightedPositions.includes(pos)}
+                           showReprocessCosts={showReprocessCosts}
+                           onPress={onCellPress}
+                           createEmptyLocation={createEmptyLocation}
+                         />
+                       );
+                     })}
+                   </div>
+                 </CollapsibleContent>
+               </div>
+             );
+           })}
+         </div>
+       )}
+     </div>
+   );
 };
 
 export default ShelfGrid;
