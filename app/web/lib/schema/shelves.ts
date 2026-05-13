@@ -103,7 +103,7 @@ export const SHELF_DEFINITIONS: Shelf[] = [
         {
           id: 'ple-punz-izq',
           title: 'Punzonadora Izquierda',
-          subtitle: 'Estanteria 1 · 054-065',
+          subtitle: '054-065 · 4 baldas superiores',
           zoneName: 'PUNZONADORA',
           rows: [
             [54, 55, 56],
@@ -113,6 +113,21 @@ export const SHELF_DEFINITIONS: Shelf[] = [
             [null, null, null],
             [null, null, null],
             [null, null, null],
+          ],
+        },
+        {
+          id: 'ple-punz',
+          title: 'Punzonadora Derecha',
+          subtitle: '033-053 · 7 filas · 3 columnas',
+          zoneName: 'PUNZONADORA',
+          rows: [
+            [33, 34, 35],
+            [36, 37, 38],
+            [39, 40, 41],
+            [42, 43, 44],
+            [45, 46, 47],
+            [48, 49, 50],
+            [51, 52, 53],
           ],
         },
         {
@@ -129,21 +144,6 @@ export const SHELF_DEFINITIONS: Shelf[] = [
             [1,  2,  27, 28],
             [3,  4,  29, 30],
             [5,  6,  31, 32],
-          ],
-        },
-        {
-          id: 'ple-punz',
-          title: 'Punzonadora',
-          subtitle: 'Estanteria 2 · 033-053',
-          zoneName: 'PUNZONADORA',
-          rows: [
-            [33, 34, 35],
-            [36, 37, 38],
-            [39, 40, 41],
-            [42, 43, 44],
-            [45, 46, 47],
-            [48, 49, 50],
-            [51, 52, 53],
           ],
         },
       ],
@@ -308,11 +308,10 @@ export const SHELF_DEFINITIONS: Shelf[] = [
     name: 'Comodin',
     section: 'OTROS',
     type: 'shelf',
-    locationCount: 32,
+    locationCount: 18,
     layout: {
       zones: [
         { name: 'ESTANTERIA 1', range: [1, 18], color: '#3b82f6' },
-        { name: 'AUTOPLEGADO', range: [19, 32], color: '#f97316' },
       ],
       physicalBlocks: [
         {
@@ -322,31 +321,34 @@ export const SHELF_DEFINITIONS: Shelf[] = [
           zoneName: 'ESTANTERIA 1',
           rows: [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12], [13, 14, 15], [16, 17, 18]],
         },
-        {
-          id: 'com-est2',
-          title: 'Autoplegado',
-          subtitle: '019-032 · 7 filas · 2 columnas',
-          zoneName: 'AUTOPLEGADO',
-          rows: [[19, 20], [21, 22], [23, 24], [25, 26], [27, 28], [29, 30], [31, 32]],
-        },
       ],
     },
   },
   {
     code: 'RPL',
-    name: 'Robot de Plegado',
-    section: 'ROBOT_PLEGADO',
+    name: 'Autoplegadora',
+    section: 'AUTOPLEGADORA',
     type: 'shelf',
-    locationCount: 21,
+    locationCount: 35,
     layout: {
-      zones: [{ name: 'GENERAL', range: [1, 21], color: '#f97316' }],
+      zones: [
+        { name: 'GENERAL', range: [1, 21], color: '#f97316' },
+        { name: 'AUTOPLEGADO', range: [22, 35], color: '#f97316' }
+      ],
       physicalBlocks: [
         {
           id: 'rpl-main',
-          title: 'Robot de Plegado',
+          title: 'Estantería 1 Autoplegadora',
           subtitle: '001-021 · 7 filas · 3 columnas',
           zoneName: 'GENERAL',
           rows: [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12], [13, 14, 15], [16, 17, 18], [19, 20, 21]],
+        },
+        {
+          id: 'rpl-autoplegado',
+          title: 'Estantería 2 Autoplegado',
+          subtitle: '022-035 · 7 filas · 2 columnas',
+          zoneName: 'AUTOPLEGADO',
+          rows: [[22, 23], [24, 25], [26, 27], [28, 29], [30, 31], [32, 33], [34, 35]],
         },
       ],
     },
@@ -445,8 +447,8 @@ export const CART_DEFINITIONS: Shelf[] = [
   },
   {
     code: 'CRPL',
-    name: 'Carro Rob. Plegado',
-    section: 'ROBOT_PLEGADO',
+    name: 'Carro Autoplegadora',
+    section: 'AUTOPLEGADORA',
     type: 'cart',
     locationCount: 4,
     layout: { zones: [{ name: 'BALDAS', range: [1, 4], color: '#10b981' }] },

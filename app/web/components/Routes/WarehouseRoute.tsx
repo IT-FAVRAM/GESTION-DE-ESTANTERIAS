@@ -101,7 +101,7 @@ const WarehouseRoute: React.FC<WarehouseRouteProps> = ({
         case 'CARRO_SXP':
             return <GenericSuppliesSection userRole={role} title="Carro SXP" docId="CARRO_SXP" totalShelves={4} />;
         case 'CARRO_RPL':
-            return <GenericSuppliesSection userRole={role} title="Carro Rob. Plegado" docId="CARRO_ROB_PLEGADO" totalShelves={4} />;
+            return <GenericSuppliesSection userRole={role} title="Carro Autoplegadora" docId="CARRO_ROB_PLEGADO" totalShelves={4} />;
         default:
             return (
                 <AssignmentList

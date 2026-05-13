@@ -14,7 +14,7 @@ export const DEFAULT_WAREHOUSE_NAMES: Record<string, string> = {
   'PIN': 'Pintura',
   'SXP': 'Soldadura Puntos',
   'COM': 'Comodín',
-  'RPL': 'Robot de Plegado',
+  'RPL': 'Autoplegadora',
   'CAL': 'Calidad',
   'ZIN': 'Zincado'
 };
@@ -139,13 +139,13 @@ export const RACKS = DEFAULT_RACKS;
 export const POSITIONS = DEFAULT_POSITIONS;
 
 // --- SECTIONS LOGIC ---
-export type WarehouseSection = "PLEGADORA" | "MECANIZADO" | "LASER" | "REPASADO" | "SOLDADURA" | "ROBOT_PLEGADO" | "OTROS";
+export type WarehouseSection = "PLEGADORA" | "MECANIZADO" | "LASER" | "REPASADO" | "SOLDADURA" | "AUTOPLEGADORA" | "OTROS";
 
 // Mapa de prefijos de ubicación a secciones
 export const WAREHOUSE_TO_SECTION: Record<string, WarehouseSection> = {
   MEC: "MECANIZADO",
   PLE: "PLEGADORA",
-  RPL: "ROBOT_PLEGADO", // Robot Plegado
+  RPL: "AUTOPLEGADORA", // Autoplegadora
   SOL: "SOLDADURA",
   RSO: "SOLDADURA",
   SXP: "SOLDADURA",
@@ -164,7 +164,7 @@ export const getSectionFromLocation = (locationId: string): WarehouseSection | n
   const upper = locationId.toUpperCase();
 
   // Robust check based on content rather than strict prefix
-  if (upper.includes("ROB.PLE") || upper.includes("RPL-")) return "ROBOT_PLEGADO";
+  if (upper.includes("ROB.PLE") || upper.includes("RPL-")) return "AUTOPLEGADORA";
   if (upper.includes("PLE")) return "PLEGADORA";
   if (upper.includes("MEC")) return "MECANIZADO";
   if (upper.includes("SOL") || upper.includes("SXP") || upper.includes("RSO") || upper.includes("ROB.SOL")) return "SOLDADURA";
@@ -192,7 +192,7 @@ export const formatLocation = (id: string): string => {
   if (id.includes('CAL') && id.includes('CAL ')) return id.split('-').pop()!;
   if (id.includes('REP') && id.includes('REP ')) return id.split('-').pop()!;
   if (id.includes('ROB.SOL')) return id.split('-').pop()!;
-  if (id.includes('ROB.PLE')) return id.split('-').pop()!;
+  if (id.includes('RPL')) return id.split('-').pop()!;
   if (id.includes('COM') && id.includes('COM ')) return id.split('-').pop()!;
 
   if (id.startsWith('ZIN-')) {

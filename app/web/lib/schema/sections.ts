@@ -3,7 +3,7 @@ export type WarehouseSection =
   | 'PLEGADORA'
   | 'PRENSAS'
   | 'SOLDADURA'
-  | 'ROBOT_PLEGADO'
+  | 'AUTOPLEGADORA'
   | 'REPASADO'
   | 'PINTURA'
   | 'LASER'
@@ -15,7 +15,7 @@ export const SHELF_TO_SECTION: Record<string, WarehouseSection> = {
   PRE: 'PRENSAS',
   MEC: 'MECANIZADO',
   PLE: 'PLEGADORA',
-  RPL: 'ROBOT_PLEGADO',
+  RPL: 'AUTOPLEGADORA',
   SOL: 'SOLDADURA',
   RSO: 'SOLDADURA',
   SXP: 'SOLDADURA',

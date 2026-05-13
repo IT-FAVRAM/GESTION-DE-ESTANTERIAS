@@ -51,7 +51,7 @@ const SECTION_NAMES: Record<string, string> = {
   MECANIZADO: 'Mecanizado',
   PLEGADORA: 'Plegadora',
   SOLDADURA: 'Soldadura',
-  ROBOT_PLEGADO: 'Robot de Plegado',
+  AUTOPLEGADORA: 'Autoplegadora',
   REPASADO: 'Repasado',
   PINTURA: 'Pintura',
   LASER: 'Láser',

@@ -62,8 +62,11 @@ export const generateLayoutLocations = (whCode: string): LocationId[] => {
             break;
         case 'RPL':
             // Est1 1-14, Est2 15-35
-            for (let i = 1; i <= 14; i++) locs.push(`RPL-E1-B1-ROB.PLE ${pad3(i)}` as LocationId);
-            for (let i = 15; i <= 35; i++) locs.push(`RPL-E2-B1-ROB.PLE ${pad3(i)}` as LocationId);
+            for (let i = 1; i <= 14; i++) locs.push(`RPL-E1-B1-RPL ${pad3(i)}` as LocationId);
+            for (let i = 1; i <= 21; i++) {
+                const num = i + 14;
+                locs.push(`RPL-E2-B1-RPL ${pad3(num)}` as LocationId);
+            }
             break;
         case 'CAL':
             for (let i = 1; i <= 22; i++) locs.push(`CAL-E-RECHAZOS-B1-CAL ${pad3(i)}` as LocationId);

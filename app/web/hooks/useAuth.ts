@@ -37,7 +37,7 @@ const SECTION_TO_SHELF: Partial<Record<WarehouseSection, string>> = {
   PRENSAS: 'PRE',
   PLEGADORA: 'PLE',
   SOLDADURA: 'SOL',
-  ROBOT_PLEGADO: 'RPL',
+  AUTOPLEGADORA: 'RPL',
   REPASADO: 'REP',
   PINTURA: 'PIN',
   CALIDAD: 'CAL',

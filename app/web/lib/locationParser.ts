@@ -26,8 +26,7 @@ export const parseLocationFromText = (
 
     const whMappings = [
         { keyword: 'ROB SOL', code: 'RSO' }, { keyword: 'ROB.SOL', code: 'RSO' },
-        { keyword: 'ROB PLE', code: 'RPL' }, { keyword: 'ROB.PLE', code: 'RPL' },
-        { keyword: 'RSO', code: 'RSO' }, { keyword: 'RPL', code: 'RPL' },
+        { keyword: 'ROB PLE', code: 'RPL' }, { keyword: 'RPL', code: 'RPL' },
         { keyword: 'MEC', code: 'MEC' }, { keyword: 'PLE', code: 'PLE' },
         { keyword: 'SOL', code: 'SOL' }, { keyword: 'REP', code: 'REP' },
         { keyword: 'PIN', code: 'PIN' },
@@ -78,7 +77,7 @@ export const parseLocationFromText = (
         else if (matchedCode === 'RSO') matchedLocation = `RSO-E1-B1-ROB.SOL ${numStr}` as LocationId;
         else if (matchedCode === 'RPL') {
             const shelf = matchedNumber <= 14 ? '1' : '2';
-            matchedLocation = `RPL-E${shelf}-B1-ROB.PLE ${numStr}` as LocationId;
+            matchedLocation = `RPL-E${shelf}-B1-RPL ${numStr}` as LocationId;
         }
         else if (matchedCode === 'REP') {
             if (matchedNumber <= 4) matchedLocation = `REP-E-URGENTE-B1-REP ${numStr}` as LocationId;

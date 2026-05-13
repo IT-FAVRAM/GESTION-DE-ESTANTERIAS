@@ -116,7 +116,7 @@ export const useWarehouseConfig = (assignments: Assignments) => {
 
         const updates = [
             { code: 'REP', name: 'Repasado' },
-            { code: 'RPL', name: 'Robot de Plegado' }
+            { code: 'RPL', name: 'Autoplegadora' }
         ];
 
         updates.forEach(update => {

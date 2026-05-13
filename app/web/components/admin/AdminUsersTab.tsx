@@ -49,7 +49,7 @@ const AdminUsersTab: React.FC<AdminUsersTabProps> = ({ users }) => (
                   <option value="REPASADO">Repasado</option>
                   <option value="PINTURA">Pintura</option>
                   <option value="LASER">Laser</option>
-                  <option value="ROBOT_PLEGADO">Robot Plegado</option>
+                  <option value="AUTOPLEGADORA">Autoplegadora</option>
                 </select>
               )}
             </div>

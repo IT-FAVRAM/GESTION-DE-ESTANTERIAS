@@ -57,9 +57,8 @@ function getPaletteKey(shelfCode: string, zoneName?: string): PaletteKey {
   if (shelfCode === 'CAL' && zoneName?.toUpperCase().includes('REPROC')) return 'purple';
   // Aluminio → estantería cielo/azul
   if (shelfCode === 'ALU' || zoneName?.toUpperCase().includes('ALUMINIO')) return 'sky';
-  // Naranja: mecanizado (postes rojo-naranja en foto), pintura, robots, comodín est2
+  // Naranja: mecanizado (postes rojo-naranja en foto), pintura, robots, autoplegadora
   if (['MEC', 'PIN', 'RPL', 'RSO'].includes(shelfCode)) return 'orange';
-  if (shelfCode === 'COM' && zoneName?.toUpperCase().includes('AUTOPLEGADO')) return 'orange';
   return 'blue';
 }
 

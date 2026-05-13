@@ -17,7 +17,7 @@ export interface CartItem {
 export const CARTS_CONFIG = [
     { id: 'CARRO_SOLDADURA', name: 'Carro Soldadura', shelves: 8 },
     { id: 'CARRO_SXP', name: 'Carro SXP', shelves: 4 },
-    { id: 'CARRO_ROBOT_PLEGADO', name: 'Carro Robot Plegado', shelves: 4 },
+    { id: 'CARRO_ROBOT_PLEGADO', name: 'Carro Autoplegadora', shelves: 4 },
 ];
 
 export const useCarts = (cartId: string | null) => {
