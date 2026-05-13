@@ -18,7 +18,8 @@
       "Bash(py --version)",
       "Bash(py -3 \"/c/Users/facturas/AppData/Local/Temp/skills-e12zP6/src/ui-ux-pro-max/scripts/search.py\" \"warehouse management industrial dark premium glassmorphism\" --design-system -f markdown)",
       "Bash(py *)",
-      "Bash(netstat -ano)"
+      "Bash(netstat -ano)",
+      "Bash(npm test *)"
     ]
   }
 }
