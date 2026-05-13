@@ -1,0 +1,118 @@
+DETAILED FINDINGS
+1. SHELF / SHELFACCESS.ts
+File: C:\-- APLICACIONES DANI --\APP -- ESTANTERIAS\app\web\domain\shelves\shelfAccess.ts
+Function	Line
+canAccessShelf(role, assignedShelf, targetShelf)	3-11
+Analysis:
+- isUrgentLocation(code, pos) - NOT IN THIS FILE - Found elsewhere (see below)
+- isTechReviewLocation(code, pos) - NOT IN THIS FILE - Found elsewhere (see below)
+- isAluminioLocation(code, pos) - NOT IN THIS FILE - Found elsewhere (see below)
+---
+2. LOCATION VALIDATION FUNCTIONS (NOT in domain/shelves/)
+These functions exist in different locations:
+A. app/web/lib/warehouseData.ts (Lines 212-239)
+File: C:\-- APLICACIONES DANI --\APP -- ESTANTERIAS\app\web\lib\warehouseData.ts
+// Line 212-239
+export const isUrgentLocation = (locationId: string): boolean => {
+  // Checks:
+  // 1. Contains "URGENTE" 
+  // 2. SOL with "-E1-"
+  // 3. PLE positions 001-006
+  // 4. CAL positions 031, 034 in GENERAL
+}
+Works: YES - String-based location validation (using LocationId format)
+B. app/web/lib/schema/shelves.ts (Lines 464-490)
+File: C:\-- APLICACIONES DANI --\APP -- ESTANTERIAS\app\web\lib\schema\shelves.ts
+Function	Line	Parameters
+isUrgentLocation	464	(shelfCode, position, config?)
+isTechReviewLocation	473	(shelfCode, position, config?)
+isAluminioLocation	482	(shelfCode, position)
+isReprocesosLocation	489	(shelfCode, position)
+Note: These use shelf code + position number (not LocationId string format)
+---
+3. AUTH DOMAIN FILES
+A. authSessionResolver.ts
+File: C:\-- APLICACIONES DANI --\APP -- ESTANTERIAS\app\web\domain\auth\authSessionResolver.ts
+Function	Line	Description
+resolveCurrentAuthSession()	47-83	Main session resolution - resolves guest/kiosk vs Firebase auth session
+Session Management: 
+- Checks for guest session in localStorage
+- Falls back to Firebase auth.currentUser
+- Fetches user data from Firestore COLLECTIONS.USERS
+- Builds resolved session with role, section, authMethod, assignedShelf, sessionKind, displayName
+B. authStorage.ts
+File: C:\-- APLICACIONES DANI --\APP -- ESTANTERIAS\app\web\domain\auth\authStorage.ts
+Function	Line	Description
+readGuestSession<T>()	22-29	Reads guest session from localStorage
+writeGuestSession(session)	31-36	Writes guest session to localStorage
+clearAllSessionData()	14-20	Clears all session storage
+getOrCreateDeviceId()	38-45	Generates/retrieves device ID
+Token Validation: Token not explicitly validated - relies on Firebase Auth and guest session JSON storage
+C. authCapabilities.ts
+File: C:\-- APLICACIONES DANI --\APP -- ESTANTERIAS\app\web\domain\auth\authCapabilities.ts
+Function	Line	Description
+resolveCapabilities(role, authMethod, assignedShelf)	4-33	Resolves permissions based on role
+Capabilities returned:
+- canViewReprocessCosts (CALIDAD+email or ADMIN/SUPERADMIN)
+- canEditReprocesses (CALIDAD+email or ADMIN/SUPERADMIN)
+- canBrowseAllShelves (CARRETILLERO, ADMIN, SUPERADMIN, JEFE_SECCION)
+- canOperateShelf (any role except JEFE_SECCION)
+- canAccessShelf(shelfCode) - dynamic function
+D. authTypes.ts
+File: C:\-- APLICACIONES DANI --\APP -- ESTANTERIAS\app\web\domain\auth\authTypes.ts
+// Lines 1-11
+export type AuthMethod = 'guest' | 'email';
+export type SessionKind = 'kiosk' | 'authenticated' | 'none';
+export interface SessionCapabilities { ... }
+---
+4. REPROCESOS VISIBILITY
+File: C:\-- APLICACIONES DANI --\APP -- ESTANTERIAS\app\web\domain\reprocesos\reprocesosVisibility.ts
+Function	Line	Description
+canViewReprocessCosts(role, authMethod)	4-11	CALIDAD+email or ADMIN/SUPERADMIN
+canEditReprocesses(role, authMethod)	13-20	CALIDAD+email or ADMIN/SUPERADMIN
+Note: Duplicated logic from authCapabilities.ts - consider consolidating
+---
+5. LIB VALIDATION UTILITIES
+A. codeValidation.ts
+File: C:\-- APLICACIONES DANI --\APP -- ESTANTERIAS\app\web\lib\codeValidation.ts
+Function	Line	Description
+validateCode(rawCode, strictMode?)	22-102	Main code validation function
+Validation types detected:
+- special - "ALMACEN" command
+- order - OF prefix (Manufacturing Order)
+- location - Valid warehouse location (via isValidLayoutLocation)
+- item - Default fallback (article reference)
+- unknown - Unrecognized
+B. locationParser.ts
+File: C:\-- APLICACIONES DANI --\APP -- ESTANTERIAS\app\web\lib\locationParser.ts
+Function	Line	Description
+parseLocationFromText(extractedText, assignments, options?)	9-119	Parses text to extract location codes
+Supports:
+- Keyword mappings: RSO, RPL, MEC, PLE, SOL, REP, PIN, SXP, COM, CAL, ZIN
+- Soft matching fallback
+- Validates against warehouseLayout whitelist
+C. qrParser.ts
+File: C:\-- APLICACIONES DANI --\APP -- ESTANTERIAS\app\web\lib\qrParser.ts
+Function	Line	Description
+parseScanInput(rawInput)	66-121	Parses scanner input "ARTICLE // OFxx-nnnnn"
+formatArticleDisplay(articleCode, orderFab)	127-129	Formats display string
+formatArticleShort(articleCode, maxLength?)	135-139	Truncates for UI
+Patterns supported:
+- Main: /.+ \/\/ (OF\d{2}-\d+)$/i
+- Alt: /.+ - (OF\d{2}-\d+)$/i (with spaces)
+---
+6. ADDITIONAL DOMAIN FUNCTIONS
+warehouseLayout.ts (app/web/lib/warehouseLayout.ts):
+Function	Line	Description
+generateLayoutLocations(whCode)	7-78	Generates all valid LocationIds per warehouse
+isValidLayoutLocation(locId)	84-93	Validates against cached whitelist
+---
+SUMMARY
+Category	Status
+Location validation (isUrgentLocation, etc)	EXISTS but in lib/warehouseData.ts and lib/schema/shelves.ts, NOT in domain/shelves
+Auth session management	COMPLETE - all files present and functional
+Reprocesos visibility	COMPLETE - with potential duplication
+Code validation	COMPLETE - in lib/
+Location parsing	COMPLETE - in lib/
+QR parsing	COMPLETE - in lib/
+Gap: The domain/shelves/shelfAccess.ts does NOT contain isUrgentLocation/isTechReviewLocation/isAluminioLocation - these are in lib/ files instead of the domain layer.

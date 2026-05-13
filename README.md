@@ -1,33 +1,40 @@
-# 🏭 Gestor de Estanterías (WMS)
+# Gestor de Estanterias
 
-Sistema de gestión de almacén diseñado para optimizar el control de inventario y ubicaciones mediante escaneo en tiempo real.
+La raiz del repo queda reservada para configuracion del repositorio, Firebase y documentacion general. Todo el codigo operativo de la app vive dentro de `app/`.
 
-## 🚀 Funcionalidades Principales
-- **Gestión de Ubicaciones**: Control de pasillos, estanterías y niveles.
-- **Escaneo Inteligente**: Soporte para códigos de barras y QR.
-- **Sincronización Real-Time**: Integración con Firebase para datos actualizados al instante.
-- **PWA / Offline**: Diseñado para funcionar en entornos industriales con conectividad intermitente.
+## Estructura
 
-## 🛠️ Stack Tecnológico
-- **Frontend**: React + Vite + TypeScript.
-- **Estado**: Zustand.
-- **Base de Datos**: Firebase Firestore.
-- **Estilos**: Tailwind CSS.
+- `app/web`: frontend Vite + React + TypeScript
+  - `app/web/domain/`: logica de dominio pura (auth, reprocesos, visibilidad)
+  - `app/web/hooks/`: hooks de React (useShelf, useAuth, usePickupQueue, ...)
+  - `app/web/lib/`: utilidades y API clients; esquema Firestore en `lib/schema/`
+  - `app/web/components/`: componentes React organizados por contexto (app, kiosk, admin, common)
+  - `app/web/legacy/`: shell y componentes legacy congelados, solo para compatibilidad y retirada gradual
+- `app/functions`: Cloud Functions de Firebase
+- `app/scripts`: scripts auxiliares y seed
+- `app/tests`: tests de validacion y regresion
+- `docs`: planes, auditorias y documentacion funcional
+- `app/tools`: utilidades locales como lanzadores y generadores
 
-## 🔧 Instalación y Uso
-1. **Clonar el repositorio**:
-   ```bash
-   git clone https://github.com/Daniel123456139/GESTOR-ESTANTERIAS.git
-   ```
-2. **Instalar dependencias**:
-   ```bash
-   npm install
-   ```
-3. **Configurar el entorno**: Crea un archivo `.env.local` con tus credenciales de Firebase.
-4. **Ejecutar en desarrollo**:
-   ```bash
-   npm run dev
-   ```
+## Comandos
 
----
-Desarrollado por [Daniel](https://github.com/Daniel123456139)
+Frontend:
+
+```bash
+npm --prefix app/web install
+npm --prefix app/web run dev
+npm --prefix app/web run build
+```
+
+Cloud Functions:
+
+```bash
+npm --prefix app/functions install
+npm --prefix app/functions run build
+```
+
+## Entorno
+
+- Variables web: `app/web/.env.local`
+- Ejemplo de variables: `app/web/.env.example`
+- Configuracion Firebase de despliegue: raiz del repo (`firebase.json`, `firestore.rules`, `firestore.indexes.json`)

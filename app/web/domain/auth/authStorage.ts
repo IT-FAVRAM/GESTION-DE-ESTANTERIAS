@@ -4,9 +4,19 @@ export const AUTH_STORAGE_KEYS = {
   OPERARIO_SESSION: 'wms_operario_session',
 } as const;
 
+export const AUTH_SESSION_CHANGED_EVENT = 'wms:auth-session-changed';
+
+const notifyAuthSessionChanged = (): void => {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(AUTH_SESSION_CHANGED_EVENT));
+};
+
 export const clearAllSessionData = (): void => {
   sessionStorage.removeItem(AUTH_STORAGE_KEYS.OPERARIO_SESSION);
   localStorage.removeItem(AUTH_STORAGE_KEYS.GUEST_SESSION);
+  localStorage.removeItem('guest_role');
+  localStorage.removeItem('guest_section');
+  notifyAuthSessionChanged();
 };
 
 export const readGuestSession = <T>(): T | null => {
@@ -20,6 +30,9 @@ export const readGuestSession = <T>(): T | null => {
 
 export const writeGuestSession = (session: unknown): void => {
   localStorage.setItem(AUTH_STORAGE_KEYS.GUEST_SESSION, JSON.stringify(session));
+  localStorage.removeItem('guest_role');
+  localStorage.removeItem('guest_section');
+  notifyAuthSessionChanged();
 };
 
 export const getOrCreateDeviceId = (): string => {

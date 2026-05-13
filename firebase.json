@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "public": "dist",
+    "public": "app/web/dist",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -14,12 +14,13 @@
     ]
   },
   "functions": {
-    "source": "functions",
+    "source": "app/functions",
     "predeploy": [
       "npm --prefix \"$RESOURCE_DIR\" run build"
     ]
   },
   "firestore": {
     "rules": "firestore.rules"
-  }
+  },
+  "firestoreIndexes": "firestore.indexes.json"
 }

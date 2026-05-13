@@ -1,201 +1,141 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // --- HELPER FUNCTIONS ---
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Role detection (Claims first, then DB fallback)
-    function getRole() {
-      return request.auth.token.role != null 
-        ? request.auth.token.role 
-        : get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    function isAnonymous() {
+      return isAuthenticated() && request.auth.token.firebase.sign_in_provider == 'anonymous';
     }
 
-    function isAdmin() { return isAuthenticated() && getRole() == 'ADMIN'; }
-    function isJefe() { return isAuthenticated() && getRole() == 'JEFE'; }
-    function isCarretillero() { return isAuthenticated() && getRole() == 'CARRETILLERO'; }
-    function isStaff() { return isAdmin() || isJefe() || isCarretillero(); }
-
-    function getSection() {
-      return request.auth.token.section != null
-        ? request.auth.token.section
-        : get(/databases/$(database)/documents/users/$(request.auth.uid)).data.section;
+    function userDocExists() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
-    function sectionForWarehouse(warehouseId) {
-      return warehouseId == 'MEC' ? 'MECANIZADO'
-        : warehouseId == 'PLE' ? 'PLEGADORA'
-        : warehouseId == 'RPL' ? 'ROBOT_PLEGADO'
-        : (warehouseId == 'SOL' || warehouseId == 'RSO' || warehouseId == 'SXP') ? 'SOLDADURA'
-        : (warehouseId == 'REP' || warehouseId == 'PIN' || warehouseId == 'ZIN') ? 'REPASADO'
-        : 'OTROS';
+    function userRole() {
+      return userDocExists()
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : null;
     }
 
-    function canWriteAssignments(warehouseId) {
-      return isAdmin()
-        || isCarretillero()
-        || (isJefe() && getSection() == sectionForWarehouse(warehouseId));
+    function isRegisteredUser() {
+      return userDocExists();
     }
 
-    function validRole(role) {
-      return role == 'ADMIN' || role == 'JEFE' || role == 'CARRETILLERO';
+    function isAdminLike() {
+      return userRole() in ['ADMIN', 'SUPERADMIN'];
     }
 
-    function canCreateOwnUserDoc() {
-      return request.resource.data.keys().hasOnly(['displayName', 'photoURL', 'email', 'fcmTokens', 'createdAt', 'updatedAt', 'lastLoginAt'])
-        && (!('fcmTokens' in request.resource.data) || request.resource.data.fcmTokens is list)
-        && !('role' in request.resource.data)
-        && !('section' in request.resource.data)
-        && !('user' in request.resource.data);
+    function isOperationalUser() {
+      return userRole() in ['CARRETILLERO', 'ADMIN', 'SUPERADMIN'];
     }
 
-    function canUpdateOwnUserDoc() {
-      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['displayName', 'photoURL', 'email', 'fcmTokens', 'updatedAt', 'lastLoginAt'])
-        && (!('fcmTokens' in request.resource.data) || request.resource.data.fcmTokens is list)
-        && (!('role' in resource.data) || request.resource.data.role == resource.data.role)
-        && (!('section' in resource.data) || request.resource.data.section == resource.data.section)
-        && (!('user' in resource.data) || request.resource.data.user == resource.data.user);
+    function isMonitoringUser() {
+      return userRole() in ['JEFE_SECCION', 'CALIDAD', 'ADMIN', 'SUPERADMIN'];
     }
 
-    function validNotificationCreate() {
-      return request.resource.data.keys().hasOnly(['senderRole', 'targetRole', 'type', 'title', 'message', 'timestamp', 'readBy', 'metadata', 'status'])
-        && request.resource.data.senderRole == getRole()
-        && request.resource.data.targetRole in ['ALL', 'ADMIN', 'JEFE', 'CARRETILLERO']
-        && request.resource.data.type in ['urgent_placement', 'request_material', 'admin_message', 'team_chat']
-        && request.resource.data.title is string
-        && request.resource.data.message is string
-        && request.resource.data.timestamp is string
-        && request.resource.data.readBy is list
-        && request.resource.data.readBy.size() == 0
-        && (!('status' in request.resource.data) || request.resource.data.status == 'PENDING')
-        && validRole(request.resource.data.senderRole);
+    function isSuperAdmin() {
+      return userRole() == 'SUPERADMIN';
     }
 
-    function canCreateNotificationByType() {
-      return (request.resource.data.type == 'request_material' && request.resource.data.targetRole == 'CARRETILLERO' && (isJefe() || isAdmin()))
-        || (request.resource.data.type == 'urgent_placement' && isStaff())
-        || (request.resource.data.type == 'team_chat' && isStaff())
-        || (request.resource.data.type == 'admin_message' && isAdmin());
+    function canReadWarehouseState() {
+      return isAnonymous() || isRegisteredUser();
     }
 
-    function isReadByUpdateOnly() {
-      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['readBy'])
-        && request.resource.data.readBy is list
-        && (resource.data.targetRole == 'ALL' || resource.data.targetRole == getRole())
-        && request.auth.uid in request.resource.data.readBy
-        && request.resource.data.readBy.size() >= resource.data.readBy.size();
+    function canWriteWarehouseState() {
+      return false;
     }
 
-    function isRequestCompletionUpdate() {
-      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['status', 'completedBy', 'completedAt', 'readBy'])
-        && resource.data.type == 'request_material'
-        && resource.data.targetRole == 'CARRETILLERO'
-        && resource.data.status == 'PENDING'
-        && (isCarretillero() || isAdmin())
-        && request.resource.data.status == 'COMPLETED'
-        && request.resource.data.completedBy == request.auth.uid
-        && request.resource.data.completedAt is string
-        && request.resource.data.readBy is list
-        && request.auth.uid in request.resource.data.readBy
-        && request.resource.data.readBy.size() >= resource.data.readBy.size();
+    function canReadPickupQueue() {
+      return isAnonymous() || isOperationalUser();
     }
 
-    function validHistoryCreate() {
-      return request.resource.data.keys().hasOnly(['id', 'barcode', 'orderId', 'action', 'fromLocation', 'toLocation', 'timestamp', 'user', 'uid', 'role', 'opId', 'source', 'quantity', 'metadata'])
-        && request.resource.data.action in ['assigned', 'removed', 'relocated', 'requested', 'moved_to_working', 'process_finished', 'moved']
-        && request.resource.data.timestamp is string
-        && request.resource.data.barcode is string
-        && request.resource.data.orderId is string
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.role == getRole()
-        && request.resource.data.opId is string
-        && request.resource.data.source is string;
+    function canWritePickupQueue() {
+      return false;
     }
 
-    // --- RULES ---
+    function canReadHistory() {
+      return isOperationalUser() || isMonitoringUser();
+    }
 
-    // Users: Personal access or Admin management
+    function canWriteHistory() {
+      return false;
+    }
+
+    function isSelf(userId) {
+      return isRegisteredUser() && request.auth.uid == userId;
+    }
+
+    function validTokenList() {
+      return !('fcmTokens' in request.resource.data)
+        || (request.resource.data.fcmTokens is list
+          && request.resource.data.fcmTokens.size() <= 20);
+    }
+
+    function validOptionalDisplayName() {
+      return !('displayName' in request.resource.data)
+        || (request.resource.data.displayName is string && request.resource.data.displayName.size() <= 120);
+    }
+
+    function validOptionalLastLoginAt() {
+      return !('lastLoginAt' in request.resource.data)
+        || request.resource.data.lastLoginAt is string;
+    }
+
+    function isSelfUserUpdate() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['fcmTokens', 'lastLoginAt', 'displayName'])
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.section == resource.data.section
+        && request.resource.data.additionalSections == resource.data.additionalSections
+        && validTokenList()
+        && validOptionalDisplayName()
+        && validOptionalLastLoginAt();
+    }
+
+    match /config/{document=**} {
+      allow read: if isMonitoringUser();
+      allow write: if isSuperAdmin();
+    }
+
     match /users/{userId} {
-      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
-      allow create: if isAdmin() || (isAuthenticated() && request.auth.uid == userId && canCreateOwnUserDoc());
-      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId && canUpdateOwnUserDoc());
-      allow delete: if isAdmin();
+      allow get: if isAdminLike() || (isRegisteredUser() && request.auth.uid == userId);
+      allow list: if isAdminLike();
+      allow update: if isSuperAdmin() || (isSelf(userId) && isSelfUserUpdate());
+      allow create, delete: if isSuperAdmin();
     }
 
-    // Inventory Assignments
-    match /assignments/{warehouseId}/locations/{locationId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+    match /devices/{deviceId} {
+      allow get, list: if isSuperAdmin();
+      allow write: if isSuperAdmin();
     }
 
-    // Production Workflow
-    match /workingItems/{itemId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-    match /finishedItems/{itemId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+    match /shelves/{document=**} {
+      allow read: if canReadWarehouseState();
+      allow write: if canWriteWarehouseState();
     }
 
-    // History (Audit Log)
-    match /history/{entryId} {
-      allow read: if isAuthenticated();
-      allow create: if isAdmin() && validHistoryCreate();
-      allow update, delete: if isAdmin();
+    match /items/{document=**} {
+      allow read: if canReadWarehouseState();
+      allow write: if canWriteWarehouseState();
     }
 
-    // Supplies (Fix: using supplies_carts instead of genericSupplies)
-    match /supplies_carts/{cartId} {
-      allow read: if isAuthenticated();
-      allow write: if isStaff();
-      
-      match /items/{itemId} {
-        allow read: if isAuthenticated();
-        allow write: if isStaff();
-      }
+    match /itemAggregates/{document=**} {
+      allow read: if canReadWarehouseState();
+      allow write: if canWriteWarehouseState();
     }
 
-    // Notifications
-    match /notifications/{notificationId} {
-      allow read: if isAdmin() || (isAuthenticated() && (resource.data.targetRole == 'ALL' || resource.data.targetRole == getRole()));
-      allow create: if isStaff() && validNotificationCreate() && canCreateNotificationByType();
-      allow update: if (isAuthenticated() && (isReadByUpdateOnly() || isRequestCompletionUpdate())) || isAdmin();
-      allow delete: if isAdmin();
+    match /pickupQueue/{document=**} {
+      allow read: if canReadPickupQueue();
+      allow write: if canWritePickupQueue();
     }
 
-    // Chat System
-    match /chats/{chatId} {
-      allow read: if isAuthenticated() && (request.auth.uid in resource.data.participants || resource.data.isBroadcast == true);
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && request.auth.uid in resource.data.participants;
-
-      match /messages/{msgId} {
-        allow read: if isAuthenticated() && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants || get(/databases/$(database)/documents/chats/$(chatId)).data.isBroadcast == true);
-        allow create: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
-      }
+    match /history/{document=**} {
+      allow read: if canReadHistory();
+      allow write: if canWriteHistory();
     }
 
-    // Inbound Orders (Procurement)
-    match /inboundOrders/{orderId} {
-      allow read: if isAdmin() || isJefe();
-      allow write: if isAdmin() || isJefe();
-    }
-
-    // Configuration
-    match /meta/warehouseConfig {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-
-    match /meta/backups/snapshots/{backupId} {
-      allow read, write: if isAdmin();
-    }
-
-    // Default Deny
     match /{document=**} {
       allow read, write: if false;
     }

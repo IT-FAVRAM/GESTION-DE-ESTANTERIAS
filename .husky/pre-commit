@@ -1,1 +1,1 @@
-npx tsc --noEmit
+npm --prefix app/web run typecheck

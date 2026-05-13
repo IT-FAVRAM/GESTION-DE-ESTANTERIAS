@@ -100,15 +100,15 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
       </span>
     );
   } else if (isAluminio) {
-    wrapCls = 'bg-yellow-950/85 border-yellow-400/55 shadow-[0_10px_30px_rgba(161,94,12,0.22)] hover:bg-yellow-950';
-    titleCls = 'text-yellow-100';
-    accentBar = 'bg-yellow-500';
-    pctBarCls = 'from-yellow-500 to-yellow-400';
-    chevronCls = 'text-yellow-200 group-hover:text-white';
-    subtitleCls = 'text-yellow-100/80';
-    statsCls = 'text-yellow-100';
+    wrapCls = 'bg-sky-950/85 border-sky-400/55 shadow-[0_10px_30px_rgba(14,165,233,0.20)] hover:bg-sky-950';
+    titleCls = 'text-sky-100';
+    accentBar = 'bg-sky-500';
+    pctBarCls = 'from-sky-500 to-cyan-400';
+    chevronCls = 'text-sky-200 group-hover:text-white';
+    subtitleCls = 'text-sky-100/80';
+    statsCls = 'text-sky-100';
     badgeEl = (
-      <span className="px-2 py-0.5 text-[9px] font-black bg-yellow-100 text-yellow-950 border border-yellow-200 rounded-md uppercase tracking-widest">
+      <span className="px-2 py-0.5 text-[9px] font-black bg-sky-100 text-sky-950 border border-sky-200 rounded-md uppercase tracking-widest">
         ALU
       </span>
     );

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   onAuthStateChanged,
+  signInAnonymously,
   signInWithEmailAndPassword,
   signOut,
   type User,
@@ -17,13 +18,18 @@ import {
 } from '../lib/firestoreSchema';
 import { validateOperarioId, type Operario } from '../lib/operarioApi';
 import {
+  AUTH_SESSION_CHANGED_EVENT,
   AUTH_STORAGE_KEYS,
   clearAllSessionData,
   readGuestSession,
   writeGuestSession,
   getOrCreateDeviceId,
 } from '../domain/auth/authStorage';
-import { canViewReprocessCosts as resolveCanViewReprocessCosts } from '../domain/reprocesos/reprocesosVisibility';
+import {
+  canEditReprocesses as resolveCanEditReprocesses,
+  canViewReprocessCosts as resolveCanViewReprocessCosts,
+} from '../domain/reprocesos/reprocesosVisibility';
+import { resolveCapabilities } from '../domain/auth/authCapabilities';
 import type { AuthMethod } from '../domain/auth/authTypes';
 
 const SECTION_TO_SHELF: Partial<Record<WarehouseSection, string>> = {
@@ -35,6 +41,25 @@ const SECTION_TO_SHELF: Partial<Record<WarehouseSection, string>> = {
   REPASADO: 'REP',
   PINTURA: 'PIN',
   CALIDAD: 'CAL',
+};
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const signInAnonymouslyWithRetry = async () => {
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await signInAnonymously(auth);
+    } catch (error: any) {
+      lastError = error;
+      const code = String(error?.code || '');
+      if (code !== 'auth/operation-not-allowed' || attempt === 2) {
+        throw error;
+      }
+      await wait(500 * (attempt + 1));
+    }
+  }
+  throw lastError;
 };
 
 type GuestSession = {
@@ -94,6 +119,22 @@ export interface AuthState {
   authMethod: AuthMethod | null;
   error: string | null;
 }
+
+const buildSignedOutState = (prev: AuthState): AuthState => ({
+  ...prev,
+  loading: false,
+  firebaseUser: null,
+  role: null,
+  section: null,
+  operario: null,
+  operarioId: null,
+  displayName: '',
+  email: null,
+  isKioskSession: false,
+  assignedShelf: null,
+  authMethod: null,
+  error: null,
+});
 
 const getDeviceConfig = async (deviceId: string): Promise<DeviceDoc | null> => {
   if (
@@ -221,9 +262,61 @@ export const useAuth = () => {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    const syncGuestSession = () => {
+      const session = readGuestSession<GuestSession>();
+      if (session) {
+        setState((prev) => ({
+          ...prev,
+          loading: false,
+          firebaseUser: auth.currentUser,
+          role: session.role,
+          section: session.section || null,
+          operario: session.operario,
+          operarioId: session.operarioId,
+          assignedShelf: session.assignedShelf || prev.assignedShelf,
+          displayName: session.displayName || session.operario?.name || '',
+          email: auth.currentUser?.email || null,
+          isKioskSession: true,
+          authMethod: 'guest',
+          error: null,
+        }));
+        return;
+      }
+
+      if (!auth.currentUser) {
+        setState((prev) => buildSignedOutState(prev));
+      }
+    };
+
+    window.addEventListener(AUTH_SESSION_CHANGED_EVENT, syncGuestSession);
+    window.addEventListener('storage', syncGuestSession);
+
+    return () => {
+      window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, syncGuestSession);
+      window.removeEventListener('storage', syncGuestSession);
+    };
+  }, []);
+
   const loginAsGuest = useCallback(async (role: UserRole, section?: WarehouseSection) => {
     setState((prev) => ({ ...prev, loading: true }));
     try {
+      if (!['OPERARIO', 'CARRETILLERO'].includes(role)) {
+        setState((prev) => ({
+          ...prev,
+          loading: false,
+          error: 'Este perfil requiere acceso con cuenta autorizada.',
+        }));
+        return false;
+      }
+      clearAllSessionData();
+      try {
+        await signOut(auth);
+      } catch {
+        // no-op if there is no Firebase session
+      }
+      await signInAnonymouslyWithRetry();
+
       const session = buildGuestSession(role, section);
       writeGuestSession(session);
       setState((prev) => ({
@@ -241,9 +334,15 @@ export const useAuth = () => {
         error: null,
       }));
       return true;
-    } catch {
+    } catch (error: any) {
       localStorage.removeItem(AUTH_STORAGE_KEYS.GUEST_SESSION);
-      setState((prev) => ({ ...prev, loading: false, error: 'Error al iniciar sesion de desarrollo' }));
+      const code = String(error?.code || '');
+      const message = code === 'auth/operation-not-allowed'
+        ? 'El acceso rapido requiere habilitar Anonymous Authentication en Firebase para OPERARIO/CARRETILLERO.'
+        : code
+          ? `Error al iniciar acceso rapido (${code}).`
+        : 'Error al iniciar sesion de desarrollo';
+      setState((prev) => ({ ...prev, loading: false, error: message }));
       return false;
     }
   }, []);
@@ -251,6 +350,7 @@ export const useAuth = () => {
   const loginWithEmail = useCallback(async (email: string, password: string) => {
     setState((prev) => ({ ...prev, loading: true }));
     try {
+      clearAllSessionData();
       await signInWithEmailAndPassword(auth, email, password);
       // onAuthStateChanged will fire and set authMethod: 'email'
       return true;
@@ -271,21 +371,7 @@ export const useAuth = () => {
       /* no-op if not signed in */
     }
     // Reset state — onAuthStateChanged will also fire (null user, no guest session)
-    setState((prev) => ({
-      ...prev,
-      loading: false,
-      firebaseUser: null,
-      role: null,
-      section: null,
-      operario: null,
-      operarioId: null,
-      displayName: '',
-      email: null,
-      isKioskSession: false,
-      assignedShelf: null,
-      authMethod: null,
-      error: null,
-    }));
+    setState((prev) => buildSignedOutState(prev));
   }, []);
 
   const isAuthenticated =
@@ -301,6 +387,8 @@ export const useAuth = () => {
       state.role === 'CARRETILLERO' ||
       state.role === 'ADMIN' ||
       state.role === 'SUPERADMIN',
+    capabilities: resolveCapabilities(state.role, state.authMethod, state.assignedShelf),
+    canEditReprocesses: resolveCanEditReprocesses(state.role, state.authMethod),
     canViewReprocessCosts: resolveCanViewReprocessCosts(state.role, state.authMethod),
     deviceId,
   };

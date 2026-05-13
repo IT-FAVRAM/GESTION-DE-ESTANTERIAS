@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useShelf } from '../../hooks/useShelf';
 import { useAuth } from '../../hooks/useAuth';
 import ShelfGrid from '../kiosk/ShelfGrid';
@@ -7,7 +7,8 @@ import ScannerInput from '../kiosk/ScannerInput';
 import ConfirmationModal from '../common/ConfirmationModal';
 import ReprocesosEditor from '../kiosk/ReprocesosEditor';
 import { isReprocesosLocation } from '../../lib/firestoreSchema';
-import { calcReprocesosTotal, formatEuros } from '../../lib/reprocesosApi';
+import { calcReprocesosTotal } from '../../lib/reprocesosApi';
+import CalidadReprocesosSection from './CalidadReprocesosSection';
 import { formatArticleDisplay, type ScanParseResult } from '../../lib/qrParser';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import { usePickupQueue } from '../../hooks/usePickupQueue';
@@ -34,8 +35,16 @@ const CalidadView: React.FC = () => {
   }>({ open: false, title: '', message: '', icon: '', variant: 'info', onConfirm: () => {} });
 
   const { locations, loading, shelfDef, ubicar, retirar, mover, findArticle } = useShelf(SHELF);
-  const { operarioId, displayName, logout, canViewReprocessCosts } = useAuth();
+  const { operarioId, displayName, logout, canEditReprocesses, canViewReprocessCosts } = useAuth();
   const { createPickupRequest } = usePickupQueue();
+
+  useEffect(() => {
+    if (!reprocesosCell) return;
+    const updated = locations.find((location) => location.position === reprocesosCell.position);
+    if (updated) {
+      setReprocesosCell(updated);
+    }
+  }, [locations, reprocesosCell]);
 
   const reprocesosItems = locations
     .filter((l) => isReprocesosLocation(SHELF, parseInt(l.position, 10)))
@@ -120,7 +129,11 @@ const CalidadView: React.FC = () => {
   };
 
   const handleCellPress = useCallback((loc: ShelfLocationState) => {
-    if (action === 'idle' && isReprocesosLocation(SHELF, parseInt(loc.position, 10)) && !loc.isEmpty) {
+    if (action === 'idle' && isReprocesosLocation(SHELF, parseInt(loc.position, 10))) {
+      if (!canEditReprocesses) {
+        showFeedback('error', 'Tu sesión actual no puede editar reprocesos');
+        return;
+      }
       setReprocesosCell(loc);
       return;
     }
@@ -154,7 +167,7 @@ const CalidadView: React.FC = () => {
         return [...prev, loc.position];
       });
     }
-  }, [action, scanData, ubicar, findArticle, operarioId, displayName]);
+  }, [action, scanData, ubicar, findArticle, operarioId, displayName, canEditReprocesses]);
 
   const handleMoverConfirm = async () => {
     if (!scanData || selectedPositions.length === 0) return;
@@ -166,35 +179,31 @@ const CalidadView: React.FC = () => {
 
   return (
     <div className="min-h-dvh bg-slate-950 flex flex-col">
-      {/* Header */}
-      <header className="bg-slate-900 border-b border-slate-800 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-xl">🔍</span>
-            <div>
-              <h1 className="text-lg font-black text-white">Calidad — CAL</h1>
-              <p className="text-xs text-slate-400">{displayName}</p>
-            </div>
-          </div>
-          <button
-            onClick={logout}
-            className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl font-bold hover:bg-slate-700 text-sm"
-          >
-            Salir
-          </button>
-        </div>
-      </header>
+       {/* Header */}
+       <header className="bg-slate-950/90 border-b border-slate-800/50 backdrop-blur-xl px-4 py-3 shadow-[0_4px_12px_rgba(15,23,42,0.15)]">
+         <div className="flex items-center justify-between">
+           <div className="flex items-center gap-3">
+             <span className="text-xl">🔍</span>
+             <div>
+               <h1 className="text-lg font-black text-white tracking-tight">Calidad — CAL</h1>
+               <p className="text-xs text-slate-200">{displayName}</p>
+             </div>
+           </div>
+           <button
+             onClick={logout}
+             className="px-4 py-2 bg-slate-800/80 text-slate-100 rounded-xl font-bold hover:bg-slate-700/80 hover:text-white transition-all duration-200"
+           >
+             Salir
+           </button>
+         </div>
+       </header>
 
-      {/* Reprocesos total banner — solo visible con CALIDAD email */}
-      {canViewReprocessCosts && (
-        <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-amber-300/60 font-bold uppercase">Total Reprocesos</p>
-            <p className="text-xs text-slate-400">{totalPiezas} piezas en CAL 001-022</p>
-          </div>
-          <p className="text-xl font-black text-amber-300">{formatEuros(totalImporte)}</p>
-        </div>
-      )}
+      <CalidadReprocesosSection
+        canViewReprocessCosts={canViewReprocessCosts}
+        canEditReprocesses={canEditReprocesses}
+        totalImporte={totalImporte}
+        totalPiezas={totalPiezas}
+      />
 
       {/* Search bar */}
       <KioskSearchBar locations={locations} onHighlight={setHighlightedPositions} />
@@ -305,6 +314,10 @@ const CalidadView: React.FC = () => {
           position={reprocesosCell.position}
           items={reprocesosCell.items || []}
           onClose={() => setReprocesosCell(null)}
+          onUpdated={() => {
+            const updated = locations.find((location) => location.position === reprocesosCell.position);
+            if (updated) setReprocesosCell(updated);
+          }}
         />
       )}
     </div>

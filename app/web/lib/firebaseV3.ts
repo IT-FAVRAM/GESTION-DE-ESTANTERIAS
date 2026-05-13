@@ -43,7 +43,6 @@ export const getMessagingInstance = async (): Promise<Messaging | null> => {
     const supported = await isSupported();
     return supported ? getMessaging(app) : null;
   } catch {
-    console.warn('[FCM] Messaging not supported');
     return null;
   }
 };
