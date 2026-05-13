@@ -59,7 +59,7 @@ function getPaletteKey(shelfCode: string, zoneName?: string): PaletteKey {
   if (shelfCode === 'ALU' || zoneName?.toUpperCase().includes('ALUMINIO')) return 'sky';
   // Naranja: mecanizado (postes rojo-naranja en foto), pintura, robots, comodín est2
   if (['MEC', 'PIN', 'RPL', 'RSO'].includes(shelfCode)) return 'orange';
-  if (shelfCode === 'COM' && zoneName?.toUpperCase().includes('ESTANTERIA 2')) return 'orange';
+  if (shelfCode === 'COM' && zoneName?.toUpperCase().includes('AUTOPLEGADO')) return 'orange';
   return 'blue';
 }
 
