@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import { db } from '../lib/firebaseV3';
+import { db } from '../lib/firebase';
 import {
   ALL_SHELVES,
   COLLECTIONS,

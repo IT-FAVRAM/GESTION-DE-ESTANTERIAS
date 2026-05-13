@@ -20,7 +20,7 @@ import { usePickupQueue } from '../../hooks/usePickupQueue';
 import ShelfNavigatorTabs from './ShelfNavigatorTabs';
 import ShelfNavigatorStatus from './ShelfNavigatorStatus';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../../lib/firebaseV3';
+import { functions } from '../../lib/firebase';
 
 type NavAction = 'idle' | 'ubicar' | 'retirar' | 'mover' | 'avisar' | 'almacen';
 

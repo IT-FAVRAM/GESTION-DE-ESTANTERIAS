@@ -6,7 +6,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 import { useAnalytics } from '../../hooks/useAnalytics';
-import { db } from '../../lib/firebaseV3';
+import { db } from '../../lib/firebase';
 import { COLLECTIONS, SHELF_DEFINITIONS, type LocationDoc } from '../../lib/firestoreSchema';
 import { LeadTimeReport } from '../LeadTimeReport';
 

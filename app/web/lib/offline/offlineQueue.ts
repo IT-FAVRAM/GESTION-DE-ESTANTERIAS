@@ -1,6 +1,6 @@
-import { inventoryApi } from './inventoryApi';
-import { pickupQueueApi } from './pickupQueueApi';
-import { getOperationalSession, type OperationalSession } from './operationalSession';
+import { inventoryApi } from '../api/inventoryApi';
+import { pickupQueueApi } from '../api/pickupQueueApi';
+import { getOperationalSession, type OperationalSession } from '../operationalSession';
 
 export type OfflineOperationType = 'UBICAR' | 'RETIRAR' | 'MOVER' | 'AVISAR_CARRETILLERO' | 'COMPLETAR_RECOGIDA';
 

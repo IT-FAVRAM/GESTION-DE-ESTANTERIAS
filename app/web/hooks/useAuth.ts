@@ -7,8 +7,8 @@ import {
   type User,
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../lib/firebaseV3';
-import { fetchDeviceConfig, sendDeviceHeartbeat } from '../lib/deviceApi';
+import { auth, db } from '../lib/firebase';
+import { fetchDeviceConfig, sendDeviceHeartbeat } from '../lib/api/deviceApi';
 import {
   type UserRole,
   type UserDoc,
@@ -16,7 +16,7 @@ import {
   type WarehouseSection,
   COLLECTIONS,
 } from '../lib/firestoreSchema';
-import { validateOperarioId, type Operario } from '../lib/operarioApi';
+import { validateOperarioId, type Operario } from '../lib/api/operarioApi';
 import {
   AUTH_SESSION_CHANGED_EVENT,
   AUTH_STORAGE_KEYS,

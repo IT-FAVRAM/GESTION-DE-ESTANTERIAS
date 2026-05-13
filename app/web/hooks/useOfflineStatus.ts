@@ -12,7 +12,7 @@ import {
   subscribeOfflineQueueState,
   type OfflineQueueEntry,
   type OfflineQueueState,
-} from '../lib/offlineQueue';
+} from '../lib/offline/offlineQueue';
 
 export const useOfflineStatus = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);

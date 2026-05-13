@@ -7,7 +7,7 @@ import ScannerInput from '../kiosk/ScannerInput';
 import ConfirmationModal from '../common/ConfirmationModal';
 import ReprocesosEditor from '../kiosk/ReprocesosEditor';
 import { isReprocesosLocation } from '../../lib/firestoreSchema';
-import { calcReprocesosTotal } from '../../lib/reprocesosApi';
+import { calcReprocesosTotal } from '../../lib/api/reprocesosApi';
 import CalidadReprocesosSection from './CalidadReprocesosSection';
 import { formatArticleDisplay, type ScanParseResult } from '../../lib/qrParser';
 import type { ShelfLocationState } from '../../hooks/useShelf';

@@ -8,10 +8,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../lib/firebaseV3';
+import { db } from '../../lib/firebase';
 import { COLLECTIONS, CART_DEFINITIONS } from '../../lib/firestoreSchema';
 import { useAuth } from '../../hooks/useAuth';
-import { saveCartLocation } from '../../lib/cartApi';
+import { saveCartLocation } from '../../lib/api/cartApi';
 
 const CartEditor: React.FC = () => {
   const { canEditCarts } = useAuth();

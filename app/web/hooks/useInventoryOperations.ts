@@ -8,8 +8,8 @@ import { NotificationType } from '../components/NotificationToast';
 import { BatchItem } from '../types/batch';
 import { SystemAlert } from './useSystemNotifications';
 import { useHaptic } from './useHaptic';
-import { inventoryApi } from '../lib/inventoryApi';
-import { productionApi } from '../lib/productionApi';
+import { inventoryApi } from '../lib/api/inventoryApi';
+import { productionApi } from '../lib/api/productionApi';
 
 /**
  * This hook acts as a Facade for business logic.

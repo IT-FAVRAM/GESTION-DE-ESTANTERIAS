@@ -4,12 +4,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { collection, onSnapshot } from 'firebase/firestore';
-import { db } from '../lib/firebaseV3';
-import { inventoryApi } from '../lib/inventoryApi';
-import { enqueueOfflineOperation } from '../lib/offlineQueue';
+import { db } from '../lib/firebase';
+import { inventoryApi } from '../lib/api/inventoryApi';
+import { enqueueOfflineOperation } from '../lib/offline/offlineQueue';
 import { getOperationalSession } from '../lib/operationalSession';
 import { resolveCurrentAuthSession } from '../domain/auth/authSessionResolver';
-import { applyUbicar, applyRetirar, applyMover } from '../lib/shelfOptimisticUpdates';
+import { applyUbicar, applyRetirar, applyMover } from '../lib/optimistic/shelfOptimisticUpdates';
 import {
   type LocationDoc,
   type LocationItem,

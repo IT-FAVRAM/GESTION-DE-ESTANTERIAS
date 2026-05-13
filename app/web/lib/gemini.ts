@@ -1,5 +1,5 @@
 import { httpsCallable } from 'firebase/functions';
-import { functions } from './firebaseV3';
+import { functions } from './firebase';
 import { Assignments, HISTORY_LIMIT, HistoryEntry, WAREHOUSE_NAMES, LocationId } from './warehouseData';
 
 // --- TYPES ---

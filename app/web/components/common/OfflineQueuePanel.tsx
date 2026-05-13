@@ -6,7 +6,7 @@ import {
   replayOfflineEntry,
   retryOfflineEntry,
   type OfflineQueueEntry,
-} from '../../lib/offlineQueue';
+} from '../../lib/offline/offlineQueue';
 
 interface OfflineQueuePanelProps {
   open: boolean;

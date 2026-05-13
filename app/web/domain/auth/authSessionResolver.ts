@@ -1,5 +1,5 @@
 import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../../lib/firebaseV3';
+import { auth, db } from '../../lib/firebase';
 import {
   COLLECTIONS,
   type UserDoc,

@@ -19,10 +19,10 @@ import {
   limit,
   type DocumentData 
 } from 'firebase/firestore';
-import { db } from '../lib/firebaseV3';
+import { db } from '../lib/firebase';
 import { resolveCurrentAuthSession } from '../domain/auth/authSessionResolver';
-import { pickupQueueApi } from '../lib/pickupQueueApi';
-import { enqueueOfflineOperation } from '../lib/offlineQueue';
+import { pickupQueueApi } from '../lib/api/pickupQueueApi';
+import { enqueueOfflineOperation } from '../lib/offline/offlineQueue';
 import { getOperationalSession } from '../lib/operationalSession';
 import {
   type PickupRequestDoc,

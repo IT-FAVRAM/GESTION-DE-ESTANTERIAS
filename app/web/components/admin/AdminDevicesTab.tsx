@@ -1,5 +1,5 @@
 import React from 'react';
-import { adminApi } from '../../lib/adminApi';
+import { adminApi } from '../../lib/api/adminApi';
 import { SHELF_DEFINITIONS, type DeviceDoc } from '../../lib/firestoreSchema';
 import type { CurrentDeviceDraft } from './adminShared';
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatEuros } from '../../lib/reprocesosApi';
+import { formatEuros } from '../../lib/api/reprocesosApi';
 
 interface CalidadReprocesosSectionProps {
   canViewReprocessCosts: boolean;

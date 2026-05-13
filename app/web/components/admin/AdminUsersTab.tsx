@@ -1,5 +1,5 @@
 import React from 'react';
-import { adminApi } from '../../lib/adminApi';
+import { adminApi } from '../../lib/api/adminApi';
 import type { UserDoc } from '../../lib/firestoreSchema';
 
 interface AdminUsersTabProps {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../lib/firebaseV3';
+import { functions } from '../lib/firebase';
 import { X, Calendar, Activity, AlertTriangle, TrendingUp, Clock, FileText } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 

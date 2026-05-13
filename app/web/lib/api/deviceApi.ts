@@ -1,6 +1,6 @@
 import { httpsCallable } from 'firebase/functions';
-import { functions, auth } from './firebaseV3';
-import type { DeviceDoc } from './firestoreSchema';
+import { functions, auth } from '../firebase';
+import type { DeviceDoc } from '../firestoreSchema';
 
 type ResolveDeviceResult = {
   exists?: boolean;

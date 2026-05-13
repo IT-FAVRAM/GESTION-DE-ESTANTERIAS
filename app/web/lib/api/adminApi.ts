@@ -1,6 +1,6 @@
 import { httpsCallable } from 'firebase/functions';
-import { functions } from './firebaseV3';
-import type { AppConfig, DeviceDoc } from './firestoreSchema';
+import { functions } from '../firebase';
+import type { AppConfig, DeviceDoc } from '../firestoreSchema';
 
 const callAdminOperate = async (op: string, payload: Record<string, unknown>) => {
   const callable = httpsCallable(functions, 'adminOperate');

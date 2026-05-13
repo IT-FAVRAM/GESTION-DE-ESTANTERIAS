@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '../legacy/firebaseCompat';
 import { LocationId, WorkingItem } from '../lib/warehouseData';
-import { productionApi } from '../lib/productionApi';
+import { productionApi } from '../lib/api/productionApi';
 
 export const useWorkingItems = () => {
     const [workingItems, setWorkingItems] = useState<WorkingItem[]>([]);

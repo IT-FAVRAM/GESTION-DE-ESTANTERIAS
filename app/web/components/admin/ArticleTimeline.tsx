@@ -8,7 +8,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { collection, query, where, orderBy, getDocs, limit } from 'firebase/firestore';
-import { db } from '../../lib/firebaseV3';
+import { db } from '../../lib/firebase';
 import { COLLECTIONS, getShelfDefinition } from '../../lib/firestoreSchema';
 
 interface TimelineEntry {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../lib/firebaseV3';
+import { functions } from '../lib/firebase';
 import ReactMarkdown from 'react-markdown';
 import { ChartIcon, SparklesIcon, LoadingIcon, ErrorIcon } from './Icons';
 

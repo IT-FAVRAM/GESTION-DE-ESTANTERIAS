@@ -19,7 +19,11 @@
       "Bash(py -3 \"/c/Users/facturas/AppData/Local/Temp/skills-e12zP6/src/ui-ux-pro-max/scripts/search.py\" \"warehouse management industrial dark premium glassmorphism\" --design-system -f markdown)",
       "Bash(py *)",
       "Bash(netstat -ano)",
-      "Bash(npm test *)"
+      "Bash(npm test *)",
+      "Bash(xargs grep -l \"from.*lib/adminApi\\\\|from.*lib/inventoryApi\\\\|from.*lib/cartApi\\\\|from.*lib/operarioApi\\\\|from.*lib/pickupQueueApi\\\\|from.*lib/reprocesosApi\\\\|from.*lib/deviceApi\\\\|from.*lib/offlineQueue\\\\|from.*lib/shelfOptimisticUpdates\")",
+      "Bash(sed -i -e 's|from ['\\\\''\"]./inventoryApi['\\\\''\"]|from '\\\\''./api/inventoryApi'\\\\''|g' -e 's|from ['\\\\''\"]./pickupQueueApi['\\\\''\"]|from '\\\\''./api/pickupQueueApi'\\\\''|g' -e 's|from ['\\\\''\"]./operationalSession['\\\\''\"]|from '\\\\''./operationalSession'\\\\''|g' offline/*.ts)",
+      "Bash(sed -i -e 's|from ['\\\\''\"]./schema/|from '\\\\''../schema/|g' optimistic/*.ts)",
+      "Bash(sed -i -e 's|from ['\\\\''\"]./firebaseV3['\\\\''\"]|from '\\\\''./firebase'\\\\''|g' *.ts)"
     ]
   }
 }

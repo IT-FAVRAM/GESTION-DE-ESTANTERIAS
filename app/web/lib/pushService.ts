@@ -9,7 +9,7 @@
 
 import { getToken, onMessage, type Messaging } from 'firebase/messaging';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
-import { db, auth, getMessagingInstance } from './firebaseV3';
+import { db, auth, getMessagingInstance } from './firebase';
 import { COLLECTIONS } from './firestoreSchema';
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;

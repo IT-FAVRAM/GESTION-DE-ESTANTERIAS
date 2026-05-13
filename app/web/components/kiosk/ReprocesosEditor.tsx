@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { updateReproceso, formatEuros } from '../../lib/reprocesosApi';
+import { updateReproceso, formatEuros } from '../../lib/api/reprocesosApi';
 
 interface ReprocesosItem {
   presenceId?: string;

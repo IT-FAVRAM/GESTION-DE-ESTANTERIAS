@@ -6,8 +6,8 @@
  * poder testarlas de forma aislada.
  */
 
-import type { ShelfLocationState } from './schema/locations';
-import type { LocationItem } from './schema/locations';
+import type { ShelfLocationState } from '../schema/locations';
+import type { LocationItem } from '../schema/locations';
 
 const sameItem = (item: LocationItem, articleCode: string, orderFab: string) =>
   item.articleCode === articleCode && item.orderFab === orderFab;

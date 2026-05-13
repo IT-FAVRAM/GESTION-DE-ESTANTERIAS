@@ -7,7 +7,7 @@
  */
 
 import { httpsCallable } from 'firebase/functions';
-import { functions } from './firebaseV3';
+import { functions } from '../firebase';
 
 /**
  * Actualiza la cantidad e importe de un artículo en reprocesos.

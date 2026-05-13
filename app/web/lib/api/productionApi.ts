@@ -1,5 +1,5 @@
 import { httpsCallable } from 'firebase/functions';
-import { functions } from './firebaseV3';
+import { functions } from '../firebase';
 
 type ProductionOp = 'withdrawToWorking' | 'finishWorking' | 'locateWorking';
 

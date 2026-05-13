@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { collection, doc, onSnapshot } from 'firebase/firestore';
-import { db } from '../../lib/firebaseV3';
-import { adminApi } from '../../lib/adminApi';
+import { db } from '../../lib/firebase';
+import { adminApi } from '../../lib/api/adminApi';
 import {
   COLLECTIONS,
   CONFIG_DOC_ID,
