@@ -6,18 +6,13 @@ export interface AppConfig {
   operarioRefreshInterval: number;
 }
 
+// Defaults used as fallback when the Firestore config document is unavailable.
+// Email addresses are intentionally omitted — they live exclusively in Firestore
+// and are never bundled into the client JS.
 export const DEFAULT_APP_CONFIG: AppConfig = {
   urgentLocations: ['CAL-031', 'CAL-034'],
   techReviewLocations: ['CAL-029', 'CAL-032'],
-  chiefMapping: {
-    MECANIZADO: ['h.juvera@favram.com'],
-    PRENSAS: ['i.hernandez@favram.com'],
-    PLEGADORA: ['v.torbellino@favram.com'],
-    SOLDADURA: ['a.aguado@favram.com'],
-    PINTURA: ['s.raboso@favram.com'],
-    REPASADO: ['jc.rodriguez@favram.com'],
-    LASER: ['d.fernandez@favram.com'],
-  },
-  qualityEmails: ['calidad@favram.com'],
+  chiefMapping: {},
+  qualityEmails: [],
   operarioRefreshInterval: 5 * 60 * 1000,
 };

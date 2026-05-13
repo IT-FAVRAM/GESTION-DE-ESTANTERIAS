@@ -1,83 +1,251 @@
-// Archivo de test para funciones de validación de ubicaciones consolidadas
-// Este archivo verifica que las funciones acepten ambos formatos: (shelfCode, position) y (locationId)
-
+import { describe, it, expect } from 'vitest';
 import {
+  parseLocationId,
+  getLocationDocId,
   isUrgentLocation,
   isTechReviewLocation,
   isAluminioLocation,
   isReprocesosLocation,
-  parseLocationId,
-  getLocationDocId,
+  getShelfDefinition,
+  generatePositions,
+  ALL_SHELVES,
+  SHELF_DEFINITIONS,
 } from './shelves';
 
-// ── TESTS PARA parseLocationId ──────────────────────────────────────────
-console.log('=== TESTS parseLocationId ===');
+// ── parseLocationId ───────────────────────────────────────────────────────────
 
-const test1 = parseLocationId('MEC-031');
-console.assert(test1?.shelfCode === 'MEC', `Expected shelfCode "MEC", got "${test1?.shelfCode}"`);
-console.assert(test1?.position === '031', `Expected position "031", got "${test1?.position}"`);
-console.log('✓ parseLocationId("MEC-031")');
+describe('parseLocationId', () => {
+  it('parses a standard locationId', () => {
+    const result = parseLocationId('MEC-031');
+    expect(result).toEqual({ shelfCode: 'MEC', position: '031' });
+  });
 
-const test2 = parseLocationId('CAL-022');
-console.assert(test2?.shelfCode === 'CAL', `Expected shelfCode "CAL", got "${test2?.shelfCode}"`);
-console.assert(test2?.position === '022', `Expected position "022", got "${test2?.position}"`);
-console.log('✓ parseLocationId("CAL-022")');
+  it('parses a CAL locationId', () => {
+    const result = parseLocationId('CAL-022');
+    expect(result).toEqual({ shelfCode: 'CAL', position: '022' });
+  });
 
-const test3 = parseLocationId('INVALID');
-console.assert(test3 === null, `Expected null for invalid locationId, got ${JSON.stringify(test3)}`);
-console.log('✓ parseLocationId("INVALID") returns null');
+  it('returns null for a locationId with no dash', () => {
+    expect(parseLocationId('INVALID')).toBeNull();
+  });
 
-// ── TESTS PARA isReprocesosLocation ──────────────────────────────────────────
-console.log('\n=== TESTS isReprocesosLocation ===');
+  it('returns null for an empty string', () => {
+    expect(parseLocationId('')).toBeNull();
+  });
 
-// Formato moderno: (shelfCode, position)
-console.assert(isReprocesosLocation('CAL', 1) === true, 'CAL 001 should be reproceso');
-console.log('✓ isReprocesosLocation("CAL", 1) = true');
+  it('handles multi-segment codes (RSOL-001)', () => {
+    const result = parseLocationId('RSOL-001');
+    expect(result?.shelfCode).toBe('RSOL');
+    expect(result?.position).toBe('001');
+  });
+});
 
-console.assert(isReprocesosLocation('CAL', 22) === true, 'CAL 022 should be reproceso');
-console.log('✓ isReprocesosLocation("CAL", 22) = true');
+// ── getLocationDocId ──────────────────────────────────────────────────────────
 
-console.assert(isReprocesosLocation('CAL', 23) === false, 'CAL 023 should NOT be reproceso');
-console.log('✓ isReprocesosLocation("CAL", 23) = false');
+describe('getLocationDocId', () => {
+  it('pads numeric positions to 3 digits', () => {
+    expect(getLocationDocId('MEC', 1)).toBe('MEC-001');
+    expect(getLocationDocId('MEC', 9)).toBe('MEC-009');
+    expect(getLocationDocId('MEC', 34)).toBe('MEC-034');
+  });
 
-console.assert(isReprocesosLocation('PRE', 1) === false, 'PRE should NOT be reproceso');
-console.log('✓ isReprocesosLocation("PRE", 1) = false');
+  it('passes string positions through as-is', () => {
+    expect(getLocationDocId('CAL', '031')).toBe('CAL-031');
+  });
+});
 
-// Formato legacy: (locationId)
-console.assert(isReprocesosLocation('CAL-001') === true, 'CAL-001 should be reproceso');
-console.log('✓ isReprocesosLocation("CAL-001") = true');
+// ── isReprocesosLocation ──────────────────────────────────────────────────────
 
-console.assert(isReprocesosLocation('CAL-022') === true, 'CAL-022 should be reproceso');
-console.log('✓ isReprocesosLocation("CAL-022") = true');
+describe('isReprocesosLocation', () => {
+  it('identifies CAL 001-022 as reprocesos (shelfCode+position form)', () => {
+    expect(isReprocesosLocation('CAL', 1)).toBe(true);
+    expect(isReprocesosLocation('CAL', 22)).toBe(true);
+  });
 
-console.assert(isReprocesosLocation('CAL-023') === false, 'CAL-023 should NOT be reproceso');
-console.log('✓ isReprocesosLocation("CAL-023") = false');
+  it('excludes CAL 023+ from reprocesos (shelfCode+position form)', () => {
+    expect(isReprocesosLocation('CAL', 23)).toBe(false);
+    expect(isReprocesosLocation('CAL', 34)).toBe(false);
+  });
 
-console.assert(isReprocesosLocation('PRE-001') === false, 'PRE-001 should NOT be reproceso');
-console.log('✓ isReprocesosLocation("PRE-001") = false');
+  it('excludes non-CAL shelves (shelfCode+position form)', () => {
+    expect(isReprocesosLocation('PRE', 1)).toBe(false);
+    expect(isReprocesosLocation('MEC', 5)).toBe(false);
+  });
 
-// ── TESTS PARA isAluminioLocation ──────────────────────────────────────────
-console.log('\n=== TESTS isAluminioLocation ===');
+  it('identifies CAL 001-022 as reprocesos (locationId form)', () => {
+    expect(isReprocesosLocation('CAL-001')).toBe(true);
+    expect(isReprocesosLocation('CAL-022')).toBe(true);
+  });
 
-// Formato moderno: (shelfCode, position)
-console.assert(
-  isAluminioLocation('ALU', 1) === true,
-  'ALU 001 should be aluminio (according to SHELF_DEFINITIONS)',
-);
-console.log('✓ isAluminioLocation("ALU", 1) works with (shelfCode, position)');
+  it('excludes CAL 023+ from reprocesos (locationId form)', () => {
+    expect(isReprocesosLocation('CAL-023')).toBe(false);
+  });
 
-// Formato legacy: (locationId)
-console.assert(
-  isAluminioLocation('ALU-001') === true,
-  'ALU-001 should be aluminio (according to SHELF_DEFINITIONS)',
-);
-console.log('✓ isAluminioLocation("ALU-001") works with (locationId)');
+  it('excludes non-CAL shelves (locationId form)', () => {
+    expect(isReprocesosLocation('PRE-001')).toBe(false);
+    expect(isReprocesosLocation('MEC-005')).toBe(false);
+  });
+});
 
-console.assert(isAluminioLocation('INVALID') === false, 'Invalid location should return false');
-console.log('✓ isAluminioLocation("INVALID") returns false for invalid locationId');
+// ── isUrgentLocation ──────────────────────────────────────────────────────────
 
-// ── SUMMARY ──────────────────────────────────────────────────────────────────
-console.log('\n✅ TESTS COMPLETADOS');
-console.log('✓ Todas las funciones aceptan ambos formatos: (shelfCode, position) y (locationId)');
-console.log('✓ Las funciones retornan valores booleanos correctos');
-console.log('✓ El parseLocationId funciona correctamente');
+describe('isUrgentLocation', () => {
+  it('identifies MEC urgent zone (positions 1-4) as urgent', () => {
+    expect(isUrgentLocation('MEC', 1)).toBe(true);
+    expect(isUrgentLocation('MEC', 4)).toBe(true);
+  });
+
+  it('does not flag MEC non-urgent positions', () => {
+    expect(isUrgentLocation('MEC', 5)).toBe(false);
+    expect(isUrgentLocation('MEC', 34)).toBe(false);
+  });
+
+  it('works with locationId string form', () => {
+    expect(isUrgentLocation('MEC-001')).toBe(true);
+    expect(isUrgentLocation('MEC-005')).toBe(false);
+  });
+
+  it('returns false for unknown shelf codes', () => {
+    expect(isUrgentLocation('XYZ-001')).toBe(false);
+  });
+
+  it('respects config.urgentLocations (adds to zone definition, not replaces)', () => {
+    const config = {
+      urgentLocations: ['MEC-010'],
+      techReviewLocations: [],
+      chiefMapping: {},
+      qualityEmails: [],
+      operarioRefreshInterval: 300000,
+    };
+    // MEC-010 is in the config override → urgent
+    expect(isUrgentLocation('MEC-010', config)).toBe(true);
+    // MEC-001 is in the hardcoded urgent zone (1-4) → still urgent regardless of config
+    expect(isUrgentLocation('MEC-001', config)).toBe(true);
+    // MEC-005 is not in config, not in urgent zone → not urgent
+    expect(isUrgentLocation('MEC-005', config)).toBe(false);
+  });
+});
+
+// ── isTechReviewLocation ──────────────────────────────────────────────────────
+
+describe('isTechReviewLocation', () => {
+  it('identifies CAL tech-review zone (position 29) as tech-review', () => {
+    expect(isTechReviewLocation('CAL', 29)).toBe(true);
+    expect(isTechReviewLocation('CAL', 32)).toBe(true);
+  });
+
+  it('does not flag CAL non-tech-review positions', () => {
+    expect(isTechReviewLocation('CAL', 1)).toBe(false);
+    expect(isTechReviewLocation('CAL', 23)).toBe(false);
+  });
+
+  it('works with locationId string form', () => {
+    expect(isTechReviewLocation('CAL-029')).toBe(true);
+    expect(isTechReviewLocation('CAL-001')).toBe(false);
+  });
+
+  it('respects config.techReviewLocations (adds to zone definition, not replaces)', () => {
+    const config = {
+      urgentLocations: [],
+      techReviewLocations: ['CAL-005'],
+      chiefMapping: {},
+      qualityEmails: [],
+      operarioRefreshInterval: 300000,
+    };
+    // CAL-005 is in the config override → tech review
+    expect(isTechReviewLocation('CAL-005', config)).toBe(true);
+    // CAL-029 is in the hardcoded tech-review zone → still tech review regardless of config
+    expect(isTechReviewLocation('CAL-029', config)).toBe(true);
+    // CAL-001 is not in config, not in tech-review zone → not tech review
+    expect(isTechReviewLocation('CAL-001', config)).toBe(false);
+  });
+});
+
+// ── isAluminioLocation ────────────────────────────────────────────────────────
+
+describe('isAluminioLocation', () => {
+  it('identifies REP ALUMINIO zone (5-14) correctly', () => {
+    expect(isAluminioLocation('REP', 5)).toBe(true);
+    expect(isAluminioLocation('REP', 14)).toBe(true);
+  });
+
+  it('does not flag REP positions outside the ALUMINIO zone', () => {
+    expect(isAluminioLocation('REP', 4)).toBe(false);
+    expect(isAluminioLocation('REP', 15)).toBe(false);
+  });
+
+  it('works with locationId string form', () => {
+    expect(isAluminioLocation('REP-005')).toBe(true);
+    expect(isAluminioLocation('REP-015')).toBe(false);
+  });
+
+  it('returns false for invalid locationId', () => {
+    expect(isAluminioLocation('INVALID')).toBe(false);
+  });
+});
+
+// ── getShelfDefinition ────────────────────────────────────────────────────────
+
+describe('getShelfDefinition', () => {
+  it('returns definition for known shelves', () => {
+    const shelf = getShelfDefinition('MEC');
+    expect(shelf).toBeDefined();
+    expect(shelf?.code).toBe('MEC');
+    expect(shelf?.section).toBe('MECANIZADO');
+  });
+
+  it('returns undefined for unknown code', () => {
+    expect(getShelfDefinition('UNKNOWN')).toBeUndefined();
+  });
+
+  it('returns cart definitions', () => {
+    const cart = getShelfDefinition('RSOL');
+    expect(cart).toBeDefined();
+    expect(cart?.type).toBe('cart');
+  });
+});
+
+// ── generatePositions ─────────────────────────────────────────────────────────
+
+describe('generatePositions', () => {
+  it('generates 0-padded positions up to locationCount', () => {
+    const pre = getShelfDefinition('PRE')!;
+    const positions = generatePositions(pre);
+    expect(positions).toHaveLength(9);
+    expect(positions[0]).toBe('001');
+    expect(positions[8]).toBe('009');
+  });
+
+  it('generates 34 positions for MEC', () => {
+    const mec = getShelfDefinition('MEC')!;
+    expect(generatePositions(mec)).toHaveLength(34);
+  });
+});
+
+// ── ALL_SHELVES sanity ────────────────────────────────────────────────────────
+
+describe('ALL_SHELVES', () => {
+  it('contains all shelf definitions and cart definitions', () => {
+    expect(ALL_SHELVES.length).toBeGreaterThan(SHELF_DEFINITIONS.length);
+  });
+
+  it('every shelf has a unique code', () => {
+    const codes = ALL_SHELVES.map((s) => s.code);
+    const unique = new Set(codes);
+    expect(unique.size).toBe(codes.length);
+  });
+
+  it('every shelf has at least one zone', () => {
+    ALL_SHELVES.forEach((s) => {
+      expect(s.layout.zones.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('every zone range has start <= end', () => {
+    ALL_SHELVES.forEach((s) => {
+      s.layout.zones.forEach((z) => {
+        expect(z.range[0]).toBeLessThanOrEqual(z.range[1]);
+      });
+    });
+  });
+});

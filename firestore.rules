@@ -1,16 +1,27 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ── AUTH HELPERS ─────────────────────────────────────────────────────────
+
     function isAuthenticated() {
       return request.auth != null;
     }
 
     function isAnonymous() {
-      return isAuthenticated() && request.auth.token.firebase.sign_in_provider == 'anonymous';
+      return isAuthenticated()
+          && request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
+    // Requires the `validatedDevice: true` custom claim set by resolveDeviceConfig CF.
+    // Prevents any arbitrary anonymous user from accessing warehouse data.
+    function isValidatedDevice() {
+      return isAnonymous() && request.auth.token.validatedDevice == true;
     }
 
     function userDocExists() {
-      return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+      return isAuthenticated()
+          && exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
     function userRole() {
@@ -39,103 +50,136 @@ service cloud.firestore {
       return userRole() == 'SUPERADMIN';
     }
 
+    // ── ACCESS POLICY HELPERS ─────────────────────────────────────────────────
+
+    // Validated kiosk devices (anonymous + custom claim) or any registered user.
     function canReadWarehouseState() {
-      return isAnonymous() || isRegisteredUser();
+      return isValidatedDevice() || isRegisteredUser();
     }
 
-    function canWriteWarehouseState() {
-      return false;
-    }
-
-    function canReadPickupQueue() {
-      return isAnonymous() || isOperationalUser();
-    }
-
-    function canWritePickupQueue() {
-      return false;
-    }
-
+    // History is operational + monitoring roles only; kiosks do not need it.
     function canReadHistory() {
       return isOperationalUser() || isMonitoringUser();
     }
 
-    function canWriteHistory() {
-      return false;
-    }
-
-    function isSelf(userId) {
-      return isRegisteredUser() && request.auth.uid == userId;
-    }
+    // ── USER SELF-UPDATE VALIDATION ───────────────────────────────────────────
 
     function validTokenList() {
       return !('fcmTokens' in request.resource.data)
-        || (request.resource.data.fcmTokens is list
-          && request.resource.data.fcmTokens.size() <= 20);
+          || (request.resource.data.fcmTokens is list
+              && request.resource.data.fcmTokens.size() <= 20);
     }
 
     function validOptionalDisplayName() {
       return !('displayName' in request.resource.data)
-        || (request.resource.data.displayName is string && request.resource.data.displayName.size() <= 120);
+          || (request.resource.data.displayName is string
+              && request.resource.data.displayName.size() <= 120);
     }
 
+    // Validates ISO 8601 format: must start with a date like "2026-01-01T"
     function validOptionalLastLoginAt() {
       return !('lastLoginAt' in request.resource.data)
-        || request.resource.data.lastLoginAt is string;
+          || (request.resource.data.lastLoginAt is string
+              && request.resource.data.lastLoginAt.size() >= 20
+              && request.resource.data.lastLoginAt.size() <= 35
+              && request.resource.data.lastLoginAt.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}T.*'));
     }
 
+    // A registered user may only update their own FCM tokens, display name,
+    // and last-login timestamp. All auth-sensitive fields are immutable.
     function isSelfUserUpdate() {
-      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['fcmTokens', 'lastLoginAt', 'displayName'])
-        && request.resource.data.role == resource.data.role
-        && request.resource.data.email == resource.data.email
-        && request.resource.data.section == resource.data.section
-        && request.resource.data.additionalSections == resource.data.additionalSections
-        && validTokenList()
-        && validOptionalDisplayName()
-        && validOptionalLastLoginAt();
+      return request.resource.data.diff(resource.data).changedKeys()
+                 .hasOnly(['fcmTokens', 'lastLoginAt', 'displayName'])
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.email == resource.data.email
+          && request.resource.data.section == resource.data.section
+          && request.resource.data.additionalSections == resource.data.additionalSections
+          && validTokenList()
+          && validOptionalDisplayName()
+          && validOptionalLastLoginAt();
     }
 
+    // ── COLLECTION RULES ─────────────────────────────────────────────────────
+
+    // App configuration: validated devices and all registered users may read
+    // (so kiosks can load urgentLocations/techReviewLocations from Firestore).
+    // Only SUPERADMIN can write.
     match /config/{document=**} {
-      allow read: if isMonitoringUser();
+      allow read: if canReadWarehouseState();
       allow write: if isSuperAdmin();
     }
 
     match /users/{userId} {
-      allow get: if isAdminLike() || (isRegisteredUser() && request.auth.uid == userId);
-      allow list: if isAdminLike();
-      allow update: if isSuperAdmin() || (isSelf(userId) && isSelfUserUpdate());
+      allow get:    if isAdminLike() || (isRegisteredUser() && request.auth.uid == userId);
+      allow list:   if isAdminLike();
+      allow update: if isSuperAdmin() || (isRegisteredUser() && request.auth.uid == userId && isSelfUserUpdate());
       allow create, delete: if isSuperAdmin();
     }
 
+    // Devices are managed exclusively via adminOperate Cloud Function (Admin SDK).
     match /devices/{deviceId} {
       allow get, list: if isSuperAdmin();
-      allow write: if isSuperAdmin();
+      allow write:     if false;
     }
 
+    // Core warehouse state — all writes go through shelfOperate Cloud Function.
     match /shelves/{document=**} {
-      allow read: if canReadWarehouseState();
-      allow write: if canWriteWarehouseState();
+      allow read:  if canReadWarehouseState();
+      allow write: if false;
     }
 
     match /items/{document=**} {
-      allow read: if canReadWarehouseState();
-      allow write: if canWriteWarehouseState();
+      allow read:  if canReadWarehouseState();
+      allow write: if false;
     }
 
     match /itemAggregates/{document=**} {
-      allow read: if canReadWarehouseState();
-      allow write: if canWriteWarehouseState();
+      allow read:  if canReadWarehouseState();
+      allow write: if false;
     }
 
+    // Pickup queue — validated kiosks and operational/admin roles may read.
     match /pickupQueue/{document=**} {
-      allow read: if canReadPickupQueue();
-      allow write: if canWritePickupQueue();
+      allow read:  if isValidatedDevice() || isOperationalUser();
+      allow write: if false;
     }
 
+    // Immutable audit log — operational and monitoring roles only.
     match /history/{document=**} {
-      allow read: if canReadHistory();
-      allow write: if canWriteHistory();
+      allow read:  if canReadHistory();
+      allow write: if false;
     }
 
+    // Notification feed — written by Cloud Functions; readable by registered users.
+    match /notifications/{document=**} {
+      allow read:  if isOperationalUser() || isMonitoringUser();
+      allow write: if false;
+    }
+
+    // Chat messages — written by Cloud Functions; readable by all registered users.
+    match /chatMessages/{document=**} {
+      allow read:  if isRegisteredUser();
+      allow write: if false;
+    }
+
+    // Working/finished item views — monitoring roles only (reporting/dashboards).
+    match /workingItems/{document=**} {
+      allow read:  if isMonitoringUser();
+      allow write: if false;
+    }
+
+    match /finishedItems/{document=**} {
+      allow read:  if isMonitoringUser();
+      allow write: if false;
+    }
+
+    // Legacy collection written exclusively by inventoryOperate Cloud Function.
+    // Direct client access is intentionally denied.
+    match /assignments/{document=**} {
+      allow read, write: if false;
+    }
+
+    // Default deny: any collection not listed above is blocked.
     match /{document=**} {
       allow read, write: if false;
     }

@@ -2,8 +2,8 @@ import * as functions from 'firebase-functions';
 import { admin } from './firebaseAdmin';
 import { requireAllowedRoles } from './authz';
 
-const normalize = (value?: string | null) => (value || '').trim();
-const normalizeRole = (value?: string | null) => (value || '').trim().toUpperCase();
+const normalize = (value?: string | null) => String(value || '').trim();
+const normalizeRole = (value?: string | null) => String(value || '').trim().toUpperCase();
 
 const ALLOWED_ROLES = new Set(['OPERARIO', 'CARRETILLERO', 'JEFE_SECCION', 'CALIDAD', 'ADMIN', 'SUPERADMIN']);
 const ALLOWED_SECTIONS = new Set(['MECANIZADO', 'PLEGADORA', 'PRENSAS', 'SOLDADURA', 'ROBOT_PLEGADO', 'REPASADO', 'PINTURA', 'LASER', 'CALIDAD', 'OTROS']);
@@ -59,9 +59,7 @@ export const adminOperate = functions.https.onCall(async (data: any, context: an
     if (Object.keys(updatePayload).length === 0) {
       throw new functions.https.HttpsError('invalid-argument', 'No hay cambios validos para actualizar.');
     }
-    await db.collection('devices').doc(deviceId).set({
-      ...updatePayload,
-    }, { merge: true });
+    await db.collection('devices').doc(deviceId).set({ ...updatePayload }, { merge: true });
     return { ok: true };
   }
 
@@ -88,7 +86,7 @@ export const adminOperate = functions.https.onCall(async (data: any, context: an
   throw new functions.https.HttpsError('invalid-argument', `Operacion desconocida: ${op}`);
 });
 
-export const resolveDeviceConfig = functions.https.onCall(async (data: any) => {
+export const resolveDeviceConfig = functions.https.onCall(async (data: any, context: any) => {
   const deviceId = normalize(data?.deviceId);
   if (!deviceId) {
     throw new functions.https.HttpsError('invalid-argument', 'deviceId requerido.');
@@ -106,7 +104,11 @@ export const resolveDeviceConfig = functions.https.onCall(async (data: any) => {
     name?: string;
   };
 
-  return {
+  const result: {
+    exists: boolean;
+    device?: { type: string; active: boolean; assignedShelf: string | null; name: string };
+    claimsUpdated: boolean;
+  } = {
     exists: true,
     device: {
       type: device.type === 'CARRETILLERO' ? 'CARRETILLERO' : 'KIOSK',
@@ -114,7 +116,27 @@ export const resolveDeviceConfig = functions.https.onCall(async (data: any) => {
       assignedShelf: device.assignedShelf || null,
       name: normalize(device.name) || 'Dispositivo',
     },
+    claimsUpdated: false,
   };
+
+  // Set `validatedDevice: true` custom claim so Firestore security rules can
+  // verify that this anonymous user operates a registered, active device.
+  // The client must force-refresh its ID token after receiving claimsUpdated: true.
+  if (context.auth && device.active !== false) {
+    const provider = (context.auth.token?.firebase as any)?.sign_in_provider;
+    if (provider === 'anonymous' && !context.auth.token.validatedDevice) {
+      try {
+        await admin.auth().setCustomUserClaims(context.auth.uid, { validatedDevice: true });
+        result.claimsUpdated = true;
+      } catch (err) {
+        // Non-fatal: writes go through Cloud Functions which validate separately.
+        // The Firestore read rules will update on next token refresh (< 1 hour).
+        console.warn('[resolveDeviceConfig] Could not set custom claims:', err);
+      }
+    }
+  }
+
+  return result;
 });
 
 export const deviceHeartbeat = functions.https.onCall(async (data: any, context: any) => {

@@ -249,7 +249,14 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
       tx.set(presenceRef, { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true });
       if (aggregateSnap.exists) {
         const aggregate = aggregateSnap.data() as any;
-        tx.set(aggregateRef, { activePresenceIds: [...(aggregate.activePresenceIds || []), presenceRef.id], totalActivePresences: (aggregate.totalActivePresences || 0) + 1, totalPlacements: (aggregate.totalPlacements || 0) + 1, updatedAt: now }, { merge: true });
+        const currentIds: string[] = aggregate.activePresenceIds || [];
+        if (currentIds.length >= 500) {
+          throw new functions.https.HttpsError(
+            'resource-exhausted',
+            `El agregado ${aggregateKey} ha alcanzado el limite de 500 presencias activas simultaneas.`,
+          );
+        }
+        tx.set(aggregateRef, { activePresenceIds: [...currentIds, presenceRef.id], totalActivePresences: (aggregate.totalActivePresences || 0) + 1, totalPlacements: (aggregate.totalPlacements || 0) + 1, updatedAt: now }, { merge: true });
       } else {
         tx.set(aggregateRef, { aggregateKey, articleCode, orderFab, activePresenceIds: [presenceRef.id], totalActivePresences: 1, totalPlacements: 1, updatedAt: now });
       }
