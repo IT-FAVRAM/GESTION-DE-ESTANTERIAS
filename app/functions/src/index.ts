@@ -31,3 +31,7 @@ export {
   deviceHeartbeat,
   resolveDeviceConfig,
 } from './admin';
+
+export {
+  productionOperate,
+} from './production';

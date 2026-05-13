@@ -7,9 +7,9 @@ import { useHistory } from './useHistory';
 import { NotificationType } from '../components/NotificationToast';
 import { BatchItem } from '../types/batch';
 import { SystemAlert } from './useSystemNotifications';
-import { withdrawToWorkingAtomic } from '../lib/production';
 import { useHaptic } from './useHaptic';
 import { inventoryApi } from '../lib/inventoryApi';
+import { productionApi } from '../lib/productionApi';
 
 /**
  * This hook acts as a Facade for business logic.
@@ -419,12 +419,12 @@ export const useInventoryOperations = (
             const item = assignments[location]?.find(i => i.barcode === barcode && i.orderId === orderId);
             if (!item) return false;
 
-            await withdrawToWorkingAtomic(barcode, orderId, location, {
+            await productionApi.withdrawToWorking({
+                barcode,
+                orderId,
+                fromLocationId: location,
                 itemKey: item.itemKey,
                 containerId: item.containerId
-            }, {
-                uid: 'system',
-                displayName: userEmail || 'Sistema'
             });
 
             if (notify) notify('success', 'En Trabajo', `Artículo ${barcode} movido a producción.`);

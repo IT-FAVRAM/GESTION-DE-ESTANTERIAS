@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '../legacy/firebaseCompat';
 import { LocationId, WorkingItem } from '../lib/warehouseData';
-import { finishWorkingItem, locateWorkingItem } from '../lib/production';
+import { productionApi } from '../lib/productionApi';
 
 export const useWorkingItems = () => {
     const [workingItems, setWorkingItems] = useState<WorkingItem[]>([]);
@@ -34,9 +34,14 @@ export const useWorkingItems = () => {
         return () => unsubscribe();
     }, []);
 
-    const finishItem = useCallback(async (item: WorkingItem, user?: { uid: string; displayName: string }) => {
+    const finishItem = useCallback(async (item: WorkingItem) => {
         try {
-            await finishWorkingItem(item, user);
+            await productionApi.finishWorking({
+                itemKey: item.itemKey || item.barcode,
+                barcode: item.barcode,
+                orderId: item.orderId,
+                packageType: item.packageType,
+            });
             return true;
         } catch (e) {
             console.error("Error finishing item:", e);
@@ -44,9 +49,18 @@ export const useWorkingItems = () => {
         }
     }, []);
 
-    const locateItem = useCallback(async (item: WorkingItem, toLocation: LocationId, user?: { uid: string; displayName: string }) => {
+    const locateItem = useCallback(async (item: WorkingItem, toLocation: LocationId) => {
         try {
-            await locateWorkingItem(item, toLocation, user);
+            await productionApi.locateWorking({
+                itemKey: item.itemKey || item.barcode,
+                barcode: item.barcode,
+                orderId: item.orderId,
+                toLocation,
+                packageType: item.packageType,
+                quantity: 1,
+                containerId: item.containerId,
+                notes: item.notes,
+            });
             return true;
         } catch (e) {
             console.error("Error locating item from working:", e);

@@ -1,3 +1,8 @@
+/**
+ * @deprecated Use productionApi (Cloud Function) instead.
+ * All production operations (withdrawToWorking, finishWorking, locateWorking) are now Cloud Functions.
+ * This file is kept for backwards compatibility only and should not be used in new code.
+ */
 
 import { db } from '../legacy/firebaseCompat';
 import { AssignmentItem, WorkingItem, FinishedItem, LocationId, getSectionFromLocation, ItemStatus, PackageType } from './warehouseData';
