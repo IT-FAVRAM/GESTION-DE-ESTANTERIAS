@@ -3,14 +3,14 @@
  * WMS v3.0 Gestor Estanterias.
  */
 import { disableNetwork, enableNetwork } from 'firebase/firestore';
-import { db } from './firebaseV3';
+import { db } from '../firebase';
 
 export const forceOfflineMode = async () => {
   try {
     await disableNetwork(db);
     console.log('[OfflineManager] Network disabled manually');
   } catch (err) {
-    console.error('[OfflineManager] Error disabling network:', err);
+    console.error('[OfflineManager] Error deshabilitando red:', err);
   }
 };
 
@@ -19,6 +19,11 @@ export const forceOnlineMode = async () => {
     await enableNetwork(db);
     console.log('[OfflineManager] Network enabled manually');
   } catch (err) {
-    console.error('[OfflineManager] Error enabling network:', err);
+    console.error('[OfflineManager] Error habilitando red:', err);
   }
+};
+
+export const offlineManager = {
+  forceOfflineMode,
+  forceOnlineMode,
 };

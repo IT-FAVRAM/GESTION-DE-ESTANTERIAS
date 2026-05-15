@@ -50,7 +50,7 @@ export const initPushNotifications = async (): Promise<string | null> => {
 
     return null;
   } catch (err) {
-    console.error('[Push] Error initializing:', err);
+    console.error('[Push] Error inicializando:', err);
     return null;
   }
 };
@@ -69,7 +69,7 @@ const saveTokenToUser = async (token: string): Promise<void> => {
       fcmTokens: arrayUnion(token),
     });
   } catch (err) {
-    console.error('[Push] Error saving token:', err);
+    console.error('[Push] Error guardando token:', err);
   }
 };
 
@@ -98,7 +98,7 @@ export const listenForegroundMessages = async (
 
     return unsubscribe;
   } catch (err) {
-    console.error('[Push] Error setting up listener:', err);
+    console.error('[Push] Error configurando escucha:', err);
     return null;
   }
 };

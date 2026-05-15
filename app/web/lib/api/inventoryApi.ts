@@ -8,7 +8,7 @@ type SessionPayload = {
     operarioName?: string | null;
 };
 
-type InventoryOp = 'ubicar' | 'retirar' | 'mover';
+type InventoryOp = 'ubicar' | 'retirar' | 'retirarDeUbicacion' | 'mover';
 
 interface InventoryOperateParams {
     op: InventoryOp;
@@ -49,6 +49,7 @@ const callLegacyInventoryOperate = async (op: 'assign' | 'remove' | 'move' | 'em
 export const inventoryApi = {
     ubicar: (payload: Record<string, unknown>, session?: SessionPayload, opId?: string) => callInventoryOperate({ op: 'ubicar', payload, session, opId }),
     retirar: (payload: Record<string, unknown>, session?: SessionPayload, opId?: string) => callInventoryOperate({ op: 'retirar', payload, session, opId }),
+    retirarDeUbicacion: (payload: Record<string, unknown>, session?: SessionPayload, opId?: string) => callInventoryOperate({ op: 'retirarDeUbicacion', payload, session, opId }),
     mover: (payload: Record<string, unknown>, session?: SessionPayload, opId?: string) => callInventoryOperate({ op: 'mover', payload, session, opId }),
     assign: (payload: Record<string, unknown>, opId?: string) => callLegacyInventoryOperate('assign', payload, opId),
     remove: (payload: Record<string, unknown>, opId?: string) => callLegacyInventoryOperate('remove', payload, opId),

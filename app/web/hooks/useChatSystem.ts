@@ -70,14 +70,14 @@ export const useChatSystem = (currentUserUid: string | undefined, currentUserRol
             .onSnapshot(snapshot => {
                 privateChats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChatConversation));
                 updateState();
-            }, err => console.error("Error loading private chats", err));
+            }, err => console.error("Error cargando chats privados:", err));
 
         const unsub2 = db.collection('chats')
             .where('isBroadcast', '==', true)
             .onSnapshot(snapshot => {
                 broadcastChats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChatConversation));
                 updateState();
-            }, err => console.error("Error loading broadcast chats", err));
+            }, err => console.error("Error cargando chats de transmisión:", err));
 
         return () => {
             unsub1();
@@ -104,14 +104,14 @@ export const useChatSystem = (currentUserUid: string | undefined, currentUserRol
 
             setAvailableUsers(users);
         } catch (e) {
-            console.error("Error fetching users", e);
+            console.error("Error obteniendo usuarios:", e);
         }
     }, [currentUserRole, currentUserUid]);
 
     // --- ACCIONES ---
 
     const createOrGetChat = async (targetUid: string, targetRole: string): Promise<string> => {
-        if (!currentUserUid || !currentUserRole) throw new Error("No user");
+        if (!currentUserUid || !currentUserRole) throw new Error("Sin usuario");
 
         // 1. Verificar si ya existe chat (cliente side filter o query compleja)
         // Como 'participants' array-contains solo permite 1 valor, lo buscamos en los chats ya cargados en memoria

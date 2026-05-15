@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '../lib/firebase';
 import {
   ALL_SHELVES,
   COLLECTIONS,
@@ -8,19 +9,24 @@ import {
   getItemAggregateId,
   type ItemDoc,
 } from '../lib/firestoreSchema';
-import {
-  fetchLeadTimeReporting,
-  type AssistantContextPayload,
-  type LeadTimeReportingResult,
-} from '../lib/aiService';
 
-type HistoryEntry = {
-  action?: string;
-  articleCode?: string;
-  orderFab?: string;
-  shelfCode?: string;
-  timestamp?: string;
-};
+export interface LeadTimeReportingResult {
+  generatedAt: string;
+  totals: {
+    completedCycles: number;
+    averageLeadTimeDays: number | null;
+  };
+  bySection: Array<{
+    section: string;
+    completedCycles: number;
+    averageLeadTimeDays: number;
+  }>;
+  byShelf: Array<{
+    shelfCode: string;
+    completedCycles: number;
+    averageLeadTimeDays: number;
+  }>;
+}
 
 export interface StaleItemView {
   articleCode: string;
@@ -72,7 +78,6 @@ export interface AnalyticsSnapshot {
   sectionMetrics: SectionMetric[];
   shelfMetrics: ShelfMetric[];
   leadTime: LeadTimeReportingResult | null;
-  assistantContext: AssistantContextPayload | null;
 }
 
 const SHELF_CAPACITY = new Map(ALL_SHELVES.map((shelf) => [shelf.code, shelf.locationCount]));
@@ -129,9 +134,10 @@ export const useAnalytics = (): AnalyticsSnapshot => {
 
     const loadLeadTime = async () => {
       try {
-        const report = await fetchLeadTimeReporting();
+        const callable = httpsCallable(functions, 'leadTimeReporting');
+        const result = await callable({});
         if (!cancelled) {
-          setLeadTime(report);
+          setLeadTime(result.data as LeadTimeReportingResult);
         }
       } catch (leadTimeError) {
         console.error('[useAnalytics] lead time error', leadTimeError);
@@ -253,55 +259,6 @@ export const useAnalytics = (): AnalyticsSnapshot => {
     staleItems.sort((left, right) => right.daysInLocation - left.daysInLocation);
     repeatedPairs.sort((left, right) => right.placements - left.placements);
 
-    const assistantContext: AssistantContextPayload = {
-      generatedAt: new Date().toISOString(),
-      inventory: {
-        totalUniqueItems: uniquePairs.size,
-        totalPlacements,
-        occupiedLocations,
-        totalLocations,
-      },
-      sections: sectionMetrics.map((metric) => ({
-        section: metric.section,
-        uniqueItems: metric.uniqueItems,
-        placements: metric.placements,
-        occupancyRate: Number(metric.occupancyRate.toFixed(4)),
-        avgLeadTimeDays: metric.avgLeadTimeDays,
-      })),
-      shelves: shelfMetrics.map((metric) => ({
-        shelfCode: metric.shelfCode,
-        shelfName: metric.shelfName,
-        section: metric.section,
-        placements: metric.placements,
-        occupancyRate: Number(metric.occupancyRate.toFixed(4)),
-      })),
-      activeItems: items.map((item) => ({
-        articleCode: item.articleCode,
-        orderFab: item.orderFab,
-        shelfCode: item.shelfCode,
-        section: SHELF_TO_SECTION[item.shelfCode] || 'OTROS',
-        locationIds: item.locationIds,
-        daysInLocation: diffDaysFromNow(item.locatedAt),
-      })),
-      staleItems: staleItems.map((item) => ({
-        articleCode: item.articleCode,
-        orderFab: item.orderFab,
-        shelfCode: item.shelfCode,
-        section: item.section,
-        locationIds: item.locationIds,
-        daysInLocation: item.daysInLocation,
-        repeatedPair: item.repeatedPair,
-      })),
-      repeatedPairs: repeatedPairs.map((pair) => ({
-        articleCode: pair.articleCode,
-        orderFab: pair.orderFab,
-        shelfCode: pair.shelfCodes.join(', '),
-        section: pair.sections.join(', '),
-        locationIds: pair.locationIds,
-        placements: pair.placements,
-      })),
-    };
-
     return {
       totalUniqueItems: uniquePairs.size,
       totalLocations,
@@ -311,7 +268,6 @@ export const useAnalytics = (): AnalyticsSnapshot => {
       repeatedPairs,
       sectionMetrics,
       shelfMetrics,
-      assistantContext,
     };
   }, [items, leadTime]);
 
@@ -328,6 +284,5 @@ export const useAnalytics = (): AnalyticsSnapshot => {
     sectionMetrics: computed.sectionMetrics,
     shelfMetrics: computed.shelfMetrics,
     leadTime,
-    assistantContext: computed.assistantContext,
   };
 };

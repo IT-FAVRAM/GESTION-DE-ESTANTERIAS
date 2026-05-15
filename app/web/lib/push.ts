@@ -18,7 +18,7 @@ export const initPush = async (): Promise<string | null> => {
 
     try {
         if (!VAPID_KEY) {
-            console.error("VITE_FIREBASE_VAPID_KEY is missing in .env");
+            console.error("VITE_FIREBASE_VAPID_KEY falta en .env");
             // Don't crash, but warn
         }
 
@@ -37,7 +37,7 @@ export const initPush = async (): Promise<string | null> => {
             return null;
         }
     } catch (err) {
-        console.log('An error occurred while retrieving token. ', err);
+        console.log('Ocurrió un error al obtener el token.', err);
         return null;
     }
 };
@@ -55,7 +55,7 @@ export const saveTokenToUser = async (token: string) => {
         }, { merge: true });
         console.log("Token saved to user profile");
     } catch (error) {
-        console.error("Error saving token to user:", error);
+        console.error("Error guardando token al usuario:", error);
     }
 };
 

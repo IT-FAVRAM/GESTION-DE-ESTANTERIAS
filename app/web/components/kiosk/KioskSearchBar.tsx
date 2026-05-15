@@ -8,7 +8,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { ShelfLocationState } from '../../hooks/useShelf';
-import { useGlobalSearch, type GlobalSearchResult } from '../../hooks/useGlobalSearch';
+import { useGlobalSearchWithCache, type GlobalSearchResult } from '../../hooks/useGlobalSearchWithCache';
 
 interface KioskSearchBarProps {
   /** Todas las ubicaciones de la estantería actual */
@@ -47,7 +47,7 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
   const [resultCount, setResultCount] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
-  const { results, loading, hasQuery, hasExactShelfMatch, clear } = useGlobalSearch(query, currentShelfCode || '');
+  const { results, loading, hasQuery, hasExactShelfMatch, clear, isCached, cacheInfo } = useGlobalSearchWithCache(query, currentShelfCode || '');
 
   const doSearch = useCallback(
     (searchText: string) => {
@@ -145,6 +145,13 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
          )}
        </div>
        
+       {/* Cache indicator */}
+       {isCached && cacheInfo && (
+         <div className="mt-1 text-xs text-amber-300 flex items-center gap-1">
+           📦 Búsqueda en caché {cacheInfo.age !== null && `(${cacheInfo.age.toFixed(1)}h)`}
+         </div>
+       )}
+
        {/* Global search dropdown */}
        {global && hasQuery && !loading && (
          <div className="absolute left-0 right-0 mt-1 z-20">

@@ -41,7 +41,7 @@ export const useCarts = (cartId: string | null) => {
                 setItems(loadedItems);
                 setLoading(false);
             }, err => {
-                console.error("Error fetching cart items:", err);
+                console.error("Error obteniendo items del carro:", err);
                 setLoading(false);
             });
 

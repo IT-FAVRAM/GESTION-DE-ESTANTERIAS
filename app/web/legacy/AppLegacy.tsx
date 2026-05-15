@@ -18,7 +18,6 @@ import SyncStatus from '../components/SyncStatus';
 import HistoryView from '../components/HistoryView';
 import StorageView from '../components/StorageView';
 import WorkingItemsList from './components/WorkingItemsList';
-import GeminiButton from '../components/GeminiButton';
 import ThemeToggle from '../components/ThemeToggle';
 import NotificationToast, { Notification, NotificationType } from '../components/NotificationToast';
 import { MessagesView } from '../components/MessagesView';
@@ -41,7 +40,6 @@ import { useAssignments } from '../hooks/useAssignments';
 import { useHistory } from '../hooks/useHistory';
 import { useStorage } from '../hooks/useStorage';
 import { useInventoryOperations } from '../hooks/useInventoryOperations';
-import { useGeminiAnalysis } from '../hooks/useGeminiAnalysis';
 import { useIndexing } from '../hooks/useIndexing';
 import { useWarehouseConfig } from '../hooks/useWarehouseConfig';
 import { useRoles, UserRole } from '../hooks/useRoles';
@@ -240,9 +238,6 @@ const App: React.FC = () => {
 
     const { workingItems } = useWorkingItems();
 
-    const gemini = useGeminiAnalysis();
-
-
     if (initializingAuth || roleLoading || assignmentsLoading || configLoading) {
         return (
             <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950">
@@ -300,7 +295,6 @@ const App: React.FC = () => {
                                 collapsedShelves={collapsedShelves}
                                 toggleShelf={toggleShelf}
                                 toggleAllShelves={toggleAllShelves}
-                                gemini={gemini}
                                 canAssign={canAssign}
                                 canRemove={canRemove}
                                 canRequestItems={canRequestItems}
@@ -345,7 +339,7 @@ const App: React.FC = () => {
                         <Route path="/working" element={<WorkingItemsList userRole={role!} notifyFinishedItem={notifyFinishedItem} />} />
                         <Route path="/messages" element={<MessagesView currentUserRole={role!} currentUserUid={user.uid} />} />
                         <Route path="/chapero" element={<ChaperoCountView />} />
-                        <Route path="/history" element={<HistoryView history={history} onGenerateTraceabilityReport={(h) => gemini.runTraceabilityReport(h)} isTraceabilityLoading={gemini.isTraceabilityLoading} />} />
+                        <Route path="/history" element={<HistoryView history={history} />} />
                         <Route path="/requests" element={role === 'CARRETILLERO' ? <CarretilleroRequestsView onNavigateToLocation={handleNavigateToRequestLocation} /> : <Navigate to="/" />} />
 
                         <Route path="*" element={<Navigate to={`/warehouse/${activeWarehouse || 'MEC'}`} replace />} />
@@ -366,7 +360,6 @@ const App: React.FC = () => {
                 setAssignments={setAssignments}
                 history={history}
                 setHistory={setHistory}
-                gemini={gemini}
                 configActions={configActions}
 
                 // States

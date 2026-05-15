@@ -1,12 +1,6 @@
 import * as functions from 'firebase-functions';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { defineSecret } from 'firebase-functions/params';
 import { requireAllowedRoles, getWmsSectionForShelf, normalizeRole } from './authz';
 import { admin } from './firebaseAdmin';
-
-const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY');
-const MODEL_NAME = 'gemini-2.0-flash';
-const requestLog: Record<string, number[]> = {};
 
 const normalize = (value?: string | null) => (value || '').trim().toUpperCase();
 
@@ -14,19 +8,6 @@ const toMillis = (value?: string | null) => {
   if (!value) return null;
   const time = new Date(value).getTime();
   return Number.isNaN(time) ? null : time;
-};
-
-const getGeminiClient = () => {
-  const apiKey = GEMINI_API_KEY.value() || process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new functions.https.HttpsError('failed-precondition', 'AI not configured.');
-  return new GoogleGenerativeAI(apiKey);
-};
-
-const checkRateLimit = (uid: string) => {
-  const now = Date.now();
-  requestLog[uid] = (requestLog[uid] || []).filter((time) => now - time < 60_000);
-  if (requestLog[uid].length >= 10) throw new functions.https.HttpsError('resource-exhausted', 'Too many requests. Please wait a minute.');
-  requestLog[uid].push(now);
 };
 
 export const leadTimeReporting = functions.https.onCall(async (_data: any, context: any) => {
@@ -79,22 +60,6 @@ export const leadTimeDataset = functions.https.onCall(async (data: any, context:
     rows.push({ barcode: exitEvent.barcode, orderId: exitEvent.orderId || 'N/A', entryDate: entryEvent.timestamp, exitDate: exitEvent.timestamp, durationDays: (new Date(exitEvent.timestamp).getTime() - new Date(entryEvent.timestamp).getTime()) / (1000 * 60 * 60 * 24) });
   }
   return { rows };
-});
-
-export const leadTimeAIReport = functions.runWith({ secrets: [GEMINI_API_KEY] }).https.onCall(async (data: any, context: any) => {
-  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be logged in.');
-  const aiRole = normalizeRole(context.auth.token.role as string);
-  if (!['ADMIN', 'SUPERADMIN'].includes(aiRole)) throw new functions.https.HttpsError('permission-denied', 'Only Admins can access AI analysis.');
-  checkRateLimit(context.auth.uid);
-  const { rows, summaryStats } = data;
-  const prompt = `ACTUA COMO CONSULTOR EXPERTO EN LOGISTICA WMS. Analiza el tiempo de permanencia. Estadisticas: ${JSON.stringify(summaryStats)}. Muestra: ${JSON.stringify(rows ? rows.slice(0, 15) : [])}. Devuelve markdown con diagnostico, riesgos y recomendaciones operativas.`;
-  try {
-    const result = await getGeminiClient().getGenerativeModel({ model: MODEL_NAME }).generateContent(prompt);
-    return { markdown: result.response.text() };
-  } catch (error) {
-    console.error('AI Report Error:', error);
-    throw new functions.https.HttpsError('internal', 'AI Generation Failed');
-  }
 });
 
 export const userPushReport = functions.https.onCall(async (_data: any, context: any) => {

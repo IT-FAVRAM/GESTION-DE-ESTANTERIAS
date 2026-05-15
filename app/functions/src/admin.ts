@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions';
 import { admin } from './firebaseAdmin';
 import { requireAllowedRoles } from './authz';
+import { getUsersByRole, sendPushToUsers } from './push';
 
 const normalize = (value?: string | null) => String(value || '').trim();
 const normalizeRole = (value?: string | null) => String(value || '').trim().toUpperCase();
@@ -137,6 +138,52 @@ export const resolveDeviceConfig = functions.https.onCall(async (data: any, cont
   }
 
   return result;
+});
+
+const ALLOWED_MESSAGE_TARGETS = new Set(['ALL', 'JEFE_SECCION', 'CALIDAD', 'CARRETILLERO', 'ADMIN', 'SUPERADMIN']);
+
+export const sendAdminMessage = functions.https.onCall(async (data: any, context: any) => {
+  const user = await requireAllowedRoles(context, ['ADMIN', 'SUPERADMIN']);
+
+  const title = String(data?.title || '').trim();
+  const body = String(data?.body || '').trim();
+  const targetRole = String(data?.targetRole || 'ALL').trim().toUpperCase();
+
+  if (!title || !body) {
+    throw new functions.https.HttpsError('invalid-argument', 'Título y mensaje son obligatorios.');
+  }
+  if (!ALLOWED_MESSAGE_TARGETS.has(targetRole)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Destinatario no válido.');
+  }
+
+  const db = admin.firestore();
+
+  let userDocs: FirebaseFirestore.QueryDocumentSnapshot[];
+  if (targetRole === 'ALL') {
+    const snap = await db.collection('users').get();
+    userDocs = snap.docs;
+  } else {
+    userDocs = await getUsersByRole(targetRole);
+  }
+
+  const pushResult = await sendPushToUsers(userDocs, {
+    title,
+    body,
+    data: { type: 'ADMIN_MESSAGE', targetRole, sentBy: user.email || user.uid },
+  });
+
+  await db.collection('adminMessages').add({
+    title,
+    body,
+    targetRole,
+    sentBy: user.email || user.uid,
+    sentByRole: user.role,
+    sentAt: new Date().toISOString(),
+    successCount: pushResult.successCount,
+    failureCount: pushResult.failureCount,
+  });
+
+  return { ok: true, successCount: pushResult.successCount, failureCount: pushResult.failureCount };
 });
 
 export const deviceHeartbeat = functions.https.onCall(async (data: any, context: any) => {

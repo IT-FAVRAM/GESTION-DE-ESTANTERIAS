@@ -49,7 +49,7 @@ export const useHistory = () => {
       },
       (err) => {
         if (err.code !== 'permission-denied') {
-            console.error("Error escuchando history en Firestore:", err);
+            console.error("Error escuchando historial en Firestore:", err);
             setError("Error al cargar el historial.");
         }
         setLoading(false);
@@ -88,7 +88,7 @@ export const useHistory = () => {
 
             await historyRef.add(payload);
         } catch (err) {
-            console.error("Error guardando history en Firestore:", err);
+            console.error("Error guardando historial en Firestore:", err);
             setError("Error al guardar en historial.");
         }
     }

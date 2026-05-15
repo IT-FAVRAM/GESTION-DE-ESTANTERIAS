@@ -11,16 +11,15 @@ import ManualEntryModal from './ManualEntryModal';
 const BatchAssignmentModal = React.lazy(() => import('./BatchAssignmentModal'));
 const BatchScanner = React.lazy(() => import('./BatchScanner'));
 const RequestReviewModal = React.lazy(() => import('./RequestReviewModal'));
-const GeminiResponseModal = React.lazy(() => import('./GeminiResponseModal'));
+
 const ValidationScanner = React.lazy(() => import('./ValidationScanner'));
 const LocationDetailModal = React.lazy(() => import('./LocationDetailModal'));
 import ShelfDetailModal from './ShelfDetailModal';
 // const ShelfDetailModal = React.lazy(() => import('./ShelfDetailModal')); // Changed to static
-const AnomalyReportModal = React.lazy(() => import('./AnomalyReportModal'));
+
 const AdminPanel = React.lazy(() => import('./AdminPanel'));
 const UserProfileModal = React.lazy(() => import('./UserProfileModal'));
-import PhotoAnalyzerModal from './PhotoAnalyzerModal';
-// const PhotoAnalyzerModal = React.lazy(() => import('./PhotoAnalyzerModal')); // Changed to static
+
 const AssignmentModal = React.lazy(() => import('./AssignmentModal'));
 const MoveItemModal = React.lazy(() => import('./MoveItemModal'));
 const AddMethodModal = React.lazy(() => import('./AddMethodModal'));
@@ -51,8 +50,6 @@ interface AppModalsProps {
     setAssignments: any;
     history: any;
     setHistory: any;
-    gemini: any;
-
     // Config Actions
     configActions: any;
 
@@ -155,7 +152,7 @@ export const AppModals: React.FC<AppModalsProps> = (props) => {
         moveConfirmationData, removeConfirmationData, requestConfirmationData, processFinishedData,
         occupiedLocationData, duplicateItemData, batchItems, pendingAssignment,
         itemToMove, itemToCopy, addItemTarget, inputMethodModal, selectedMapLocation,
-        gemini, multiSelectedLocations,
+        multiSelectedLocations,
         workflowMode
     } = props;
 
@@ -258,36 +255,6 @@ export const AppModals: React.FC<AppModalsProps> = (props) => {
                  I need to import it. I'll use lazy for consistency here.
               */}
 
-            {modals.photoAnalyzer && (
-                <PhotoAnalyzerModal
-                    onCodeExtracted={props.handlePhotoAnalysisResult}
-                    onClose={() => {
-                        setModal('photoAnalyzer', false);
-                        if (multiSelectedLocations.length > 0) props.resetScanWorkflow();
-                        if (addItemTarget) props.setAddItemTarget(null);
-                        if (inputMethodModal) props.setInputMethodModal(null);
-                    }}
-                    onRequestManual={() => {
-                        setModal('photoAnalyzer', false);
-                        setModal('manualEntry', true);
-                    }}
-                    instruction={multiSelectedLocations.length > 0 ? "Etiqueta Artículo/Palet (Art + OF)" : (workflowMode === 'finish' ? "Foto para Finalizar: Art + OF" : "Etiqueta: Artículo + OF")}
-                    mode="combined"
-                />
-            )}
-
-            {modals.locationCapture && (
-                <PhotoAnalyzerModal
-                    onCodeExtracted={props.handleLocationCaptureResult}
-                    onClose={() => {
-                        setModal('locationCapture', false);
-                        props.resetScanWorkflow();
-                    }}
-                    instruction={batchItems.length > 0 ? `Ubicación para ${batchItems.length} items` : "Foto al Cartel de Ubicación"}
-                    mode="single"
-                />
-            )}
-
             {modals.manualEntry && (
                 <ManualEntryModal
                     onSubmit={props.handlePhotoAnalysisResult}
@@ -372,8 +339,6 @@ export const AppModals: React.FC<AppModalsProps> = (props) => {
                     history={props.history}
                     setHistory={props.setHistory}
                     {...props.configActions}
-                    onRunInventoryAnalysis={() => gemini.runInventorySummary(assignments)}
-                    onRunAnomalyAnalysis={() => gemini.runAnomalyDetection(assignments, props.history)}
                 />
             )}
 
@@ -500,24 +465,6 @@ export const AppModals: React.FC<AppModalsProps> = (props) => {
                 );
             })()}
 
-            {gemini.modalState.isOpen && gemini.modalState.structuredReport && (
-                <AnomalyReportModal
-                    isOpen={true}
-                    onClose={gemini.closeModal}
-                    report={gemini.modalState.structuredReport}
-                />
-            )}
-
-            {gemini.modalState.isOpen && !gemini.modalState.structuredReport && (
-                <GeminiResponseModal
-                    isOpen={true}
-                    onClose={gemini.closeModal}
-                    title={gemini.modalState.title}
-                    content={gemini.modalState.content}
-                    isLoading={gemini.modalState.isLoading}
-                    isError={gemini.modalState.isError}
-                />
-            )}
             {modals.emptyLocations && (
                 <EmptyLocationsModal
                     isOpen={modals.emptyLocations}

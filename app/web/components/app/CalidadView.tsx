@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useShelf } from '../../hooks/useShelf';
 import { useAuth } from '../../hooks/useAuth';
 import ShelfGrid from '../kiosk/ShelfGrid';
@@ -34,6 +34,12 @@ const CalidadView: React.FC = () => {
     extraButton?: { text: string; onClick: () => void };
   }>({ open: false, title: '', message: '', icon: '', variant: 'info', onConfirm: () => {} });
 
+  // Batch support
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchArticles, setBatchArticles] = useState<Array<{ articleCode: string; orderFab: string }>>([]);
+  const [batchRetiraPending, setBatchRetiraPending] = useState<Array<{ articleCode: string; orderFab: string; locations: ShelfLocationState[] }>>([]);
+  const [currentBatchRetirarIndex, setCurrentBatchRetirarIndex] = useState(0);
+
   const { locations, loading, shelfDef, ubicar, retirar, mover, findArticle } = useShelf(SHELF);
   const { operarioId, displayName, logout, canEditReprocesses, canViewReprocessCosts } = useAuth();
   const { createPickupRequest } = usePickupQueue();
@@ -51,6 +57,16 @@ const CalidadView: React.FC = () => {
     .flatMap((l) => l.items || []);
   const { totalImporte, totalPiezas } = calcReprocesosTotal(reprocesosItems);
 
+  const oldestDays = useMemo(() => {
+    if (reprocesosItems.length === 0) return 0;
+    const now = Date.now();
+    const times = reprocesosItems
+      .map((i) => new Date(i.locatedAt).getTime())
+      .filter((t) => !isNaN(t));
+    if (times.length === 0) return 0;
+    return Math.floor((now - Math.min(...times)) / 86_400_000);
+  }, [reprocesosItems]);
+
   const showFeedback = (type: 'success' | 'error', msg: string) => {
     setFeedback({ type, msg });
     setTimeout(() => { setFeedback(null); resetAction(); }, 3000);
@@ -61,6 +77,10 @@ const CalidadView: React.FC = () => {
     setScanData(null);
     setSelectedPositions([]);
     setScannerActive(false);
+    setBatchMode(false);
+    setBatchArticles([]);
+    setBatchRetiraPending([]);
+    setCurrentBatchRetirarIndex(0);
   };
 
   const startAction = (act: CalidadAction) => {
@@ -83,6 +103,27 @@ const CalidadView: React.FC = () => {
           showFeedback(ok ? 'success' : 'error', ok ? '✅ Aviso enviado' : 'Error al enviar');
         },
       });
+    } else if (act === 'ubicar' || act === 'retirar') {
+      setConfirmModal({
+        open: true,
+        title: `¿${act === 'ubicar' ? 'UBICAR' : 'RETIRAR'} varios artículos?`,
+        message: `¿Vas a ${act === 'ubicar' ? 'ubicar' : 'retirar'} varios artículos a la vez?`,
+        icon: act === 'ubicar' ? '📦' : '📤',
+        variant: 'info',
+        onConfirm: () => {
+          setBatchMode(true);
+          setScannerActive(true);
+          setConfirmModal((prev) => ({ ...prev, open: false }));
+        },
+        extraButton: {
+          text: 'No, solo uno',
+          onClick: () => {
+            setBatchMode(false);
+            setScannerActive(true);
+            setConfirmModal((prev) => ({ ...prev, open: false }));
+          },
+        },
+      });
     } else {
       setScannerActive(true);
     }
@@ -94,6 +135,39 @@ const CalidadView: React.FC = () => {
       return;
     }
     const { articleCode, orderFab } = result.data;
+
+    if (action === 'ubicar' && batchMode) {
+      const duplicate = batchArticles.some((a) => a.articleCode === articleCode && a.orderFab === orderFab);
+      if (duplicate) {
+        showFeedback('error', `${articleCode} ${orderFab} ya está en el batch`);
+        setScannerActive(true);
+        return;
+      }
+      setBatchArticles((prev) => [...prev, { articleCode, orderFab }]);
+      showFeedback('success', `✅ ${articleCode} ${orderFab} añadido`);
+      setScannerActive(true);
+      return;
+    }
+
+    if (action === 'retirar' && batchMode) {
+      const found = findArticle(articleCode, orderFab);
+      if (found.length === 0) {
+        showFeedback('error', `${articleCode} no encontrado`);
+        setScannerActive(true);
+        return;
+      }
+      const duplicate = batchRetiraPending.some((a) => a.articleCode === articleCode && a.orderFab === orderFab);
+      if (duplicate) {
+        showFeedback('error', `Este artículo se ha escaneado dos veces. Solo se puede retirar una vez.`);
+        setScannerActive(true);
+        return;
+      }
+      setBatchRetiraPending((prev) => [...prev, { articleCode, orderFab, locations: found }]);
+      showFeedback('success', `✅ ${articleCode} ${orderFab} añadido`);
+      setScannerActive(true);
+      return;
+    }
+
     setScanData({ articleCode, orderFab });
     setScannerActive(false);
 
@@ -128,6 +202,69 @@ const CalidadView: React.FC = () => {
     }
   };
 
+  const handleUbicarBatchConfirm = useCallback(async () => {
+    if (selectedPositions.length === 0) return;
+    setProcessing(true);
+    setScannerActive(false);
+    setConfirmModal((prev) => ({ ...prev, open: false }));
+
+    let successCount = 0;
+    for (const article of batchArticles) {
+      for (const position of selectedPositions) {
+        const success = await ubicar(article.articleCode, article.orderFab, position, operarioId || '', displayName);
+        if (success) successCount++;
+      }
+    }
+
+    setProcessing(false);
+    if (successCount === batchArticles.length * selectedPositions.length) {
+      showFeedback('success', `✅ ${batchArticles.length} artículos ubicados`);
+    } else {
+      showFeedback('error', `Parcial: ${successCount}/${batchArticles.length * selectedPositions.length} completadas`);
+    }
+  }, [batchArticles, selectedPositions, operarioId, displayName, ubicar, showFeedback]);
+
+  const handleUbicarMultiPositionConfirm = useCallback(async () => {
+    if (!scanData || selectedPositions.length === 0) return;
+    setProcessing(true);
+    setScannerActive(false);
+
+    let successCount = 0;
+    for (const position of selectedPositions) {
+      const success = await ubicar(scanData.articleCode, scanData.orderFab, position, operarioId || '', displayName);
+      if (success) successCount++;
+    }
+
+    setProcessing(false);
+    if (successCount === selectedPositions.length) {
+      showFeedback('success', `✅ ${scanData.articleCode} ubicado en ${selectedPositions.length} posición(es)`);
+    } else {
+      showFeedback('error', `Parcial: ${successCount}/${selectedPositions.length} ubicaciones completadas`);
+    }
+  }, [scanData, selectedPositions, operarioId, displayName, ubicar, showFeedback]);
+
+  const handleRetirarBatchNext = useCallback(async () => {
+    const processNext = async (index: number) => {
+      if (index >= batchRetiraPending.length) {
+        showFeedback('success', '✅ Batch de retirada completado');
+        resetAction();
+        return;
+      }
+
+      const item = batchRetiraPending[index];
+      const r = await retirar(item.articleCode, item.orderFab, operarioId || '', displayName);
+      if (!r.success) {
+        showFeedback('error', 'Error al retirar artículo');
+        resetAction();
+        return;
+      }
+      setCurrentBatchRetirarIndex(index + 1);
+      setTimeout(() => processNext(index + 1), 500);
+    };
+
+    processNext(currentBatchRetirarIndex);
+  }, [batchRetiraPending, currentBatchRetirarIndex, retirar, operarioId, displayName, showFeedback, resetAction]);
+
   const handleCellPress = useCallback((loc: ShelfLocationState) => {
     if (action === 'idle' && isReprocesosLocation(SHELF, parseInt(loc.position, 10))) {
       if (!canEditReprocesses) {
@@ -138,27 +275,25 @@ const CalidadView: React.FC = () => {
       return;
     }
 
-    if (action === 'ubicar' && scanData) {
-      setConfirmModal({
-        open: true,
-        title: loc.isEmpty ? 'Confirmar Ubicación' : 'Celda Ocupada',
-        message: loc.isEmpty
-          ? `¿Ubicar ${scanData.articleCode} en posición ${parseInt(loc.position, 10)}?`
-          : `Esta celda tiene ${loc.items.length} artículo(s). ¿Añadir igualmente?`,
-        icon: loc.isEmpty ? '📦' : '⚠️',
-        variant: loc.isEmpty ? 'success' : 'warning',
-        onConfirm: async () => {
-          setProcessing(true);
-          setConfirmModal((p) => ({ ...p, open: false }));
-          const ok = await ubicar(scanData.articleCode, scanData.orderFab, loc.position, operarioId || '', displayName);
-          setProcessing(false);
-          showFeedback(ok ? 'success' : 'error', ok ? '✅ Ubicado' : 'Error');
-        },
-        extraButton: !loc.isEmpty
-          ? { text: 'Elegir otra', onClick: () => setConfirmModal((p) => ({ ...p, open: false })) }
-          : undefined,
+    if (action === 'ubicar' && batchMode && batchArticles.length > 0) {
+      const position = loc.position;
+      setSelectedPositions((current) => {
+        if (current.includes(position)) return current.filter((value) => value !== position);
+        return [...current, position];
       });
-    } else if (action === 'mover' && scanData) {
+      return;
+    }
+
+    if (action === 'ubicar' && !batchMode && scanData) {
+      const position = loc.position;
+      setSelectedPositions((current) => {
+        if (current.includes(position)) return current.filter((value) => value !== position);
+        return [...current, position];
+      });
+      return;
+    }
+
+    if (action === 'mover' && scanData) {
       const found = findArticle(scanData.articleCode, scanData.orderFab);
       const needed = found.length || 1;
       setSelectedPositions((prev) => {
@@ -167,7 +302,7 @@ const CalidadView: React.FC = () => {
         return [...prev, loc.position];
       });
     }
-  }, [action, scanData, ubicar, findArticle, operarioId, displayName, canEditReprocesses]);
+  }, [action, batchMode, batchArticles, scanData, ubicar, findArticle, operarioId, displayName, canEditReprocesses]);
 
   const handleMoverConfirm = async () => {
     if (!scanData || selectedPositions.length === 0) return;
@@ -203,6 +338,7 @@ const CalidadView: React.FC = () => {
         canEditReprocesses={canEditReprocesses}
         totalImporte={totalImporte}
         totalPiezas={totalPiezas}
+        oldestDays={oldestDays}
       />
 
       {/* Search bar */}
@@ -217,6 +353,15 @@ const CalidadView: React.FC = () => {
             )}
             {scanData && (
               <span className="text-xs text-white font-bold">{scanData.articleCode} ({scanData.orderFab})</span>
+            )}
+            {action === 'ubicar' && scanData && selectedPositions.length > 0 && (
+              <button
+                onClick={handleUbicarMultiPositionConfirm}
+                disabled={processing}
+                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg disabled:opacity-50"
+              >
+                Confirmar ubicación
+              </button>
             )}
             {action === 'mover' && scanData && selectedPositions.length > 0 && (
               <button
@@ -291,6 +436,64 @@ const CalidadView: React.FC = () => {
             >
               <span>🚚</span> AVISAR
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Batch mode bar */}
+      {batchMode && (action === 'ubicar' || action === 'retirar') && (
+        <div className="flex-shrink-0 bg-slate-800/50 border-t border-slate-700 px-4 py-3">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-white text-sm">
+                {action === 'ubicar' ? '📦 Batch' : '📤 Batch'} ({action === 'ubicar' ? batchArticles.length : batchRetiraPending.length} artículos)
+              </h3>
+            </div>
+            {action === 'ubicar' && batchArticles.length > 0 && (
+              <div className="text-xs text-slate-300 max-h-8 overflow-y-auto bg-slate-900/30 p-2 rounded">
+                {batchArticles.slice(0, 3).map((a, i) => (
+                  <div key={i}>{a.articleCode} ({a.orderFab})</div>
+                ))}
+                {batchArticles.length > 3 && <div className="text-slate-500">+{batchArticles.length - 3} más</div>}
+              </div>
+            )}
+            {action === 'ubicar' && selectedPositions.length > 0 && (
+              <div className="text-xs text-slate-300 bg-cyan-500/20 p-2 rounded border border-cyan-500/30">
+                Posiciones: {selectedPositions.map(p => parseInt(p, 10)).join(', ')}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setScannerActive(true)}
+                className="flex-1 rounded-lg bg-slate-700 text-white px-3 py-2 text-xs font-bold hover:bg-slate-600"
+              >
+                + Escanear más
+              </button>
+              <button
+                onClick={() => {
+                  setScannerActive(false);
+                  if (action === 'ubicar') {
+                    if (selectedPositions.length > 0) {
+                      handleUbicarBatchConfirm();
+                    } else {
+                      showFeedback('error', 'Selecciona al menos una posición');
+                    }
+                  } else {
+                    handleRetirarBatchNext();
+                  }
+                }}
+                disabled={action === 'ubicar' && selectedPositions.length === 0}
+                className="flex-1 rounded-lg bg-cyan-600 text-white px-3 py-2 text-xs font-black hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                ✓ Finalizar
+              </button>
+              <button
+                onClick={resetAction}
+                className="flex-1 rounded-lg bg-red-600/20 text-red-400 px-3 py-2 text-xs font-bold hover:bg-red-600/30"
+              >
+                ✕ Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -19,6 +19,7 @@ import AdminDevicesTab from './AdminDevicesTab';
 import AdminUsersTab from './AdminUsersTab';
 import AdminSpecialLocationsTab from './AdminSpecialLocationsTab';
 import AdminChiefsTab from './AdminChiefsTab';
+import AdminMessagesTab from './AdminMessagesTab';
 import { ALL_TABS, type AdminTab, type CurrentDeviceDraft } from './adminShared';
 
 export type { AdminTab } from './adminShared';
@@ -245,6 +246,8 @@ const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ onClose, role, initia
           {role === 'SUPERADMIN' && activeTab === 'special' && <AdminSpecialLocationsTab config={config} urgentDraft={urgentDraft} techDraft={techDraft} setUrgentDraft={setUrgentDraft} setTechDraft={setTechDraft} onSaveConfig={saveConfig} />}
 
           {role === 'SUPERADMIN' && activeTab === 'chiefs' && <AdminChiefsTab config={config} chiefDrafts={chiefDrafts} qualityDraft={qualityDraft} setChiefDrafts={setChiefDrafts} setQualityDraft={setQualityDraft} onSaveConfig={saveConfig} />}
+
+          {activeTab === 'messages' && <AdminMessagesTab />}
         </div>
       </main>
     </div>

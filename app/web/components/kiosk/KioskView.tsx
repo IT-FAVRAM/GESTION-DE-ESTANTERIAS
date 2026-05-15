@@ -18,7 +18,7 @@ import type { KioskAction, KioskConfirmModalState, KioskFeedback, ScanData } fro
 const KioskView: React.FC = () => {
   const { assignedShelf, operarioId, displayName, logout } = useAuth();
   const shelfCode = assignedShelf || '';
-  const { locations, loading, shelfDef, ubicar, retirar, mover, findArticle, totalArticles, totalOccupied, totalEmpty } = useShelf(shelfCode);
+  const { locations, loading, shelfDef, ubicar, retirar, retirarDeUbicacion, mover, findArticle, totalArticles, totalOccupied, totalEmpty } = useShelf(shelfCode);
   const { createPickupRequest } = usePickupQueue();
 
   const [action, setAction] = useState<KioskAction>('idle');
@@ -30,7 +30,13 @@ const KioskView: React.FC = () => {
   const [scannerActive, setScannerActive] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [feedback, setFeedback] = useState<KioskFeedback | null>(null);
+  const [retirarPosition, setRetirarPosition] = useState<string | null>(null);
+  const [foundLocationsForRetirar, setFoundLocationsForRetirar] = useState<ShelfLocationState[]>([]);
   const [confirmModal, setConfirmModal] = useState<KioskConfirmModalState>({ open: false, title: '', message: '', icon: '', variant: 'info', onConfirm: () => {} });
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchArticles, setBatchArticles] = useState<ScanData[]>([]);
+  const [batchRetiraPending, setBatchRetiraPending] = useState<Array<{ articleCode: string; orderFab: string; locations: ShelfLocationState[] }>>([]);
+  const [currentBatchRetirarIndex, setCurrentBatchRetirarIndex] = useState(0);
 
   const cancelAction = useCallback(() => {
     setAction('idle');
@@ -38,8 +44,14 @@ const KioskView: React.FC = () => {
     setSelectedCell(null);
     setSelectedPositions([]);
     setScannerActive(false);
+    setRetirarPosition(null);
+    setFoundLocationsForRetirar([]);
     setConfirmModal((prev) => ({ ...prev, open: false }));
     setShowShelf(false);
+    setBatchMode(false);
+    setBatchArticles([]);
+    setBatchRetiraPending([]);
+    setCurrentBatchRetirarIndex(0);
   }, []);
 
    const showFeedback = useCallback((type: 'success' | 'error' | 'info', message: string) => {
@@ -60,15 +72,23 @@ const KioskView: React.FC = () => {
     else showFeedback('error', 'Error al ubicar el articulo');
   }, [displayName, operarioId, scanData, showFeedback, ubicar]);
 
-  const handleRetirarConfirm = useCallback(async (articleCode: string, orderFab: string) => {
+  const handleRetirarConfirm = useCallback(async (articleCode: string, orderFab: string, specificPosition?: string) => {
     if (!operarioId) return;
     setProcessing(true);
     setConfirmModal((prev) => ({ ...prev, open: false }));
-    const result = await retirar(articleCode, orderFab, operarioId, displayName);
-    setProcessing(false);
-    if (result.success) showFeedback('success', `✅ ${articleCode} retirado de ${result.positions.length} ubicacion(es)`);
-    else showFeedback('error', 'Error al retirar el articulo');
-  }, [displayName, operarioId, retirar, showFeedback]);
+
+    if (specificPosition) {
+      const result = await retirarDeUbicacion(articleCode, orderFab, specificPosition, operarioId, displayName);
+      setProcessing(false);
+      if (result.success) showFeedback('success', `✅ ${articleCode} retirado de posición ${parseInt(specificPosition, 10)}`);
+      else showFeedback('error', 'Error al retirar el articulo');
+    } else {
+      const result = await retirar(articleCode, orderFab, operarioId, displayName);
+      setProcessing(false);
+      if (result.success) showFeedback('success', `✅ ${articleCode} retirado de ${result.positions.length} ubicacion(es)`);
+      else showFeedback('error', 'Error al retirar el articulo');
+    }
+  }, [displayName, operarioId, retirar, retirarDeUbicacion, showFeedback]);
 
   const handleMoverConfirm = useCallback(async () => {
     if (!scanData || !operarioId || selectedPositions.length === 0) return;
@@ -89,6 +109,88 @@ const KioskView: React.FC = () => {
     else showFeedback('error', 'Error al enviar aviso');
   }, [createPickupRequest, displayName, operarioId, shelfCode, showFeedback]);
 
+  const handleUbicarBatchConfirm = useCallback(async () => {
+    if (!operarioId || selectedPositions.length === 0) return;
+    setProcessing(true);
+    setScannerActive(false);
+    setConfirmModal((prev) => ({ ...prev, open: false }));
+
+    let successCount = 0;
+    for (const article of batchArticles) {
+      for (const position of selectedPositions) {
+        const success = await ubicar(article.articleCode, article.orderFab, position, operarioId, displayName);
+        if (success) successCount++;
+      }
+    }
+
+    setProcessing(false);
+    if (successCount === batchArticles.length * selectedPositions.length) {
+      showFeedback('success', `✅ ${batchArticles.length} artículos ubicados en ${selectedPositions.length} posición(es)`);
+    } else {
+      showFeedback('error', `Parcial: ${successCount}/${batchArticles.length * selectedPositions.length} ubicaciones completadas`);
+    }
+  }, [batchArticles, selectedPositions, operarioId, displayName, ubicar, showFeedback]);
+
+  const handleUbicarMultiPositionConfirm = useCallback(async () => {
+    if (!scanData || !operarioId || selectedPositions.length === 0) return;
+    setProcessing(true);
+    setScannerActive(false);
+
+    let successCount = 0;
+    for (const position of selectedPositions) {
+      const success = await ubicar(scanData.articleCode, scanData.orderFab, position, operarioId, displayName);
+      if (success) successCount++;
+    }
+
+    setProcessing(false);
+    if (successCount === selectedPositions.length) {
+      showFeedback('success', `✅ ${scanData.articleCode} ubicado en ${selectedPositions.length} posición(es)`);
+    } else {
+      showFeedback('error', `Parcial: ${successCount}/${selectedPositions.length} ubicaciones completadas`);
+    }
+  }, [displayName, operarioId, scanData, selectedPositions, ubicar, showFeedback]);
+
+  const handleRetirarBatchNext = useCallback(async () => {
+    if (currentBatchRetirarIndex >= batchRetiraPending.length) {
+      showFeedback('success', '✅ Batch de retirada completado');
+      return;
+    }
+
+    const item = batchRetiraPending[currentBatchRetirarIndex];
+    if (item.locations.length === 1) {
+      await handleRetirarConfirm(item.articleCode, item.orderFab, item.locations[0].position);
+      setCurrentBatchRetirarIndex((prev) => prev + 1);
+      setTimeout(() => handleRetirarBatchNext(), 500);
+    } else {
+      setFoundLocationsForRetirar(item.locations);
+      setRetirarPosition(null);
+      setConfirmModal({
+        open: true,
+        title: 'Selecciona de dónde retirar',
+        message: `${formatArticleDisplay(item.articleCode, item.orderFab)} está en ${item.locations.length} ubicaciones`,
+        icon: '📤',
+        variant: 'warning',
+        onConfirm: () => {
+          if (retirarPosition === 'TODAS') {
+            handleRetirarConfirm(item.articleCode, item.orderFab).then(() => {
+              setCurrentBatchRetirarIndex((prev) => prev + 1);
+              setRetirarPosition(null);
+              setFoundLocationsForRetirar([]);
+              setTimeout(() => handleRetirarBatchNext(), 500);
+            });
+          } else if (retirarPosition) {
+            handleRetirarConfirm(item.articleCode, item.orderFab, retirarPosition).then(() => {
+              setCurrentBatchRetirarIndex((prev) => prev + 1);
+              setRetirarPosition(null);
+              setFoundLocationsForRetirar([]);
+              setTimeout(() => handleRetirarBatchNext(), 500);
+            });
+          }
+        },
+      });
+    }
+  }, [batchRetiraPending, currentBatchRetirarIndex, handleRetirarConfirm, showFeedback, retirarPosition, formatArticleDisplay]);
+
   const startAction = useCallback((nextAction: KioskAction) => {
     setAction(nextAction);
     setScanData(null);
@@ -106,6 +208,29 @@ const KioskView: React.FC = () => {
       });
       return;
     }
+    if (nextAction === 'ubicar' || nextAction === 'retirar') {
+      setConfirmModal({
+        open: true,
+        title: `¿${nextAction === 'ubicar' ? 'UBICAR' : 'RETIRAR'} varios artículos?`,
+        message: `¿Vas a ${nextAction === 'ubicar' ? 'ubicar' : 'retirar'} varios artículos a la vez?`,
+        icon: nextAction === 'ubicar' ? '📦' : '📤',
+        variant: 'info',
+        onConfirm: () => {
+          setBatchMode(true);
+          setScannerActive(true);
+          setConfirmModal((prev) => ({ ...prev, open: false }));
+        },
+        extraButton: {
+          text: 'No, solo uno',
+          onClick: () => {
+            setBatchMode(false);
+            setScannerActive(true);
+            setConfirmModal((prev) => ({ ...prev, open: false }));
+          },
+        },
+      });
+      return;
+    }
     setScannerActive(true);
   }, [handleAvisarConfirm, shelfCode, shelfDef]);
 
@@ -116,6 +241,39 @@ const KioskView: React.FC = () => {
     }
 
     const { articleCode, orderFab } = result.data;
+
+    if (action === 'ubicar' && batchMode) {
+      const duplicate = batchArticles.some((a) => a.articleCode === articleCode && a.orderFab === orderFab);
+      if (duplicate) {
+        showFeedback('error', `${articleCode} ${orderFab} ya está en el batch`);
+        setScannerActive(true);
+        return;
+      }
+      setBatchArticles((prev) => [...prev, { articleCode, orderFab }]);
+      showFeedback('success', `✅ ${articleCode} ${orderFab} añadido al batch`);
+      setScannerActive(true);
+      return;
+    }
+
+    if (action === 'retirar' && batchMode) {
+      const foundLocations = findArticle(articleCode, orderFab);
+      if (foundLocations.length === 0) {
+        showFeedback('error', `Articulo ${articleCode} no encontrado en esta estanteria`);
+        setScannerActive(true);
+        return;
+      }
+      const duplicate = batchRetiraPending.some((a) => a.articleCode === articleCode && a.orderFab === orderFab);
+      if (duplicate) {
+        showFeedback('error', `Este artículo se ha escaneado dos veces. Solo se puede retirar una vez.`);
+        setScannerActive(true);
+        return;
+      }
+      setBatchRetiraPending((prev) => [...prev, { articleCode, orderFab, locations: foundLocations }]);
+      showFeedback('success', `✅ ${articleCode} ${orderFab} añadido al batch`);
+      setScannerActive(true);
+      return;
+    }
+
     setScanData({ articleCode, orderFab });
     setScannerActive(false);
 
@@ -126,15 +284,34 @@ const KioskView: React.FC = () => {
         return;
       }
 
-      const positionsText = foundLocations.map((location) => location.position).join(', ');
-      setConfirmModal({
-        open: true,
-        title: 'Confirmar Retirada',
-        message: `El articulo ${formatArticleDisplay(articleCode, orderFab)} esta en: ${positionsText}.\n\nSe retirara de ${foundLocations.length > 1 ? 'TODAS las ubicaciones' : 'esta ubicacion'}.`,
-        icon: '📤',
-        variant: 'danger',
-        onConfirm: () => handleRetirarConfirm(articleCode, orderFab),
-      });
+      if (foundLocations.length === 1) {
+        setConfirmModal({
+          open: true,
+          title: 'Confirmar Retirada',
+          message: `¿Retirar ${formatArticleDisplay(articleCode, orderFab)} de posición ${parseInt(foundLocations[0].position, 10)}?`,
+          icon: '📤',
+          variant: 'danger',
+          onConfirm: () => handleRetirarConfirm(articleCode, orderFab, foundLocations[0].position),
+        });
+      } else {
+        setFoundLocationsForRetirar(foundLocations);
+        setConfirmModal({
+          open: true,
+          title: 'Selecciona de dónde retirar',
+          message: `${formatArticleDisplay(articleCode, orderFab)} está en ${foundLocations.length} ubicaciones`,
+          icon: '📤',
+          variant: 'warning',
+          onConfirm: () => {
+            if (retirarPosition === 'TODAS') {
+              handleRetirarConfirm(articleCode, orderFab);
+            } else if (retirarPosition) {
+              handleRetirarConfirm(articleCode, orderFab, retirarPosition);
+            }
+            setRetirarPosition(null);
+            setFoundLocationsForRetirar([]);
+          },
+        });
+      }
       return;
     }
 
@@ -146,21 +323,28 @@ const KioskView: React.FC = () => {
       }
       setSelectedPositions([]);
     }
-  }, [action, findArticle, handleRetirarConfirm, showFeedback]);
+  }, [action, batchMode, batchArticles, batchRetiraPending, findArticle, handleRetirarConfirm, showFeedback]);
 
   const handleCellPress = useCallback((location: ShelfLocationState) => {
-    if (action === 'ubicar' && scanData) {
-      setConfirmModal({
-        open: true,
-        title: location.isEmpty ? 'Confirmar Ubicación' : 'Celda Ocupada',
-        message: location.isEmpty 
-          ? `¿Desea ubicar el artículo ${scanData.articleCode} en la posición ${location.position}?`
-          : `Esta celda tiene ${location.items.length} articulo(s). ¿Desea añadir el articulo igualmente?`,
-        icon: location.isEmpty ? '📦' : '⚠️',
-        variant: location.isEmpty ? 'info' : 'warning',
-        onConfirm: () => handleUbicarConfirm(location.position),
-        extraButton: !location.isEmpty ? { text: 'Elegir otra ubicacion', onClick: () => setConfirmModal((prev) => ({ ...prev, open: false })) } : undefined,
+    if (action === 'ubicar' && batchMode && batchArticles.length > 0) {
+      const position = location.position;
+      setSelectedPositions((current) => {
+        if (current.includes(position)) return current.filter((value) => value !== position);
+        return [...current, position];
       });
+      return;
+    }
+
+    if (action === 'ubicar' && scanData && !batchMode) {
+      const position = location.position;
+      setSelectedPositions((current) => {
+        if (current.includes(position)) return current.filter((value) => value !== position);
+        return [...current, position];
+      });
+      return;
+    }
+
+    if (action === 'ubicar' && !scanData && !batchMode) {
       return;
     }
 
@@ -179,7 +363,7 @@ const KioskView: React.FC = () => {
     if (action === 'idle' && !location.isEmpty) {
       setSelectedCell(location);
     }
-  }, [action, findArticle, handleUbicarConfirm, scanData]);
+  }, [action, batchMode, batchArticles, findArticle, handleUbicarConfirm, scanData]);
 
   if (!assignedShelf) return <KioskEmptyState />;
 
@@ -195,7 +379,73 @@ const KioskView: React.FC = () => {
   return (
     <div className="min-h-dvh bg-[radial-gradient(circle_at_top,_rgba(6,182,212,0.14),_transparent_30%),linear-gradient(180deg,_#020617_0%,_#0f172a_45%,_#020617_100%)] flex flex-col relative">
       <KioskHeader shelfName={shelfDef?.name || ''} shelfCode={shelfCode} totalOccupied={totalOccupied} totalEmpty={totalEmpty} totalArticles={totalArticles} displayName={displayName} operarioId={operarioId} onLogout={logout} />
-      <KioskActionBar action={action} scanData={scanData} scannerActive={scannerActive} selectedPositions={selectedPositions} onConfirmMove={handleMoverConfirm} onCancel={cancelAction} />
+      {!batchMode && <KioskActionBar action={action} scanData={scanData} scannerActive={scannerActive} selectedPositions={selectedPositions} onConfirmMove={handleMoverConfirm} onConfirmUbicar={handleUbicarMultiPositionConfirm} onCancel={cancelAction} />}
+
+      {batchMode && (action === 'ubicar' || action === 'retirar') && (
+        <div className="bg-slate-800/50 border-b border-slate-700 px-4 py-3">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-bold text-white text-sm">
+                {action === 'ubicar' ? '📦 Batch de Ubicación' : '📤 Batch de Retirada'}
+              </h3>
+              <span className="bg-cyan-600 text-white px-2 py-1 rounded text-xs font-bold">
+                {action === 'ubicar' ? batchArticles.length : batchRetiraPending.length} artículos
+              </span>
+            </div>
+            {action === 'ubicar' && batchArticles.length > 0 && (
+              <div className="text-xs text-slate-300 mb-2 max-h-12 overflow-y-auto bg-slate-900/30 p-2 rounded">
+                {batchArticles.map((a, i) => (
+                  <div key={i} className="text-slate-300">{a.articleCode} ({a.orderFab})</div>
+                ))}
+              </div>
+            )}
+            {action === 'retirar' && batchRetiraPending.length > 0 && (
+              <div className="text-xs text-slate-300 mb-2 max-h-12 overflow-y-auto bg-slate-900/30 p-2 rounded">
+                {batchRetiraPending.map((a, i) => (
+                  <div key={i} className="text-slate-300">{a.articleCode} ({a.orderFab}) - {a.locations.length} ubicación(es)</div>
+                ))}
+              </div>
+            )}
+            {action === 'ubicar' && selectedPositions.length > 0 && (
+              <div className="text-xs text-slate-300 mb-2 bg-cyan-500/20 p-2 rounded border border-cyan-500/30">
+                Posiciones seleccionadas: {selectedPositions.map(p => `PLE ${parseInt(p, 10).toString().padStart(3, '0')}`).join(', ')}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setScannerActive(true)}
+                className="flex-1 rounded-lg bg-slate-700 text-white px-3 py-2 text-xs font-bold hover:bg-slate-600"
+              >
+                + Escanear más
+              </button>
+              <button
+                onClick={() => {
+                  setScannerActive(false);
+                  if (action === 'ubicar') {
+                    if (selectedPositions.length > 0) {
+                      handleUbicarBatchConfirm();
+                    } else {
+                      showFeedback('error', 'Debes seleccionar al menos una posición');
+                    }
+                  } else {
+                    handleRetirarBatchNext();
+                  }
+                }}
+                disabled={action === 'ubicar' && selectedPositions.length === 0}
+                className="flex-1 rounded-lg bg-cyan-600 text-white px-3 py-2 text-xs font-black hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                ✓ Finalizar
+              </button>
+              <button
+                onClick={cancelAction}
+                className="flex-1 rounded-lg bg-red-600/20 text-red-400 px-3 py-2 text-xs font-bold hover:bg-red-600/30"
+              >
+                ✕ Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <KioskFeedbackToast feedback={feedback} />
 
       {(!showShelf && action === 'idle') ? (
@@ -250,7 +500,66 @@ const KioskView: React.FC = () => {
       )}
 
       <ScannerInput onScan={handleScan} active={scannerActive} disabled={processing} />
-      <ConfirmationModal open={confirmModal.open} onClose={() => setConfirmModal((prev) => ({ ...prev, open: false }))} title={confirmModal.title} message={confirmModal.message} icon={confirmModal.icon} variant={confirmModal.variant} onConfirm={confirmModal.onConfirm} extraButton={confirmModal.extraButton} loading={processing} />
+
+      {foundLocationsForRetirar.length > 1 && confirmModal.open && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700 rounded-t-3xl sm:rounded-3xl w-full sm:max-w-sm max-h-[70vh] overflow-hidden flex flex-col">
+            <div className="bg-slate-800/50 px-5 py-4 border-b border-slate-700">
+              <h3 className="text-lg font-black text-white">Selecciona posición</h3>
+              <p className="text-xs text-slate-400 mt-1">¿De cuál ubicación quieres retirar?</p>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              {foundLocationsForRetirar.map((loc) => (
+                <button
+                  key={loc.position}
+                  onClick={() => setRetirarPosition(loc.position)}
+                  className={`w-full rounded-xl px-4 py-3 text-sm font-bold border-2 transition-all ${
+                    retirarPosition === loc.position
+                      ? 'border-cyan-400 bg-cyan-500/20 text-cyan-300'
+                      : 'border-slate-700 bg-slate-800 text-white hover:border-slate-600'
+                  }`}
+                >
+                  📍 PLE {parseInt(loc.position, 10).toString().padStart(3, '0')}
+                  {loc.items.length > 0 && (
+                    <span className="block text-xs text-slate-400 mt-0.5">
+                      {loc.items.length} artículo{loc.items.length !== 1 ? 's' : ''} en la celda
+                    </span>
+                  )}
+                </button>
+              ))}
+              <div className="pt-2 border-t border-slate-700 mt-3">
+                <button
+                  onClick={() => setRetirarPosition('TODAS')}
+                  className={`w-full rounded-xl px-4 py-3 text-sm font-bold border-2 transition-all ${
+                    retirarPosition === 'TODAS'
+                      ? 'border-red-400 bg-red-500/20 text-red-300'
+                      : 'border-slate-700 bg-slate-800 text-white hover:border-slate-600'
+                  }`}
+                >
+                  ⚠️ Retirar de TODAS ({foundLocationsForRetirar.length} posiciones)
+                </button>
+              </div>
+            </div>
+            <div className="bg-slate-800/50 border-t border-slate-700 px-5 py-3 flex gap-2">
+              <button
+                onClick={() => setConfirmModal((prev) => ({ ...prev, open: false }))}
+                className="flex-1 rounded-xl bg-slate-700 text-white px-4 py-3 text-sm font-bold hover:bg-slate-600"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => confirmModal.onConfirm()}
+                disabled={!retirarPosition}
+                className="flex-1 rounded-xl bg-cyan-600 text-white px-4 py-3 text-sm font-black hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmationModal open={confirmModal.open && foundLocationsForRetirar.length <= 1} onClose={() => setConfirmModal((prev) => ({ ...prev, open: false }))} title={confirmModal.title} message={confirmModal.message} icon={confirmModal.icon} variant={confirmModal.variant} onConfirm={confirmModal.onConfirm} extraButton={confirmModal.extraButton} loading={processing} />
     </div>
   );
 };

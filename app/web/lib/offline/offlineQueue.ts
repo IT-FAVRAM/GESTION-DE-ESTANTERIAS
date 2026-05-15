@@ -1,12 +1,16 @@
 import { inventoryApi } from '../api/inventoryApi';
 import { pickupQueueApi } from '../api/pickupQueueApi';
 import { getOperationalSession, type OperationalSession } from '../operationalSession';
+import { calculateBackoff, shouldRetry } from './retryStrategy';
+import { analyzeConflict, shouldAutoResolve } from './conflictResolver';
+import { enforceStorageLimits } from './storageManager';
 
-export type OfflineOperationType = 'UBICAR' | 'RETIRAR' | 'MOVER' | 'AVISAR_CARRETILLERO' | 'COMPLETAR_RECOGIDA';
+export type OfflineOperationType = 'UBICAR' | 'RETIRAR' | 'RETIRAR_DE_UBICACION' | 'MOVER' | 'AVISAR_CARRETILLERO' | 'COMPLETAR_RECOGIDA';
 
 type OfflinePayloadByType = {
   UBICAR: Record<string, unknown>;
   RETIRAR: Record<string, unknown>;
+  RETIRAR_DE_UBICACION: Record<string, unknown>;
   MOVER: Record<string, unknown>;
   AVISAR_CARRETILLERO: Record<string, unknown>;
   COMPLETAR_RECOGIDA: Record<string, unknown>;
@@ -130,6 +134,8 @@ const buildEntryLabel = (entry: OfflineQueueEntry) => {
       return `Ubicar ${articleCode} ${orderFab} en ${shelfCode}-${position}`.trim();
     case 'RETIRAR':
       return `Retirar ${articleCode} ${orderFab} de ${shelfCode}`.trim();
+    case 'RETIRAR_DE_UBICACION':
+      return `Retirar ${articleCode} ${orderFab} de ${shelfCode}-${position}`.trim();
     case 'MOVER':
       return `Mover ${articleCode} ${orderFab} en ${shelfCode}`.trim();
     case 'AVISAR_CARRETILLERO':
@@ -148,6 +154,8 @@ const processEntry = async (entry: OfflineQueueEntry) => {
       return inventoryApi.ubicar(entry.payload, session);
     case 'RETIRAR':
       return inventoryApi.retirar(entry.payload, session);
+    case 'RETIRAR_DE_UBICACION':
+      return inventoryApi.retirarDeUbicacion(entry.payload, session);
     case 'MOVER':
       return inventoryApi.mover(entry.payload, session);
     case 'AVISAR_CARRETILLERO':
@@ -248,26 +256,85 @@ export const drainOfflineQueue = async () => {
 
   try {
     let queue = loadQueue();
+    enforceStorageLimits();
+
     for (const entry of [...queue]) {
       if (entry.status !== 'pending' && entry.status !== 'retryable') continue;
+
+      // Si es retryable, esperar backoff exponencial
+      if (entry.status === 'retryable') {
+        const delayMs = calculateBackoff(entry.attempts);
+        if (delayMs > 0) {
+          console.log(`[offlineQueue] Waiting ${delayMs}ms before retry attempt ${entry.attempts + 1} for ${entry.id}`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
+
+      // Máximo 5 intentos
+      if (entry.attempts >= 5) {
+        console.warn(`[offlineQueue] Entry ${entry.id} exceeded max retry attempts (5)`);
+        queue = queue.map((item) => item.id === entry.id ? {
+          ...item,
+          status: 'conflict',
+          error: 'Excedió número máximo de reintentos (5). Revisa manualmente.',
+        } : item);
+        persist(queue, { isSyncing: true });
+        continue;
+      }
+
       try {
         await processEntry(entry);
         queue = queue.filter((item) => item.id !== entry.id);
-        persist(queue, { isSyncing: true, lastSyncAt: new Date().toISOString(), lastError: null });
+        persist(queue, {
+          isSyncing: true,
+          lastSyncAt: new Date().toISOString(),
+          lastError: null,
+        });
+        console.log(`[offlineQueue] Entry ${entry.id} synced successfully`);
       } catch (error: any) {
         const errorCode = getErrorCode(error);
         const errorKind = getErrorKind(error);
         const now = new Date().toISOString();
+
+        // Intentar resolución automática si es conflict
+        if (errorKind === 'conflict') {
+          try {
+            const analysis = await analyzeConflict(entry);
+            if (shouldAutoResolve(analysis)) {
+              console.log(`[offlineQueue] Auto-resolved conflict for ${entry.id}: ${analysis.reason}`);
+              queue = queue.filter((item) => item.id !== entry.id);
+              persist(queue, {
+                isSyncing: true,
+                lastSyncAt: new Date().toISOString(),
+                lastError: null,
+              });
+              continue;
+            }
+          } catch (analysisError) {
+            console.error('[offlineQueue] Error analyzing conflict', analysisError);
+          }
+        }
+
+        const canRetry = shouldRetry(entry.attempts, errorKind);
         queue = queue.map((item) => item.id === entry.id ? {
           ...item,
           attempts: item.attempts + 1,
-          status: errorKind === 'transient' ? 'retryable' : 'conflict',
+          status: canRetry ? 'retryable' : 'conflict',
           lastAttemptAt: now,
           errorCode,
           errorKind,
           error: error?.message || 'Error sincronizando operacion offline',
         } : item);
-        persist(queue, { isSyncing: true, lastError: error?.message || 'Error sincronizando operacion offline' });
+        persist(queue, {
+          isSyncing: true,
+          lastError: error?.message || 'Error sincronizando operacion offline',
+        });
+
+        if (canRetry) {
+          console.log(`[offlineQueue] Entry ${entry.id} marked for retry (attempt ${entry.attempts + 1}/5)`);
+        } else {
+          console.warn(`[offlineQueue] Entry ${entry.id} marked as conflict (errorKind: ${errorKind})`);
+        }
       }
     }
   } finally {

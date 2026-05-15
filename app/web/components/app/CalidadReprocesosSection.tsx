@@ -6,6 +6,7 @@ interface CalidadReprocesosSectionProps {
   canEditReprocesses: boolean;
   totalImporte: number;
   totalPiezas: number;
+  oldestDays?: number;
 }
 
 const CalidadReprocesosSection: React.FC<CalidadReprocesosSectionProps> = ({
@@ -13,15 +14,24 @@ const CalidadReprocesosSection: React.FC<CalidadReprocesosSectionProps> = ({
   canEditReprocesses,
   totalImporte,
   totalPiezas,
+  oldestDays,
 }) => (
   <>
     {canViewReprocessCosts && (
-      <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 flex items-center justify-between">
-        <div>
-          <p className="text-xs text-amber-300/60 font-bold uppercase">Total Reprocesos</p>
-          <p className="text-xs text-slate-400">{totalPiezas} piezas en CAL 001-022</p>
+      <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-amber-300/60 font-bold uppercase">Total Reprocesos</p>
+            <p className="text-xs text-slate-400">{totalPiezas} piezas en CAL 001-022</p>
+          </div>
+          <p className="text-xl font-black text-amber-300">{formatEuros(totalImporte)}</p>
         </div>
-        <p className="text-xl font-black text-amber-300">{formatEuros(totalImporte)}</p>
+        {oldestDays !== undefined && oldestDays > 0 && (
+          <p className={`mt-1 text-xs font-bold ${oldestDays > 30 ? 'text-red-400' : oldestDays > 7 ? 'text-amber-400' : 'text-slate-500'}`}>
+            ⏱ Artículo más antiguo: {oldestDays} día{oldestDays !== 1 ? 's' : ''} sin mover
+            {oldestDays > 30 ? ' — dinero parado' : ''}
+          </p>
+        )}
       </div>
     )}
 

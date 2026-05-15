@@ -213,7 +213,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ onClose }) => {
                      <p className="font-black text-white text-lg">{metric.section}</p>
                      <span className="bg-slate-800 text-slate-300 text-[10px] px-2 py-1 rounded font-bold">{metric.uniqueItems} art.</span>
                    </div>
-                   
+
                    <div className="space-y-4">
                      <div>
                        <div className="flex justify-between text-xs font-bold mb-1">
@@ -239,19 +239,13 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ onClose }) => {
              </div>
            </section>
 
-           {/* AI Lead Time Generator */}
-           <section className="rounded-[2rem] border border-indigo-500/20 bg-indigo-950/10 p-6 relative overflow-hidden">
-             <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-               <span className="text-9xl">✨</span>
-             </div>
-             <div className="relative z-10">
-               <h3 className="text-2xl font-black text-white mb-2 flex items-center gap-2">Asistente IA de Tiempos</h3>
-               <p className="text-indigo-200/70 mb-6 max-w-2xl text-sm">
-                 Genera un análisis profundo de los cuellos de botella seleccionando un rango de fechas. 
-                 El asistente detectará qué artículos están atascando el flujo y por qué.
-               </p>
-               <LeadTimeReport />
-             </div>
+           {/* Lead Time Dataset */}
+           <section className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-6">
+             <h3 className="text-2xl font-black text-white mb-2">Tiempos de Permanencia</h3>
+             <p className="text-slate-400 mb-6 max-w-2xl text-sm">
+               Análisis de ciclo de vida: tiempo entre ubicar y retirar cada artículo.
+             </p>
+             <LeadTimeReport />
            </section>
         </div>
       )}

@@ -1,22 +1,16 @@
 
 import React, { useState, useMemo } from 'react';
 import { HistoryEntry, ActionType } from '../lib/warehouseData';
-import { SearchIcon, HistoryIcon, CloseIcon, CameraIcon, FilterIcon } from './Icons'; 
-import GeminiButton from './GeminiButton';
+import { SearchIcon, HistoryIcon, CloseIcon, FilterIcon } from './Icons';
 import HistoryTimeline from './HistoryTimeline';
-import PhotoAnalyzerModal from './PhotoAnalyzerModal';
 import { downloadHistoryCSV } from '../lib/csv';
 import { useRoles } from '../hooks/useRoles';
 
 interface HistoryViewProps {
   history: HistoryEntry[];
-  onGenerateTraceabilityReport: (itemHistory: HistoryEntry[]) => void;
-  isTraceabilityLoading: boolean;
 }
 
-type FilterField = 'article' | 'of' | null;
-
-const HistoryView: React.FC<HistoryViewProps> = ({ history, onGenerateTraceabilityReport, isTraceabilityLoading }) => {
+const HistoryView: React.FC<HistoryViewProps> = ({ history }) => {
   const { canExport } = useRoles();
 
   // Filters State
@@ -24,19 +18,6 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history, onGenerateTraceabili
   const [filterOF, setFilterOF] = useState('');
   const [filterLocation, setFilterLocation] = useState('');
   const [filterAction, setFilterAction] = useState<ActionType | 'all'>('all');
-
-  // Scanner/Camera State
-  const [scanningField, setScanningField] = useState<FilterField>(null);
-
-  // Handle scanner result
-  const handleCodeExtracted = (code: string) => {
-      if (scanningField === 'article') {
-          setFilterArticle(code);
-      } else if (scanningField === 'of') {
-          setFilterOF(code);
-      }
-      setScanningField(null);
-  };
   
   // Filtering Logic
   const filteredHistory = useMemo(() => {
@@ -89,23 +70,19 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history, onGenerateTraceabili
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Filter: Article */}
               <div className="relative">
-                  <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">ARTÍCULO (Manual o Foto)</label>
+                  <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">ARTÍCULO</label>
                   <div className="relative flex items-center">
-                      <input 
-                          type="text" 
-                          placeholder="Código Artículo..." 
+                      <input
+                          type="text"
+                          placeholder="Código Artículo..."
                           value={filterArticle}
                           onChange={(e) => setFilterArticle(e.target.value)}
                           className="w-full pl-10 pr-10 py-3 bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-cyan-500 rounded-xl outline-none font-bold uppercase text-slate-800 dark:text-white transition-all"
                       />
                       <SearchIcon className="absolute left-3 h-5 w-5 text-slate-400"/>
-                      {filterArticle ? (
+                      {filterArticle && (
                           <button onClick={() => setFilterArticle('')} className="absolute right-3 text-slate-400 hover:text-slate-600">
                               <CloseIcon className="h-4 w-4" />
-                          </button>
-                      ) : (
-                          <button onClick={() => setScanningField('article')} className="absolute right-2 p-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-cyan-100 dark:hover:bg-cyan-900/30 text-slate-500 dark:text-slate-300 hover:text-cyan-600 rounded-lg transition-colors" title="Escanear o Foto">
-                              <CameraIcon className="h-5 w-5" />
                           </button>
                       )}
                   </div>
@@ -113,23 +90,19 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history, onGenerateTraceabili
 
               {/* Filter: OF */}
               <div className="relative">
-                  <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">OF (Manual o Foto)</label>
+                  <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">OF</label>
                   <div className="relative flex items-center">
-                      <input 
-                          type="text" 
-                          placeholder="Orden Fabricación..." 
+                      <input
+                          type="text"
+                          placeholder="Orden Fabricación..."
                           value={filterOF}
                           onChange={(e) => setFilterOF(e.target.value)}
                           className="w-full pl-10 pr-10 py-3 bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-purple-500 rounded-xl outline-none font-bold uppercase text-slate-800 dark:text-white transition-all"
                       />
                       <SearchIcon className="absolute left-3 h-5 w-5 text-slate-400"/>
-                      {filterOF ? (
+                      {filterOF && (
                           <button onClick={() => setFilterOF('')} className="absolute right-3 text-slate-400 hover:text-slate-600">
                               <CloseIcon className="h-4 w-4" />
-                          </button>
-                      ) : (
-                          <button onClick={() => setScanningField('of')} className="absolute right-2 p-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-purple-100 dark:hover:bg-purple-900/30 text-slate-500 dark:text-slate-300 hover:text-purple-600 rounded-lg transition-colors" title="Foto a OF">
-                              <CameraIcon className="h-5 w-5" />
                           </button>
                       )}
                   </div>
@@ -191,15 +164,6 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history, onGenerateTraceabili
                         Exportar CSV
                     </button>
                 )}
-                {isSpecificSearch && filteredHistory.length > 0 && (
-                     <GeminiButton 
-                        onClick={() => onGenerateTraceabilityReport(filteredHistory.slice(0, 50))}
-                        isLoading={isTraceabilityLoading}
-                        className="px-4 py-2 text-sm whitespace-nowrap"
-                    >
-                        Analizar Trazabilidad
-                    </GeminiButton>
-                )}
             </div>
       </div>
 
@@ -217,14 +181,6 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history, onGenerateTraceabili
           <HistoryTimeline history={filteredHistory} isSpecificSearch={isSpecificSearch} />
       </div>
 
-      {/* Photo Analyzer Modal for Filters */}
-      {scanningField && (
-          <PhotoAnalyzerModal 
-              onCodeExtracted={handleCodeExtracted}
-              onClose={() => setScanningField(null)}
-              instruction={scanningField === 'article' ? "Artículo" : "Orden Fabricación (OF)"}
-          />
-      )}
     </div>
   );
 };

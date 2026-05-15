@@ -328,6 +328,55 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
     return { ok: true, positions };
   }
 
+  if (op === 'retirarDeUbicacion') {
+    const position = String(payload?.position || '').trim();
+    if (!articleCode || !orderFab || !position) {
+      throw new functions.https.HttpsError('invalid-argument', 'Datos incompletos para retirar de ubicacion.');
+    }
+    const locRef = db.collection('shelves').doc(shelfCode).collection('locations').doc(position);
+    const aggregateKey = `${normalize(articleCode)}__${normalize(orderFab)}`;
+    const aggregateRef = db.collection('itemAggregates').doc(aggregateKey);
+
+    await db.runTransaction(async (tx) => {
+      const locSnap = await tx.get(locRef);
+      if (!locSnap.exists) {
+        throw new functions.https.HttpsError('not-found', 'Ubicacion no encontrada.');
+      }
+
+      const locData = locSnap.data() as any;
+      const items = locData.items || [];
+      const itemIndex = items.findIndex(
+        (i: any) =>
+          normalize(i.articleCode) === normalize(articleCode) &&
+          normalize(i.orderFab) === normalize(orderFab),
+      );
+
+      if (itemIndex === -1) {
+        throw new functions.https.HttpsError('not-found', 'Articulo no encontrado en esta ubicacion.');
+      }
+
+      const removedItem = items[itemIndex];
+      const presenceId = removedItem.presenceId;
+      const newItems = items.filter((_: any, idx: number) => idx !== itemIndex);
+
+      tx.set(locRef, { position, items: newItems, isEmpty: newItems.length === 0 }, { merge: true });
+
+      const presenceRef = db.collection('items').doc(presenceId);
+      tx.update(presenceRef, { active: false, removedAt: now, removedBy: operarioId, locationIds: [] });
+
+      const aggregateSnap = await tx.get(aggregateRef);
+      if (aggregateSnap.exists) {
+        const aggregate = aggregateSnap.data() as any;
+        const newActiveIds = (aggregate.activePresenceIds || []).filter((id: string) => id !== presenceId);
+        tx.set(aggregateRef, { activePresenceIds: newActiveIds, totalActivePresences: newActiveIds.length, totalPlacements: aggregate.totalPlacements, updatedAt: now }, { merge: true });
+      }
+
+      writeHistory(tx, { action: 'RETIRAR_DE_UBICACION', articleCode, orderFab, fromLocation: `${shelfCode}-${position}`, toLocation: null, shelfCode, operarioId, operarioName });
+    });
+
+    return { ok: true, positions: [position] };
+  }
+
   if (op === 'mover') {
     const rawPositions = Array.isArray(payload?.newPositions) ? payload.newPositions : [];
     const newPositions = rawPositions.map((value: unknown) => String(value).trim()).filter(Boolean);

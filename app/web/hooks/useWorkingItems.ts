@@ -25,7 +25,7 @@ export const useWorkingItems = () => {
                 setLoading(false);
             },
             (err) => {
-                console.error("Error fetching working items:", err);
+                console.error("Error obteniendo items en trabajo:", err);
                 setError(err);
                 setLoading(false);
             }
@@ -44,7 +44,7 @@ export const useWorkingItems = () => {
             });
             return true;
         } catch (e) {
-            console.error("Error finishing item:", e);
+            console.error("Error finalizando item:", e);
             throw e;
         }
     }, []);
@@ -63,7 +63,7 @@ export const useWorkingItems = () => {
             });
             return true;
         } catch (e) {
-            console.error("Error locating item from working:", e);
+            console.error("Error localizando item desde trabajo:", e);
             throw e;
         }
     }, []);

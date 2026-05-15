@@ -1,17 +1,16 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { CameraIcon, UploadIcon, LoadingIcon, LayersIcon, InfoIcon, CheckIcon, RulerIcon } from './Icons';
-import { countMetalSheets, MetalSheetCountResult } from '../lib/gemini';
-import { CvCountResult, NormalizedRect, countMetalSheetsCV, cropImageDataUrl, dataUrlToBase64, getImageDimensions, preprocessMetalImage, resizeImageDataUrl } from '../lib/metalVision';
+import { CvCountResult, NormalizedRect, countMetalSheetsCV, cropImageDataUrl, preprocessMetalImage, resizeImageDataUrl } from '../lib/metalVision';
 
 const MATERIALS = ['ACERO', 'INOX', 'ALUMINIO', 'GALVANIZADO', 'CORTEN'];
 
-type FinalSource = 'cv' | 'ai' | 'hybrid';
-
-interface FinalCountResult extends MetalSheetCountResult {
+interface FinalCountResult {
     finalCount: number;
-    sourceUsed: FinalSource;
+    estimatedCount: number;
+    confidence: CvCountResult['confidence'];
+    reasoning: string;
+    theoreticalBlockHeightMm: number;
     cvResult: CvCountResult;
-    aiRawCount: number;
 }
 
 const INITIAL_CROP: NormalizedRect = { x: 0.2, y: 0.2, w: 0.6, h: 0.6 };
@@ -184,51 +183,18 @@ const ChaperoCountView: React.FC = () => {
             const processed = await preprocessMetalImage(cropped);
             const cvResult = await countMetalSheetsCV(processed);
 
-            const dimensions = await getImageDimensions(cropped);
-            const calibrationHeightPx = calibrationDelta ? Math.round(calibrationDelta * dimensions.height) : undefined;
-
-            const aiResult = await countMetalSheets({
-                originalImage: dataUrlToBase64(cropped),
-                processedImage: dataUrlToBase64(processed),
-                material,
-                thicknessMm: thicknessValue,
-                calibrationHeightPx,
-                cvEstimate: {
-                    count: cvResult.estimatedCount,
-                    confidence: cvResult.confidence,
-                    signalQuality: Number(cvResult.signalQuality.toFixed(3)),
-                    reasoning: cvResult.reasoning,
-                },
-            });
-
-            const cvStrong = cvResult.confidence === 'high' && cvResult.signalQuality >= 0.68 && cvResult.estimatedCount > 0;
-            const closeToAi = Math.abs(cvResult.estimatedCount - aiResult.estimatedCount) <= 1;
-
-            let sourceUsed: FinalSource = 'ai';
-            if (cvStrong && closeToAi) sourceUsed = 'hybrid';
-            else if (cvStrong) sourceUsed = 'cv';
-
-            const selectedCount = sourceUsed === 'ai' ? aiResult.estimatedCount : cvResult.estimatedCount;
-            const selectedConfidence = sourceUsed === 'hybrid'
-                ? 'high'
-                : sourceUsed === 'cv'
-                    ? cvResult.confidence
-                    : aiResult.confidence;
-
             const finalResult: FinalCountResult = {
-                ...aiResult,
-                estimatedCount: selectedCount,
-                finalCount: selectedCount,
-                confidence: selectedConfidence,
-                sourceUsed,
+                estimatedCount: cvResult.estimatedCount,
+                finalCount: cvResult.estimatedCount,
+                confidence: cvResult.confidence,
+                reasoning: cvResult.reasoning,
+                theoreticalBlockHeightMm: cvResult.estimatedCount * thicknessValue,
                 cvResult,
-                aiRawCount: aiResult.estimatedCount,
-                theoreticalBlockHeightMm: selectedCount * thicknessValue,
             };
 
             setAnalysisImages({ cropped, processed });
             setResult(finalResult);
-            setManualFinalCount(selectedCount);
+            setManualFinalCount(cvResult.estimatedCount);
         } catch (err: any) {
             setError(err?.message || 'No se pudo completar el conteo.');
         } finally {
@@ -266,8 +232,8 @@ const ChaperoCountView: React.FC = () => {
     return (
         <div className="max-w-3xl mx-auto pb-24">
             <div className="mb-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
-                <h2 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Chapero Hibrido (CV + IA)</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Mayor fiabilidad con recorte, preprocesado y ajuste final en 2 segundos.</p>
+                <h2 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Chapero CV</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Conteo por visión computacional con recorte, preprocesado y ajuste final.</p>
                 <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                     <div className="rounded-lg bg-slate-100 dark:bg-slate-800 p-2">1) Perfil lateral limpio y camara paralela.</div>
                     <div className="rounded-lg bg-slate-100 dark:bg-slate-800 p-2">2) Luz uniforme, sin reflejos fuertes.</div>
@@ -437,14 +403,14 @@ const ChaperoCountView: React.FC = () => {
                             disabled={!imagePreview || !thickness}
                             className="w-full min-h-[48px] py-4 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <LayersIcon className="h-5 w-5" /> Analizar con CV + IA
+                            <LayersIcon className="h-5 w-5" /> Analizar con CV
                         </button>
                     )}
 
                     {loading && (
                         <div className="flex flex-col items-center justify-center py-4">
                             <LoadingIcon className="h-8 w-8 text-cyan-500 animate-spin mb-2" />
-                            <p className="text-sm font-bold text-slate-500 animate-pulse">Procesando: recorte, preprocesado, CV e IA...</p>
+                            <p className="text-sm font-bold text-slate-500 animate-pulse">Procesando: recorte y preprocesado CV...</p>
                         </div>
                     )}
 
@@ -454,9 +420,7 @@ const ChaperoCountView: React.FC = () => {
                                 <div className="text-xs uppercase tracking-wide text-slate-500 font-bold mb-1">Conteo final operativo</div>
                                 <div className="text-5xl font-black text-slate-900 dark:text-white leading-none">{result.finalCount}</div>
                                 <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                                    <span className="px-2 py-1 rounded bg-cyan-100 text-cyan-800 font-bold">Fuente: {result.sourceUsed.toUpperCase()}</span>
-                                    <span className="px-2 py-1 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold">AI: {result.aiRawCount}</span>
-                                    <span className="px-2 py-1 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold">CV: {result.cvResult.estimatedCount}</span>
+                                    <span className="px-2 py-1 rounded bg-cyan-100 text-cyan-800 font-bold">CV: {result.cvResult.estimatedCount}</span>
                                     <span className="px-2 py-1 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold">Confianza: {result.confidence.toUpperCase()}</span>
                                 </div>
                             </div>
@@ -508,8 +472,6 @@ const ChaperoCountView: React.FC = () => {
 
                             <div className="text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
                                 <p><strong>CV:</strong> {result.cvResult.reasoning}</p>
-                                <p className="mt-1"><strong>IA:</strong> {result.reasoning}</p>
-                                <p className="mt-1"><strong>Notas visuales:</strong> {result.visualNotes}</p>
                             </div>
 
                             <button

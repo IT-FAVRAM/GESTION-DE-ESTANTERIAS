@@ -62,7 +62,7 @@ export const useSystemNotifications = (
                     });
                 }
             } catch (e) {
-                console.error("Error lanzando notificación nativa", e);
+                console.error("Error al lanzar notificación nativa:", e);
             }
         }
     };

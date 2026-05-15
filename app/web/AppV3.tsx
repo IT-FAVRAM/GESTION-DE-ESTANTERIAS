@@ -13,6 +13,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './hooks/useAuth';
+import { useInitializeCriticalData } from './hooks/useInitializeCriticalData';
 import type { AdminTab } from './components/admin/adminShared';
 import UnifiedLogin from './components/auth/UnifiedLogin';
 import KioskView from './components/kiosk/KioskView';
@@ -21,6 +22,7 @@ import SuperAdminPanel from './components/admin/SuperAdminPanel';
 import AdminShelfBrowser from './components/admin/AdminShelfBrowser';
 import ArticleTimeline from './components/admin/ArticleTimeline';
 import OfflineIndicator from './components/common/OfflineIndicator';
+import OfflineDebugPanel from './components/common/OfflineDebugPanel';
 import { initPushNotifications, listenForegroundMessages } from './lib/pushService';
 import AppLoadingScreen from './components/app/AppLoadingScreen';
 import BlockedDeviceScreen from './components/app/BlockedDeviceScreen';
@@ -41,6 +43,8 @@ const AppV3: React.FC = () => {
     capabilities,
     authMethod,
   } = state;
+
+  const initStatus = useInitializeCriticalData();
 
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showShelfBrowser, setShowShelfBrowser] = useState(false);
@@ -65,7 +69,9 @@ const AppV3: React.FC = () => {
       
       listenForegroundMessages((msg) => {
         setPushNotif({ title: msg.title || '', body: msg.body || '' });
-        setTimeout(() => setPushNotif(null), 5000);
+        if (msg.data?.type !== 'ADMIN_MESSAGE') {
+          setTimeout(() => setPushNotif(null), 10000);
+        }
       }).then((unsub) => {
         cleanup = unsub;
       });
@@ -92,6 +98,7 @@ const AppV3: React.FC = () => {
     return (
       <>
         <OfflineIndicator />
+        <OfflineDebugPanel />
         <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
         <KioskView />
       </>
@@ -102,6 +109,7 @@ const AppV3: React.FC = () => {
     return (
       <>
         <OfflineIndicator />
+        <OfflineDebugPanel />
         <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
         <CarretilleroView />
       </>
@@ -119,6 +127,7 @@ const AppV3: React.FC = () => {
     return (
       <>
         <OfflineIndicator />
+        <OfflineDebugPanel />
         <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
         <CalidadView />
       </>

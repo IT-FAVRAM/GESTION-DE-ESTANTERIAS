@@ -41,6 +41,7 @@ export interface UseShelfReturn {
   shelfDef: Shelf | undefined;
   ubicar: (articleCode: string, orderFab: string, position: string, operarioId: string, operarioName: string) => Promise<boolean>;
   retirar: (articleCode: string, orderFab: string, operarioId: string, operarioName: string) => Promise<{ success: boolean; positions: string[] }>;
+  retirarDeUbicacion: (articleCode: string, orderFab: string, position: string, operarioId: string, operarioName: string) => Promise<{ success: boolean; position: string }>;
   mover: (articleCode: string, orderFab: string, newPositions: string[], operarioId: string, operarioName: string) => Promise<boolean>;
   findArticle: (articleCode: string, orderFab: string) => ShelfLocationState[];
   totalArticles: number;
@@ -195,6 +196,38 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     }
   }, [shelfCode, validateShelfAccess, locations]);
 
+  const retirarDeUbicacion = useCallback(async (
+    articleCode: string,
+    orderFab: string,
+    position: string,
+    operarioId: string,
+    operarioName: string,
+  ): Promise<{ success: boolean; position: string }> => {
+    const previousLocations = locations;
+    try {
+      const access = await validateShelfAccess('operate');
+      if (!access.ok) return { success: false, position: '' };
+      const session = getOperationalSession();
+
+      // Apply optimistic update
+      const result = applyRetirar(previousLocations, articleCode, orderFab);
+      setLocations(result.next);
+
+      if (!navigator.onLine) {
+        enqueueOfflineOperation('RETIRAR_DE_UBICACION', { shelfCode, articleCode, orderFab, position, operarioId, operarioName }, session);
+        return { success: true, position };
+      }
+
+      await inventoryApi.retirarDeUbicacion({ shelfCode, articleCode, orderFab, position, operarioId, operarioName }, session);
+      return { success: true, position };
+    } catch (err: any) {
+      console.error('[useShelf] RetirarDeUbicacion error:', err);
+      setError(err.message || 'Error al retirar articulo de ubicacion');
+      setLocations(previousLocations);
+      return { success: false, position: '' };
+    }
+  }, [shelfCode, validateShelfAccess, locations]);
+
   const mover = useCallback(async (
     articleCode: string,
     orderFab: string,
@@ -269,6 +302,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     shelfDef,
     ubicar,
     retirar,
+    retirarDeUbicacion,
     mover,
     findArticle,
     totalArticles,

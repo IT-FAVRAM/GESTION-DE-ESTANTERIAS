@@ -40,7 +40,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ currentUserRole, cur
             setShowNewChatModal(false);
             handleSelectChat(chatId);
         } catch (e) {
-            console.error("Error creating chat", e);
+            console.error("Error creando chat:", e);
         }
     };
 

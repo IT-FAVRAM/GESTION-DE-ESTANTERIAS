@@ -1,7 +1,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronLeftIcon, ChevronRightIcon, BoxIcon, ShoppingCartIcon, SearchIcon, CameraIcon, TrashIcon, BatchScanIcon, MultiLayerIcon, BellIcon, CheckIcon, DownloadIcon, ChartIcon, SparklesIcon, MenuIcon, CloseIcon } from './Icons';
-import GeminiButton from './GeminiButton';
+import { ChevronLeftIcon, ChevronRightIcon, BoxIcon, ShoppingCartIcon, SearchIcon, CameraIcon, TrashIcon, BatchScanIcon, MultiLayerIcon, BellIcon, CheckIcon, DownloadIcon, MenuIcon, CloseIcon } from './Icons';
 
 interface WarehouseHeaderProps {
     activeWarehouse: string;
@@ -31,10 +30,7 @@ interface WarehouseHeaderProps {
     handleInitiateFinishWorkflow: () => void;
     exportInventoryToExcel: (assignments: any, config: any) => void;
 
-    // Gemini
-    gemini: any;
     assignments: any;
-    history: any;
 }
 
 export const WarehouseHeader: React.FC<WarehouseHeaderProps> = ({
@@ -60,9 +56,7 @@ export const WarehouseHeader: React.FC<WarehouseHeaderProps> = ({
     handleInitiateRequestWorkflow,
     handleInitiateFinishWorkflow,
     exportInventoryToExcel,
-    gemini,
     assignments,
-    history
 }) => {
     const warehouseListRef = useRef<HTMLDivElement>(null);
     const [isMobileActionsOpen, setIsMobileActionsOpen] = useState(false);
@@ -295,16 +289,6 @@ export const WarehouseHeader: React.FC<WarehouseHeaderProps> = ({
                             Mostrar solo huecos vacíos
                         </label>
                         <div className="hidden md:flex gap-2 w-full sm:w-auto">
-                            {canAnalyzeAnomalies() && (
-                                <>
-                                    <GeminiButton onClick={() => gemini.runInventorySummary(assignments)} isLoading={gemini.isInventoryLoading} className="px-3 py-2 text-sm flex-1 sm:flex-none">
-                                        <ChartIcon className="h-4 w-4" /> Resumen
-                                    </GeminiButton>
-                                    <GeminiButton onClick={() => gemini.runAnomalyDetection(assignments, history)} isLoading={gemini.isAnomalyLoading} className="px-3 py-2 text-sm flex-1 sm:flex-none">
-                                        <SparklesIcon className="h-4 w-4" /> Anomalías
-                                    </GeminiButton>
-                                </>
-                            )}
                         </div>
                     </div>
                 </div>
@@ -343,23 +327,6 @@ export const WarehouseHeader: React.FC<WarehouseHeaderProps> = ({
                                 </div>
                             </button>
 
-                            {canAnalyzeAnomalies() && (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
-                                    <GeminiButton onClick={() => { gemini.runInventorySummary(assignments); setIsMobileActionsOpen(false); }} isLoading={gemini.isInventoryLoading} className="min-h-[56px] flex flex-col items-center justify-center gap-1 rounded-2xl py-3 border border-indigo-200 dark:border-indigo-800/30 shadow-sm active:scale-[0.98]">
-                                        <div className="flex items-center gap-2">
-                                            <ChartIcon className="h-5 w-5" />
-                                            <span className="font-bold text-sm">Resumen con IA</span>
-                                        </div>
-                                    </GeminiButton>
-
-                                    <GeminiButton onClick={() => { gemini.runAnomalyDetection(assignments, history); setIsMobileActionsOpen(false); }} isLoading={gemini.isAnomalyLoading} className="min-h-[56px] flex flex-col items-center justify-center gap-1 rounded-2xl py-3 border border-indigo-200 dark:border-indigo-800/30 shadow-sm active:scale-[0.98]">
-                                        <div className="flex items-center gap-2">
-                                            <SparklesIcon className="h-5 w-5" />
-                                            <span className="font-bold text-sm">Detectar Anomalías</span>
-                                        </div>
-                                    </GeminiButton>
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>

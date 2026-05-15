@@ -26,8 +26,6 @@ export interface WarehousePageProps {
     collapsedShelves: any; // Record<string, string[]>
     toggleShelf: (wh: string, id: string) => void;
     toggleAllShelves: (wh: string, collapse: boolean) => void;
-    gemini: any;
-
     // Permissions
     canAssign: () => boolean;
     canRemove: (loc?: string) => boolean;
@@ -139,7 +137,6 @@ export const WarehousePage: React.FC<WarehousePageProps> = (props) => {
                 handleInitiateRequestWorkflow={props.handleInitiateRequestWorkflow}
                 handleInitiateFinishWorkflow={props.handleInitiateFinishWorkflow}
                 exportInventoryToExcel={props.exportInventoryToExcel}
-                gemini={props.gemini}
                 assignments={props.assignments}
                 history={props.history}
             />

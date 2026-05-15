@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../lib/firebase';
-import { X, Calendar, Activity, AlertTriangle, TrendingUp, Clock, FileText } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
+import { X, Calendar, Activity, AlertTriangle, Clock, FileText } from 'lucide-react';
 
 interface LeadTimeRow {
     barcode: string;
@@ -19,9 +18,7 @@ interface LeadTimeModalProps {
 
 export const LeadTimeModal: React.FC<LeadTimeModalProps> = ({ isOpen, onClose }) => {
     const [loading, setLoading] = useState(false);
-    const [analyzing, setAnalyzing] = useState(false);
     const [data, setData] = useState<LeadTimeRow[]>([]);
-    const [aiReport, setAiReport] = useState<string | null>(null);
     const [dateRange, setDateRange] = useState({
         from: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0], // Last 30 days
         to: new Date().toISOString().split('T')[0]
@@ -35,7 +32,6 @@ export const LeadTimeModal: React.FC<LeadTimeModalProps> = ({ isOpen, onClose })
 
     const fetchData = async () => {
         setLoading(true);
-        setAiReport(null);
         try {
             const getLeadTime = httpsCallable(functions, 'leadTimeDataset');
             // Parse local dates to timestamps for the query if needed, or pass strings
@@ -51,36 +47,10 @@ export const LeadTimeModal: React.FC<LeadTimeModalProps> = ({ isOpen, onClose })
             const responseData = result.data as { rows: LeadTimeRow[] };
             setData(responseData.rows || []);
         } catch (error) {
-            console.error("Error fetching lead time:", error);
+            console.error("Error obteniendo tiempo de entrega:", error);
             // Handle error (toast or alert)
         } finally {
             setLoading(false);
-        }
-    };
-
-    const generateReport = async () => {
-        if (data.length === 0) return;
-        setAnalyzing(true);
-        try {
-            const getAIReport = httpsCallable(functions, 'leadTimeAIReport');
-            const summaryStats = {
-                totalItems: data.length,
-                avgDaysInWarehouse: (data.reduce((acc, curr) => acc + curr.durationDays, 0) / data.length).toFixed(1)
-            };
-
-            // Sort by duration desc to send "worst" offenders
-            const sortedRows = [...data].sort((a, b) => b.durationDays - a.durationDays);
-
-            const result = await getAIReport({
-                rows: sortedRows.slice(0, 50), // Send top 50 
-                summaryStats
-            });
-            const res = result.data as { markdown: string };
-            setAiReport(res.markdown);
-        } catch (error) {
-            console.error("Error generating AI report:", error);
-        } finally {
-            setAnalyzing(false);
         }
     };
 
@@ -139,16 +109,6 @@ export const LeadTimeModal: React.FC<LeadTimeModalProps> = ({ isOpen, onClose })
                         Actualizar Datos
                     </button>
 
-                    {data.length > 0 && (
-                        <button
-                            onClick={generateReport}
-                            disabled={analyzing}
-                            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-medium transition-all disabled:opacity-50 ml-auto"
-                        >
-                            {analyzing ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <TrendingUp className="w-4 h-4" />}
-                            {aiReport ? "Regenerar Análisis AI" : "Generar Análisis AI"}
-                        </button>
-                    )}
                 </div>
 
                 {/* Content */}
@@ -175,19 +135,6 @@ export const LeadTimeModal: React.FC<LeadTimeModalProps> = ({ isOpen, onClose })
                             <div className="text-4xl font-bold text-amber-500">{outliers.length} <span className="text-lg text-slate-500">casos</span></div>
                         </div>
                     </div>
-
-                    {/* AI Report Section */}
-                    {aiReport && (
-                        <div className="bg-gradient-to-br from-purple-900/20 to-slate-900 border border-purple-500/30 rounded-xl p-6">
-                            <h3 className="text-purple-400 font-bold mb-4 flex items-center gap-2">
-                                <TrendingUp className="w-5 h-5" />
-                                Análisis Inteligente
-                            </h3>
-                            <div className="prose prose-invert prose-sm max-w-none text-slate-300">
-                                <ReactMarkdown>{aiReport}</ReactMarkdown>
-                            </div>
-                        </div>
-                    )}
 
                     {/* Quick List of Longest Duration Items */}
                     {data.length > 0 && (

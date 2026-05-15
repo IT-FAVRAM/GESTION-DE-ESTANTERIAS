@@ -72,7 +72,7 @@ const CarretilleroRequestsView: React.FC<CarretilleroRequestsViewProps> = ({ onN
                 readBy: firebase.firestore.FieldValue.arrayUnion(auth.currentUser.uid)
             });
         } catch (e) {
-            console.error("Error marking request as complete:", e);
+            console.error("Error marcando solicitud como completada:", e);
         } finally {
             setProcessingId(null);
         }

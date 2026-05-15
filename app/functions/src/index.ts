@@ -1,9 +1,4 @@
 export {
-  generateGeminiResponse,
-  inventoryAssistant,
-} from './assistant';
-
-export {
   inventoryOperate,
   onAssignmentWrite,
   shelfOperate,
@@ -22,7 +17,6 @@ export {
 export {
   leadTimeReporting,
   leadTimeDataset,
-  leadTimeAIReport,
   userPushReport,
 } from './reports';
 
@@ -30,6 +24,7 @@ export {
   adminOperate,
   deviceHeartbeat,
   resolveDeviceConfig,
+  sendAdminMessage,
 } from './admin';
 
 export {

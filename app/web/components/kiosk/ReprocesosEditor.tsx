@@ -15,7 +15,15 @@ interface ReprocesosItem {
   orderFab: string;
   quantity?: number;
   unitCost?: number;
+  locatedAt?: string;
 }
+
+const daysAgo = (isoDate?: string): number | null => {
+  if (!isoDate) return null;
+  const ms = Date.now() - new Date(isoDate).getTime();
+  if (isNaN(ms) || ms < 0) return null;
+  return Math.floor(ms / 86_400_000);
+};
 
 interface ReprocesosEditorProps {
   /** Posición de la celda (ej: "005") */
@@ -247,13 +255,24 @@ const ReprocesosEditor: React.FC<ReprocesosEditorProps> = ({
                 className="bg-slate-800 rounded-xl border border-slate-700 p-3 space-y-2"
               >
                 {/* Article info */}
-                <div className="flex items-center justify-between">
-                  <div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
                     <p className="text-sm font-bold text-white">{item.articleCode}</p>
                     <p className="text-xs text-cyan-400">{item.orderFab}</p>
+                    {(() => {
+                      const days = daysAgo(item.locatedAt);
+                      if (days === null) return null;
+                      const color = days > 30 ? 'text-red-400' : days > 7 ? 'text-amber-400' : 'text-slate-500';
+                      return (
+                        <p className={`text-[11px] font-bold mt-0.5 ${color}`}>
+                          ⏱ {days === 0 ? 'Hoy' : `${days} día${days !== 1 ? 's' : ''} aquí`}
+                          {days > 30 && ' — revisar'}
+                        </p>
+                      );
+                    })()}
                   </div>
                   {savedIdx === idx && (
-                    <span className="text-xs text-emerald-400 font-bold animate-pulse">
+                    <span className="text-xs text-emerald-400 font-bold animate-pulse shrink-0">
                       ✅ Guardado
                     </span>
                   )}

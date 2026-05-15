@@ -35,7 +35,7 @@ export const updateReproceso = async (
     });
     return true;
   } catch (err) {
-    console.error('[reprocesosApi] Error updating reproceso:', err);
+    console.error('[reprocesosApi] Error actualizando reproceso:', err);
     return false;
   }
 };

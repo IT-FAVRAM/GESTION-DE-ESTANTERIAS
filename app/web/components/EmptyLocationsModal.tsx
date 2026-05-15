@@ -65,7 +65,7 @@ const EmptyLocationsModal: React.FC<EmptyLocationsModalProps> = ({
             await onConfirm(selectedIds);
             onClose();
         } catch (err) {
-            console.error("Error confirming clear:", err);
+            console.error("Error confirmando limpieza:", err);
         } finally {
             setIsProcessing(false);
         }

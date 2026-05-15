@@ -41,6 +41,12 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
   // Reubicar: arrastrar de una celda a otra (dentro de la misma estantería)
   const [reubicarSource, setReubicarSource] = useState<{ articleCode: string; orderFab: string; position: string } | null>(null);
 
+  // Batch support
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchArticles, setBatchArticles] = useState<Array<{ articleCode: string; orderFab: string }>>([]);
+  const [batchRetiraPending, setBatchRetiraPending] = useState<Array<{ articleCode: string; orderFab: string; locations: ShelfLocationState[] }>>([]);
+  const [currentBatchRetirarIndex, setCurrentBatchRetirarIndex] = useState(0);
+
   const { locations, loading, shelfDef, ubicar, retirar, mover, findArticle, totalOccupied, totalEmpty, totalArticles } = useShelf(selectedShelf);
   const { operarioId, displayName } = useAuth();
 
@@ -59,6 +65,12 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
     setAction('idle');
     setSelectedPositions([]);
     setReubicarSource(null);
+    setBatchMode(false);
+    setBatchArticles([]);
+    setBatchRetiraPending([]);
+    setCurrentBatchRetirarIndex(0);
+    setArticleInput('');
+    setOfInput('');
   }, []);
 
   const startAction = useCallback((act: AdminAction) => {
@@ -70,37 +82,66 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
       return;
     }
 
-    setAction(act);
-    setSelectedPositions([]);
-    setFeedback(null);
-
-    if (act === 'retirar') {
-      const found = findArticle(article, of);
-      if (found.length === 0) {
-        showFeedback('error', 'Artículo no encontrado en esta estantería');
-        setAction('idle');
-        return;
-      }
-      const posStr = found.map((l) => parseInt(l.position, 10)).join(', ');
-      let msg = `${formatArticleDisplay(article, of)} en: ${posStr}`;
-      if (found.length > 1) msg += `\n\n⚠️ Ocupa ${found.length} posiciones. Se retirará de todas.`;
-
+    if (act === 'ubicar' || act === 'retirar') {
       setConfirmModal({
         open: true,
-        title: 'Confirmar Retirada',
-        message: msg,
-        icon: '📤',
-        variant: 'danger',
-        onConfirm: async () => {
-          setProcessing(true);
+        title: `¿${act === 'ubicar' ? 'UBICAR' : 'RETIRAR'} varios artículos?`,
+        message: `¿Vas a ${act === 'ubicar' ? 'ubicar' : 'retirar'} varios artículos a la vez?`,
+        icon: act === 'ubicar' ? '📦' : '📤',
+        variant: 'info',
+        onConfirm: () => {
+          setBatchMode(true);
+          setAction(act);
+          setSelectedPositions([]);
+          setFeedback(null);
           setConfirmModal((p) => ({ ...p, open: false }));
-          const r = await retirar(article, of, effectiveOperarioId, displayName);
-          setProcessing(false);
-          if (r.success) showFeedback('success', '✅ Artículo retirado');
-          else showFeedback('error', 'Error al retirar el artículo');
-          resetAction();
+        },
+        extraButton: {
+          text: 'No, solo uno',
+          onClick: () => {
+            setBatchMode(false);
+            setAction(act);
+            setSelectedPositions([]);
+            setFeedback(null);
+            setConfirmModal((p) => ({ ...p, open: false }));
+            if (act === 'retirar') {
+              const found = findArticle(article, of);
+              if (found.length === 0) {
+                showFeedback('error', 'Artículo no encontrado en esta estantería');
+                setAction('idle');
+                return;
+              }
+              const posStr = found.map((l) => parseInt(l.position, 10)).join(', ');
+              let msg = `${formatArticleDisplay(article, of)} en: ${posStr}`;
+              if (found.length > 1) msg += `\n\n⚠️ Ocupa ${found.length} posiciones. Se retirará de todas.`;
+
+              setConfirmModal({
+                open: true,
+                title: 'Confirmar Retirada',
+                message: msg,
+                icon: '📤',
+                variant: 'danger',
+                onConfirm: async () => {
+                  setProcessing(true);
+                  setConfirmModal((p) => ({ ...p, open: false }));
+                  const r = await retirar(article, of, effectiveOperarioId, displayName);
+                  setProcessing(false);
+                  if (r.success) showFeedback('success', '✅ Artículo retirado');
+                  else showFeedback('error', 'Error al retirar el artículo');
+                  resetAction();
+                },
+              });
+            }
+          },
         },
       });
+      return;
+    }
+
+    if (act === 'reubicar' || act === 'mover') {
+      setAction(act);
+      setSelectedPositions([]);
+      setFeedback(null);
     }
   }, [articleInput, ofInput, findArticle, retirar, effectiveOperarioId, displayName, showFeedback, resetAction]);
 
@@ -122,36 +163,25 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
     const article = articleInput.trim();
     const of = ofInput.trim();
 
-    if (action === 'ubicar') {
-      if (loc.isEmpty) {
-        // Immediate action without modal
-        setProcessing(true);
-        ubicar(article, of, loc.position, effectiveOperarioId, displayName).then(ok => {
-          setProcessing(false);
-          if (ok) showFeedback('success', '✅ Artículo ubicado');
-          else showFeedback('error', 'Error al ubicar el artículo');
-          resetAction();
-        });
-      } else {
-        setConfirmModal({
-          open: true,
-          title: 'Celda Ocupada',
-          message: `Esta celda ya tiene ${loc.items.length} artículo(s). ¿Añadir igualmente?`,
-          icon: '⚠️',
-          variant: 'warning',
-          onConfirm: async () => {
-            setProcessing(true);
-            setConfirmModal((p) => ({ ...p, open: false }));
-            const ok = await ubicar(article, of, loc.position, effectiveOperarioId, displayName);
-            setProcessing(false);
-            if (ok) showFeedback('success', '✅ Artículo ubicado');
-            else showFeedback('error', 'Error al ubicar el artículo');
-            resetAction();
-          },
-          extraButton: { text: 'Elegir otra celda', onClick: () => setConfirmModal((p) => ({ ...p, open: false })) },
-        });
-      }
-    } else if (action === 'mover') {
+    if (action === 'ubicar' && batchMode) {
+      const position = loc.position;
+      setSelectedPositions((current) => {
+        if (current.includes(position)) return current.filter((value) => value !== position);
+        return [...current, position];
+      });
+      return;
+    }
+
+    if (action === 'ubicar' && !batchMode) {
+      const position = loc.position;
+      setSelectedPositions((current) => {
+        if (current.includes(position)) return current.filter((value) => value !== position);
+        return [...current, position];
+      });
+      return;
+    }
+
+    if (action === 'mover') {
       const found = findArticle(article, of);
       const needed = found.length || 1;
       setSelectedPositions((prev) => {
@@ -166,12 +196,16 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
           return;
         }
         const item = loc.items[0];
+        const allPos = findArticle(item.articleCode, item.orderFab);
         setReubicarSource({
           articleCode: item.articleCode,
           orderFab: item.orderFab,
           position: loc.position,
         });
-        showFeedback('info', `Origen: ${loc.position} (${item.articleCode}) - Elige destino`);
+        const multiWarning = allPos.length > 1
+          ? ` — ocupa ${allPos.length} posiciones, se moverán todas al destino`
+          : '';
+        showFeedback('info', `Origen: ${loc.position} (${item.articleCode})${multiWarning} — Elige destino`);
       } else {
         if (loc.position === reubicarSource.position) {
           showFeedback('info', 'Origen y destino iguales');
@@ -208,6 +242,125 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
     else showFeedback('error', 'Error al mover el artículo');
     resetAction();
   }, [selectedPositions, articleInput, ofInput, mover, effectiveOperarioId, displayName, showFeedback, resetAction]);
+
+  const handleAddToBatch = useCallback(() => {
+    const article = articleInput.trim();
+    const of = ofInput.trim();
+
+    if (!article || !of) {
+      showFeedback('error', 'Introduce código y OF para añadir al batch');
+      return;
+    }
+
+    if (action === 'ubicar') {
+      const duplicate = batchArticles.some((a) => a.articleCode === article && a.orderFab === of);
+      if (duplicate) {
+        showFeedback('error', `${article} ${of} ya está en el batch`);
+        return;
+      }
+      setBatchArticles((prev) => [...prev, { articleCode: article, orderFab: of }]);
+      showFeedback('success', `✅ ${article} ${of} añadido al batch`);
+      setArticleInput('');
+      setOfInput('');
+    } else if (action === 'retirar') {
+      const found = findArticle(article, of);
+      if (found.length === 0) {
+        showFeedback('error', `${article} no encontrado en esta estantería`);
+        return;
+      }
+      const duplicate = batchRetiraPending.some((a) => a.articleCode === article && a.orderFab === of);
+      if (duplicate) {
+        showFeedback('error', `Este artículo se ha escaneado dos veces. Solo se puede retirar una vez.`);
+        return;
+      }
+      setBatchRetiraPending((prev) => [...prev, { articleCode: article, orderFab: of, locations: found }]);
+      showFeedback('success', `✅ ${article} ${of} añadido al batch`);
+      setArticleInput('');
+      setOfInput('');
+    }
+  }, [action, articleInput, ofInput, batchArticles, batchRetiraPending, findArticle, showFeedback]);
+
+  const handleUbicarBatchConfirm = useCallback(async () => {
+    if (selectedPositions.length === 0) return;
+    setProcessing(true);
+
+    let successCount = 0;
+    for (const article of batchArticles) {
+      for (const position of selectedPositions) {
+        const success = await ubicar(article.articleCode, article.orderFab, position, effectiveOperarioId, displayName);
+        if (success) successCount++;
+      }
+    }
+
+    setProcessing(false);
+    if (successCount === batchArticles.length * selectedPositions.length) {
+      showFeedback('success', `✅ ${batchArticles.length} artículos ubicados en ${selectedPositions.length} posición(es)`);
+    } else {
+      showFeedback('error', `Parcial: ${successCount}/${batchArticles.length * selectedPositions.length} ubicaciones completadas`);
+    }
+    resetAction();
+  }, [batchArticles, selectedPositions, ubicar, effectiveOperarioId, displayName, showFeedback, resetAction]);
+
+  const handleUbicarMultiPositionConfirm = useCallback(async () => {
+    const article = articleInput.trim();
+    const of = ofInput.trim();
+    if (!article || !of || selectedPositions.length === 0) return;
+    setProcessing(true);
+
+    let successCount = 0;
+    for (const position of selectedPositions) {
+      const success = await ubicar(article, of, position, effectiveOperarioId, displayName);
+      if (success) successCount++;
+    }
+
+    setProcessing(false);
+    if (successCount === selectedPositions.length) {
+      showFeedback('success', `✅ ${article} ubicado en ${selectedPositions.length} posición(es)`);
+    } else {
+      showFeedback('error', `Parcial: ${successCount}/${selectedPositions.length} ubicaciones completadas`);
+    }
+    resetAction();
+  }, [articleInput, ofInput, selectedPositions, ubicar, effectiveOperarioId, displayName, showFeedback, resetAction]);
+
+  const handleRetirarBatchNext = useCallback(async () => {
+    const processNext = async (index: number) => {
+      if (index >= batchRetiraPending.length) {
+        showFeedback('success', '✅ Batch de retirada completado');
+        resetAction();
+        return;
+      }
+
+      const item = batchRetiraPending[index];
+      if (item.locations.length === 1) {
+        const r = await retirar(item.articleCode, item.orderFab, effectiveOperarioId, displayName);
+        if (!r.success) {
+          showFeedback('error', 'Error al retirar artículo');
+          resetAction();
+          return;
+        }
+        setCurrentBatchRetirarIndex(index + 1);
+        setTimeout(() => processNext(index + 1), 500);
+      } else {
+        setConfirmModal({
+          open: true,
+          title: 'Selecciona de dónde retirar',
+          message: `${formatArticleDisplay(item.articleCode, item.orderFab)} está en ${item.locations.length} ubicaciones`,
+          icon: '📤',
+          variant: 'warning',
+          onConfirm: async () => {
+            const r = await retirar(item.articleCode, item.orderFab, effectiveOperarioId, displayName);
+            if (r.success) {
+              setCurrentBatchRetirarIndex(index + 1);
+              setConfirmModal((p) => ({ ...p, open: false }));
+              setTimeout(() => processNext(index + 1), 500);
+            }
+          },
+        });
+      }
+    };
+
+    processNext(currentBatchRetirarIndex);
+  }, [batchRetiraPending, currentBatchRetirarIndex, retirar, effectiveOperarioId, displayName, showFeedback, resetAction]);
 
   const foundPositions = (action !== 'idle' && articleInput.trim() && ofInput.trim())
     ? findArticle(articleInput.trim(), ofInput.trim()).map((l) => l.position)
@@ -315,6 +468,83 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
                 🔁 REUBICAR
               </button>
             </div>
+          ) : batchMode && (action === 'ubicar' || action === 'retirar') ? (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className={`text-xs font-bold px-2 py-1 rounded-lg
+                    ${action === 'ubicar' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'}`}>
+                    {action === 'ubicar' ? '📦 BATCH UBICAR' : '📤 BATCH RETIRAR'} ({action === 'ubicar' ? batchArticles.length : batchRetiraPending.length} artículos)
+                  </span>
+                </div>
+              </div>
+              {action === 'ubicar' && batchArticles.length > 0 && (
+                <div className="text-xs text-slate-300 max-h-12 overflow-y-auto bg-slate-900/30 p-2 rounded">
+                  {batchArticles.map((a, i) => (
+                    <div key={i}>{a.articleCode} ({a.orderFab})</div>
+                  ))}
+                </div>
+              )}
+              {action === 'retirar' && batchRetiraPending.length > 0 && (
+                <div className="text-xs text-slate-300 max-h-12 overflow-y-auto bg-slate-900/30 p-2 rounded">
+                  {batchRetiraPending.map((a, i) => (
+                    <div key={i}>{a.articleCode} ({a.orderFab}) - {a.locations.length} ubicación(es)</div>
+                  ))}
+                </div>
+              )}
+              {action === 'ubicar' && selectedPositions.length > 0 && (
+                <div className="text-xs text-slate-300 bg-cyan-500/20 p-2 rounded border border-cyan-500/30">
+                  Posiciones seleccionadas: {selectedPositions.map(p => parseInt(p, 10)).join(', ')}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={articleInput}
+                  onChange={(e) => setArticleInput(e.target.value)}
+                  placeholder="Código artículo"
+                  className="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+                <input
+                  type="text"
+                  value={ofInput}
+                  onChange={(e) => setOfInput(e.target.value)}
+                  placeholder="OF"
+                  className="w-20 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+                <button
+                  onClick={handleAddToBatch}
+                  className="px-3 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-lg"
+                >
+                  + Añadir
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    if (action === 'ubicar') {
+                      if (selectedPositions.length > 0) {
+                        handleUbicarBatchConfirm();
+                      } else {
+                        showFeedback('error', 'Selecciona al menos una posición');
+                      }
+                    } else {
+                      handleRetirarBatchNext();
+                    }
+                  }}
+                  disabled={action === 'ubicar' && selectedPositions.length === 0}
+                  className="flex-1 px-3 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  ✓ Finalizar {action === 'ubicar' ? 'ubicación' : 'retirada'}
+                </button>
+                <button
+                  onClick={resetAction}
+                  className="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-xs font-bold rounded-lg"
+                >
+                  ✕ Cancelar
+                </button>
+              </div>
+            </div>
           ) : (
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 flex-wrap">
@@ -328,8 +558,17 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
                 <span className="text-xs text-slate-400 font-mono">
                   {articleInput} · {ofInput}
                 </span>
-                {action === 'ubicar' && (
-                  <span className="text-xs text-slate-500">Pulsa una celda del grid para ubicar</span>
+                {action === 'ubicar' && selectedPositions.length === 0 && (
+                  <span className="text-xs text-slate-500">Pulsa celdas del grid para seleccionar ubicaciones</span>
+                )}
+                {action === 'ubicar' && selectedPositions.length > 0 && (
+                  <button
+                    onClick={handleUbicarMultiPositionConfirm}
+                    disabled={processing}
+                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg disabled:opacity-50"
+                  >
+                    Confirmar ubicación en {selectedPositions.map((p) => parseInt(p, 10)).join(', ')}
+                  </button>
                 )}
                 {action === 'reubicar' && reubicarSource && (
                   <span className="text-xs text-amber-400">Origen: {reubicarSource.position} → Elige destino</span>

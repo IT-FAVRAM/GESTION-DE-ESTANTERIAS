@@ -61,7 +61,7 @@ export const useWarehouseConfig = (assignments: Assignments) => {
             (err) => {
                 if (err.code !== 'permission-denied') {
                     console.error("Error leyendo warehouseConfig de Firestore:", err);
-                    setError("Error al cargar la configuración.");
+                    setError("Error al cargar la configuración del almacén.");
                 }
                 setLoading(false);
             }
@@ -87,7 +87,7 @@ export const useWarehouseConfig = (assignments: Assignments) => {
                 await ref.set(next, { merge: true });
             } catch (err) {
                 console.error("Error guardando warehouseConfig en Firestore:", err);
-                setError("Error al guardar configuración.");
+                setError("Error al guardar la configuración del almacén.");
             }
         }
     }, [config, setConfig]);
