@@ -24,6 +24,7 @@ import ArticleTimeline from './components/admin/ArticleTimeline';
 import OfflineIndicator from './components/common/OfflineIndicator';
 import OfflineDebugPanel from './components/common/OfflineDebugPanel';
 import { initPushNotifications, listenForegroundMessages } from './lib/pushService';
+import { useConnectionMonitor } from './hooks/useConnectionMonitor';
 import AppLoadingScreen from './components/app/AppLoadingScreen';
 import BlockedDeviceScreen from './components/app/BlockedDeviceScreen';
 import PushToast from './components/app/PushToast';
@@ -42,7 +43,22 @@ const AppV3: React.FC = () => {
     deviceId,
     capabilities,
     authMethod,
+    firebaseUser,
+    deviceMode,
   } = state;
+
+  const connDeviceType = deviceMode === 'kiosk' ? 'KIOSK'
+    : deviceMode === 'carretillero' ? 'CARRETILLERO'
+    : deviceMode === 'admin' ? 'ADMIN'
+    : 'UNKNOWN';
+
+  useConnectionMonitor({
+    authUid: firebaseUser?.uid ?? null,
+    deviceId,
+    deviceName: displayName || `Dispositivo-${deviceId.slice(-6)}`,
+    deviceType: connDeviceType,
+    enabled: isAuthenticated && !loading,
+  });
 
   const initStatus = useInitializeCriticalData();
 

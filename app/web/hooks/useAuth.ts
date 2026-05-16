@@ -32,6 +32,36 @@ import {
 import { resolveCapabilities } from '../domain/auth/authCapabilities';
 import type { AuthMethod } from '../domain/auth/authTypes';
 
+// ── Auth resolved-state cache (for offline startup resilience) ────────────────
+
+const AUTH_RESOLVED_CACHE_KEY = 'wms-auth-resolved-v1';
+
+type AuthResolvedCache = {
+  uid: string;
+  role: UserRole;
+  section: WarehouseSection | null;
+  displayName: string;
+  email: string;
+  deviceMode: AuthMode;
+};
+
+const readAuthResolvedCache = (): AuthResolvedCache | null => {
+  try {
+    const raw = localStorage.getItem(AUTH_RESOLVED_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as AuthResolvedCache) : null;
+  } catch { return null; }
+};
+
+const writeAuthResolvedCache = (data: AuthResolvedCache) => {
+  try { localStorage.setItem(AUTH_RESOLVED_CACHE_KEY, JSON.stringify(data)); } catch {}
+};
+
+const clearAuthResolvedCache = () => {
+  try { localStorage.removeItem(AUTH_RESOLVED_CACHE_KEY); } catch {}
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const SECTION_TO_SHELF: Partial<Record<WarehouseSection, string>> = {
   MECANIZADO: 'MEC',
   PRENSAS: 'PRE',
@@ -69,6 +99,7 @@ type GuestSession = {
   section?: WarehouseSection;
   guest: true;
   assignedShelf: string | null;
+  kioskId: string | null;
   displayName: string;
 };
 
@@ -98,6 +129,7 @@ const buildGuestSession = (role: UserRole, section?: WarehouseSection): GuestSes
     section,
     guest: true,
     assignedShelf,
+    kioskId: null,
     displayName: displayNameByRole[role],
   };
 };
@@ -115,6 +147,7 @@ export interface AuthState {
   email: string | null;
   isKioskSession: boolean;
   assignedShelf: string | null;
+  kioskId: string | null;
   deviceMode: AuthMode;
   authMethod: AuthMethod | null;
   error: string | null;
@@ -132,6 +165,7 @@ const buildSignedOutState = (prev: AuthState): AuthState => ({
   email: null,
   isKioskSession: false,
   assignedShelf: null,
+  kioskId: null,
   authMethod: null,
   error: null,
 });
@@ -174,7 +208,10 @@ export const useAuth = () => {
   const deviceId = getOrCreateDeviceId();
 
   const initialGuestSession = readGuestSession<GuestSession>();
+  const initialAuthCache = !initialGuestSession ? readAuthResolvedCache() : null;
 
+  // Pre-populate display fields from cache so they're ready when Firebase resolves.
+  // Never set loading:false here — that would cause a flash to the login screen.
   const [state, setState] = useState<AuthState>({
     loading: initialGuestSession ? false : true,
     firebaseUser: null,
@@ -182,10 +219,11 @@ export const useAuth = () => {
     section: initialGuestSession?.section ?? null,
     operario: initialGuestSession?.operario ?? null,
     operarioId: initialGuestSession?.operarioId ?? null,
-    displayName: initialGuestSession?.displayName ?? '',
-    email: null,
+    displayName: initialGuestSession?.displayName ?? initialAuthCache?.displayName ?? '',
+    email: initialAuthCache?.email ?? null,
     isKioskSession: !!initialGuestSession,
     assignedShelf: initialGuestSession?.assignedShelf ?? null,
+    kioskId: initialGuestSession?.kioskId ?? null,
     deviceMode: initialGuestSession ? 'carretillero' : 'loading',
     authMethod: initialGuestSession ? 'guest' : null,
     error: null,
@@ -202,6 +240,7 @@ export const useAuth = () => {
         ...prev,
         deviceMode: (deviceConfig.type?.toLowerCase() as AuthMode) || 'admin',
         assignedShelf: deviceConfig.assignedShelf || null,
+        kioskId: deviceConfig.kioskId || null,
         error: null,
       }));
     };
@@ -222,6 +261,7 @@ export const useAuth = () => {
             operario: session.operario,
             operarioId: session.operarioId,
             assignedShelf: session.assignedShelf || prev.assignedShelf,
+            kioskId: session.kioskId || prev.kioskId,
             displayName: session.displayName || session.operario?.name || '',
             isKioskSession: true,
             authMethod: 'guest',
@@ -245,17 +285,36 @@ export const useAuth = () => {
       }
 
       const userData = await resolveUserProfile(user);
+
+      // If Firestore returned nothing (cold cache + offline), fall back to localStorage cache
+      const cachedForThisUser = initialAuthCache?.uid === user.uid ? initialAuthCache : null;
+      const resolvedRole = userData?.role || cachedForThisUser?.role || null;
+      const resolvedSection = userData?.section || cachedForThisUser?.section || null;
+      const resolvedDisplayName = userData?.displayName || cachedForThisUser?.displayName || user.email || '';
+
+      // Update cache whenever we have a good profile (online or Firestore cached)
+      if (resolvedRole) {
+        writeAuthResolvedCache({
+          uid: user.uid,
+          role: resolvedRole,
+          section: resolvedSection,
+          displayName: resolvedDisplayName,
+          email: user.email || '',
+          deviceMode: 'admin',
+        });
+      }
+
       setState((prev) => ({
         ...prev,
         loading: false,
         firebaseUser: user,
-        role: userData?.role || null,
-        section: userData?.section || null,
-        displayName: userData?.displayName || user.email || '',
+        role: resolvedRole,
+        section: resolvedSection,
+        displayName: resolvedDisplayName,
         email: user.email,
         isKioskSession: false,
         authMethod: 'email',
-        error: userData ? null : 'Usuario no configurado',
+        error: resolvedRole ? null : 'Usuario no configurado',
       }));
     });
 
@@ -275,6 +334,7 @@ export const useAuth = () => {
           operario: session.operario,
           operarioId: session.operarioId,
           assignedShelf: session.assignedShelf || prev.assignedShelf,
+          kioskId: session.kioskId || prev.kioskId,
           displayName: session.displayName || session.operario?.name || '',
           email: auth.currentUser?.email || null,
           isKioskSession: true,
@@ -328,6 +388,7 @@ export const useAuth = () => {
         operario: session.operario,
         operarioId: session.operarioId,
         assignedShelf: session.assignedShelf,
+        kioskId: session.kioskId,
         displayName: session.displayName,
         isKioskSession: true,
         authMethod: 'guest',
@@ -365,6 +426,7 @@ export const useAuth = () => {
 
   const logout = useCallback(async () => {
     clearAllSessionData();
+    clearAuthResolvedCache();
     try {
       await signOut(auth);
     } catch {

@@ -1,13 +1,16 @@
 export const COLLECTIONS = {
-  CONFIG: 'config',
-  SHELVES: 'shelves',
-  LOCATIONS: 'locations',
-  ITEMS: 'items',
-  ITEM_AGGREGATES: 'itemAggregates',
-  USERS: 'users',
-  DEVICES: 'devices',
-  PICKUP_QUEUE: 'pickupQueue',
-  HISTORY: 'history',
+  CONFIG: 'configuracion',
+  SHELVES: 'estanterias',
+  LOCATIONS: 'ubicaciones',
+  ITEMS: 'piezas',
+  ITEM_AGGREGATES: 'resumen_piezas',
+  USERS: 'usuarios',
+  DEVICES: 'dispositivos',
+  KIOSKS: 'tablets',
+  PICKUP_QUEUE: 'cola_recogida',
+  HISTORY: 'historial',
+  CONNECTION_STATUS: 'conexion_estado',
+  CONNECTION_LOGS: 'conexion_logs',
 } as const;
 
 export const CONFIG_DOC_ID = 'app';

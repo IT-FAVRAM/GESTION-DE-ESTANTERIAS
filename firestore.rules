@@ -13,20 +13,18 @@ service cloud.firestore {
           && request.auth.token.firebase.sign_in_provider == 'anonymous';
     }
 
-    // Requires the `validatedDevice: true` custom claim set by resolveDeviceConfig CF.
-    // Prevents any arbitrary anonymous user from accessing warehouse data.
     function isValidatedDevice() {
       return isAnonymous() && request.auth.token.validatedDevice == true;
     }
 
     function userDocExists() {
       return isAuthenticated()
-          && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+          && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid));
     }
 
     function userRole() {
       return userDocExists()
-        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        ? get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.role
         : null;
     }
 
@@ -52,12 +50,10 @@ service cloud.firestore {
 
     // ── ACCESS POLICY HELPERS ─────────────────────────────────────────────────
 
-    // Validated kiosk devices (anonymous + custom claim) or any registered user.
     function canReadWarehouseState() {
       return isValidatedDevice() || isRegisteredUser();
     }
 
-    // History is operational + monitoring roles only; kiosks do not need it.
     function canReadHistory() {
       return isOperationalUser() || isMonitoringUser();
     }
@@ -76,7 +72,6 @@ service cloud.firestore {
               && request.resource.data.displayName.size() <= 120);
     }
 
-    // Validates ISO 8601 format: must start with a date like "2026-01-01T"
     function validOptionalLastLoginAt() {
       return !('lastLoginAt' in request.resource.data)
           || (request.resource.data.lastLoginAt is string
@@ -85,8 +80,6 @@ service cloud.firestore {
               && request.resource.data.lastLoginAt.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}T.*'));
     }
 
-    // A registered user may only update their own FCM tokens, display name,
-    // and last-login timestamp. All auth-sensitive fields are immutable.
     function isSelfUserUpdate() {
       return request.resource.data.diff(resource.data).changedKeys()
                  .hasOnly(['fcmTokens', 'lastLoginAt', 'displayName'])
@@ -101,85 +94,103 @@ service cloud.firestore {
 
     // ── COLLECTION RULES ─────────────────────────────────────────────────────
 
-    // App configuration: validated devices and all registered users may read
-    // (so kiosks can load urgentLocations/techReviewLocations from Firestore).
-    // Only SUPERADMIN can write.
-    match /config/{document=**} {
+    match /configuracion/{document=**} {
       allow read: if canReadWarehouseState();
       allow write: if isSuperAdmin();
     }
 
-    match /users/{userId} {
+    match /usuarios/{userId} {
       allow get:    if isAdminLike() || (isRegisteredUser() && request.auth.uid == userId);
       allow list:   if isAdminLike();
       allow update: if isSuperAdmin() || (isRegisteredUser() && request.auth.uid == userId && isSelfUserUpdate());
       allow create, delete: if isSuperAdmin();
     }
 
-    // Devices are managed exclusively via adminOperate Cloud Function (Admin SDK).
-    match /devices/{deviceId} {
+    match /dispositivos/{deviceId} {
       allow get, list: if isSuperAdmin();
       allow write:     if false;
     }
 
-    // Core warehouse state — all writes go through shelfOperate Cloud Function.
-    match /shelves/{document=**} {
+    match /tablets/{tabletId} {
+      allow read:  if canReadWarehouseState();
+      allow write: if isSuperAdmin();
+    }
+
+    match /estanterias/{document=**} {
       allow read:  if canReadWarehouseState();
       allow write: if false;
     }
 
-    match /items/{document=**} {
+    match /ubicaciones/{document=**} {
       allow read:  if canReadWarehouseState();
       allow write: if false;
     }
 
-    match /itemAggregates/{document=**} {
+    match /piezas/{document=**} {
       allow read:  if canReadWarehouseState();
       allow write: if false;
     }
 
-    // Pickup queue — validated kiosks and operational/admin roles may read.
-    match /pickupQueue/{document=**} {
+    match /resumen_piezas/{document=**} {
+      allow read:  if canReadWarehouseState();
+      allow write: if false;
+    }
+
+    match /piezas_agregadas/{document=**} {
+      allow read:  if canReadWarehouseState();
+      allow write: if false;
+    }
+
+    match /cola_recogida/{document=**} {
       allow read:  if isValidatedDevice() || isOperationalUser();
       allow write: if false;
     }
 
-    // Immutable audit log — operational and monitoring roles only.
-    match /history/{document=**} {
+    match /historial/{document=**} {
       allow read:  if canReadHistory();
       allow write: if false;
     }
 
-    // Notification feed — written by Cloud Functions; readable by registered users.
-    match /notifications/{document=**} {
+    match /avisos/{document=**} {
       allow read:  if isOperationalUser() || isMonitoringUser();
       allow write: if false;
     }
 
-    // Chat messages — written by Cloud Functions; readable by all registered users.
-    match /chatMessages/{document=**} {
+    match /chat_mensajes/{document=**} {
       allow read:  if isRegisteredUser();
       allow write: if false;
     }
 
-    // Working/finished item views — monitoring roles only (reporting/dashboards).
-    match /workingItems/{document=**} {
+    match /piezas_en_curso/{document=**} {
       allow read:  if isMonitoringUser();
       allow write: if false;
     }
 
-    match /finishedItems/{document=**} {
+    match /piezas_terminadas/{document=**} {
       allow read:  if isMonitoringUser();
       allow write: if false;
     }
 
-    // Legacy collection written exclusively by inventoryOperate Cloud Function.
-    // Direct client access is intentionally denied.
-    match /assignments/{document=**} {
-      allow read, write: if false;
+    // ── CONNECTION MONITORING ────────────────────────────────────────────────
+    // Cada dispositivo escribe su propio doc (keyed por auth.uid).
+    // Solo ADMIN/SUPERADMIN pueden leer la coleccion completa.
+
+    match /conexion_estado/{uid} {
+      allow read: if isAdminLike();
+      allow write: if isAuthenticated()
+                   && request.auth.uid == uid
+                   && request.resource.data.authUid == request.auth.uid;
     }
 
-    // Default deny: any collection not listed above is blocked.
+    match /conexion_logs/{logId} {
+      allow read: if isAdminLike();
+      allow create: if isAuthenticated()
+                    && request.resource.data.authUid == request.auth.uid
+                    && request.resource.data.timestamp is string;
+      allow update, delete: if false;
+    }
+
+    // Legacy fallback
     match /{document=**} {
       allow read, write: if false;
     }
