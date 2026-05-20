@@ -65,7 +65,7 @@ export const getUserContext = async (
     };
   }
 
-  const userDoc = await admin.firestore().collection('users').doc(uid).get();
+  const userDoc = await admin.firestore().collection('usuarios').doc(uid).get();
   const userData = userDoc.exists ? userDoc.data() : null;
   const role = typeof userData?.role === 'string' ? normalizeRole(userData.role) : '';
   const section = typeof userData?.section === 'string' ? userData.section : null;
@@ -116,7 +116,7 @@ export const resolveOperationalActor = async (
     throw new functions.https.HttpsError('permission-denied', 'Sesion operativa anonima invalida.');
   }
 
-  const deviceDoc = await admin.firestore().collection('devices').doc(deviceId).get();
+  const deviceDoc = await admin.firestore().collection('dispositivos').doc(deviceId).get();
   if (!deviceDoc.exists) {
     throw new functions.https.HttpsError('permission-denied', 'Dispositivo no registrado.');
   }

@@ -1,9 +1,12 @@
 import React, { useCallback, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import { useKiosk } from '../../hooks/useKiosk';
 import { useShelf, type ShelfLocationState } from '../../hooks/useShelf';
 import { usePickupQueue } from '../../hooks/usePickupQueue';
 import ShelfGrid from './ShelfGrid';
 import ScannerInput from './ScannerInput';
+import ShelfSelector from './ShelfSelector';
+import DeviceInfoModal from '../common/DeviceInfoModal';
 import ConfirmationModal from '../common/ConfirmationModal';
 import { formatArticleDisplay, type ScanParseResult } from '../../lib/qrParser';
 import KioskActionBar from './KioskActionBar';
@@ -16,8 +19,12 @@ import KioskSearchBar from './KioskSearchBar';
 import type { KioskAction, KioskConfirmModalState, KioskFeedback, ScanData } from './kioskShared';
 
 const KioskView: React.FC = () => {
-  const { assignedShelf, operarioId, displayName, logout } = useAuth();
-  const shelfCode = assignedShelf || '';
+  const { assignedShelf, operarioId, displayName, logout, kioskId, deviceId } = useAuth();
+  const { kiosk, shelves, currentShelf, setCurrentShelf } = useKiosk(kioskId);
+  const [showDeviceInfo, setShowDeviceInfo] = useState(false);
+
+  // Determinar la estantería a mostrar: usar kiosko si está disponible, sino assignedShelf
+  const shelfCode = currentShelf || assignedShelf || '';
   const { locations, loading, shelfDef, ubicar, retirar, retirarDeUbicacion, mover, findArticle, totalArticles, totalOccupied, totalEmpty } = useShelf(shelfCode);
   const { createPickupRequest } = usePickupQueue();
 
@@ -378,7 +385,12 @@ const KioskView: React.FC = () => {
 
   return (
     <div className="min-h-dvh bg-[radial-gradient(circle_at_top,_rgba(6,182,212,0.14),_transparent_30%),linear-gradient(180deg,_#020617_0%,_#0f172a_45%,_#020617_100%)] flex flex-col relative">
-      <KioskHeader shelfName={shelfDef?.name || ''} shelfCode={shelfCode} totalOccupied={totalOccupied} totalEmpty={totalEmpty} totalArticles={totalArticles} displayName={displayName} operarioId={operarioId} onLogout={logout} />
+      <KioskHeader shelfName={shelfDef?.name || ''} shelfCode={shelfCode} totalOccupied={totalOccupied} totalEmpty={totalEmpty} totalArticles={totalArticles} displayName={displayName} operarioId={operarioId} deviceId={deviceId} onLogout={logout} onInfo={() => setShowDeviceInfo(true)} />
+      {kiosk && shelves.length > 1 && (
+        <div className="bg-slate-800/40 border-b border-slate-700 px-4 py-2 flex justify-center">
+          <ShelfSelector shelves={shelves} currentShelf={currentShelf} onSelectShelf={setCurrentShelf} />
+        </div>
+      )}
       {!batchMode && <KioskActionBar action={action} scanData={scanData} scannerActive={scannerActive} selectedPositions={selectedPositions} onConfirmMove={handleMoverConfirm} onConfirmUbicar={handleUbicarMultiPositionConfirm} onCancel={cancelAction} />}
 
       {batchMode && (action === 'ubicar' || action === 'retirar') && (
@@ -408,7 +420,7 @@ const KioskView: React.FC = () => {
             )}
             {action === 'ubicar' && selectedPositions.length > 0 && (
               <div className="text-xs text-slate-300 mb-2 bg-cyan-500/20 p-2 rounded border border-cyan-500/30">
-                Posiciones seleccionadas: {selectedPositions.map(p => `PLE ${parseInt(p, 10).toString().padStart(3, '0')}`).join(', ')}
+                Posiciones seleccionadas: {selectedPositions.map(p => `${shelfCode} ${parseInt(p, 10).toString().padStart(3, '0')}`).join(', ')}
               </div>
             )}
             <div className="flex gap-2">
@@ -560,6 +572,13 @@ const KioskView: React.FC = () => {
       )}
 
       <ConfirmationModal open={confirmModal.open && foundLocationsForRetirar.length <= 1} onClose={() => setConfirmModal((prev) => ({ ...prev, open: false }))} title={confirmModal.title} message={confirmModal.message} icon={confirmModal.icon} variant={confirmModal.variant} onConfirm={confirmModal.onConfirm} extraButton={confirmModal.extraButton} loading={processing} />
+
+      {showDeviceInfo && (
+        <DeviceInfoModal
+          deviceId={deviceId}
+          onClose={() => setShowDeviceInfo(false)}
+        />
+      )}
     </div>
   );
 };

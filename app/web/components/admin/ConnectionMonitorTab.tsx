@@ -311,15 +311,16 @@ type ViewMode = 'live' | 'analysis';
 const ConnectionMonitorTab: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('live');
   const [devices, setDevices] = useState<DeviceConnectionStatus[]>([]);
+  const [snapshotError, setSnapshotError] = useState<string | null>(null);
   const [logs, setLogs] = useState<ConnectionLogEntry[]>([]);
   const [dateRange, setDateRange] = useState<DateRange>('7d');
   const [loadingLogs, setLoadingLogs] = useState(false);
-  const [lastRefresh, setLastRefresh] = useState(Date.now());
+  // Tick counter only to refresh relative-time labels every 30s — not used in expensive memos.
+  const [, setTick] = useState(0);
   const refreshTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Force re-render every 30s to keep relative times fresh
   useEffect(() => {
-    refreshTimer.current = setInterval(() => setLastRefresh(Date.now()), 30_000);
+    refreshTimer.current = setInterval(() => setTick((t) => t + 1), 30_000);
     return () => { if (refreshTimer.current) clearInterval(refreshTimer.current); };
   }, []);
 
@@ -328,8 +329,8 @@ const ConnectionMonitorTab: React.FC = () => {
     const unsubscribe = onSnapshot(
       collection(db, COLLECTIONS.CONNECTION_STATUS),
       (snap) => {
+        setSnapshotError(null);
         const docs = snap.docs.map((d) => ({ ...(d.data() as DeviceConnectionStatus) }));
-        // Sort: online first, then by last seen desc
         docs.sort((a, b) => {
           const sa = getOnlineStatus(a);
           const sb = getOnlineStatus(b);
@@ -339,7 +340,10 @@ const ConnectionMonitorTab: React.FC = () => {
         });
         setDevices(docs);
       },
-      (err) => console.error('[ConnectionMonitor] status subscription error', err),
+      (err) => {
+        console.error('[ConnectionMonitor] status subscription error', err);
+        setSnapshotError('No se pudo cargar el estado de los dispositivos. Comprueba permisos.');
+      },
     );
     return () => unsubscribe();
   }, []);
@@ -387,7 +391,9 @@ const ConnectionMonitorTab: React.FC = () => {
     return Array.from(deviceMap.entries()).map(([deviceId, meta]) =>
       computeStats(logs, deviceId, meta.name, meta.type, startMs, endMs),
     ).sort((a, b) => b.uptimePct - a.uptimePct);
-  }, [devices, logs, dateRange, lastRefresh]);
+  // lastRefresh intentionally excluded: relative time labels are computed at render
+  // time via formatRelativeTime(Date.now()), not in this memo.
+  }, [devices, logs, dateRange]);
 
   // Summary counters
   const onlineCount = devices.filter((d) => getOnlineStatus(d) === 'online').length;
@@ -427,6 +433,13 @@ const ConnectionMonitorTab: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Snapshot error banner */}
+      {snapshotError && (
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          ⚠️ {snapshotError}
+        </div>
+      )}
 
       {/* Mode tabs */}
       <div className="flex gap-2 border-b border-slate-800 pb-0">

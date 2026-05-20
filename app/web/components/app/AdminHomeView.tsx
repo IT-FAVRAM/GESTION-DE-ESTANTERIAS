@@ -50,6 +50,12 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
             <h3 className="font-bold text-white">Estanterías</h3>
             <p className="text-xs text-slate-500 text-center">Visual de todas las secciones y saturación</p>
           </div>
+          {/* Monitor de conexiones — disponible para ADMIN y SUPERADMIN */}
+          <div className="bg-slate-900 rounded-2xl border border-cyan-500/20 p-6 flex flex-col items-center gap-3 hover:border-cyan-400/50 transition-colors cursor-pointer" onClick={() => onOpenPanel('connections')}>
+            <span className="text-4xl">📡</span>
+            <h3 className="font-bold text-white">Conexiones</h3>
+            <p className="text-xs text-slate-500 text-center">Monitor wifi en tiempo real de todos los kioskos</p>
+          </div>
           {/* Historial — trazabilidad de artículos */}
           <div className="bg-slate-900 rounded-2xl border border-cyan-500/20 p-6 flex flex-col items-center gap-3 hover:border-cyan-500/50 transition-colors cursor-pointer" onClick={onOpenTimeline}>
             <span className="text-4xl">📋</span>

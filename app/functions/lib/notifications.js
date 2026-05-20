@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.pickupQueueOperate = exports.notifyCarretilleroRequest = exports.notifySpecialLocationOccupancy = exports.notifyPickupQueueCreated = exports.checkStaleItems = void 0;
+exports.pickupQueueOperate = exports.notifyLongDisconnection = exports.notifyConnectionDisconnect = exports.notifyCarretilleroRequest = exports.notifySpecialLocationOccupancy = exports.notifyPickupQueueCreated = exports.checkStaleItems = void 0;
 const functions = require("firebase-functions");
 const firebaseAdmin_1 = require("./firebaseAdmin");
 const authz_1 = require("./authz");
@@ -139,6 +139,88 @@ exports.notifyCarretilleroRequest = functions.firestore
         body: data.message || 'Tienes una nueva solicitud pendiente.',
         data: { url: '/requests', requestId: String(context.params.notificationId || ''), priority: ((_a = data.metadata) === null || _a === void 0 ? void 0 : _a.priority) || 'normal' },
     });
+});
+// ── WiFi Connection Monitoring Notifications ───────────────────────────────────
+exports.notifyConnectionDisconnect = functions.firestore
+    .document('conexion_logs/{logId}')
+    .onCreate(async (snapshot, context) => {
+    const log = snapshot.data() || {};
+    // Only notify on DISCONNECTED events
+    if (log.event !== 'DISCONNECTED')
+        return null;
+    const deviceName = String(log.deviceName || 'Dispositivo desconocido');
+    const deviceType = String(log.deviceType || 'UNKNOWN');
+    const timestamp = log.timestamp ? new Date(log.timestamp).toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    }) : 'hace poco';
+    // Notify ADMIN and SUPERADMIN roles
+    await Promise.all([
+        (0, push_1.notifyUsersByRole)('ADMIN', {
+            title: '⚠️ Desconexión WiFi detectada',
+            body: `${deviceName} se desconectó a las ${timestamp}`,
+            data: {
+                type: 'DEVICE_DISCONNECTED',
+                deviceId: String(log.deviceId || ''),
+                deviceName,
+                deviceType,
+                timestamp: log.timestamp || '',
+            }
+        }),
+        (0, push_1.notifyUsersByRole)('SUPERADMIN', {
+            title: '⚠️ Desconexión WiFi detectada',
+            body: `${deviceName} se desconectó a las ${timestamp}`,
+            data: {
+                type: 'DEVICE_DISCONNECTED',
+                deviceId: String(log.deviceId || ''),
+                deviceName,
+                deviceType,
+                timestamp: log.timestamp || '',
+            }
+        })
+    ]).catch((err) => {
+        console.error('[notifyConnectionDisconnect] Error sending notifications:', err);
+    });
+    return null;
+});
+// Long offline detection (triggered when a device stays offline for 10+ minutes)
+exports.notifyLongDisconnection = functions.pubsub
+    .schedule('every 10 minutes')
+    .timeZone('Europe/Madrid')
+    .onRun(async () => {
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const statusSnapshot = await firebaseAdmin_1.admin.firestore()
+        .collection('conexion_estado')
+        .where('isOnline', '==', false)
+        .where('lastDisconnectedAt', '<=', tenMinutesAgo)
+        .get();
+    const offlineDevices = statusSnapshot.docs.map((doc) => doc.data());
+    if (offlineDevices.length === 0)
+        return { checked: 0, critical: 0 };
+    const criticalDevices = offlineDevices.filter((device) => {
+        const disconnectTime = new Date(device.lastDisconnectedAt).getTime();
+        const now = Date.now();
+        return (now - disconnectTime) > 30 * 60 * 1000; // > 30 minutes offline
+    });
+    if (criticalDevices.length > 0) {
+        const deviceList = criticalDevices
+            .map((d) => `${d.deviceName} (${d.deviceType}) - ${Math.floor((Date.now() - new Date(d.lastDisconnectedAt).getTime()) / 60000)}m`)
+            .join('\n');
+        await Promise.all([
+            (0, push_1.notifyUsersByRole)('SUPERADMIN', {
+                title: '🔴 Dispositivos críticos sin conexión',
+                body: `${criticalDevices.length} dispositivo(s) llevan más de 30 minutos sin conexión:\n${deviceList}`,
+                data: {
+                    type: 'CRITICAL_OFFLINE_ALERT',
+                    deviceCount: String(criticalDevices.length),
+                }
+            })
+        ]).catch((err) => {
+            console.error('[notifyLongDisconnection] Error sending critical alert:', err);
+        });
+    }
+    return { checked: offlineDevices.length, critical: criticalDevices.length };
 });
 exports.pickupQueueOperate = functions.https.onCall(async (data, context) => {
     const actor = await (0, authz_1.resolveOperationalActor)(context, data === null || data === void 0 ? void 0 : data.session);

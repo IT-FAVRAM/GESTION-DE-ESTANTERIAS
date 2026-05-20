@@ -4,12 +4,14 @@ import { useAuth } from '../../hooks/useAuth';
 import ShelfGrid from '../kiosk/ShelfGrid';
 import KioskSearchBar from '../kiosk/KioskSearchBar';
 import ScannerInput from '../kiosk/ScannerInput';
+import CameraQRScanner from '../common/CameraQRScanner';
+import CameraOCRScanner from '../common/CameraOCRScanner';
 import ConfirmationModal from '../common/ConfirmationModal';
 import ReprocesosEditor from '../kiosk/ReprocesosEditor';
 import { isReprocesosLocation } from '../../lib/firestoreSchema';
 import { calcReprocesosTotal } from '../../lib/api/reprocesosApi';
 import CalidadReprocesosSection from './CalidadReprocesosSection';
-import { formatArticleDisplay, type ScanParseResult } from '../../lib/qrParser';
+import { formatArticleDisplay, type ScanParseResult, parseScanInput } from '../../lib/qrParser';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import { usePickupQueue } from '../../hooks/usePickupQueue';
 
@@ -26,6 +28,8 @@ const CalidadView: React.FC = () => {
   const [processing, setProcessing] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [reprocesosCell, setReprocesosCell] = useState<ShelfLocationState | null>(null);
+  const [showCameraScanner, setShowCameraScanner] = useState(false);
+  const [showOCRScanner, setShowOCRScanner] = useState(false);
 
   const [confirmModal, setConfirmModal] = useState<{
     open: boolean; title: string; message: string; icon: string;
@@ -312,6 +316,19 @@ const CalidadView: React.FC = () => {
     showFeedback(ok ? 'success' : 'error', ok ? '✅ Movido' : 'Error');
   };
 
+  const handleQRScan = useCallback((qrCode: string) => {
+    setShowCameraScanner(false);
+    const result = parseScanInput(qrCode);
+    handleScan(result);
+  }, [handleScan]);
+
+  const handleOCRResult = useCallback((text: string) => {
+    setShowOCRScanner(false);
+    const cleanText = text.trim();
+    const result = parseScanInput(cleanText);
+    handleScan(result);
+  }, []);
+
   return (
     <div className="min-h-dvh bg-slate-950 flex flex-col">
        {/* Header */}
@@ -324,12 +341,21 @@ const CalidadView: React.FC = () => {
                <p className="text-xs text-slate-200">{displayName}</p>
              </div>
            </div>
-           <button
-             onClick={logout}
-             className="px-4 py-2 bg-slate-800/80 text-slate-100 rounded-xl font-bold hover:bg-slate-700/80 hover:text-white transition-all duration-200"
-           >
-             Salir
-           </button>
+           <div className="flex gap-2">
+             <button
+               onClick={() => setShowCameraScanner(true)}
+               className="px-3 py-2 text-xs font-bold bg-cyan-600/80 text-white rounded-lg hover:bg-cyan-700/80 transition-all duration-200 flex items-center gap-2"
+               title="Escanear QR con cámara"
+             >
+               📷 Cámara
+             </button>
+             <button
+               onClick={logout}
+               className="px-4 py-2 bg-slate-800/80 text-slate-100 rounded-xl font-bold hover:bg-slate-700/80 hover:text-white transition-all duration-200"
+             >
+               Salir
+             </button>
+           </div>
          </div>
        </header>
 
@@ -498,7 +524,13 @@ const CalidadView: React.FC = () => {
         </div>
       )}
 
-      <ScannerInput onScan={handleScan} active={scannerActive} disabled={processing} />
+      <ScannerInput
+        onScan={handleScan}
+        active={scannerActive}
+        disabled={processing}
+        onOpenQRCamera={() => setShowCameraScanner(true)}
+        onOpenOCRCamera={() => setShowOCRScanner(true)}
+      />
 
       <ConfirmationModal
         open={confirmModal.open}
@@ -521,6 +553,21 @@ const CalidadView: React.FC = () => {
             const updated = locations.find((location) => location.position === reprocesosCell.position);
             if (updated) setReprocesosCell(updated);
           }}
+        />
+      )}
+
+      {showCameraScanner && (
+        <CameraQRScanner
+          onScan={handleQRScan}
+          onClose={() => setShowCameraScanner(false)}
+        />
+      )}
+
+      {showOCRScanner && (
+        <CameraOCRScanner
+          onResult={handleOCRResult}
+          onClose={() => setShowOCRScanner(false)}
+          language="spa"
         />
       )}
     </div>

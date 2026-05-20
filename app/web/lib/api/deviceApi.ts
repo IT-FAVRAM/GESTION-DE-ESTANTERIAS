@@ -1,5 +1,5 @@
 import { httpsCallable } from 'firebase/functions';
-import { functions, auth } from '../firebase';
+import { functions, auth } from '../firebase/index.js';
 import type { DeviceDoc } from '../firestoreSchema';
 
 type ResolveDeviceResult = {

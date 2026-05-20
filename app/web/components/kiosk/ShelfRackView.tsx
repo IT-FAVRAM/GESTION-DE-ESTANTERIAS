@@ -62,12 +62,8 @@ function getPaletteKey(shelfCode: string, zoneName?: string): PaletteKey {
   return 'blue';
 }
 
-// Altura mínima de cada hueco según número de filas del bloque
-function getSlotMinH(rowCount: number): number {
-  if (rowCount <= 2) return 108;
-  if (rowCount <= 4) return 88;
-  if (rowCount <= 6) return 72;
-  return 62;
+function getSlotMinH(_rowCount: number): number {
+  return 90;
 }
 
 // ─── RackSlot — hueco individual ──────────────────────────────────────────────
@@ -214,48 +210,76 @@ const RackSlot: React.FC<RackSlotProps> = ({
 
       {/* Cuerpo del hueco */}
       {isEmpty ? (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: emptyColor }}>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 3 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, opacity: 0.4 }}>
+            <div style={{ width: 22, height: 2, background: emptyColor, borderRadius: 1 }} />
+            <div style={{ width: 14, height: 2, background: emptyColor, borderRadius: 1 }} />
+          </div>
+          <span style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: emptyColor }}>
             vacío
           </span>
         </div>
       ) : (
-        <div
-          style={{
-            margin: '3px 3px 3px 3px',
-            borderRadius: 3,
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            padding: '4px 6px',
-            background: itemBg,
-          }}
-        >
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '3px 4px 2px', gap: 2, minHeight: 0 }}>
           {items.slice(0, 2).map((item, i) => (
-            <div key={i} style={i > 0 ? { marginTop: 3, paddingTop: 3, borderTop: '1px solid rgba(255,255,255,0.08)' } : {}}>
-              <p style={{ fontSize: 11, fontWeight: 900, fontFamily: 'monospace', color: artColor, lineHeight: 1.2, wordBreak: 'break-all', margin: 0 }}>
+            <div
+              key={i}
+              style={{
+                flex: 1,
+                background: itemBg,
+                borderRadius: 3,
+                padding: '3px 5px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                borderLeft: `3px solid ${artColor}`,
+                minHeight: 0,
+                overflow: 'hidden',
+              }}
+            >
+              <p style={{ fontSize: 10, fontWeight: 900, fontFamily: 'monospace', color: artColor, lineHeight: 1.15, wordBreak: 'break-all', margin: 0 }}>
                 {item.articleCode}
               </p>
-              <p style={{ fontSize: 9, fontWeight: 600, fontFamily: 'monospace', color: ofColor, lineHeight: 1.2, wordBreak: 'break-all', margin: '1px 0 0' }}>
+              <p style={{ fontSize: 8, fontWeight: 600, fontFamily: 'monospace', color: ofColor, lineHeight: 1.15, wordBreak: 'break-all', margin: '1px 0 0' }}>
                 {item.orderFab}
               </p>
               {showReprocessCosts && item.unitCost != null && item.unitCost > 0 && (
-                <p style={{ fontSize: 8, color: '#fcd34d', fontFamily: 'monospace', margin: '2px 0 0', lineHeight: 1 }}>
+                <p style={{ fontSize: 7.5, color: '#fcd34d', fontFamily: 'monospace', margin: '1px 0 0', lineHeight: 1 }}>
                   {item.unitCost.toFixed(2)} €/ud
                 </p>
               )}
             </div>
           ))}
           {items.length > 2 && (
-            <p style={{ fontSize: 8, color: '#94a3b8', fontFamily: 'monospace', margin: '2px 0 0', lineHeight: 1 }}>
-              +{items.length - 2} más
-            </p>
+            <div style={{ background: itemBg, borderRadius: 3, padding: '2px 5px', flexShrink: 0 }}>
+              <p style={{ fontSize: 8, color: '#94a3b8', fontFamily: 'monospace', margin: 0, lineHeight: 1 }}>
+                +{items.length - 2} más
+              </p>
+            </div>
           )}
         </div>
       )}
 
-      {/* Balda / superficie de la estantería (la parte metálica en la que apoya el pallet) */}
+      {/* Indicador de carga */}
+      <div style={{ height: 3, margin: '0 4px 3px', background: 'rgba(0,0,0,0.35)', borderRadius: 2, flexShrink: 0, overflow: 'hidden' }}>
+        <div
+          style={{
+            height: '100%',
+            width: isEmpty ? '0%' : `${Math.min((items.length / 3) * 100, 100)}%`,
+            background: isSelected ? 'rgba(34,211,238,0.9)'
+              : isHighlighted ? 'rgba(251,191,36,0.9)'
+              : isUrgent ? 'rgba(239,68,68,0.85)'
+              : (isTechReview || isAluminio) ? 'rgba(245,158,11,0.85)'
+              : items.length <= 1 ? 'rgba(16,185,129,0.9)'
+              : items.length === 2 ? 'rgba(245,158,11,0.85)'
+              : 'rgba(239,68,68,0.85)',
+            borderRadius: 2,
+            transition: 'width 0.4s ease',
+          }}
+        />
+      </div>
+
+      {/* Balda / superficie de la estantería */}
       <div style={{ height: 5, background: shelfSurface, flexShrink: 0, borderRadius: '0 0 3px 3px' }} />
     </div>
   );
@@ -304,7 +328,7 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
         borderRadius: 10,
         overflow: 'hidden',
         boxShadow: '0 12px 48px rgba(0,0,0,0.65), 0 2px 8px rgba(0,0,0,0.4)',
-        background: '#030508',
+        background: '#F9F6F0',
       }}
     >
       {/* ── Poste izquierdo ───────────────────────────────────────────────── */}
@@ -319,7 +343,7 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
       />
 
       {/* ── Cuerpo del rack ───────────────────────────────────────────────── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#080c14' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F5F2EB' }}>
 
         {/* Marco superior */}
         <div

@@ -1,33 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.userPushReport = exports.leadTimeAIReport = exports.leadTimeDataset = exports.leadTimeReporting = void 0;
+exports.userPushReport = exports.leadTimeDataset = exports.leadTimeReporting = void 0;
 const functions = require("firebase-functions");
-const generative_ai_1 = require("@google/generative-ai");
-const params_1 = require("firebase-functions/params");
 const authz_1 = require("./authz");
 const firebaseAdmin_1 = require("./firebaseAdmin");
-const GEMINI_API_KEY = (0, params_1.defineSecret)('GEMINI_API_KEY');
-const MODEL_NAME = 'gemini-2.0-flash';
-const requestLog = {};
 const normalize = (value) => (value || '').trim().toUpperCase();
 const toMillis = (value) => {
     if (!value)
         return null;
     const time = new Date(value).getTime();
     return Number.isNaN(time) ? null : time;
-};
-const getGeminiClient = () => {
-    const apiKey = GEMINI_API_KEY.value() || process.env.GEMINI_API_KEY;
-    if (!apiKey)
-        throw new functions.https.HttpsError('failed-precondition', 'AI not configured.');
-    return new generative_ai_1.GoogleGenerativeAI(apiKey);
-};
-const checkRateLimit = (uid) => {
-    const now = Date.now();
-    requestLog[uid] = (requestLog[uid] || []).filter((time) => now - time < 60000);
-    if (requestLog[uid].length >= 10)
-        throw new functions.https.HttpsError('resource-exhausted', 'Too many requests. Please wait a minute.');
-    requestLog[uid].push(now);
 };
 exports.leadTimeReporting = functions.https.onCall(async (_data, context) => {
     await (0, authz_1.requireAllowedRoles)(context, ['ADMIN', 'SUPERADMIN']);
@@ -87,24 +69,6 @@ exports.leadTimeDataset = functions.https.onCall(async (data, context) => {
         rows.push({ barcode: exitEvent.barcode, orderId: exitEvent.orderId || 'N/A', entryDate: entryEvent.timestamp, exitDate: exitEvent.timestamp, durationDays: (new Date(exitEvent.timestamp).getTime() - new Date(entryEvent.timestamp).getTime()) / (1000 * 60 * 60 * 24) });
     }
     return { rows };
-});
-exports.leadTimeAIReport = functions.runWith({ secrets: [GEMINI_API_KEY] }).https.onCall(async (data, context) => {
-    if (!context.auth)
-        throw new functions.https.HttpsError('unauthenticated', 'User must be logged in.');
-    const aiRole = (0, authz_1.normalizeRole)(context.auth.token.role);
-    if (!['ADMIN', 'SUPERADMIN'].includes(aiRole))
-        throw new functions.https.HttpsError('permission-denied', 'Only Admins can access AI analysis.');
-    checkRateLimit(context.auth.uid);
-    const { rows, summaryStats } = data;
-    const prompt = `ACTUA COMO CONSULTOR EXPERTO EN LOGISTICA WMS. Analiza el tiempo de permanencia. Estadisticas: ${JSON.stringify(summaryStats)}. Muestra: ${JSON.stringify(rows ? rows.slice(0, 15) : [])}. Devuelve markdown con diagnostico, riesgos y recomendaciones operativas.`;
-    try {
-        const result = await getGeminiClient().getGenerativeModel({ model: MODEL_NAME }).generateContent(prompt);
-        return { markdown: result.response.text() };
-    }
-    catch (error) {
-        console.error('AI Report Error:', error);
-        throw new functions.https.HttpsError('internal', 'AI Generation Failed');
-    }
 });
 exports.userPushReport = functions.https.onCall(async (_data, context) => {
     if (!context.auth)

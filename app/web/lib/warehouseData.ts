@@ -3,10 +3,11 @@
 // Default constants serve as fallback, but the app now supports dynamic strings
 // CSO, CXP, CRP removed
 
-export const DEFAULT_WAREHOUSES = ['MEC', 'PLE', 'SOL', 'RSO', 'REP', 'PIN', 'SXP', 'COM', 'RPL', 'CAL', 'ZIN'] as const;
+export const DEFAULT_WAREHOUSES = ['MEC', 'PRE', 'PLE', 'SOL', 'RSO', 'REP', 'PIN', 'SXP', 'COM', 'RPL', 'CAL', 'ZIN'] as const;
 
 export const DEFAULT_WAREHOUSE_NAMES: Record<string, string> = {
   'MEC': 'Mecanizado',
+  'PRE': 'Prensas',
   'PLE': 'Plegado',
   'SOL': 'Soldadura',
   'RSO': 'Robot Soldadura',
@@ -51,6 +52,7 @@ export interface AssignmentItem {
   packageType?: PackageType;
   itemKey?: string; // Normalized key: ${barcode}__${orderId}
   quantity?: number;
+  amount?: number; // Value in EUR for reprocesses/quality tracking
   containerId?: string;
   notes?: string;
 }
@@ -139,11 +141,12 @@ export const RACKS = DEFAULT_RACKS;
 export const POSITIONS = DEFAULT_POSITIONS;
 
 // --- SECTIONS LOGIC ---
-export type WarehouseSection = "PLEGADORA" | "MECANIZADO" | "LASER" | "REPASADO" | "SOLDADURA" | "AUTOPLEGADORA" | "OTROS";
+export type WarehouseSection = "PLEGADORA" | "MECANIZADO" | "LASER" | "REPASADO" | "SOLDADURA" | "AUTOPLEGADORA" | "PINTURA" | "ROBOT_PLEGADO" | "CALIDAD" | "OTROS";
 
 // Mapa de prefijos de ubicación a secciones
 export const WAREHOUSE_TO_SECTION: Record<string, WarehouseSection> = {
   MEC: "MECANIZADO",
+  PRE: "MECANIZADO", // Prensas belongs to Mecanizado section
   PLE: "PLEGADORA",
   RPL: "AUTOPLEGADORA", // Autoplegadora
   SOL: "SOLDADURA",
@@ -184,14 +187,14 @@ export const formatLocation = (id: string): string => {
 
   // Standard structured locations (Warehouse + Code)
   if (id.includes('MEC') && id.includes('MEC ')) return id.split('-').pop()!;
+  if (id.includes('PRE') && id.includes('PRE ')) return id.split('-').pop()!;
   if (id.includes('PLE') && id.includes('PLE ')) return id.split('-').pop()!;
-  if (id.includes('SOL') && id.includes('SOL ')) return id.split('-').pop()!;
   if (id.includes('SOL') && id.includes('SOL ')) return id.split('-').pop()!;
   if (id.includes('SXP') && id.includes('SXP ')) return id.split('-').pop()!;
   if (id.includes('PIN') && id.includes('PIN ')) return id.split('-').pop()!;
   if (id.includes('CAL') && id.includes('CAL ')) return id.split('-').pop()!;
   if (id.includes('REP') && id.includes('REP ')) return id.split('-').pop()!;
-  if (id.includes('ROB.SOL')) return id.split('-').pop()!;
+  if (id.includes('ROB.SOL') || id.includes('RSO')) return id.split('-').pop()!;
   if (id.includes('RPL')) return id.split('-').pop()!;
   if (id.includes('COM') && id.includes('COM ')) return id.split('-').pop()!;
 

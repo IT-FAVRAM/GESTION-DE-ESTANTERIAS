@@ -105,8 +105,8 @@ export const useWarehouseConfig = (assignments: Assignments) => {
             }
         });
 
-        // Remove deprecated carts (CSO, CXP, CRP) and Prensas (PRE)
-        const removedCodes = ['CSO', 'CXP', 'CRP', 'PRE'];
+        // Remove deprecated carts (CSO, CXP, CRP)
+        const removedCodes = ['CSO', 'CXP', 'CRP'];
         removedCodes.forEach(code => {
             if (newConfig.warehouses.some(w => w.code === code)) {
                 newConfig.warehouses = newConfig.warehouses.filter(w => w.code !== code);

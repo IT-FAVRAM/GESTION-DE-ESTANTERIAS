@@ -13,4 +13,5 @@ export * from './schema/shelves';
 export * from './schema/locations';
 export * from './schema/users';
 export * from './schema/devices';
+export * from './schema/kiosks';
 export * from './schema/documents';

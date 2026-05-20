@@ -9,7 +9,7 @@ import { inventoryApi } from '../lib/api/inventoryApi';
 import { enqueueOfflineOperation } from '../lib/offline/offlineQueue';
 import { getOperationalSession } from '../lib/operationalSession';
 import { resolveCurrentAuthSession } from '../domain/auth/authSessionResolver';
-import { applyUbicar, applyRetirar, applyMover } from '../lib/optimistic/shelfOptimisticUpdates';
+import { applyUbicar, applyRetirar, applyRetirarDeUbicacion, applyMover } from '../lib/optimistic/shelfOptimisticUpdates';
 import {
   type LocationDoc,
   type LocationItem,
@@ -209,8 +209,8 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
       if (!access.ok) return { success: false, position: '' };
       const session = getOperationalSession();
 
-      // Apply optimistic update
-      const result = applyRetirar(previousLocations, articleCode, orderFab);
+      // Apply optimistic update — only remove from the specific position
+      const result = applyRetirarDeUbicacion(previousLocations, articleCode, orderFab, position);
       setLocations(result.next);
 
       if (!navigator.onLine) {

@@ -19,7 +19,7 @@ export const getUsersByEmails = async (emails: string[]) => {
 
   const batches = await Promise.all(
     chunk(normalizedEmails, 10).map((group) =>
-      admin.firestore().collection('users').where('email', 'in', group).get(),
+      admin.firestore().collection('usuarios').where('email', 'in', group).get(),
     ),
   );
 
@@ -28,7 +28,7 @@ export const getUsersByEmails = async (emails: string[]) => {
 
 export const getUsersByRole = async (role: string) => {
   const normalizedRole = normalizeRole(role);
-  const snapshot = await admin.firestore().collection('users').where('role', '==', normalizedRole).get();
+  const snapshot = await admin.firestore().collection('usuarios').where('role', '==', normalizedRole).get();
   return snapshot.docs;
 };
 
@@ -74,7 +74,7 @@ export const sendPushToUsers = async (
     const ownerId = tokenOwners.get(token);
     if (!ownerId) return;
     cleanupTasks.push(
-      admin.firestore().collection('users').doc(ownerId).update({
+      admin.firestore().collection('usuarios').doc(ownerId).update({
         fcmTokens: admin.firestore.FieldValue.arrayRemove(token),
       }),
     );

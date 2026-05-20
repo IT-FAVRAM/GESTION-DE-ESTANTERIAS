@@ -1,7 +1,6 @@
 import * as functions from 'firebase-functions';
 import { admin } from './firebaseAdmin';
 import { normalizeRole } from './authz';
-import { v4 as uuidv4 } from 'uuid';
 
 const isSameIdentity = (
   item: any,

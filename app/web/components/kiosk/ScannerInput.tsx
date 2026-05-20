@@ -1,98 +1,97 @@
-/**
- * ScannerInput — Captura invisible de entrada de pistola de escáner
- * Gestor de Estanterías WMS v3.0
- * 
- * La pistola USB estándar emula un teclado: envía caracteres + Enter.
- * Este componente mantiene un input oculto con autofocus permanente,
- * captura el texto completo y lo parsea cuando llega el Enter.
+﻿/**
+ * ScannerInput — Entrada de escaneo manual + botones para QR/OCR
+ * Maneja escaneo por teclado y permite abrir cámaras
  */
 
-import React, { useRef, useEffect, useCallback, useState } from 'react';
-import { parseScanInput, type ScanParseResult } from '../../lib/qrParser';
+import React, { useState, useRef, useEffect } from 'react';
+import type { ScanParseResult } from '../../lib/qrParser';
+import { parseScanInput } from '../../lib/qrParser';
 
 interface ScannerInputProps {
-  /** Se llama cuando se escanea un código correctamente */
   onScan: (result: ScanParseResult) => void;
-  /** Si el escáner está activo */
   active: boolean;
-  /** Si está deshabilitado */
   disabled?: boolean;
+  onOpenQRCamera?: () => void;
+  onOpenOCRCamera?: () => void;
 }
 
-const ScannerInput: React.FC<ScannerInputProps> = ({ onScan, active, disabled = false }) => {
+const ScannerInput: React.FC<ScannerInputProps> = ({
+  onScan,
+  active,
+  disabled = false,
+  onOpenQRCamera,
+  onOpenOCRCamera,
+}) => {
+  const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const [buffer, setBuffer] = useState('');
-  const lastKeyTime = useRef<number>(0);
 
-  // Mantener autofocus permanente
   useEffect(() => {
-    if (!active || disabled) return;
-    
-    const refocusInterval = setInterval(() => {
-      if (inputRef.current && document.activeElement !== inputRef.current) {
-        // Solo re-enfocar si no hay ningún otro input activo
-        const activeTag = document.activeElement?.tagName;
-        if (activeTag !== 'INPUT' && activeTag !== 'TEXTAREA') {
-          inputRef.current.focus();
-        }
-      }
-    }, 500);
-    
-    // Focus inicial
-    inputRef.current?.focus();
-    
-    return () => clearInterval(refocusInterval);
-  }, [active, disabled]);
+    if (active && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [active]);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (disabled) return;
-
-    const now = Date.now();
-    
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      
-      if (buffer.trim().length > 0) {
-        // Parsear el texto acumulado
-        const result = parseScanInput(buffer.trim());
+      if (input.trim()) {
+        const result = parseScanInput(input.trim());
         onScan(result);
+        setInput('');
+        inputRef.current?.focus();
       }
-      
-      // Reset buffer
-      setBuffer('');
-      if (inputRef.current) inputRef.current.value = '';
-      return;
     }
-    
-    // Detectar si es entrada rápida de pistola (< 50ms entre teclas)
-    // vs escritura humana manual (> 50ms)
-    lastKeyTime.current = now;
-  }, [buffer, disabled, onScan]);
-
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (disabled) return;
-    setBuffer(e.target.value);
-  }, [disabled]);
+  };
 
   if (!active) return null;
 
   return (
-    <input
-      ref={inputRef}
-      type="text"
-      value={buffer}
-      onChange={handleChange}
-      onKeyDown={handleKeyDown}
-      disabled={disabled}
-      autoComplete="off"
-      autoCorrect="off"
-      autoCapitalize="off"
-      spellCheck={false}
-      // Visually hidden pero funcional para capturar input de pistola
-      className="fixed -top-[100px] -left-[100px] w-1 h-1 opacity-0 pointer-events-none"
-      aria-hidden="true"
-      tabIndex={-1}
-    />
+    <div className="flex-shrink-0 bg-slate-900 border-t border-slate-800 p-4 space-y-3">
+      <div className="flex gap-2">
+        <input
+          ref={inputRef}
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Escanea aquí o escribe..."
+          disabled={disabled}
+          className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:opacity-50"
+          autoFocus
+        />
+        <button
+          onClick={() => {
+            setInput('');
+            inputRef.current?.focus();
+          }}
+          disabled={disabled || !input}
+          className="px-3 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-lg font-bold transition-colors"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div className="flex gap-2">
+        {onOpenQRCamera && (
+          <button
+            onClick={onOpenQRCamera}
+            disabled={disabled}
+            className="flex-1 px-3 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
+          >
+            <span>📷</span> QR
+          </button>
+        )}
+        {onOpenOCRCamera && (
+          <button
+            onClick={onOpenOCRCamera}
+            disabled={disabled}
+            className="flex-1 px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
+          >
+            <span>📸</span> OCR
+          </button>
+        )}
+      </div>
+    </div>
   );
 };
 

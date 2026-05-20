@@ -233,16 +233,41 @@ const Block: React.FC<BlockProps> = ({
       />
       <CollapsibleContent isCollapsed={isCollapsed}>
         <div className="pt-1 pb-2">
-          <ShelfRackView
-            block={block as import('../../lib/firestoreSchema').ShelfPhysicalBlock}
-            shelfCode={shelfDef.code}
-            locationMap={locationMap}
-            selectedPositions={selectedPositions}
-            highlightedPositions={highlightedPositions}
-            onCellPress={onCellPress}
-            showReprocessCosts={showReprocessCosts}
-            createEmptyLocation={createEmptyLocation}
-          />
+          {/* Mobile: cards touch-friendly, una ubicación por tarjeta */}
+          <div className="md:hidden grid grid-cols-2 gap-2">
+            {block.rows.flat().filter((p): p is number => p !== null).map((posNum) => {
+              const pos = posNum.toString().padStart(3, '0');
+              return (
+                <ShelfGridCell
+                  key={pos}
+                  position={pos}
+                  location={locationMap.get(pos)}
+                  shelfCode={shelfDef.code}
+                  isUrgent={isUrgentLocation(shelfDef.code, posNum)}
+                  isTechReview={isTechReviewLocation(shelfDef.code, posNum)}
+                  isAluminio={isAluminioLocation(shelfDef.code, posNum)}
+                  isSelected={selectedPositions.includes(pos)}
+                  isHighlighted={highlightedPositions.includes(pos)}
+                  showReprocessCosts={showReprocessCosts}
+                  onPress={onCellPress}
+                  createEmptyLocation={createEmptyLocation}
+                />
+              );
+            })}
+          </div>
+          {/* Tablet+: vista rack industrial */}
+          <div className="hidden md:block">
+            <ShelfRackView
+              block={block as import('../../lib/firestoreSchema').ShelfPhysicalBlock}
+              shelfCode={shelfDef.code}
+              locationMap={locationMap}
+              selectedPositions={selectedPositions}
+              highlightedPositions={highlightedPositions}
+              onCellPress={onCellPress}
+              showReprocessCosts={showReprocessCosts}
+              createEmptyLocation={createEmptyLocation}
+            />
+          </div>
         </div>
       </CollapsibleContent>
     </div>
@@ -283,6 +308,16 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
   const totalArticles = locations.reduce((sum, loc) => sum + (loc.items?.length ?? 0), 0);
   const pct = totalSlots > 0 ? Math.round((occupiedSlots / totalSlots) * 100) : 0;
   const physicalBlocks = shelfDef?.layout.physicalBlocks ?? [];
+
+  // Adaptar columnas al número de bloques no-fullWidth de la sección
+  // → secciones pequeñas (1 bloque) ocupan todo el ancho y se centran
+  const regularBlockCount = physicalBlocks.filter((b) => !b.fullWidth).length;
+  const blockGridCols =
+    regularBlockCount <= 1
+      ? 'grid-cols-1'
+      : regularBlockCount === 2
+      ? 'grid-cols-1 md:grid-cols-2'
+      : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3';
 
   const colsForBlock = useCallback((rows: Array<Array<number | null>>): string => {
     const maxCols = Math.max(...rows.map((row) => row.length), 1);
@@ -340,7 +375,7 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
       );
     }
     return (
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex overflow-x-auto gap-1.5 pb-4 [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
         {locations.map((loc) => (
           <ShelfGridCell
             key={loc.position}
@@ -393,9 +428,9 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
        )}
 
        {physicalBlocks.length > 0 ? (
-         <div className={`flex flex-wrap items-start gap-${fullscreenMode ? 2 : 3}`}>
+         <div className={`grid ${blockGridCols} pb-4 ${fullscreenMode ? 'gap-2' : 'gap-3'}`}>
            {physicalBlocks.map((block) => (
-             <div key={block.id} className={block.fullWidth ? 'w-full' : 'flex-1 min-w-[220px]'}>
+             <div key={block.id} className={block.fullWidth ? 'col-span-full' : ''}>
                <Block
                  block={block}
                  shelfDef={shelfDef!}

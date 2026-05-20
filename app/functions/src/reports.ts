@@ -34,6 +34,7 @@ export const leadTimeReporting = functions.https.onCall(async (_data: any, conte
     bySection.set(section, { totalDays: (bySection.get(section)?.totalDays || 0) + diffDays, count: (bySection.get(section)?.count || 0) + 1 });
     byShelf.set(shelfCode, { totalDays: (byShelf.get(shelfCode)?.totalDays || 0) + diffDays, count: (byShelf.get(shelfCode)?.count || 0) + 1 });
     openCycles.delete(key);
+    return;
   });
   const bySectionRows = Array.from(bySection.entries()).map(([section, stats]) => ({ section, completedCycles: stats.count, averageLeadTimeDays: Number((stats.totalDays / stats.count).toFixed(2)) })).sort((a, b) => b.averageLeadTimeDays - a.averageLeadTimeDays);
   const byShelfRows = Array.from(byShelf.entries()).map(([shelfCode, stats]) => ({ shelfCode, completedCycles: stats.count, averageLeadTimeDays: Number((stats.totalDays / stats.count).toFixed(2)) })).sort((a, b) => b.averageLeadTimeDays - a.averageLeadTimeDays);
@@ -49,16 +50,39 @@ export const leadTimeDataset = functions.https.onCall(async (data: any, context:
   const { dateFrom, dateTo } = data;
   if (!dateFrom || !dateTo) throw new functions.https.HttpsError('invalid-argument', 'Missing date range.');
   const historyRef = admin.firestore().collection('history');
-  const snapshot = await historyRef.where('timestamp', '>=', dateFrom).where('timestamp', '<=', dateTo).orderBy('timestamp', 'desc').get();
-  const exitEvents = snapshot.docs.map((doc: any) => doc.data()).filter((entry) => entry.action === 'removed' || entry.action === 'process_finished');
+  const snapshot = await historyRef.where('timestamp', '>=', dateFrom).where('timestamp', '<=', dateTo).orderBy('timestamp', 'asc').get();
+
+  // Build in-memory maps keyed by barcode to avoid N+1 Firestore queries.
+  // Track the most recent 'assigned' event per barcode seen so far, then close
+  // the cycle when a 'removed'/'process_finished' event is encountered.
+  const lastEntry = new Map<string, { timestamp: string; orderId: string }>();
   const rows = [];
-  for (const exitEvent of exitEvents.slice(0, 500)) {
-    const historySnap = await historyRef.where('barcode', '==', exitEvent.barcode).where('timestamp', '<', exitEvent.timestamp).orderBy('timestamp', 'desc').limit(100).get();
-    const entryDoc = historySnap.docs.find((doc: any) => doc.data().action === 'assigned');
-    if (!entryDoc) continue;
-    const entryEvent = entryDoc.data();
-    rows.push({ barcode: exitEvent.barcode, orderId: exitEvent.orderId || 'N/A', entryDate: entryEvent.timestamp, exitDate: exitEvent.timestamp, durationDays: (new Date(exitEvent.timestamp).getTime() - new Date(entryEvent.timestamp).getTime()) / (1000 * 60 * 60 * 24) });
+
+  for (const doc of snapshot.docs) {
+    const entry = doc.data() as any;
+    const { barcode, action, timestamp, orderId } = entry;
+    if (!barcode || !timestamp) continue;
+
+    if (action === 'assigned') {
+      lastEntry.set(barcode, { timestamp, orderId: orderId || 'N/A' });
+      continue;
+    }
+
+    if (action === 'removed' || action === 'process_finished') {
+      const entryEvent = lastEntry.get(barcode);
+      if (!entryEvent) continue;
+      rows.push({
+        barcode,
+        orderId: orderId || entryEvent.orderId,
+        entryDate: entryEvent.timestamp,
+        exitDate: timestamp,
+        durationDays: (new Date(timestamp).getTime() - new Date(entryEvent.timestamp).getTime()) / (1000 * 60 * 60 * 24),
+      });
+      lastEntry.delete(barcode);
+      if (rows.length >= 500) break;
+    }
   }
+
   return { rows };
 });
 
@@ -67,7 +91,7 @@ export const userPushReport = functions.https.onCall(async (_data: any, context:
   const role = normalizeRole(context.auth.token.role as string);
   if (!['ADMIN', 'SUPERADMIN'].includes(role)) throw new functions.https.HttpsError('permission-denied', 'Only Admins can access this report.');
   
-  const snapshot = await admin.firestore().collection('users').get();
+  const snapshot = await admin.firestore().collection('usuarios').get();
   
   if (snapshot.empty) {
     return { totalUsers: 0, activeUsers: 0, activeWithFcmTokens: 0, roleCounts: {} };

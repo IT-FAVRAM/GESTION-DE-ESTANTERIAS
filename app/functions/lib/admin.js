@@ -1,11 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deviceHeartbeat = exports.resolveDeviceConfig = exports.adminOperate = void 0;
+exports.deviceHeartbeat = exports.sendAdminMessage = exports.resolveDeviceConfig = exports.adminOperate = void 0;
 const functions = require("firebase-functions");
 const firebaseAdmin_1 = require("./firebaseAdmin");
 const authz_1 = require("./authz");
-const normalize = (value) => (value || '').trim();
-const normalizeRole = (value) => (value || '').trim().toUpperCase();
+const push_1 = require("./push");
+const normalize = (value) => String(value || '').trim();
+const normalizeRole = (value) => String(value || '').trim().toUpperCase();
 const ALLOWED_ROLES = new Set(['OPERARIO', 'CARRETILLERO', 'JEFE_SECCION', 'CALIDAD', 'ADMIN', 'SUPERADMIN']);
 const ALLOWED_SECTIONS = new Set(['MECANIZADO', 'PLEGADORA', 'PRENSAS', 'SOLDADURA', 'ROBOT_PLEGADO', 'REPASADO', 'PINTURA', 'LASER', 'CALIDAD', 'OTROS']);
 exports.adminOperate = functions.https.onCall(async (data, context) => {
@@ -25,7 +26,7 @@ exports.adminOperate = functions.https.onCall(async (data, context) => {
         if (!deviceId) {
             throw new functions.https.HttpsError('invalid-argument', 'deviceId requerido.');
         }
-        await db.collection('devices').doc(deviceId).set({
+        await db.collection('dispositivos').doc(deviceId).set({
             name,
             type,
             assignedShelf,
@@ -56,7 +57,7 @@ exports.adminOperate = functions.https.onCall(async (data, context) => {
         if (Object.keys(updatePayload).length === 0) {
             throw new functions.https.HttpsError('invalid-argument', 'No hay cambios validos para actualizar.');
         }
-        await db.collection('devices').doc(deviceId).set(Object.assign({}, updatePayload), { merge: true });
+        await db.collection('dispositivos').doc(deviceId).set(Object.assign({}, updatePayload), { merge: true });
         return { ok: true };
     }
     if (op === 'updateUser') {
@@ -80,17 +81,18 @@ exports.adminOperate = functions.https.onCall(async (data, context) => {
     }
     throw new functions.https.HttpsError('invalid-argument', `Operacion desconocida: ${op}`);
 });
-exports.resolveDeviceConfig = functions.https.onCall(async (data) => {
+exports.resolveDeviceConfig = functions.https.onCall(async (data, context) => {
+    var _a, _b;
     const deviceId = normalize(data === null || data === void 0 ? void 0 : data.deviceId);
     if (!deviceId) {
         throw new functions.https.HttpsError('invalid-argument', 'deviceId requerido.');
     }
-    const deviceSnap = await firebaseAdmin_1.admin.firestore().collection('devices').doc(deviceId).get();
+    const deviceSnap = await firebaseAdmin_1.admin.firestore().collection('dispositivos').doc(deviceId).get();
     if (!deviceSnap.exists) {
         return { exists: false };
     }
     const device = deviceSnap.data();
-    return {
+    const result = {
         exists: true,
         device: {
             type: device.type === 'CARRETILLERO' ? 'CARRETILLERO' : 'KIOSK',
@@ -98,7 +100,64 @@ exports.resolveDeviceConfig = functions.https.onCall(async (data) => {
             assignedShelf: device.assignedShelf || null,
             name: normalize(device.name) || 'Dispositivo',
         },
+        claimsUpdated: false,
     };
+    // Set `validatedDevice: true` custom claim so Firestore security rules can
+    // verify that this anonymous user operates a registered, active device.
+    // The client must force-refresh its ID token after receiving claimsUpdated: true.
+    if (context.auth && device.active !== false) {
+        const provider = (_b = (_a = context.auth.token) === null || _a === void 0 ? void 0 : _a.firebase) === null || _b === void 0 ? void 0 : _b.sign_in_provider;
+        if (provider === 'anonymous' && !context.auth.token.validatedDevice) {
+            try {
+                await firebaseAdmin_1.admin.auth().setCustomUserClaims(context.auth.uid, { validatedDevice: true });
+                result.claimsUpdated = true;
+            }
+            catch (err) {
+                // Non-fatal: writes go through Cloud Functions which validate separately.
+                // The Firestore read rules will update on next token refresh (< 1 hour).
+                console.warn('[resolveDeviceConfig] Could not set custom claims:', err);
+            }
+        }
+    }
+    return result;
+});
+const ALLOWED_MESSAGE_TARGETS = new Set(['ALL', 'JEFE_SECCION', 'CALIDAD', 'CARRETILLERO', 'ADMIN', 'SUPERADMIN']);
+exports.sendAdminMessage = functions.https.onCall(async (data, context) => {
+    const user = await (0, authz_1.requireAllowedRoles)(context, ['ADMIN', 'SUPERADMIN']);
+    const title = String((data === null || data === void 0 ? void 0 : data.title) || '').trim();
+    const body = String((data === null || data === void 0 ? void 0 : data.body) || '').trim();
+    const targetRole = String((data === null || data === void 0 ? void 0 : data.targetRole) || 'ALL').trim().toUpperCase();
+    if (!title || !body) {
+        throw new functions.https.HttpsError('invalid-argument', 'Título y mensaje son obligatorios.');
+    }
+    if (!ALLOWED_MESSAGE_TARGETS.has(targetRole)) {
+        throw new functions.https.HttpsError('invalid-argument', 'Destinatario no válido.');
+    }
+    const db = firebaseAdmin_1.admin.firestore();
+    let userDocs;
+    if (targetRole === 'ALL') {
+        const snap = await db.collection('users').get();
+        userDocs = snap.docs;
+    }
+    else {
+        userDocs = await (0, push_1.getUsersByRole)(targetRole);
+    }
+    const pushResult = await (0, push_1.sendPushToUsers)(userDocs, {
+        title,
+        body,
+        data: { type: 'ADMIN_MESSAGE', targetRole, sentBy: user.email || user.uid },
+    });
+    await db.collection('adminMessages').add({
+        title,
+        body,
+        targetRole,
+        sentBy: user.email || user.uid,
+        sentByRole: user.role,
+        sentAt: new Date().toISOString(),
+        successCount: pushResult.successCount,
+        failureCount: pushResult.failureCount,
+    });
+    return { ok: true, successCount: pushResult.successCount, failureCount: pushResult.failureCount };
 });
 exports.deviceHeartbeat = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
@@ -108,7 +167,7 @@ exports.deviceHeartbeat = functions.https.onCall(async (data, context) => {
     if (!deviceId) {
         throw new functions.https.HttpsError('invalid-argument', 'deviceId requerido.');
     }
-    const deviceRef = firebaseAdmin_1.admin.firestore().collection('devices').doc(deviceId);
+    const deviceRef = firebaseAdmin_1.admin.firestore().collection('dispositivos').doc(deviceId);
     const snap = await deviceRef.get();
     if (!snap.exists) {
         return { ok: true, exists: false };

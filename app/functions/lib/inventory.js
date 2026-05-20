@@ -253,7 +253,11 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
             tx.set(presenceRef, { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true });
             if (aggregateSnap.exists) {
                 const aggregate = aggregateSnap.data();
-                tx.set(aggregateRef, { activePresenceIds: [...(aggregate.activePresenceIds || []), presenceRef.id], totalActivePresences: (aggregate.totalActivePresences || 0) + 1, totalPlacements: (aggregate.totalPlacements || 0) + 1, updatedAt: now }, { merge: true });
+                const currentIds = aggregate.activePresenceIds || [];
+                if (currentIds.length >= 500) {
+                    throw new functions.https.HttpsError('resource-exhausted', `El agregado ${aggregateKey} ha alcanzado el limite de 500 presencias activas simultaneas.`);
+                }
+                tx.set(aggregateRef, { activePresenceIds: [...currentIds, presenceRef.id], totalActivePresences: (aggregate.totalActivePresences || 0) + 1, totalPlacements: (aggregate.totalPlacements || 0) + 1, updatedAt: now }, { merge: true });
             }
             else {
                 tx.set(aggregateRef, { aggregateKey, articleCode, orderFab, activePresenceIds: [presenceRef.id], totalActivePresences: 1, totalPlacements: 1, updatedAt: now });
@@ -321,6 +325,42 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
             writeHistory(tx, { action: 'RETIRAR', articleCode, orderFab, fromLocation: positions.map((position) => `${shelfCode}-${position}`).join(', '), toLocation: null, shelfCode, operarioId, operarioName });
         });
         return { ok: true, positions };
+    }
+    if (op === 'retirarDeUbicacion') {
+        const position = String((payload === null || payload === void 0 ? void 0 : payload.position) || '').trim();
+        if (!articleCode || !orderFab || !position) {
+            throw new functions.https.HttpsError('invalid-argument', 'Datos incompletos para retirar de ubicacion.');
+        }
+        const locRef = db.collection('shelves').doc(shelfCode).collection('locations').doc(position);
+        const aggregateKey = `${normalize(articleCode)}__${normalize(orderFab)}`;
+        const aggregateRef = db.collection('itemAggregates').doc(aggregateKey);
+        await db.runTransaction(async (tx) => {
+            const locSnap = await tx.get(locRef);
+            if (!locSnap.exists) {
+                throw new functions.https.HttpsError('not-found', 'Ubicacion no encontrada.');
+            }
+            const locData = locSnap.data();
+            const items = locData.items || [];
+            const itemIndex = items.findIndex((i) => normalize(i.articleCode) === normalize(articleCode) &&
+                normalize(i.orderFab) === normalize(orderFab));
+            if (itemIndex === -1) {
+                throw new functions.https.HttpsError('not-found', 'Articulo no encontrado en esta ubicacion.');
+            }
+            const removedItem = items[itemIndex];
+            const presenceId = removedItem.presenceId;
+            const newItems = items.filter((_, idx) => idx !== itemIndex);
+            tx.set(locRef, { position, items: newItems, isEmpty: newItems.length === 0 }, { merge: true });
+            const presenceRef = db.collection('items').doc(presenceId);
+            tx.update(presenceRef, { active: false, removedAt: now, removedBy: operarioId, locationIds: [] });
+            const aggregateSnap = await tx.get(aggregateRef);
+            if (aggregateSnap.exists) {
+                const aggregate = aggregateSnap.data();
+                const newActiveIds = (aggregate.activePresenceIds || []).filter((id) => id !== presenceId);
+                tx.set(aggregateRef, { activePresenceIds: newActiveIds, totalActivePresences: newActiveIds.length, totalPlacements: aggregate.totalPlacements, updatedAt: now }, { merge: true });
+            }
+            writeHistory(tx, { action: 'RETIRAR_DE_UBICACION', articleCode, orderFab, fromLocation: `${shelfCode}-${position}`, toLocation: null, shelfCode, operarioId, operarioName });
+        });
+        return { ok: true, positions: [position] };
     }
     if (op === 'mover') {
         const rawPositions = Array.isArray(payload === null || payload === void 0 ? void 0 : payload.newPositions) ? payload.newPositions : [];

@@ -5,9 +5,10 @@
  * 2 pestañas: ESTANTERÍAS (navegador) y RECOGIDAS (cola de solicitudes)
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { usePickupQueue } from '../../hooks/usePickupQueue';
+import CameraQRScanner from '../common/CameraQRScanner';
 import ShelfNavigator from './ShelfNavigator';
 import PickupQueue from './PickupQueue';
 import CartEditor from './CartEditor';
@@ -22,6 +23,15 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack }) => {
   const { displayName, operarioId, logout } = useAuth();
   const { pendingCount } = usePickupQueue();
   const [activeTab, setActiveTab] = useState<CarretilleroTab>('shelves');
+  const [showCameraScanner, setShowCameraScanner] = useState(false);
+  const [lastScannedQR, setLastScannedQR] = useState<string | null>(null);
+
+  const handleQRScan = useCallback((qrCode: string) => {
+    setLastScannedQR(qrCode);
+    // Log para debugging
+    console.log('[CarretilleroView] QR escaneado:', qrCode);
+    // Aquí se puede agregar lógica adicional si es necesaria
+  }, []);
 
   return (
     <div className="min-h-dvh bg-slate-950 flex flex-col">
@@ -35,12 +45,21 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack }) => {
                <p className="text-xs text-slate-200">{displayName} · ID: {operarioId}</p>
              </div>
            </div>
-           <button
-             onClick={onBack ? onBack : logout}
-             className="px-3 py-2 text-xs font-bold bg-slate-800/80 text-slate-100 rounded-lg hover:bg-slate-700/80 hover:text-white transition-all duration-200"
-           >
-             {onBack ? 'Volver' : 'Salir'}
-           </button>
+           <div className="flex gap-2">
+             <button
+               onClick={() => setShowCameraScanner(true)}
+               className="px-3 py-2 text-xs font-bold bg-cyan-600/80 text-white rounded-lg hover:bg-cyan-700/80 transition-all duration-200 flex items-center gap-2"
+               title="Escanear QR con cámara"
+             >
+               📷 Cámara
+             </button>
+             <button
+               onClick={onBack ? onBack : logout}
+               className="px-3 py-2 text-xs font-bold bg-slate-800/80 text-slate-100 rounded-lg hover:bg-slate-700/80 hover:text-white transition-all duration-200"
+             >
+               {onBack ? 'Volver' : 'Salir'}
+             </button>
+           </div>
          </div>
        </header>
 
@@ -98,6 +117,15 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack }) => {
            <CartEditor />
          )}
        </main>
+
+       {/* Camera QR Scanner */}
+       {showCameraScanner && (
+         <CameraQRScanner
+           onScan={handleQRScan}
+           onClose={() => setShowCameraScanner(false)}
+           onError={(error) => console.error('[CarretilleroView] Scanner error:', error)}
+         />
+       )}
     </div>
   );
 };

@@ -29,7 +29,9 @@ const UnifiedLogin: React.FC = () => {
     setLocalError(null);
     const success = await loginAsGuest(role, section);
     if (!success) {
-      setLocalError('No se ha podido iniciar el acceso rapido.');
+      // Permitimos que se muestre el error detallado de Firebase en authError.
+      // Si por alguna razón no se estableciera, ponemos uno por defecto.
+      setLocalError(null);
     }
     setLocalLoading(false);
   };
@@ -161,10 +163,10 @@ const UnifiedLogin: React.FC = () => {
 
         {/* Footer Actions */}
         <div className="flex flex-col items-center gap-6 pt-4">
-          {localError && (
+          {(localError || authError) && (
             <div className="w-full max-w-xl rounded-2xl border border-red-900/50 bg-red-950/35 px-4 py-3 text-sm font-bold text-red-200 flex items-center gap-3">
               <ErrorIcon className="h-5 w-5" />
-              <span>{localError}</span>
+              <span>{localError || authError}</span>
             </div>
           )}
           <button 

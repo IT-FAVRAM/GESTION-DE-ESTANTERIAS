@@ -20,7 +20,11 @@ const hasMessagingConfig = firebaseConfig.apiKey
     && firebaseConfig.appId;
 
 if (hasMessagingConfig) {
-    firebase.initializeApp(firebaseConfig);
+    // Guard against double-initialization when the SW script is re-evaluated
+    // after an update without a full page reload.
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
 
     const messaging = firebase.messaging();
 
@@ -61,7 +65,7 @@ self.addEventListener('notificationclick', function (event) {
 
 // ── App Shell Cache (Offline-First) ──────────────────────────────────────────
 // Bump this version when you deploy breaking changes to force cache refresh.
-const CACHE_VERSION = 'wms-app-v1';
+const CACHE_VERSION = 'wms-app-v3-fix-modulepreload';
 
 // Hostnames to skip (Firebase, Google APIs, CDNs — handled by their own SDKs)
 const SKIP_HOSTNAMES = [

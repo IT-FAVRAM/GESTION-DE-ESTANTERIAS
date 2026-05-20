@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { doc, setDoc, addDoc, collection } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { COLLECTIONS } from '../lib/schema/collections';
@@ -39,12 +39,12 @@ export const useConnectionMonitor = ({
   enabled = true,
 }: ConnectionMonitorParams) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const sessionIdRef = useRef(generateSessionId());
 
   useEffect(() => {
     if (!authUid || !enabled) return;
 
-    const sessionId = sessionIdRef.current;
+    // Fresh session ID per effect run so each auth session gets a unique ID.
+    const sessionId = generateSessionId();
     const statusRef = doc(db, COLLECTIONS.CONNECTION_STATUS, authUid);
     const logsRef = collection(db, COLLECTIONS.CONNECTION_LOGS);
 
@@ -108,16 +108,18 @@ export const useConnectionMonitor = ({
     const handleOnline = async () => {
       const offlineStart = readOfflineStart();
       const offlineDurationMs = offlineStart ? Math.max(0, Date.now() - offlineStart) : undefined;
-      clearOfflineStart();
 
       setIsOnline(true);
 
+      // Write status BEFORE clearing the stored start time so the duration is
+      // not lost if the write fails or the browser crashes mid-operation.
       await writeStatus({
         isOnline: true,
         lastSeen: new Date().toISOString(),
         lastConnectedAt: new Date().toISOString(),
         ...(offlineDurationMs !== undefined ? { lastOfflineDurationMs: offlineDurationMs } : {}),
       });
+      clearOfflineStart();
 
       // Only log if offline was meaningful (> 5 seconds)
       if (!offlineDurationMs || offlineDurationMs > 5_000) {

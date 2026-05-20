@@ -28,7 +28,7 @@ export const adminOperate = functions.https.onCall(async (data: any, context: an
     if (!deviceId) {
       throw new functions.https.HttpsError('invalid-argument', 'deviceId requerido.');
     }
-    await db.collection('devices').doc(deviceId).set({
+    await db.collection('dispositivos').doc(deviceId).set({
       name,
       type,
       assignedShelf,
@@ -60,7 +60,7 @@ export const adminOperate = functions.https.onCall(async (data: any, context: an
     if (Object.keys(updatePayload).length === 0) {
       throw new functions.https.HttpsError('invalid-argument', 'No hay cambios validos para actualizar.');
     }
-    await db.collection('devices').doc(deviceId).set({ ...updatePayload }, { merge: true });
+    await db.collection('dispositivos').doc(deviceId).set({ ...updatePayload }, { merge: true });
     return { ok: true };
   }
 
@@ -77,10 +77,15 @@ export const adminOperate = functions.https.onCall(async (data: any, context: an
     if (section && !ALLOWED_SECTIONS.has(section)) {
       throw new functions.https.HttpsError('invalid-argument', 'Seccion no valida.');
     }
-    await db.collection('users').doc(userId).set({
+    const userRef = db.collection('usuarios').doc(userId);
+    const userSnap = await userRef.get();
+    if (!userSnap.exists) {
+      throw new functions.https.HttpsError('not-found', 'Usuario no encontrado.');
+    }
+    await userRef.update({
       role,
       section: role === 'JEFE_SECCION' ? (section || null) : null,
-    }, { merge: true });
+    });
     return { ok: true };
   }
 
@@ -88,12 +93,15 @@ export const adminOperate = functions.https.onCall(async (data: any, context: an
 });
 
 export const resolveDeviceConfig = functions.https.onCall(async (data: any, context: any) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Usuario no autenticado.');
+  }
   const deviceId = normalize(data?.deviceId);
   if (!deviceId) {
     throw new functions.https.HttpsError('invalid-argument', 'deviceId requerido.');
   }
 
-  const deviceSnap = await admin.firestore().collection('devices').doc(deviceId).get();
+  const deviceSnap = await admin.firestore().collection('dispositivos').doc(deviceId).get();
   if (!deviceSnap.exists) {
     return { exists: false };
   }
@@ -160,7 +168,7 @@ export const sendAdminMessage = functions.https.onCall(async (data: any, context
 
   let userDocs: FirebaseFirestore.QueryDocumentSnapshot[];
   if (targetRole === 'ALL') {
-    const snap = await db.collection('users').get();
+    const snap = await db.collection('usuarios').get();
     userDocs = snap.docs;
   } else {
     userDocs = await getUsersByRole(targetRole);
@@ -190,11 +198,16 @@ export const deviceHeartbeat = functions.https.onCall(async (data: any, context:
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Usuario no autenticado.');
   }
+  const isAdmin = ['ADMIN', 'SUPERADMIN'].includes(String(context.auth.token.role || '').trim().toUpperCase());
+  const isValidatedDevice = context.auth.token.validatedDevice === true;
+  if (!isAdmin && !isValidatedDevice) {
+    throw new functions.https.HttpsError('permission-denied', 'Solo dispositivos validados o admins pueden enviar heartbeat.');
+  }
   const deviceId = String(data?.deviceId || '').trim();
   if (!deviceId) {
     throw new functions.https.HttpsError('invalid-argument', 'deviceId requerido.');
   }
-  const deviceRef = admin.firestore().collection('devices').doc(deviceId);
+  const deviceRef = admin.firestore().collection('dispositivos').doc(deviceId);
   const snap = await deviceRef.get();
   if (!snap.exists) {
     return { ok: true, exists: false };

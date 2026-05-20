@@ -27,3 +27,9 @@ dist-ssr
 .firebase/
 **/.firebase/*.cache
 .vite/
+
+# Credentials — never commit these
+.env.keys.json
+*.keys.json
+service-account*.json
+firebase-adminsdk*.json

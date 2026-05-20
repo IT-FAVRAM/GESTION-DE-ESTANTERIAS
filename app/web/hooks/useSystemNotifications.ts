@@ -118,13 +118,13 @@ export const useSystemNotifications = (
         // Modificado para evitar errores de índice compuesto:
         // En lugar de .where('targetRole', ...).where('timestamp', ...),
         // Consultamos solo por timestamp (índice simple automático) y filtramos el rol en el cliente.
-        const qRecentRole = db.collection('notifications')
+        const qRecentRole = db.collection('avisos')
             .where('targetRole', '==', currentUserRole)
             .where('timestamp', '>', fiveMinutesAgo)
             .orderBy('timestamp', 'desc')
             .limit(50);
 
-        const qRecentAll = db.collection('notifications')
+        const qRecentAll = db.collection('avisos')
             .where('targetRole', '==', 'ALL')
             .where('timestamp', '>', fiveMinutesAgo)
             .orderBy('timestamp', 'desc')
@@ -143,7 +143,7 @@ export const useSystemNotifications = (
     useEffect(() => {
         if (currentUserRole !== 'CARRETILLERO' || !auth.currentUser) return;
 
-        const qRequests = db.collection('notifications')
+        const qRequests = db.collection('avisos')
             .where('targetRole', '==', 'CARRETILLERO')
             .where('type', '==', 'request_material')
             .where('status', '==', 'PENDING')
@@ -166,7 +166,7 @@ export const useSystemNotifications = (
             }
 
             const sender = currentUserRole;
-            await db.collection('notifications').add({
+            await db.collection('avisos').add({
                 ...alert,
                 senderRole: sender,
                 timestamp: new Date().toISOString(),
@@ -181,7 +181,7 @@ export const useSystemNotifications = (
     const markAlertAsRead = async (alertId: string) => {
         if (!auth.currentUser) return;
         try {
-            const alertRef = db.collection('notifications').doc(alertId);
+            const alertRef = db.collection('avisos').doc(alertId);
             await alertRef.update({
                 readBy: firebase.firestore.FieldValue.arrayUnion(auth.currentUser.uid)
             });

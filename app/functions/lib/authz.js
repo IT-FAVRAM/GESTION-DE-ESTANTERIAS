@@ -83,7 +83,7 @@ const resolveOperationalActor = async (context, session) => {
     if (!['OPERARIO', 'CARRETILLERO'].includes(role) || !deviceId || !operarioId) {
         throw new functions.https.HttpsError('permission-denied', 'Sesion operativa anonima invalida.');
     }
-    const deviceDoc = await admin.firestore().collection('devices').doc(deviceId).get();
+    const deviceDoc = await admin.firestore().collection('dispositivos').doc(deviceId).get();
     if (!deviceDoc.exists) {
         throw new functions.https.HttpsError('permission-denied', 'Dispositivo no registrado.');
     }

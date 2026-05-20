@@ -129,7 +129,7 @@ const buildGuestSession = (role: UserRole, section?: WarehouseSection): GuestSes
     section,
     guest: true,
     assignedShelf,
-    kioskId: null,
+    kioskId: role === 'OPERARIO' ? 'kiosko-mecanizado' : null,
     displayName: displayNameByRole[role],
   };
 };
@@ -171,11 +171,9 @@ const buildSignedOutState = (prev: AuthState): AuthState => ({
 });
 
 const getDeviceConfig = async (deviceId: string): Promise<DeviceDoc | null> => {
-  if (
-    window.location.hostname === 'localhost' ||
-    window.location.hostname.startsWith('10.') ||
-    window.location.hostname.startsWith('192.')
-  ) {
+  // Only bypass device lookup on true localhost (not on LAN/intranet IPs in production).
+  // Devices deployed on private networks (10.x, 192.168.x) must resolve their real config.
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     return {
       type: 'CARRETILLERO',
       assignedShelf: null,
@@ -375,9 +373,26 @@ export const useAuth = () => {
       } catch {
         // no-op if there is no Firebase session
       }
-      await signInAnonymouslyWithRetry();
+
+      // Try Firebase Anonymous Auth, but allow fallback to localStorage-only guest session
+      try {
+        await signInAnonymouslyWithRetry();
+      } catch (authError: any) {
+        const code = String(authError?.code || '');
+        if (code === 'auth/operation-not-allowed') {
+          console.warn('[loginAsGuest] Anonymous Auth disabled in Firebase. Using localStorage-only guest session.');
+        } else {
+          throw authError;
+        }
+      }
 
       const session = buildGuestSession(role, section);
+      
+      // Si estamos en un dispositivo configurado con kioskId (como la Honor Pad X8a), lo preservamos en la sesión
+      if (state.kioskId) {
+        session.kioskId = state.kioskId;
+      }
+
       writeGuestSession(session);
       setState((prev) => ({
         ...prev,
@@ -388,7 +403,7 @@ export const useAuth = () => {
         operario: session.operario,
         operarioId: session.operarioId,
         assignedShelf: session.assignedShelf,
-        kioskId: session.kioskId,
+        kioskId: session.kioskId || prev.kioskId,
         displayName: session.displayName,
         isKioskSession: true,
         authMethod: 'guest',
@@ -398,15 +413,13 @@ export const useAuth = () => {
     } catch (error: any) {
       localStorage.removeItem(AUTH_STORAGE_KEYS.GUEST_SESSION);
       const code = String(error?.code || '');
-      const message = code === 'auth/operation-not-allowed'
-        ? 'El acceso rapido requiere habilitar Anonymous Authentication en Firebase para OPERARIO/CARRETILLERO.'
-        : code
-          ? `Error al iniciar acceso rapido (${code}).`
+      const message = code
+        ? `Error al iniciar acceso rapido (${code}).`
         : 'Error al iniciar sesion de desarrollo';
       setState((prev) => ({ ...prev, loading: false, error: message }));
       return false;
     }
-  }, []);
+  }, [state.kioskId]);
 
   const loginWithEmail = useCallback(async (email: string, password: string) => {
     setState((prev) => ({ ...prev, loading: true }));

@@ -4,7 +4,6 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
-import * as XLSX from 'xlsx';
 import { useAnalytics } from '../../hooks/useAnalytics';
 import { db } from '../../lib/firebase';
 import { COLLECTIONS, SHELF_DEFINITIONS, type LocationDoc } from '../../lib/firestoreSchema';
@@ -28,6 +27,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ onClose }) => {
     setExporting(true);
 
     try {
+      const XLSX = await import('xlsx');
       const wb = XLSX.utils.book_new();
       const dateStr = new Date().toLocaleDateString('es-ES', {
         year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',

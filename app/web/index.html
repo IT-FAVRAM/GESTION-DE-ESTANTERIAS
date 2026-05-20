@@ -1,9 +1,36 @@
 <!DOCTYPE html>
 <html lang="es">
   <head>
+    <script>
+      window.onerror = function(message, source, lineno, colno, error) {
+        var errorDiv = document.createElement('div');
+        errorDiv.style.position = 'fixed';
+        errorDiv.style.top = '0';
+        errorDiv.style.left = '0';
+        errorDiv.style.right = '0';
+        errorDiv.style.backgroundColor = 'red';
+        errorDiv.style.color = 'white';
+        errorDiv.style.zIndex = '999999';
+        errorDiv.style.padding = '20px';
+        errorDiv.style.fontFamily = 'monospace';
+        errorDiv.style.fontSize = '12px';
+        errorDiv.style.wordBreak = 'break-all';
+        errorDiv.innerHTML = '<strong>FATAL ERROR:</strong><br/>' + 
+          message + '<br/><br/>' + 
+          'Source: ' + source + ':' + lineno + ':' + colno + '<br/><br/>' + 
+          (error && error.stack ? error.stack.replace(/\n/g, '<br/>') : '');
+        document.body.appendChild(errorDiv);
+        return false;
+      };
+      window.addEventListener('unhandledrejection', function(event) {
+        window.onerror('Unhandled Promise Rejection: ' + (event.reason && event.reason.message ? event.reason.message : event.reason), null, 0, 0, event.reason);
+      });
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta name="theme-color" content="#0f172a" />
+    <meta name="permissions-policy" content="camera=*, microphone=*, geolocation=*" />
+    <meta http-equiv="Permissions-Policy" content="camera=*, microphone=*, geolocation=*" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f172a'/%3E%3Cpath d='M16 22 32 14l16 8-16 8-16-8Zm0 9 16 8 16-8M16 40l16 8 16-8' fill='none' stroke='%2322d3ee' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>Gestor de Estanterías</title>
@@ -32,6 +59,24 @@
   <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-300 selection:bg-cyan-500 selection:text-white">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
+    <script>
+      // ─── Chunk Loading Diagnostics ───────────────────────────────────────
+      window.__CHUNK_LOAD_LOG__ = [];
+      const observer = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          if (entry.name.includes('/assets/')) {
+            window.__CHUNK_LOAD_LOG__.push({
+              name: entry.name.split('/').pop(),
+              type: entry.initiatorType,
+              duration: entry.duration.toFixed(2),
+              size: (entry.transferSize / 1024).toFixed(2) + ' KB',
+              time: new Date().toLocaleTimeString(),
+            });
+          }
+        }
+      });
+      observer.observe({ entryTypes: ['resource'] });
+    </script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {

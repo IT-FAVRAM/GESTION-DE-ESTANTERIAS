@@ -1,6 +1,7 @@
 export {
   inventoryOperate,
   onAssignmentWrite,
+  onShelfLocationWrite,
   shelfOperate,
   cartOperate,
   updateReproceso,
@@ -11,6 +12,8 @@ export {
   notifyPickupQueueCreated,
   notifySpecialLocationOccupancy,
   notifyCarretilleroRequest,
+  notifyConnectionDisconnect,
+  notifyLongDisconnection,
   pickupQueueOperate,
 } from './notifications';
 

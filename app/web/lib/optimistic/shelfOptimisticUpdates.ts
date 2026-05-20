@@ -61,6 +61,22 @@ export const applyRetirar = (
   return { next, positions };
 };
 
+export const applyRetirarDeUbicacion = (
+  prev: ShelfLocationState[],
+  articleCode: string,
+  orderFab: string,
+  position: string,
+): { next: ShelfLocationState[]; found: boolean } => {
+  let found = false;
+  const next = prev.map((loc) => {
+    if (loc.position !== position) return loc;
+    const updatedItems = loc.items.filter((item) => !sameItem(item, articleCode, orderFab));
+    if (updatedItems.length !== loc.items.length) found = true;
+    return { ...loc, items: updatedItems, isEmpty: updatedItems.length === 0 };
+  });
+  return { next, found };
+};
+
 export const applyMover = (
   prev: ShelfLocationState[],
   articleCode: string,

@@ -8,10 +8,12 @@ interface KioskHeaderProps {
   totalArticles: number;
   displayName: string;
   operarioId: string | null;
+  deviceId: string;
   onLogout: () => Promise<void> | void;
+  onInfo?: () => void;
 }
 
-const KioskHeader: React.FC<KioskHeaderProps> = ({ shelfName, shelfCode, totalOccupied, totalEmpty, totalArticles, displayName, operarioId, onLogout }) => (
+const KioskHeader: React.FC<KioskHeaderProps> = ({ shelfName, shelfCode, totalOccupied, totalEmpty, totalArticles, displayName, operarioId, deviceId, onLogout, onInfo }) => (
   <header className="flex-shrink-0 border-b border-cyan-900/40 bg-slate-950/80 px-4 py-4 backdrop-blur-md">
     <div className="flex items-center justify-between gap-4">
       <div className="flex items-center gap-4">
@@ -27,7 +29,17 @@ const KioskHeader: React.FC<KioskHeaderProps> = ({ shelfName, shelfCode, totalOc
         <div className="text-right">
           <p className="text-sm font-black text-cyan-300">{displayName}</p>
           <p className="text-xs text-slate-500">Operario {operarioId}</p>
+          <p className="text-[10px] text-cyan-400/70 font-mono mt-0.5">Device: {deviceId}</p>
         </div>
+        {onInfo && (
+          <button
+            onClick={onInfo}
+            className="rounded-xl border border-cyan-500/50 bg-cyan-600/20 px-4 py-2 text-sm font-black text-cyan-300 transition-colors hover:bg-cyan-600/40 hover:border-cyan-400"
+            title="Ver información del dispositivo (Device ID)"
+          >
+            ℹ️ INFO
+          </button>
+        )}
         <button onClick={onLogout} className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-300 transition-colors hover:bg-slate-800">Cambiar</button>
       </div>
     </div>
