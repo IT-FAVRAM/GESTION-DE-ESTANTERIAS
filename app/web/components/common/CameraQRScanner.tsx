@@ -1,10 +1,5 @@
-/**
- * CameraQRScanner — Escaneo de QR por cámara del móvil
- * Compatible con Jefe de Sección, Admin, Carretillero
- * Versión mejorada con mejor soporte para móvil y HTTPS
- */
-
 import React, { useEffect, useRef, useState } from 'react';
+import { Html5Qrcode } from 'html5-qrcode';
 
 interface CameraQRScannerProps {
   onScan: (qrCode: string) => void;
@@ -12,72 +7,46 @@ interface CameraQRScannerProps {
   onClose: () => void;
 }
 
+const SCANNER_ID = 'cqr-reader';
+
 const CameraQRScanner: React.FC<CameraQRScannerProps> = ({ onScan, onError, onClose }) => {
-  const [isScanning, setIsScanning] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const scannerRef = useRef<any>(null);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [permissionRequested, setPermissionRequested] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
     const init = async () => {
       try {
-        const { Html5QrcodeScanner } = await import('html5-qrcode');
-        if (cancelled) return;
+        const scanner = new Html5Qrcode(SCANNER_ID);
+        scannerRef.current = scanner;
 
-        const config = {
-          fps: 20,
-          qrbox: { width: 250, height: 250 },
-          aspectRatio: 1.0,
-          facingMode: 'environment',
-          rememberLastUsedCamera: true,
-          showTorchButtonIfSupported: true,
-          zoom: { min: 1, max: 4, step: 1 },
-          disableFlip: false,
-        };
+        const size = Math.min(window.innerWidth * 0.7, 280);
 
-        const scanner = new Html5QrcodeScanner('qr-reader', config, false);
-
-        const onScanSuccess = (decodedText: string) => {
-          try {
+        await scanner.start(
+          { facingMode: 'environment' },
+          { fps: 20, qrbox: { width: size, height: size }, disableFlip: false },
+          (decodedText) => {
+            if (cancelled) return;
             scanner.pause();
             onScan(decodedText);
-          } catch (err) {
-            const errorMsg = err instanceof Error ? err.message : 'Error al procesar QR';
-            setError(errorMsg);
-            onError?.(errorMsg);
-          }
-        };
+          },
+          undefined
+        );
 
-        const onScanError = (error: string) => {
-          console.debug('[QRScanner] Scan error (normal):', error);
-        };
-
-        try {
-          await scanner.render(onScanSuccess, onScanError);
-          scannerRef.current = scanner;
-          setPermissionRequested(true);
-          if (!cancelled) {
-            setIsScanning(true);
-            setError(null);
-          }
-        } catch (err) {
-          const errorMsg = err instanceof Error ? err.message : 'Error al inicializar cámara';
-          console.error('[QRScanner] Init error:', errorMsg);
-          if (!cancelled) {
-            setError(errorMsg);
-            onError?.(errorMsg);
-          }
-        }
+        if (!cancelled) setIsScanning(true);
       } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Error al cargar librería QR';
-        console.error('[QRScanner] Import error:', errorMsg);
-        if (!cancelled) {
-          setError(errorMsg);
-          onError?.(errorMsg);
-        }
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : 'Error al inicializar cámara';
+        const friendlyMsg =
+          msg.toLowerCase().includes('notallowed') || msg.toLowerCase().includes('permission')
+            ? 'Acceso a cámara denegado. Permite el acceso en los ajustes del navegador.'
+            : msg.toLowerCase().includes('notfound')
+            ? 'No se encontró cámara trasera en este dispositivo.'
+            : `Error al iniciar cámara: ${msg}`;
+        setError(friendlyMsg);
+        onError?.(friendlyMsg);
       }
     };
 
@@ -85,31 +54,21 @@ const CameraQRScanner: React.FC<CameraQRScannerProps> = ({ onScan, onError, onCl
 
     return () => {
       cancelled = true;
-      if (scannerRef.current) {
+      const s = scannerRef.current;
+      if (s) {
         try {
-          scannerRef.current.clear();
-        } catch (e) {
-          console.warn('[CameraQRScanner] Error stopping scanner:', e);
+          if (s.isScanning) {
+            s.stop().then(() => s.clear()).catch(() => {});
+          } else {
+            s.clear();
+          }
+        } catch {
+          // ignore cleanup errors
         }
         scannerRef.current = null;
       }
     };
   }, [onScan, onError]);
-
-  const handleRetry = async () => {
-    setError(null);
-
-    if (scannerRef.current) {
-      try {
-        await scannerRef.current.resume();
-        setIsScanning(true);
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Error al reanudar cámara';
-        setError(errorMsg);
-        onError?.(errorMsg);
-      }
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex flex-col items-center justify-center p-4">
@@ -127,43 +86,33 @@ const CameraQRScanner: React.FC<CameraQRScannerProps> = ({ onScan, onError, onCl
           </button>
         </div>
 
-        <div className="bg-black p-4">
-          {error ? (
-            <div className="aspect-square bg-red-900/20 rounded-lg border border-red-500 flex items-center justify-center">
+        <div className="bg-black p-4 relative">
+          {/* Scanner siempre en DOM para que Html5Qrcode pueda inyectar el video */}
+          <div
+            id={SCANNER_ID}
+            className="bg-slate-900 rounded-lg overflow-hidden"
+            style={{ width: '100%', maxWidth: '400px', margin: '0 auto', display: error ? 'none' : 'block' }}
+          />
+          {error && (
+            <div className="py-8 px-4 flex items-center justify-center">
               <div className="text-center">
-                <p className="text-red-400 font-bold mb-2">❌ Error</p>
-                <p className="text-red-300 text-sm mb-4">{error}</p>
-                {permissionRequested && (
-                  <p className="text-red-200 text-xs mb-2">
-                    Verifica que hayas permitido acceso a la cámara
-                  </p>
-                )}
+                <p className="text-red-400 text-3xl mb-3">❌</p>
+                <p className="text-red-400 font-bold mb-2">Error de cámara</p>
+                <p className="text-red-300 text-sm">{error}</p>
               </div>
             </div>
-          ) : (
-            <div
-              id="qr-reader"
-              className="bg-slate-900 rounded-lg overflow-hidden"
-              style={{ width: '100%', maxWidth: '400px', margin: '0 auto' }}
-            />
           )}
         </div>
 
         <div className="bg-slate-800 px-4 py-3 text-center border-t border-slate-700">
-          {isScanning && !error && (
+          {isScanning && !error ? (
             <div className="flex items-center justify-center gap-2">
               <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse" />
-              <p className="text-cyan-400 text-sm font-medium">Cámara activa...</p>
+              <p className="text-cyan-400 text-sm font-medium">Cámara activa — apunta al QR</p>
             </div>
-          )}
-          {error && (
-            <button
-              onClick={handleRetry}
-              className="px-4 py-2 bg-cyan-600 text-white rounded font-bold hover:bg-cyan-700 transition-colors"
-            >
-              Reintentar
-            </button>
-          )}
+          ) : !error ? (
+            <p className="text-slate-400 text-sm">Iniciando cámara...</p>
+          ) : null}
         </div>
 
         <div className="bg-slate-900/50 px-4 py-3 border-t border-slate-700">

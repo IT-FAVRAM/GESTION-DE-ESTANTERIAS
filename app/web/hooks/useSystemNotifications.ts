@@ -52,13 +52,13 @@ export const useSystemNotifications = (
 
             // Notificación visual del sistema
             try {
-                // Solo si la app está oculta o minimizada (opcional, aquí lo lanzamos siempre para asegurar visibilidad)
                 if (document.visibilityState === 'hidden' || isUrgent) {
                     new Notification(title, {
                         body: body,
-                        icon: '/vite.svg',
-                        tag: 'warehouse-alert',
-                        requireInteraction: isUrgent
+                        icon: '/icon.svg',
+                        badge: '/icon.svg',
+                        tag: isUrgent ? `warehouse-urgent-${Date.now()}` : 'warehouse-alert',
+                        requireInteraction: isUrgent,
                     });
                 }
             } catch (e) {

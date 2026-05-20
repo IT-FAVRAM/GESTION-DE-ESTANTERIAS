@@ -233,40 +233,21 @@ const Block: React.FC<BlockProps> = ({
       />
       <CollapsibleContent isCollapsed={isCollapsed}>
         <div className="pt-1 pb-2">
-          {/* Mobile: cards touch-friendly, una ubicación por tarjeta */}
-          <div className="md:hidden grid grid-cols-2 gap-2">
-            {block.rows.flat().filter((p): p is number => p !== null).map((posNum) => {
-              const pos = posNum.toString().padStart(3, '0');
-              return (
-                <ShelfGridCell
-                  key={pos}
-                  position={pos}
-                  location={locationMap.get(pos)}
-                  shelfCode={shelfDef.code}
-                  isUrgent={isUrgentLocation(shelfDef.code, posNum)}
-                  isTechReview={isTechReviewLocation(shelfDef.code, posNum)}
-                  isAluminio={isAluminioLocation(shelfDef.code, posNum)}
-                  isSelected={selectedPositions.includes(pos)}
-                  isHighlighted={highlightedPositions.includes(pos)}
-                  showReprocessCosts={showReprocessCosts}
-                  onPress={onCellPress}
-                  createEmptyLocation={createEmptyLocation}
-                />
-              );
-            })}
-          </div>
-          {/* Tablet+: vista rack industrial */}
-          <div className="hidden md:block">
-            <ShelfRackView
-              block={block as import('../../lib/firestoreSchema').ShelfPhysicalBlock}
-              shelfCode={shelfDef.code}
-              locationMap={locationMap}
-              selectedPositions={selectedPositions}
-              highlightedPositions={highlightedPositions}
-              onCellPress={onCellPress}
-              showReprocessCosts={showReprocessCosts}
-              createEmptyLocation={createEmptyLocation}
-            />
+          {/* Vista industrial rack para todos los tamaños de pantalla.
+              En móviles estrechos se permite scroll horizontal si la estantería tiene muchas columnas. */}
+          <div className="w-full overflow-x-auto [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
+            <div className="min-w-[320px]">
+              <ShelfRackView
+                block={block as import('../../lib/firestoreSchema').ShelfPhysicalBlock}
+                shelfCode={shelfDef.code}
+                locationMap={locationMap}
+                selectedPositions={selectedPositions}
+                highlightedPositions={highlightedPositions}
+                onCellPress={onCellPress}
+                showReprocessCosts={showReprocessCosts}
+                createEmptyLocation={createEmptyLocation}
+              />
+            </div>
           </div>
         </div>
       </CollapsibleContent>

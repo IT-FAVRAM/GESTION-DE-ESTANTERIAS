@@ -30,10 +30,16 @@ if (hasMessagingConfig) {
 
     messaging.onBackgroundMessage((payload) => {
         console.log('[firebase-messaging-sw.js] Received background message ', payload);
-        const notificationTitle = payload.notification?.title || payload.data?.title || 'Nueva notificacion';
+        const notificationTitle = payload.notification?.title || payload.data?.title || 'Gestor de Estanterías';
+        const isUrgent = payload.data?.priority === 'high' || payload.data?.type === 'urgent_placement';
         const notificationOptions = {
             body: payload.notification?.body || payload.data?.body || '',
-            data: payload.data || {}
+            icon: '/icon.svg',
+            badge: '/icon.svg',
+            data: payload.data || {},
+            vibrate: isUrgent ? [200, 100, 200, 100, 500] : [200],
+            requireInteraction: isUrgent,
+            tag: payload.data?.type || 'warehouse-alert',
         };
 
         self.registration.showNotification(notificationTitle, notificationOptions);

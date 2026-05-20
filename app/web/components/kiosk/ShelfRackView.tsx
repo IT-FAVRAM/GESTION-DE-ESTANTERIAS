@@ -221,11 +221,10 @@ const RackSlot: React.FC<RackSlotProps> = ({
         </div>
       ) : (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '3px 4px 2px', gap: 2, minHeight: 0 }}>
-          {items.slice(0, 2).map((item, i) => (
+          {items.map((item, i) => (
             <div
-              key={i}
+              key={`${item.articleCode}-${item.orderFab}-${i}`}
               style={{
-                flex: 1,
                 background: itemBg,
                 borderRadius: 3,
                 padding: '3px 5px',
@@ -233,8 +232,8 @@ const RackSlot: React.FC<RackSlotProps> = ({
                 flexDirection: 'column',
                 justifyContent: 'center',
                 borderLeft: `3px solid ${artColor}`,
-                minHeight: 0,
                 overflow: 'hidden',
+                flexShrink: 0,
               }}
             >
               <p style={{ fontSize: 10, fontWeight: 900, fontFamily: 'monospace', color: artColor, lineHeight: 1.15, wordBreak: 'break-all', margin: 0 }}>
@@ -250,13 +249,6 @@ const RackSlot: React.FC<RackSlotProps> = ({
               )}
             </div>
           ))}
-          {items.length > 2 && (
-            <div style={{ background: itemBg, borderRadius: 3, padding: '2px 5px', flexShrink: 0 }}>
-              <p style={{ fontSize: 8, color: '#94a3b8', fontFamily: 'monospace', margin: 0, lineHeight: 1 }}>
-                +{items.length - 2} más
-              </p>
-            </div>
-          )}
         </div>
       )}
 
