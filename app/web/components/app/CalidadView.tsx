@@ -330,7 +330,7 @@ const CalidadView: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-dvh bg-slate-950 flex flex-col">
+    <div className="h-dvh bg-slate-950 flex flex-col overflow-hidden">
        {/* Header */}
        <header className="bg-slate-950/90 border-b border-slate-800/50 backdrop-blur-xl px-4 py-3 shadow-[0_4px_12px_rgba(15,23,42,0.15)]">
          <div className="flex items-center justify-between">
@@ -412,8 +412,8 @@ const CalidadView: React.FC = () => {
         </div>
       )}
 
-      {/* Grid — permite scroll en ambas direcciones en móvil */}
-      <div className="flex-1 overflow-auto p-4 [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
+      {/* Grid — scroll vertical; cada bloque gestiona su scroll horizontal */}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
         {loading ? (
           <div className="flex items-center justify-center h-40">
             <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />

@@ -233,9 +233,8 @@ const Block: React.FC<BlockProps> = ({
       />
       <CollapsibleContent isCollapsed={isCollapsed}>
         <div className="pt-1 pb-2">
-          {/* Vista industrial rack para todos los tamaños de pantalla.
-              En móviles se permite scroll horizontal automático si es necesario. */}
-          <div className="flex justify-center">
+          {/* Scroll horizontal solo en este contenedor; la estantería mantiene su ancho mínimo */}
+          <div className="w-full overflow-x-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
             <ShelfRackView
               block={block as import('../../lib/firestoreSchema').ShelfPhysicalBlock}
               shelfCode={shelfDef.code}

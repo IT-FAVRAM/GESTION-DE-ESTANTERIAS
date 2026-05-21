@@ -34,7 +34,7 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack }) => {
   }, []);
 
   return (
-    <div className="min-h-dvh bg-slate-950 flex flex-col">
+    <div className="h-dvh bg-slate-950 flex flex-col overflow-hidden">
        {/* Header */}
        <header className="flex-shrink-0 bg-slate-950/90 border-b border-slate-800/50 backdrop-blur-xl px-4 py-3 shadow-[0_4px_12px_rgba(15,23,42,0.15)]">
          <div className="flex items-center justify-between">
@@ -106,15 +106,17 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack }) => {
        </div>
 
        {/* Content */}
-       <main className="flex-1 overflow-y-auto">
+       <main className="flex-1 min-h-0 overflow-hidden">
          {activeTab === 'shelves' ? (
-           <div className="flex-1 min-h-0 overflow-hidden">
-             <ShelfNavigator />
-           </div>
+           <ShelfNavigator />
          ) : activeTab === 'pickups' ? (
-           <PickupQueue />
+           <div className="h-full overflow-y-auto">
+             <PickupQueue />
+           </div>
          ) : (
-           <CartEditor />
+           <div className="h-full overflow-y-auto">
+             <CartEditor />
+           </div>
          )}
        </main>
 

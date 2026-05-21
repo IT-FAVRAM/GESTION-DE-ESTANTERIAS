@@ -312,16 +312,21 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
   const BASE_H = 20;   // placa base inferior (px)
   const FOOT_H = 8;    // patas del rack (px)
 
+  // Calcular ancho mínimo: slots × 70px + gaps + postes + padding interno
+  const maxCols = Math.max(...block.rows.map((r) => r.length), 1);
+  const SLOT_MIN_W = 70;
+  const calculatedMinWidth = POST_W * 2 + 12 + maxCols * SLOT_MIN_W + (maxCols - 1) * 4;
+
   return (
     <div
       style={{
-        minWidth: 'fit-content',
+        width: '100%',
+        minWidth: calculatedMinWidth,
         display: 'flex',
         borderRadius: 10,
         overflow: 'hidden',
         boxShadow: '0 12px 48px rgba(0,0,0,0.65), 0 2px 8px rgba(0,0,0,0.4)',
         background: '#F9F6F0',
-        margin: '0 auto',
       }}
     >
       {/* ── Poste izquierdo ───────────────────────────────────────────────── */}

@@ -25,8 +25,8 @@ const QualityShelfView: React.FC = () => {
   }
 
   return (
-    <div className="min-h-dvh bg-[radial-gradient(circle_at_top,_rgba(8,145,178,0.18),_transparent_28%),linear-gradient(180deg,_#020617_0%,_#0f172a_48%,_#020617_100%)]">
-      <header className="sticky top-0 z-20 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-xl">
+    <div className="h-dvh bg-[radial-gradient(circle_at_top,_rgba(8,145,178,0.18),_transparent_28%),linear-gradient(180deg,_#020617_0%,_#0f172a_48%,_#020617_100%)] flex flex-col overflow-hidden">
+      <header className="flex-shrink-0 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 md:px-6">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-300/70">Calidad</p>
@@ -51,15 +51,17 @@ const QualityShelfView: React.FC = () => {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl p-4 md:p-6">
-        <div className="rounded-[2rem] border border-slate-800/90 bg-slate-950/45 p-3 shadow-[0_24px_60px_rgba(2,6,23,0.45)] md:p-4 overflow-auto [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
-          <ShelfGrid
-            locations={locations}
-            shelfDef={shelfDef}
-            onCellPress={(location) => {
-              if (!location.isEmpty) setSelectedCell(location);
-            }}
-          />
+      <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+        <div className="mx-auto max-w-7xl p-4 md:p-6">
+          <div className="rounded-[2rem] border border-slate-800/90 bg-slate-950/45 p-3 shadow-[0_24px_60px_rgba(2,6,23,0.45)] md:p-4">
+            <ShelfGrid
+              locations={locations}
+              shelfDef={shelfDef}
+              onCellPress={(location) => {
+                if (!location.isEmpty) setSelectedCell(location);
+              }}
+            />
+          </div>
         </div>
       </main>
 
