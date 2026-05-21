@@ -40,6 +40,7 @@ exports.leadTimeReporting = functions.https.onCall(async (_data, context) => {
         bySection.set(section, { totalDays: (((_a = bySection.get(section)) === null || _a === void 0 ? void 0 : _a.totalDays) || 0) + diffDays, count: (((_b = bySection.get(section)) === null || _b === void 0 ? void 0 : _b.count) || 0) + 1 });
         byShelf.set(shelfCode, { totalDays: (((_c = byShelf.get(shelfCode)) === null || _c === void 0 ? void 0 : _c.totalDays) || 0) + diffDays, count: (((_d = byShelf.get(shelfCode)) === null || _d === void 0 ? void 0 : _d.count) || 0) + 1 });
         openCycles.delete(key);
+        return;
     });
     const bySectionRows = Array.from(bySection.entries()).map(([section, stats]) => ({ section, completedCycles: stats.count, averageLeadTimeDays: Number((stats.totalDays / stats.count).toFixed(2)) })).sort((a, b) => b.averageLeadTimeDays - a.averageLeadTimeDays);
     const byShelfRows = Array.from(byShelf.entries()).map(([shelfCode, stats]) => ({ shelfCode, completedCycles: stats.count, averageLeadTimeDays: Number((stats.totalDays / stats.count).toFixed(2)) })).sort((a, b) => b.averageLeadTimeDays - a.averageLeadTimeDays);
@@ -57,16 +58,36 @@ exports.leadTimeDataset = functions.https.onCall(async (data, context) => {
     if (!dateFrom || !dateTo)
         throw new functions.https.HttpsError('invalid-argument', 'Missing date range.');
     const historyRef = firebaseAdmin_1.admin.firestore().collection('history');
-    const snapshot = await historyRef.where('timestamp', '>=', dateFrom).where('timestamp', '<=', dateTo).orderBy('timestamp', 'desc').get();
-    const exitEvents = snapshot.docs.map((doc) => doc.data()).filter((entry) => entry.action === 'removed' || entry.action === 'process_finished');
+    const snapshot = await historyRef.where('timestamp', '>=', dateFrom).where('timestamp', '<=', dateTo).orderBy('timestamp', 'asc').get();
+    // Build in-memory maps keyed by barcode to avoid N+1 Firestore queries.
+    // Track the most recent 'assigned' event per barcode seen so far, then close
+    // the cycle when a 'removed'/'process_finished' event is encountered.
+    const lastEntry = new Map();
     const rows = [];
-    for (const exitEvent of exitEvents.slice(0, 500)) {
-        const historySnap = await historyRef.where('barcode', '==', exitEvent.barcode).where('timestamp', '<', exitEvent.timestamp).orderBy('timestamp', 'desc').limit(100).get();
-        const entryDoc = historySnap.docs.find((doc) => doc.data().action === 'assigned');
-        if (!entryDoc)
+    for (const doc of snapshot.docs) {
+        const entry = doc.data();
+        const { barcode, action, timestamp, orderId } = entry;
+        if (!barcode || !timestamp)
             continue;
-        const entryEvent = entryDoc.data();
-        rows.push({ barcode: exitEvent.barcode, orderId: exitEvent.orderId || 'N/A', entryDate: entryEvent.timestamp, exitDate: exitEvent.timestamp, durationDays: (new Date(exitEvent.timestamp).getTime() - new Date(entryEvent.timestamp).getTime()) / (1000 * 60 * 60 * 24) });
+        if (action === 'assigned') {
+            lastEntry.set(barcode, { timestamp, orderId: orderId || 'N/A' });
+            continue;
+        }
+        if (action === 'removed' || action === 'process_finished') {
+            const entryEvent = lastEntry.get(barcode);
+            if (!entryEvent)
+                continue;
+            rows.push({
+                barcode,
+                orderId: orderId || entryEvent.orderId,
+                entryDate: entryEvent.timestamp,
+                exitDate: timestamp,
+                durationDays: (new Date(timestamp).getTime() - new Date(entryEvent.timestamp).getTime()) / (1000 * 60 * 60 * 24),
+            });
+            lastEntry.delete(barcode);
+            if (rows.length >= 500)
+                break;
+        }
     }
     return { rows };
 });
@@ -76,7 +97,7 @@ exports.userPushReport = functions.https.onCall(async (_data, context) => {
     const role = (0, authz_1.normalizeRole)(context.auth.token.role);
     if (!['ADMIN', 'SUPERADMIN'].includes(role))
         throw new functions.https.HttpsError('permission-denied', 'Only Admins can access this report.');
-    const snapshot = await firebaseAdmin_1.admin.firestore().collection('users').get();
+    const snapshot = await firebaseAdmin_1.admin.firestore().collection('usuarios').get();
     if (snapshot.empty) {
         return { totalUsers: 0, activeUsers: 0, activeWithFcmTokens: 0, roleCounts: {} };
     }

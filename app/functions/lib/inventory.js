@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateReproceso = exports.cartOperate = exports.shelfOperate = exports.inventoryOperate = exports.onAssignmentWrite = void 0;
+exports.updateReproceso = exports.cartOperate = exports.shelfOperate = exports.inventoryOperate = exports.onShelfLocationWrite = exports.onAssignmentWrite = void 0;
 const functions = require("firebase-functions");
 const firebaseAdmin_1 = require("./firebaseAdmin");
 const authz_1 = require("./authz");
@@ -77,20 +77,53 @@ exports.onAssignmentWrite = functions.firestore
         }
     }));
 });
+// Trigger for the new shelfOperate path (shelves/{shelfCode}/locations/{position})
+// Updates inboundOrders to DISPONIBLE when articles are placed via shelfOperate.
+exports.onShelfLocationWrite = functions.firestore
+    .document('shelves/{shelfCode}/locations/{position}')
+    .onWrite(async (change) => {
+    const afterData = change.after.exists ? change.after.data() : null;
+    const beforeData = change.before.exists ? change.before.data() : null;
+    if (!afterData || !Array.isArray(afterData.items))
+        return;
+    const afterItems = afterData.items;
+    const beforeItems = Array.isArray(beforeData === null || beforeData === void 0 ? void 0 : beforeData.items) ? beforeData.items : [];
+    const beforeKeys = new Set(beforeItems.map((item) => `${item.articleCode}_${item.orderFab}`));
+    const newItems = afterItems.filter((item) => !beforeKeys.has(`${item.articleCode}_${item.orderFab}`));
+    if (newItems.length === 0)
+        return;
+    const ordersToUpdate = new Set();
+    newItems.forEach((item) => {
+        if (item.orderFab && item.orderFab !== 'PENDIENTE')
+            ordersToUpdate.add(item.orderFab);
+    });
+    await Promise.all(Array.from(ordersToUpdate).map(async (orderFab) => {
+        try {
+            const docRef = firebaseAdmin_1.admin.firestore().collection('inboundOrders').doc(orderFab);
+            const doc = await docRef.get();
+            if (!doc.exists)
+                return;
+            await docRef.update({
+                fecha_disponible_estanteria: firebaseAdmin_1.admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebaseAdmin_1.admin.firestore.FieldValue.serverTimestamp(),
+                status: 'DISPONIBLE',
+            });
+        }
+        catch (error) {
+            console.error(`Failed to update InboundOrder ${orderFab}:`, error);
+        }
+    }));
+});
 exports.inventoryOperate = functions.https.onCall(async (data, context) => {
-    if (!context.auth)
-        throw new functions.https.HttpsError('unauthenticated', 'auth required');
-    const uid = context.auth.uid;
-    const role = (0, authz_1.normalizeRole)(context.auth.token.role || '');
-    const section = context.auth.token.section || null;
-    const user = context.auth.token.email || 'unknown';
+    const userCtx = await (0, authz_1.requireAllowedRoles)(context, ['ADMIN', 'SUPERADMIN', 'JEFE_SECCION', 'CARRETILLERO', 'CALIDAD']);
+    const uid = userCtx.uid;
+    const role = userCtx.role;
+    const section = userCtx.section;
+    const user = userCtx.email || 'unknown';
     const op = data === null || data === void 0 ? void 0 : data.op;
     const payload = (data === null || data === void 0 ? void 0 : data.payload) || {};
     const opId = (data === null || data === void 0 ? void 0 : data.opId) || firebaseAdmin_1.admin.firestore().collection('_ops').doc().id;
     const now = new Date().toISOString();
-    if (!['ADMIN', 'SUPERADMIN', 'JEFE_SECCION', 'CARRETILLERO', 'CALIDAD'].includes(role)) {
-        throw new functions.https.HttpsError('permission-denied', 'Invalid role');
-    }
     const writeHistory = (tx, entry) => {
         const historyRef = firebaseAdmin_1.admin.firestore().collection('history').doc();
         tx.set(historyRef, Object.assign(Object.assign({}, entry), { id: historyRef.id, timestamp: now, uid, role, user, opId, source: 'inventoryOperate' }));

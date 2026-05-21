@@ -474,7 +474,7 @@ const KioskView: React.FC = () => {
         </main>
       ) : (
          <>
-           <main className="flex-1 min-h-0 overflow-hidden p-2 md:p-3">
+           <main className="flex-1 min-h-0 overflow-auto [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent] p-2 md:p-3">
              {action === 'idle' && (
                 <div className="flex justify-end mb-2">
                   <button onClick={() => setShowShelf(false)} className="px-3 py-1.5 rounded-full bg-slate-800 text-slate-400 font-bold hover:bg-slate-700 text-xs transition-colors">

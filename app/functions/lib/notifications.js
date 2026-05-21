@@ -25,7 +25,20 @@ const getAddedLocationItems = (beforeData, afterData) => {
     return afterItems.filter((item) => !beforeKeys.has(`${normalize(item === null || item === void 0 ? void 0 : item.articleCode)}__${normalize(item === null || item === void 0 ? void 0 : item.orderFab)}__${normalize(item === null || item === void 0 ? void 0 : item.locatedAt)}`));
 };
 exports.checkStaleItems = functions.pubsub.schedule('every 24 hours').timeZone('Europe/Madrid').onRun(async () => {
-    const itemsSnapshot = await firebaseAdmin_1.admin.firestore().collection('items').where('active', '==', true).get();
+    const BATCH_SIZE = 500;
+    let lastDoc = null;
+    let allItemDocs = [];
+    while (true) {
+        let q = firebaseAdmin_1.admin.firestore().collection('items').where('active', '==', true).limit(BATCH_SIZE);
+        if (lastDoc)
+            q = q.startAfter(lastDoc);
+        const batch = await q.get();
+        allItemDocs = allItemDocs.concat(batch.docs);
+        if (batch.size < BATCH_SIZE)
+            break;
+        lastDoc = batch.docs[batch.docs.length - 1];
+    }
+    const itemsSnapshot = { docs: allItemDocs };
     const config = await (0, push_1.getAppConfig)();
     const chiefMapping = config.chiefMapping || {};
     const now = Date.now();
@@ -129,7 +142,7 @@ exports.notifyCarretilleroRequest = functions.firestore
         return;
     let userDocs = await (0, push_1.getUsersByRole)('CARRETILLERO');
     if (userDocs.length === 0) {
-        const legacySnapshot = await firebaseAdmin_1.admin.firestore().collection('users').where('user', '==', 'CARRETILLERO').get();
+        const legacySnapshot = await firebaseAdmin_1.admin.firestore().collection('usuarios').where('role', '==', 'CARRETILLERO').get();
         userDocs = legacySnapshot.docs;
     }
     if (userDocs.length === 0)
@@ -195,30 +208,38 @@ exports.notifyLongDisconnection = functions.pubsub
         .where('isOnline', '==', false)
         .where('lastDisconnectedAt', '<=', tenMinutesAgo)
         .get();
-    const offlineDevices = statusSnapshot.docs.map((doc) => doc.data());
+    const now = Date.now();
+    const oneHourAgo = new Date(now - 60 * 60 * 1000).toISOString();
+    const offlineDevices = statusSnapshot.docs.map((doc) => (Object.assign({ id: doc.id }, doc.data())));
     if (offlineDevices.length === 0)
         return { checked: 0, critical: 0 };
     const criticalDevices = offlineDevices.filter((device) => {
         const disconnectTime = new Date(device.lastDisconnectedAt).getTime();
-        const now = Date.now();
-        return (now - disconnectTime) > 30 * 60 * 1000; // > 30 minutes offline
+        const isLongOffline = (now - disconnectTime) > 30 * 60 * 1000;
+        const notRecentlyAlerted = !device.lastCriticalAlertAt || device.lastCriticalAlertAt < oneHourAgo;
+        return isLongOffline && notRecentlyAlerted;
     });
     if (criticalDevices.length > 0) {
         const deviceList = criticalDevices
-            .map((d) => `${d.deviceName} (${d.deviceType}) - ${Math.floor((Date.now() - new Date(d.lastDisconnectedAt).getTime()) / 60000)}m`)
+            .map((d) => `${d.deviceName} (${d.deviceType}) - ${Math.floor((now - new Date(d.lastDisconnectedAt).getTime()) / 60000)}m`)
             .join('\n');
-        await Promise.all([
-            (0, push_1.notifyUsersByRole)('SUPERADMIN', {
-                title: '🔴 Dispositivos críticos sin conexión',
-                body: `${criticalDevices.length} dispositivo(s) llevan más de 30 minutos sin conexión:\n${deviceList}`,
-                data: {
-                    type: 'CRITICAL_OFFLINE_ALERT',
-                    deviceCount: String(criticalDevices.length),
-                }
-            })
-        ]).catch((err) => {
+        await (0, push_1.notifyUsersByRole)('SUPERADMIN', {
+            title: '🔴 Dispositivos críticos sin conexión',
+            body: `${criticalDevices.length} dispositivo(s) llevan más de 30 minutos sin conexión:\n${deviceList}`,
+            data: {
+                type: 'CRITICAL_OFFLINE_ALERT',
+                deviceCount: String(criticalDevices.length),
+            }
+        }).catch((err) => {
             console.error('[notifyLongDisconnection] Error sending critical alert:', err);
         });
+        const alertedAt = new Date(now).toISOString();
+        const db = firebaseAdmin_1.admin.firestore();
+        const batchUpdate = db.batch();
+        criticalDevices.forEach((device) => {
+            batchUpdate.update(db.collection('conexion_estado').doc(device.id), { lastCriticalAlertAt: alertedAt });
+        });
+        await batchUpdate.commit().catch((err) => console.error('[notifyLongDisconnection] batch update failed:', err));
     }
     return { checked: offlineDevices.length, critical: criticalDevices.length };
 });

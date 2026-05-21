@@ -46,7 +46,7 @@ const getUserContext = async (context) => {
             section: claimedSection,
         };
     }
-    const userDoc = await admin.firestore().collection('users').doc(uid).get();
+    const userDoc = await admin.firestore().collection('usuarios').doc(uid).get();
     const userData = userDoc.exists ? userDoc.data() : null;
     const role = typeof (userData === null || userData === void 0 ? void 0 : userData.role) === 'string' ? (0, exports.normalizeRole)(userData.role) : '';
     const section = typeof (userData === null || userData === void 0 ? void 0 : userData.section) === 'string' ? userData.section : null;

@@ -632,8 +632,8 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
         <p className="text-[10px] text-slate-500 mt-0.5 text-right">{occupancyPct}% ocupado</p>
       </div>
 
-      {/* Grid */}
-      <div className="flex-1 overflow-y-auto p-4 pt-0">
+      {/* Grid — permite scroll en ambas direcciones en móvil */}
+      <div className="flex-1 overflow-auto p-4 pt-0 [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
         {loading ? (
           <div className="flex items-center justify-center h-40">
             <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />

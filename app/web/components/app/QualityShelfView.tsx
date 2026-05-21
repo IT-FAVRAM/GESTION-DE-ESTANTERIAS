@@ -52,7 +52,7 @@ const QualityShelfView: React.FC = () => {
       </header>
 
       <main className="mx-auto max-w-7xl p-4 md:p-6">
-        <div className="rounded-[2rem] border border-slate-800/90 bg-slate-950/45 p-3 shadow-[0_24px_60px_rgba(2,6,23,0.45)] md:p-4">
+        <div className="rounded-[2rem] border border-slate-800/90 bg-slate-950/45 p-3 shadow-[0_24px_60px_rgba(2,6,23,0.45)] md:p-4 overflow-auto [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
           <ShelfGrid
             locations={locations}
             shelfDef={shelfDef}

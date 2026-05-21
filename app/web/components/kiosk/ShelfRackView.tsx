@@ -315,12 +315,13 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
   return (
     <div
       style={{
-        width: '100%',
+        minWidth: 'fit-content',
         display: 'flex',
         borderRadius: 10,
         overflow: 'hidden',
         boxShadow: '0 12px 48px rgba(0,0,0,0.65), 0 2px 8px rgba(0,0,0,0.4)',
         background: '#F9F6F0',
+        margin: '0 auto',
       }}
     >
       {/* ── Poste izquierdo ───────────────────────────────────────────────── */}

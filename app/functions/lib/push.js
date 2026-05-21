@@ -16,13 +16,13 @@ const getUsersByEmails = async (emails) => {
     if (normalizedEmails.length === 0) {
         return [];
     }
-    const batches = await Promise.all(chunk(normalizedEmails, 10).map((group) => firebaseAdmin_1.admin.firestore().collection('users').where('email', 'in', group).get()));
+    const batches = await Promise.all(chunk(normalizedEmails, 10).map((group) => firebaseAdmin_1.admin.firestore().collection('usuarios').where('email', 'in', group).get()));
     return batches.flatMap((snapshot) => snapshot.docs);
 };
 exports.getUsersByEmails = getUsersByEmails;
 const getUsersByRole = async (role) => {
     const normalizedRole = (0, authz_1.normalizeRole)(role);
-    const snapshot = await firebaseAdmin_1.admin.firestore().collection('users').where('role', '==', normalizedRole).get();
+    const snapshot = await firebaseAdmin_1.admin.firestore().collection('usuarios').where('role', '==', normalizedRole).get();
     return snapshot.docs;
 };
 exports.getUsersByRole = getUsersByRole;
@@ -64,7 +64,7 @@ const sendPushToUsers = async (userDocs, payload) => {
         const ownerId = tokenOwners.get(token);
         if (!ownerId)
             return;
-        cleanupTasks.push(firebaseAdmin_1.admin.firestore().collection('users').doc(ownerId).update({
+        cleanupTasks.push(firebaseAdmin_1.admin.firestore().collection('usuarios').doc(ownerId).update({
             fcmTokens: firebaseAdmin_1.admin.firestore.FieldValue.arrayRemove(token),
         }));
     });

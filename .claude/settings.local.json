@@ -59,7 +59,16 @@
       "Bash(Get-ChildItem -Path \"C:\\\\-- APLICACIONES DANI --\\\\APP -- ESTANTERIAS\" -Recurse -Force)",
       "Bash(Select-Object FullName)",
       "Bash(Get-ChildItem \"C:\\\\-- APLICACIONES DANI --\\\\APP -- ESTANTERIAS\\\\app\\\\web\\\\hooks\" -Recurse)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "PowerShell(firebase deploy *)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(curl -v http://localhost:3000)",
+      "Bash(tasklist)",
+      "Bash(taskkill *)",
+      "Bash(curl -k https://localhost:3006)",
+      "Bash(xargs grep -l \"shelf\\\\|estanter\" -i)",
+      "Bash(xargs grep -l \"shelfGrid\\\\|ShelfGrid\\\\|shelf.*render\\\\|estanter\" -i)",
+      "Bash(npx firebase *)"
     ]
   }
 }

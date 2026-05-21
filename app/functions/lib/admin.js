@@ -73,16 +73,24 @@ exports.adminOperate = functions.https.onCall(async (data, context) => {
         if (section && !ALLOWED_SECTIONS.has(section)) {
             throw new functions.https.HttpsError('invalid-argument', 'Seccion no valida.');
         }
-        await db.collection('users').doc(userId).set({
+        const userRef = db.collection('usuarios').doc(userId);
+        const userSnap = await userRef.get();
+        if (!userSnap.exists) {
+            throw new functions.https.HttpsError('not-found', 'Usuario no encontrado.');
+        }
+        await userRef.update({
             role,
             section: role === 'JEFE_SECCION' ? (section || null) : null,
-        }, { merge: true });
+        });
         return { ok: true };
     }
     throw new functions.https.HttpsError('invalid-argument', `Operacion desconocida: ${op}`);
 });
 exports.resolveDeviceConfig = functions.https.onCall(async (data, context) => {
     var _a, _b;
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Usuario no autenticado.');
+    }
     const deviceId = normalize(data === null || data === void 0 ? void 0 : data.deviceId);
     if (!deviceId) {
         throw new functions.https.HttpsError('invalid-argument', 'deviceId requerido.');
@@ -136,7 +144,7 @@ exports.sendAdminMessage = functions.https.onCall(async (data, context) => {
     const db = firebaseAdmin_1.admin.firestore();
     let userDocs;
     if (targetRole === 'ALL') {
-        const snap = await db.collection('users').get();
+        const snap = await db.collection('usuarios').get();
         userDocs = snap.docs;
     }
     else {
@@ -162,6 +170,11 @@ exports.sendAdminMessage = functions.https.onCall(async (data, context) => {
 exports.deviceHeartbeat = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Usuario no autenticado.');
+    }
+    const isAdmin = ['ADMIN', 'SUPERADMIN'].includes(String(context.auth.token.role || '').trim().toUpperCase());
+    const isValidatedDevice = context.auth.token.validatedDevice === true;
+    if (!isAdmin && !isValidatedDevice) {
+        throw new functions.https.HttpsError('permission-denied', 'Solo dispositivos validados o admins pueden enviar heartbeat.');
     }
     const deviceId = String((data === null || data === void 0 ? void 0 : data.deviceId) || '').trim();
     if (!deviceId) {

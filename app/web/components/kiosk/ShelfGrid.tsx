@@ -234,20 +234,18 @@ const Block: React.FC<BlockProps> = ({
       <CollapsibleContent isCollapsed={isCollapsed}>
         <div className="pt-1 pb-2">
           {/* Vista industrial rack para todos los tamaños de pantalla.
-              En móviles estrechos se permite scroll horizontal si la estantería tiene muchas columnas. */}
-          <div className="w-full overflow-x-auto [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
-            <div className="min-w-[320px]">
-              <ShelfRackView
-                block={block as import('../../lib/firestoreSchema').ShelfPhysicalBlock}
-                shelfCode={shelfDef.code}
-                locationMap={locationMap}
-                selectedPositions={selectedPositions}
-                highlightedPositions={highlightedPositions}
-                onCellPress={onCellPress}
-                showReprocessCosts={showReprocessCosts}
-                createEmptyLocation={createEmptyLocation}
-              />
-            </div>
+              En móviles se permite scroll horizontal automático si es necesario. */}
+          <div className="flex justify-center">
+            <ShelfRackView
+              block={block as import('../../lib/firestoreSchema').ShelfPhysicalBlock}
+              shelfCode={shelfDef.code}
+              locationMap={locationMap}
+              selectedPositions={selectedPositions}
+              highlightedPositions={highlightedPositions}
+              onCellPress={onCellPress}
+              showReprocessCosts={showReprocessCosts}
+              createEmptyLocation={createEmptyLocation}
+            />
           </div>
         </div>
       </CollapsibleContent>

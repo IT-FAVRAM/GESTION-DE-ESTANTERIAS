@@ -1,9 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.productionOperate = exports.sendAdminMessage = exports.resolveDeviceConfig = exports.deviceHeartbeat = exports.adminOperate = exports.userPushReport = exports.leadTimeDataset = exports.leadTimeReporting = exports.pickupQueueOperate = exports.notifyLongDisconnection = exports.notifyConnectionDisconnect = exports.notifyCarretilleroRequest = exports.notifySpecialLocationOccupancy = exports.notifyPickupQueueCreated = exports.checkStaleItems = exports.updateReproceso = exports.cartOperate = exports.shelfOperate = exports.onAssignmentWrite = exports.inventoryOperate = void 0;
+exports.productionOperate = exports.sendAdminMessage = exports.resolveDeviceConfig = exports.deviceHeartbeat = exports.adminOperate = exports.userPushReport = exports.leadTimeDataset = exports.leadTimeReporting = exports.pickupQueueOperate = exports.notifyLongDisconnection = exports.notifyConnectionDisconnect = exports.notifyCarretilleroRequest = exports.notifySpecialLocationOccupancy = exports.notifyPickupQueueCreated = exports.checkStaleItems = exports.updateReproceso = exports.cartOperate = exports.shelfOperate = exports.onShelfLocationWrite = exports.onAssignmentWrite = exports.inventoryOperate = void 0;
 var inventory_1 = require("./inventory");
 Object.defineProperty(exports, "inventoryOperate", { enumerable: true, get: function () { return inventory_1.inventoryOperate; } });
 Object.defineProperty(exports, "onAssignmentWrite", { enumerable: true, get: function () { return inventory_1.onAssignmentWrite; } });
+Object.defineProperty(exports, "onShelfLocationWrite", { enumerable: true, get: function () { return inventory_1.onShelfLocationWrite; } });
 Object.defineProperty(exports, "shelfOperate", { enumerable: true, get: function () { return inventory_1.shelfOperate; } });
 Object.defineProperty(exports, "cartOperate", { enumerable: true, get: function () { return inventory_1.cartOperate; } });
 Object.defineProperty(exports, "updateReproceso", { enumerable: true, get: function () { return inventory_1.updateReproceso; } });
