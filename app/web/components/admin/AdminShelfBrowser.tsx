@@ -367,7 +367,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
     : [];
 
   return (
-    <div className="h-dvh bg-sky-50 flex flex-col overflow-hidden">
+    <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
       {/* Header */}
       <header className="bg-white border-b border-slate-200 px-4 py-3 shadow-sm">
         <div className="flex items-center justify-between max-w-6xl mx-auto">
@@ -632,7 +632,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
       </div>
 
       {/* Grid — scroll vertical; cada bloque gestiona su scroll horizontal */}
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 pt-0 [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
+      <div className="flex-1 min-h-0 min-w-0 w-full overflow-y-auto overscroll-contain p-2 sm:p-4 pt-0 [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
         {loading ? (
           <div className="flex items-center justify-center h-40">
             <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />

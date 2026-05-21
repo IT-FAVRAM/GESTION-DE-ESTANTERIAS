@@ -13,34 +13,37 @@ interface KioskHeaderProps {
   onInfo?: () => void;
 }
 
-const KioskHeader: React.FC<KioskHeaderProps> = ({ shelfName, shelfCode, totalOccupied, totalEmpty, totalArticles, displayName, operarioId, deviceId, onLogout, onInfo }) => (
-  <header className="flex-shrink-0 border-b border-cyan-900/40 bg-slate-950/80 px-4 py-4 backdrop-blur-md">
-    <div className="flex items-center justify-between gap-4">
-      <div className="flex items-center gap-4">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-500/20 bg-cyan-500/10 text-2xl shadow-lg shadow-cyan-950/40">🏭</div>
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-black tracking-tight text-white md:text-2xl">{shelfName || shelfCode}</h1>
-            <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-cyan-300">Tablet Kiosko</span>
+const KioskHeader: React.FC<KioskHeaderProps> = ({ shelfName, shelfCode, displayName, operarioId, deviceId, onLogout, onInfo }) => (
+  <header className="flex-shrink-0 border-b border-slate-200 bg-white px-3 py-2.5 sm:px-4 sm:py-3 shadow-sm">
+    <div className="flex items-center justify-between gap-2 sm:gap-4 min-w-0">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+        <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl border border-sky-200 bg-sky-50 text-xl sm:text-2xl shrink-0">🏭</div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <h1 className="text-base sm:text-xl font-black tracking-tight text-slate-900 truncate">{shelfName || shelfCode}</h1>
+            <span className="hidden sm:inline rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-sky-700">Kiosko</span>
           </div>
+          <p className="text-xs font-bold text-sky-700 truncate">{displayName}</p>
+          <p className="text-[10px] text-slate-500 truncate">Op. {operarioId} · {deviceId}</p>
         </div>
       </div>
-      <div className="flex items-center gap-3">
-        <div className="text-right">
-          <p className="text-sm font-black text-cyan-300">{displayName}</p>
-          <p className="text-xs text-slate-500">Operario {operarioId}</p>
-          <p className="text-[10px] text-cyan-400/70 font-mono mt-0.5">Device: {deviceId}</p>
-        </div>
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         {onInfo && (
           <button
             onClick={onInfo}
-            className="rounded-xl border border-cyan-500/50 bg-cyan-600/20 px-4 py-2 text-sm font-black text-cyan-300 transition-colors hover:bg-cyan-600/40 hover:border-cyan-400"
+            className="rounded-lg border border-sky-300 bg-sky-50 px-2 py-1.5 sm:px-3 sm:py-2 text-xs font-black text-sky-700 transition-colors hover:bg-sky-100"
             title="Ver información del dispositivo (Device ID)"
           >
-            ℹ️ INFO
+            ℹ️
           </button>
         )}
-        <button onClick={onLogout} className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-300 transition-colors hover:bg-slate-800">Cambiar</button>
+        <button
+          onClick={onLogout}
+          className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 sm:px-3 sm:py-2 text-xs font-black text-slate-700 transition-colors hover:bg-slate-100"
+          title="Cambiar operario"
+        >
+          🔄
+        </button>
       </div>
     </div>
   </header>

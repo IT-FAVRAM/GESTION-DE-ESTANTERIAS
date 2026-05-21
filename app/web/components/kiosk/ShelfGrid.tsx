@@ -163,10 +163,10 @@ const CollapsibleContent: React.FC<{ isCollapsed: boolean; children: React.React
   children,
 }) => (
   <div
-    className="overflow-hidden transition-all duration-300 ease-in-out"
+    className="overflow-hidden transition-all duration-300 ease-in-out min-w-0 w-full"
     style={{ display: 'grid', gridTemplateRows: isCollapsed ? '0fr' : '1fr' }}
   >
-    <div className="min-h-0">{children}</div>
+    <div className="min-h-0 min-w-0">{children}</div>
   </div>
 );
 
@@ -218,7 +218,7 @@ const Block: React.FC<BlockProps> = ({
   }, 0);
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 min-w-0 w-full">
       <SectionHeader
         title={block.title}
         subtitle={block.subtitle}
@@ -232,9 +232,9 @@ const Block: React.FC<BlockProps> = ({
         onToggle={onToggle}
       />
       <CollapsibleContent isCollapsed={isCollapsed}>
-        <div className="pt-1 pb-2">
+        <div className="pt-1 pb-2 min-w-0">
           {/* Scroll horizontal solo en este contenedor; la estantería mantiene su ancho mínimo */}
-          <div className="w-full overflow-x-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
+          <div className="w-full max-w-full overflow-x-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
             <ShelfRackView
               block={block as import('../../lib/firestoreSchema').ShelfPhysicalBlock}
               shelfCode={shelfDef.code}
@@ -377,7 +377,7 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
 
    // ── Full mode ───────────────────────────────────────────────────────────────
    return (
-     <div className="w-full">
+     <div className="w-full min-w-0">
        {!fullscreenMode && (
          <>
            <ShelfGridStats
@@ -406,9 +406,9 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
        )}
 
        {physicalBlocks.length > 0 ? (
-         <div className={`grid ${blockGridCols} pb-4 ${fullscreenMode ? 'gap-2' : 'gap-3'}`}>
+         <div className={`grid ${blockGridCols} pb-4 ${fullscreenMode ? 'gap-2' : 'gap-3'} w-full min-w-0`}>
            {physicalBlocks.map((block) => (
-             <div key={block.id} className={block.fullWidth ? 'col-span-full' : ''}>
+             <div key={block.id} className={`min-w-0 ${block.fullWidth ? 'col-span-full' : ''}`}>
                <Block
                  block={block}
                  shelfDef={shelfDef!}

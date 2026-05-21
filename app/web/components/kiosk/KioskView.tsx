@@ -384,7 +384,7 @@ const KioskView: React.FC = () => {
   }
 
   return (
-    <div className="h-dvh bg-sky-50 flex flex-col relative overflow-hidden">
+    <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col relative overflow-hidden">
       <KioskHeader shelfName={shelfDef?.name || ''} shelfCode={shelfCode} totalOccupied={totalOccupied} totalEmpty={totalEmpty} totalArticles={totalArticles} displayName={displayName} operarioId={operarioId} deviceId={deviceId} onLogout={logout} onInfo={() => setShowDeviceInfo(true)} />
       {kiosk && shelves.length > 1 && (
         <div className="bg-sky-50 border-b border-slate-200 px-4 py-2 flex justify-center">
@@ -474,7 +474,7 @@ const KioskView: React.FC = () => {
         </main>
       ) : (
          <>
-           <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent] p-2 md:p-3">
+           <main className="flex-1 min-h-0 min-w-0 w-full overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent] p-2 md:p-3">
              {action === 'idle' && (
                 <div className="flex justify-end mb-2">
                   <button onClick={() => setShowShelf(false)} className="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-500 font-bold hover:bg-slate-50 text-xs transition-colors shadow-sm">

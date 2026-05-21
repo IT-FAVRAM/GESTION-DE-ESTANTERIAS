@@ -25,7 +25,7 @@ const QualityShelfView: React.FC = () => {
   }
 
   return (
-    <div className="h-dvh bg-sky-50 flex flex-col overflow-hidden">
+    <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
       <header className="flex-shrink-0 border-b border-slate-200 bg-white shadow-sm">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 md:px-6">
           <div>
@@ -51,7 +51,7 @@ const QualityShelfView: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+      <main className="flex-1 min-h-0 min-w-0 w-full overflow-y-auto overscroll-contain">
         <div className="mx-auto max-w-7xl p-4 md:p-6">
           <div className="rounded-[2rem] border border-slate-800/90 bg-slate-950/45 p-3 shadow-[0_24px_60px_rgba(2,6,23,0.45)] md:p-4">
             <ShelfGrid

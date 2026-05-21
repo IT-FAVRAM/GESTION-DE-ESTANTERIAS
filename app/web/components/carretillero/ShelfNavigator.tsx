@@ -169,7 +169,7 @@ const ShelfNavigator: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full w-full min-w-0 overflow-hidden">
       <ShelfNavigatorTabs selectedShelf={selectedShelf} onSelectShelf={(shelfCode) => { setSelectedShelf(shelfCode); setAction('idle'); setScanData(null); setHighlightedSearch([]); }} />
       <ShelfNavigatorStatus totalEmpty={totalEmpty} totalOccupied={totalOccupied} totalArticles={totalArticles} actionActive={action !== 'idle'} canConfirmMove={action === 'mover' && !!scanData && selectedPositions.length > 0} scannerActive={scannerActive} scanArticle={scanData && action === 'ubicar' ? scanData.articleCode : undefined} onConfirmMove={handleMoverConfirm} onCancel={() => { setAction('idle'); setScanData(null); setSelectedPositions([]); setScannerActive(false); }} />
 
@@ -196,7 +196,7 @@ const ShelfNavigator: React.FC = () => {
       )}
 
       {/* Grid — scroll vertical aquí; cada bloque de estantería gestiona su propio scroll horizontal */}
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
+      <div className="flex-1 min-h-0 min-w-0 w-full overflow-y-auto overscroll-contain p-2 sm:p-4 [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
         {loading ? (
           <div className="flex items-center justify-center h-40">
             <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
