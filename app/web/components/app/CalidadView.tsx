@@ -330,28 +330,28 @@ const CalidadView: React.FC = () => {
   }, []);
 
   return (
-    <div className="h-dvh bg-slate-950 flex flex-col overflow-hidden">
+    <div className="h-dvh bg-sky-50 flex flex-col overflow-hidden">
        {/* Header */}
-       <header className="bg-slate-950/90 border-b border-slate-800/50 backdrop-blur-xl px-4 py-3 shadow-[0_4px_12px_rgba(15,23,42,0.15)]">
+       <header className="bg-white border-b border-slate-200 px-4 py-3 shadow-sm">
          <div className="flex items-center justify-between">
            <div className="flex items-center gap-3">
              <span className="text-xl">🔍</span>
              <div>
-               <h1 className="text-lg font-black text-white tracking-tight">Calidad — CAL</h1>
-               <p className="text-xs text-slate-200">{displayName}</p>
+               <h1 className="text-lg font-black text-slate-900 tracking-tight">Calidad — CAL</h1>
+               <p className="text-xs text-slate-500">{displayName}</p>
              </div>
            </div>
            <div className="flex gap-2">
              <button
                onClick={() => setShowCameraScanner(true)}
-               className="px-3 py-2 text-xs font-bold bg-cyan-600/80 text-white rounded-lg hover:bg-cyan-700/80 transition-all duration-200 flex items-center gap-2"
+               className="px-3 py-2 text-xs font-bold bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition-all duration-200 flex items-center gap-2"
                title="Escanear QR con cámara"
              >
                📷 Cámara
              </button>
              <button
                onClick={logout}
-               className="px-4 py-2 bg-slate-800/80 text-slate-100 rounded-xl font-bold hover:bg-slate-700/80 hover:text-white transition-all duration-200"
+               className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all duration-200"
              >
                Salir
              </button>
@@ -372,13 +372,13 @@ const CalidadView: React.FC = () => {
 
       {/* Action status */}
       {action !== 'idle' && (
-        <div className="px-4 py-2 bg-slate-800/50 border-b border-slate-700 flex items-center justify-between">
+        <div className="px-4 py-2 bg-white border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-2">
             {scannerActive && (
-              <span className="text-xs text-cyan-400 animate-pulse font-bold">📡 Esperando escáner...</span>
+              <span className="text-xs text-sky-600 animate-pulse font-bold">📡 Esperando escáner...</span>
             )}
             {scanData && (
-              <span className="text-xs text-white font-bold">{scanData.articleCode} ({scanData.orderFab})</span>
+              <span className="text-xs text-slate-800 font-bold">{scanData.articleCode} ({scanData.orderFab})</span>
             )}
             {action === 'ubicar' && scanData && selectedPositions.length > 0 && (
               <button
@@ -436,7 +436,7 @@ const CalidadView: React.FC = () => {
 
       {/* Action buttons */}
       {action === 'idle' && (
-        <div className="flex-shrink-0 bg-slate-900 border-t border-slate-800 p-3">
+        <div className="flex-shrink-0 bg-white border-t border-slate-200 p-3">
           <div className="grid grid-cols-4 gap-2 max-w-2xl mx-auto">
             <button
               onClick={() => startAction('ubicar')}
@@ -468,10 +468,10 @@ const CalidadView: React.FC = () => {
 
       {/* Batch mode bar */}
       {batchMode && (action === 'ubicar' || action === 'retirar') && (
-        <div className="flex-shrink-0 bg-slate-800/50 border-t border-slate-700 px-4 py-3">
+        <div className="flex-shrink-0 bg-white border-t border-slate-200 px-4 py-3">
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-white text-sm">
+              <h3 className="font-bold text-slate-800 text-sm">
                 {action === 'ubicar' ? '📦 Batch' : '📤 Batch'} ({action === 'ubicar' ? batchArticles.length : batchRetiraPending.length} artículos)
               </h3>
             </div>

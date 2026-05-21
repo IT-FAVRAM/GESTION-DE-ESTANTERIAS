@@ -367,32 +367,32 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
     : [];
 
   return (
-    <div className="h-dvh bg-slate-950 flex flex-col overflow-hidden">
+    <div className="h-dvh bg-sky-50 flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="bg-slate-900 border-b border-slate-800 px-4 py-3">
+      <header className="bg-white border-b border-slate-200 px-4 py-3 shadow-sm">
         <div className="flex items-center justify-between max-w-6xl mx-auto">
           <div className="flex items-center gap-3">
             <button
               onClick={onBack}
-              className="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center hover:bg-slate-700"
+              className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center hover:bg-slate-200"
             >
               ←
             </button>
             <div>
-              <h1 className="text-lg font-black text-white">🏭 Estanterías</h1>
-              <p className="text-xs text-slate-400">
+              <h1 className="text-lg font-black text-slate-900">🏭 Estanterías</h1>
+              <p className="text-xs text-slate-500">
                 {action === 'idle' ? 'Operativa manual' : `Acción activa: ${action.toUpperCase()}`}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2 text-xs">
-            <span className="bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-lg font-bold">
+            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-lg font-bold">
               {totalOccupied} ocupadas
             </span>
-            <span className="bg-slate-700 text-slate-300 px-2 py-1 rounded-lg font-bold">
+            <span className="bg-slate-100 text-slate-600 border border-slate-200 px-2 py-1 rounded-lg font-bold">
               {totalEmpty} vacías
             </span>
-            <span className="bg-cyan-500/20 text-cyan-400 px-2 py-1 rounded-lg font-bold">
+            <span className="bg-sky-50 text-sky-700 border border-sky-200 px-2 py-1 rounded-lg font-bold">
               {totalArticles} artículos
             </span>
           </div>
@@ -400,8 +400,8 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
       </header>
 
        {/* Shelf tabs */}
-       <div className="flex-shrink-0 overflow-x-auto bg-slate-950/80 border-b border-slate-700/50 backdrop-blur-sm px-2">
-          <div className="flex gap-1">
+       <div className="flex-shrink-0 overflow-x-auto bg-sky-50 border-b border-slate-200 px-2">
+          <div className="flex gap-1 p-1">
             {SHELF_DEFINITIONS.map((shelf) => (
               <button
                 key={shelf.code}
@@ -410,11 +410,10 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
                   setHighlightedPositions([]);
                   resetAction();
                 }}
-                className={`px-3 py-2 text-sm font-semibold transition-colors relative
+                className={`px-3 py-2 text-sm font-semibold transition-colors rounded-lg
                   ${selectedShelf === shelf.code
-                    ? 'bg-cyan-500/80 text-slate-100'
-                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'}
-                  ${selectedShelf === shelf.code ? ' absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-500/80' : ''}
+                    ? 'bg-sky-500 text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-white hover:text-slate-800'}
                 `}>
                 {shelf.name}
               </button>
@@ -424,7 +423,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
 
        {/* Manual operations panel */}
       <div className="px-4 pt-3 pb-2">
-        <div className="bg-slate-900 border border-slate-700 rounded-2xl p-3 space-y-2.5">
+        <div className="bg-white border border-slate-200 rounded-2xl p-3 space-y-2.5 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
             Operativa manual — {displayName}
           </p>
@@ -435,7 +434,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
               onChange={(e) => setArticleInput(e.target.value)}
               placeholder="Código artículo"
               disabled={action !== 'idle'}
-              className="flex-1 min-w-0 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 min-w-0 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <input
               type="text"
@@ -443,7 +442,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
               onChange={(e) => setOfInput(e.target.value)}
               placeholder="OF"
               disabled={action !== 'idle'}
-              className="w-28 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-28 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -503,14 +502,14 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
                   value={articleInput}
                   onChange={(e) => setArticleInput(e.target.value)}
                   placeholder="Código artículo"
-                  className="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-sky-400"
                 />
                 <input
                   type="text"
                   value={ofInput}
                   onChange={(e) => setOfInput(e.target.value)}
                   placeholder="OF"
-                  className="w-20 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-20 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-sky-400"
                 />
                 <button
                   onClick={handleAddToBatch}

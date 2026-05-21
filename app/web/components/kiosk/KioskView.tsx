@@ -376,7 +376,7 @@ const KioskView: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-dvh flex flex-col items-center justify-center bg-slate-950">
+      <div className="min-h-dvh flex flex-col items-center justify-center bg-sky-50">
         <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
         <p className="mt-4 text-slate-400 font-medium">Cargando estanteria...</p>
       </div>
@@ -384,17 +384,17 @@ const KioskView: React.FC = () => {
   }
 
   return (
-    <div className="h-dvh bg-[radial-gradient(circle_at_top,_rgba(6,182,212,0.14),_transparent_30%),linear-gradient(180deg,_#020617_0%,_#0f172a_45%,_#020617_100%)] flex flex-col relative overflow-hidden">
+    <div className="h-dvh bg-sky-50 flex flex-col relative overflow-hidden">
       <KioskHeader shelfName={shelfDef?.name || ''} shelfCode={shelfCode} totalOccupied={totalOccupied} totalEmpty={totalEmpty} totalArticles={totalArticles} displayName={displayName} operarioId={operarioId} deviceId={deviceId} onLogout={logout} onInfo={() => setShowDeviceInfo(true)} />
       {kiosk && shelves.length > 1 && (
-        <div className="bg-slate-800/40 border-b border-slate-700 px-4 py-2 flex justify-center">
+        <div className="bg-sky-50 border-b border-slate-200 px-4 py-2 flex justify-center">
           <ShelfSelector shelves={shelves} currentShelf={currentShelf} onSelectShelf={setCurrentShelf} />
         </div>
       )}
       {!batchMode && <KioskActionBar action={action} scanData={scanData} scannerActive={scannerActive} selectedPositions={selectedPositions} onConfirmMove={handleMoverConfirm} onConfirmUbicar={handleUbicarMultiPositionConfirm} onCancel={cancelAction} />}
 
       {batchMode && (action === 'ubicar' || action === 'retirar') && (
-        <div className="bg-slate-800/50 border-b border-slate-700 px-4 py-3">
+        <div className="bg-white border-b border-slate-200 px-4 py-3">
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-bold text-white text-sm">
@@ -468,7 +468,7 @@ const KioskView: React.FC = () => {
             <button onClick={() => startAction('mover')} className="h-32 rounded-3xl border border-blue-400/20 bg-gradient-to-br from-blue-500 to-blue-700 hover:from-blue-400 hover:to-blue-600 active:scale-95 text-white font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl shadow-blue-950/40 transition-all"><span className="text-4xl">🔄</span>MOVER</button>
             <button onClick={() => startAction('avisar')} className="h-32 rounded-3xl border border-amber-400/20 bg-gradient-to-br from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 active:scale-95 text-white font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl shadow-amber-950/40 transition-all"><span className="text-4xl">🚚</span>CARRETILLERO</button>
           </div>
-          <button onClick={() => setShowShelf(true)} className="mt-8 px-6 py-3 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-bold hover:bg-slate-700 transition-colors">
+          <button onClick={() => setShowShelf(true)} className="mt-8 px-6 py-3 rounded-full bg-white border border-slate-300 text-slate-600 font-bold hover:bg-slate-50 transition-colors shadow-sm">
             Mostrar estantería
           </button>
         </main>
@@ -477,7 +477,7 @@ const KioskView: React.FC = () => {
            <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent] p-2 md:p-3">
              {action === 'idle' && (
                 <div className="flex justify-end mb-2">
-                  <button onClick={() => setShowShelf(false)} className="px-3 py-1.5 rounded-full bg-slate-800 text-slate-400 font-bold hover:bg-slate-700 text-xs transition-colors">
+                  <button onClick={() => setShowShelf(false)} className="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-500 font-bold hover:bg-slate-50 text-xs transition-colors shadow-sm">
                     Ocultar estantería
                   </button>
                 </div>
@@ -515,8 +515,8 @@ const KioskView: React.FC = () => {
 
       {foundLocationsForRetirar.length > 1 && confirmModal.open && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-700 rounded-t-3xl sm:rounded-3xl w-full sm:max-w-sm max-h-[70vh] overflow-hidden flex flex-col">
-            <div className="bg-slate-800/50 px-5 py-4 border-b border-slate-700">
+          <div className="bg-white border border-slate-200 rounded-t-3xl sm:rounded-3xl w-full sm:max-w-sm max-h-[70vh] overflow-hidden flex flex-col shadow-xl">
+            <div className="bg-sky-50 px-5 py-4 border-b border-slate-200">
               <h3 className="text-lg font-black text-white">Selecciona posición</h3>
               <p className="text-xs text-slate-400 mt-1">¿De cuál ubicación quieres retirar?</p>
             </div>
@@ -552,7 +552,7 @@ const KioskView: React.FC = () => {
                 </button>
               </div>
             </div>
-            <div className="bg-slate-800/50 border-t border-slate-700 px-5 py-3 flex gap-2">
+            <div className="bg-sky-50 border-t border-slate-200 px-5 py-3 flex gap-2">
               <button
                 onClick={() => setConfirmModal((prev) => ({ ...prev, open: false }))}
                 className="flex-1 rounded-xl bg-slate-700 text-white px-4 py-3 text-sm font-bold hover:bg-slate-600"

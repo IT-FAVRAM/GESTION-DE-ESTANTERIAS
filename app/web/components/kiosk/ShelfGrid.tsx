@@ -63,52 +63,52 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
 }) => {
   const pct = totalCount > 0 ? Math.round((occupiedCount / totalCount) * 100) : 0;
 
-  let wrapCls = 'bg-slate-900/95 border-slate-600/80 shadow-[0_10px_30px_rgba(15,23,42,0.26)] hover:bg-slate-800/95';
-  let titleCls = 'text-slate-100';
-  let accentBar = 'bg-cyan-500';
-  let pctBarCls = 'from-cyan-500 to-emerald-500';
-  let chevronCls = 'text-slate-300 group-hover:text-white';
-  let subtitleCls = 'text-slate-300';
-  let statsCls = 'text-slate-200';
+  let wrapCls = 'bg-white border-slate-200 shadow-sm hover:bg-sky-50/60';
+  let titleCls = 'text-slate-800';
+  let accentBar = 'bg-sky-500';
+  let pctBarCls = 'from-sky-500 to-emerald-500';
+  let chevronCls = 'text-slate-400 group-hover:text-slate-600';
+  let subtitleCls = 'text-slate-500';
+  let statsCls = 'text-slate-600';
   let badgeEl: React.ReactNode = null;
 
   if (isUrgent) {
-    wrapCls = 'bg-red-950/90 border-red-400/60 shadow-[0_10px_30px_rgba(127,29,29,0.24)] hover:bg-red-950';
-    titleCls = 'text-red-100';
+    wrapCls = 'bg-red-50 border-red-300 shadow-sm hover:bg-red-100/60';
+    titleCls = 'text-red-800';
     accentBar = 'bg-red-500';
     pctBarCls = 'from-red-500 to-red-400';
-    chevronCls = 'text-red-200 group-hover:text-white';
-    subtitleCls = 'text-red-100/80';
-    statsCls = 'text-red-100';
+    chevronCls = 'text-red-400 group-hover:text-red-600';
+    subtitleCls = 'text-red-600/80';
+    statsCls = 'text-red-700';
     badgeEl = (
-      <span className="flex items-center gap-1 px-2 py-0.5 text-[9px] font-black bg-red-100 text-red-950 border border-red-200 rounded-md uppercase tracking-widest">
-        <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+      <span className="flex items-center gap-1 px-2 py-0.5 text-[9px] font-black bg-red-600 text-white border border-red-700 rounded-md uppercase tracking-widest">
+        <span className="w-1.5 h-1.5 rounded-full bg-red-200 animate-pulse" />
         URG
       </span>
     );
   } else if (isTechReview) {
-    wrapCls = 'bg-amber-950/85 border-amber-400/55 shadow-[0_10px_30px_rgba(120,53,15,0.22)] hover:bg-amber-950';
-    titleCls = 'text-amber-100';
+    wrapCls = 'bg-amber-50 border-amber-300 shadow-sm hover:bg-amber-100/60';
+    titleCls = 'text-amber-800';
     accentBar = 'bg-amber-500';
     pctBarCls = 'from-amber-500 to-amber-400';
-    chevronCls = 'text-amber-100 group-hover:text-white';
-    subtitleCls = 'text-amber-100/80';
-    statsCls = 'text-amber-100';
+    chevronCls = 'text-amber-400 group-hover:text-amber-600';
+    subtitleCls = 'text-amber-600/80';
+    statsCls = 'text-amber-700';
     badgeEl = (
-      <span className="px-2 py-0.5 text-[9px] font-black bg-amber-50 text-amber-950 border border-amber-200 rounded-md uppercase tracking-widest">
+      <span className="px-2 py-0.5 text-[9px] font-black bg-amber-600 text-white border border-amber-700 rounded-md uppercase tracking-widest">
         VER. TÉC.
       </span>
     );
   } else if (isAluminio) {
-    wrapCls = 'bg-sky-950/85 border-sky-400/55 shadow-[0_10px_30px_rgba(14,165,233,0.20)] hover:bg-sky-950';
-    titleCls = 'text-sky-100';
+    wrapCls = 'bg-sky-50 border-sky-300 shadow-sm hover:bg-sky-100/60';
+    titleCls = 'text-sky-800';
     accentBar = 'bg-sky-500';
     pctBarCls = 'from-sky-500 to-cyan-400';
-    chevronCls = 'text-sky-200 group-hover:text-white';
-    subtitleCls = 'text-sky-100/80';
-    statsCls = 'text-sky-100';
+    chevronCls = 'text-sky-400 group-hover:text-sky-600';
+    subtitleCls = 'text-sky-600/80';
+    statsCls = 'text-sky-700';
     badgeEl = (
-      <span className="px-2 py-0.5 text-[9px] font-black bg-sky-100 text-sky-950 border border-sky-200 rounded-md uppercase tracking-widest">
+      <span className="px-2 py-0.5 text-[9px] font-black bg-sky-600 text-white border border-sky-700 rounded-md uppercase tracking-widest">
         ALU
       </span>
     );
@@ -131,7 +131,7 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
           {badgeEl}
         </div>
         <div className="flex items-center gap-2 mt-1.5">
-          <div className="flex-1 max-w-[120px] h-1.5 bg-slate-950/70 rounded-full overflow-hidden">
+          <div className="flex-1 max-w-[120px] h-1.5 bg-slate-200 rounded-full overflow-hidden">
             <div
               className={`h-full bg-gradient-to-r ${pctBarCls} rounded-full transition-all duration-700`}
               style={{ width: `${pct}%` }}

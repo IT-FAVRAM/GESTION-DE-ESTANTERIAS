@@ -25,25 +25,25 @@ const QualityShelfView: React.FC = () => {
   }
 
   return (
-    <div className="h-dvh bg-[radial-gradient(circle_at_top,_rgba(8,145,178,0.18),_transparent_28%),linear-gradient(180deg,_#020617_0%,_#0f172a_48%,_#020617_100%)] flex flex-col overflow-hidden">
-      <header className="flex-shrink-0 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-xl">
+    <div className="h-dvh bg-sky-50 flex flex-col overflow-hidden">
+      <header className="flex-shrink-0 border-b border-slate-200 bg-white shadow-sm">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 md:px-6">
           <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-300/70">Calidad</p>
-            <h1 className="mt-1 text-2xl font-black text-white">{shelfDef?.name || 'Estanteria Calidad'}</h1>
-            <p className="mt-1 text-sm font-medium text-slate-400">{subtitle}{displayName ? ` · ${displayName}` : ''}</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600">Calidad</p>
+            <h1 className="mt-1 text-2xl font-black text-slate-900">{shelfDef?.name || 'Estanteria Calidad'}</h1>
+            <p className="mt-1 text-sm font-medium text-slate-500">{subtitle}{displayName ? ` · ${displayName}` : ''}</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-right">
+            <div className="rounded-2xl border border-slate-200 bg-sky-50 px-4 py-3 text-right">
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Huecos</p>
-              <p className="mt-1 text-sm font-bold text-white">{totalOccupied} ocupados · {totalEmpty} libres</p>
-              <p className="text-xs text-slate-400">{totalArticles} articulos visibles</p>
+              <p className="mt-1 text-sm font-bold text-slate-800">{totalOccupied} ocupados · {totalEmpty} libres</p>
+              <p className="text-xs text-slate-500">{totalArticles} articulos visibles</p>
             </div>
             <button
               type="button"
               onClick={logout}
-              className="rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-black text-slate-200 transition-colors hover:border-cyan-500/40 hover:text-white"
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition-colors hover:bg-slate-100"
             >
               Cerrar sesion
             </button>

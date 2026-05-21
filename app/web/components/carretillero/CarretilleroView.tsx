@@ -34,28 +34,28 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack }) => {
   }, []);
 
   return (
-    <div className="h-dvh bg-slate-950 flex flex-col overflow-hidden">
+    <div className="h-dvh bg-sky-50 flex flex-col overflow-hidden">
        {/* Header */}
-       <header className="flex-shrink-0 bg-slate-950/90 border-b border-slate-800/50 backdrop-blur-xl px-4 py-3 shadow-[0_4px_12px_rgba(15,23,42,0.15)]">
+       <header className="flex-shrink-0 bg-white border-b border-slate-200 px-4 py-3 shadow-sm">
          <div className="flex items-center justify-between">
            <div className="flex items-center gap-3">
              <span className="text-2xl">🚚</span>
              <div>
-               <h1 className="text-lg font-black text-white tracking-tight">CARRETILLERO</h1>
-               <p className="text-xs text-slate-200">{displayName} · ID: {operarioId}</p>
+               <h1 className="text-lg font-black text-slate-900 tracking-tight">CARRETILLERO</h1>
+               <p className="text-xs text-slate-500">{displayName} · ID: {operarioId}</p>
              </div>
            </div>
            <div className="flex gap-2">
              <button
                onClick={() => setShowCameraScanner(true)}
-               className="px-3 py-2 text-xs font-bold bg-cyan-600/80 text-white rounded-lg hover:bg-cyan-700/80 transition-all duration-200 flex items-center gap-2"
+               className="px-3 py-2 text-xs font-bold bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition-all duration-200 flex items-center gap-2"
                title="Escanear QR con cámara"
              >
                📷 Cámara
              </button>
              <button
                onClick={onBack ? onBack : logout}
-               className="px-3 py-2 text-xs font-bold bg-slate-800/80 text-slate-100 rounded-lg hover:bg-slate-700/80 hover:text-white transition-all duration-200"
+               className="px-3 py-2 text-xs font-bold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-all duration-200"
              >
                {onBack ? 'Volver' : 'Salir'}
              </button>
@@ -64,42 +64,42 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack }) => {
        </header>
 
        {/* Tab bar */}
-       <div className="flex-shrink-0 bg-slate-950/80 border-b border-slate-700/50 backdrop-blur-sm px-2">
+       <div className="flex-shrink-0 bg-white border-b border-slate-200 px-2">
          <div className="flex gap-1">
            <button
              onClick={() => setActiveTab('shelves')}
              className={`flex-1 py-3 text-sm font-semibold transition-colors relative
-               ${activeTab === 'shelves' ? 'text-cyan-200' : 'text-slate-300'}`}
+               ${activeTab === 'shelves' ? 'text-sky-700' : 'text-slate-500 hover:text-slate-700'}`}
            >
              🏭 ESTANTERÍAS
              {activeTab === 'shelves' && (
-               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-500/80" />
+               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-sky-500" />
              )}
            </button>
            <button
              onClick={() => setActiveTab('pickups')}
              className={`flex-1 py-3 text-sm font-semibold transition-colors relative
-               ${activeTab === 'pickups' ? 'text-orange-200' : 'text-slate-300'}`}
+               ${activeTab === 'pickups' ? 'text-orange-600' : 'text-slate-500 hover:text-slate-700'}`}
            >
              📦 RECOGIDAS
              {pendingCount > 0 && (
-               <span className="absolute top-1 right-1/4 w-6 h-6 flex items-center justify-center 
-                 bg-red-500/80 text-white text-xs font-black rounded-full animate-pulse">
+               <span className="absolute top-1 right-1/4 w-6 h-6 flex items-center justify-center
+                 bg-red-500 text-white text-xs font-black rounded-full animate-pulse">
                  {pendingCount}
                </span>
              )}
              {activeTab === 'pickups' && (
-               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-500/80" />
+               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-500" />
              )}
            </button>
            <button
              onClick={() => setActiveTab('carts')}
              className={`flex-1 py-3 text-sm font-semibold transition-colors relative
-               ${activeTab === 'carts' ? 'text-emerald-200' : 'text-slate-300'}`}
+               ${activeTab === 'carts' ? 'text-emerald-700' : 'text-slate-500 hover:text-slate-700'}`}
            >
              🛒 CARROS
              {activeTab === 'carts' && (
-               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500/80" />
+               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500" />
              )}
            </button>
          </div>

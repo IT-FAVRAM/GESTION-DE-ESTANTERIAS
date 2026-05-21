@@ -98,46 +98,46 @@ const RackSlot: React.FC<RackSlotProps> = ({
     if (onPress) onPress(location ?? createEmpty(position, shelfCode));
   };
 
-  // ── Clases visuales según estado ───────────────────────────────────────────
-  let wrapBg = '#06090f';
-  let wrapBorder = 'rgba(100,116,139,0.25)';
-  let wrapShadow = 'inset 0 2px 10px rgba(0,0,0,0.7)';
-  let itemBg = 'rgba(71,85,105,0.55)';
-  let artColor = '#f1f5f9';
-  let ofColor = '#94a3b8';
-  let posColor = 'rgba(100,116,139,0.6)';
-  let emptyColor = 'rgba(71,85,105,0.45)';
+  // ── Clases visuales según estado — tema claro (blanco hueso) ─────────────────
+  let wrapBg = '#FAFAF7';
+  let wrapBorder = 'rgba(148,163,184,0.5)';
+  let wrapShadow = 'inset 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)';
+  let itemBg = 'rgba(219,234,254,0.75)';
+  let artColor = '#1e293b';
+  let ofColor = '#475569';
+  let posColor = 'rgba(100,116,139,0.85)';
+  let emptyColor = 'rgba(148,163,184,0.7)';
   let badgeEl: React.ReactNode = null;
 
   if (isSelected) {
-    wrapBg = 'rgba(6,182,212,0.08)';
-    wrapBorder = 'rgba(34,211,238,0.65)';
-    wrapShadow = 'inset 0 2px 10px rgba(0,0,0,0.5), inset 0 0 20px rgba(34,211,238,0.07)';
-    itemBg = 'rgba(8,145,178,0.45)';
-    artColor = '#ecfeff';
-    ofColor = '#a5f3fc';
-    posColor = 'rgba(34,211,238,0.7)';
-    emptyColor = 'rgba(34,211,238,0.3)';
+    wrapBg = 'rgba(224,242,254,0.9)';
+    wrapBorder = 'rgba(14,165,233,0.7)';
+    wrapShadow = '0 0 0 2px rgba(14,165,233,0.4), inset 0 1px 3px rgba(0,0,0,0.04)';
+    itemBg = 'rgba(186,230,253,0.8)';
+    artColor = '#0c4a6e';
+    ofColor = '#075985';
+    posColor = 'rgba(14,165,233,0.9)';
+    emptyColor = 'rgba(14,165,233,0.5)';
   } else if (isHighlighted) {
-    wrapBg = 'rgba(245,158,11,0.07)';
-    wrapBorder = 'rgba(251,191,36,0.65)';
-    wrapShadow = 'inset 0 2px 10px rgba(0,0,0,0.5)';
-    itemBg = 'rgba(180,83,9,0.45)';
-    artColor = '#fffbeb';
-    ofColor = '#fde68a';
-    posColor = 'rgba(251,191,36,0.7)';
-    emptyColor = 'rgba(245,158,11,0.35)';
+    wrapBg = 'rgba(255,251,235,0.95)';
+    wrapBorder = 'rgba(234,179,8,0.7)';
+    wrapShadow = '0 0 0 2px rgba(234,179,8,0.35), inset 0 1px 3px rgba(0,0,0,0.04)';
+    itemBg = 'rgba(254,243,199,0.9)';
+    artColor = '#713f12';
+    ofColor = '#92400e';
+    posColor = 'rgba(234,179,8,0.9)';
+    emptyColor = 'rgba(234,179,8,0.5)';
   } else if (isUrgent) {
-    wrapBg = isEmpty ? 'rgba(69,10,10,0.5)' : 'rgba(69,10,10,0.85)';
+    wrapBg = isEmpty ? 'rgba(255,241,242,0.9)' : 'rgba(254,226,226,0.95)';
     wrapBorder = isEmpty ? 'rgba(239,68,68,0.35)' : 'rgba(239,68,68,0.65)';
     wrapShadow = isEmpty
-      ? 'inset 0 2px 10px rgba(0,0,0,0.7)'
-      : 'inset 0 2px 10px rgba(0,0,0,0.5), inset 0 0 24px rgba(239,68,68,0.12)';
-    itemBg = 'rgba(153,27,27,0.6)';
-    artColor = '#fef2f2';
-    ofColor = '#fca5a5';
-    posColor = 'rgba(239,68,68,0.6)';
-    emptyColor = 'rgba(239,68,68,0.3)';
+      ? 'inset 0 1px 3px rgba(0,0,0,0.04)'
+      : '0 0 0 1.5px rgba(239,68,68,0.4), inset 0 1px 3px rgba(0,0,0,0.04)';
+    itemBg = 'rgba(254,202,202,0.8)';
+    artColor = '#7f1d1d';
+    ofColor = '#991b1b';
+    posColor = 'rgba(239,68,68,0.8)';
+    emptyColor = 'rgba(239,68,68,0.4)';
     badgeEl = (
       <span
         style={{
@@ -152,14 +152,14 @@ const RackSlot: React.FC<RackSlotProps> = ({
       </span>
     );
   } else if (isTechReview || isAluminio) {
-    wrapBg = isEmpty ? 'rgba(69,26,3,0.4)' : 'rgba(69,26,3,0.8)';
-    wrapBorder = isEmpty ? 'rgba(245,158,11,0.3)' : 'rgba(245,158,11,0.6)';
-    wrapShadow = 'inset 0 2px 10px rgba(0,0,0,0.6)';
-    itemBg = 'rgba(146,64,14,0.55)';
-    artColor = '#fffbeb';
-    ofColor = '#fcd34d';
-    posColor = 'rgba(245,158,11,0.6)';
-    emptyColor = 'rgba(245,158,11,0.3)';
+    wrapBg = isEmpty ? 'rgba(255,251,235,0.85)' : 'rgba(254,243,199,0.9)';
+    wrapBorder = isEmpty ? 'rgba(245,158,11,0.35)' : 'rgba(245,158,11,0.6)';
+    wrapShadow = '0 0 0 1px rgba(245,158,11,0.2), inset 0 1px 3px rgba(0,0,0,0.04)';
+    itemBg = 'rgba(253,230,138,0.7)';
+    artColor = '#713f12';
+    ofColor = '#92400e';
+    posColor = 'rgba(245,158,11,0.8)';
+    emptyColor = 'rgba(245,158,11,0.45)';
     if (isTechReview) {
       badgeEl = (
         <span
@@ -253,7 +253,7 @@ const RackSlot: React.FC<RackSlotProps> = ({
       )}
 
       {/* Indicador de carga */}
-      <div style={{ height: 3, margin: '0 4px 3px', background: 'rgba(0,0,0,0.35)', borderRadius: 2, flexShrink: 0, overflow: 'hidden' }}>
+      <div style={{ height: 3, margin: '0 4px 3px', background: 'rgba(0,0,0,0.1)', borderRadius: 2, flexShrink: 0, overflow: 'hidden' }}>
         <div
           style={{
             height: '100%',
@@ -320,13 +320,12 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
   return (
     <div
       style={{
-        width: '100%',
-        minWidth: calculatedMinWidth,
+        width: `max(100%, ${calculatedMinWidth}px)`,
         display: 'flex',
         borderRadius: 10,
         overflow: 'hidden',
-        boxShadow: '0 12px 48px rgba(0,0,0,0.65), 0 2px 8px rgba(0,0,0,0.4)',
-        background: '#F9F6F0',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.08)',
+        background: '#F5F2EC',
       }}
     >
       {/* ── Poste izquierdo ───────────────────────────────────────────────── */}
@@ -341,7 +340,7 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
       />
 
       {/* ── Cuerpo del rack ───────────────────────────────────────────────── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F5F2EB' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#EDE9E0' }}>
 
         {/* Marco superior */}
         <div
