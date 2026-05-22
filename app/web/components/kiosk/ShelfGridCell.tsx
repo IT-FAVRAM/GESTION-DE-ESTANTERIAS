@@ -7,6 +7,12 @@ import React from 'react';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import { isReprocesosLocation } from '../../lib/firestoreSchema';
 
+export interface CellDragData {
+  articleCode: string;
+  orderFab: string;
+  position: string;
+}
+
 interface ShelfGridCellProps {
   position: string;
   location?: ShelfLocationState;
@@ -16,10 +22,16 @@ interface ShelfGridCellProps {
   isAluminio?: boolean;
   isSelected?: boolean;
   isHighlighted?: boolean;
+  isDragOver?: boolean;
   compact?: boolean;
   showReprocessCosts?: boolean;
   onPress?: (location: ShelfLocationState) => void;
   createEmptyLocation: (position: string, shelfCode?: string) => ShelfLocationState;
+  // Drag & drop (admin only)
+  onCellDragStart?: (data: CellDragData) => void;
+  onCellDragEnter?: (position: string) => void;
+  onCellDragLeave?: () => void;
+  onCellDrop?: (targetPosition: string) => void;
 }
 
 const formatDate = (iso: string): string => {
@@ -40,20 +52,44 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
   isAluminio = false,
   isSelected = false,
   isHighlighted = false,
+  isDragOver = false,
   compact = false,
   showReprocessCosts = false,
   onPress,
   createEmptyLocation,
+  onCellDragStart,
+  onCellDragEnter,
+  onCellDragLeave,
+  onCellDrop,
 }) => {
   const posNum = parseInt(position, 10);
   const displayNum = posNum.toString().padStart(3, '0');
   const itemCount = location?.items.length ?? 0;
   const isEmpty = itemCount === 0;
   const isReproces = isReprocesosLocation(shelfCode, posNum);
+  const isDraggable = !isEmpty && !!onCellDragStart;
 
   const handleClick = () => {
     if (onPress) onPress(location || createEmptyLocation(position, shelfCode));
   };
+
+  const dragProps = isDraggable ? {
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => {
+      if (!location?.items[0]) return;
+      const item = location.items[0];
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', JSON.stringify({ articleCode: item.articleCode, orderFab: item.orderFab, position }));
+      onCellDragStart?.({ articleCode: item.articleCode, orderFab: item.orderFab, position });
+    },
+  } : {};
+
+  const dropProps = onCellDrop ? {
+    onDragOver: (e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; onCellDragEnter?.(position); },
+    onDragEnter: (e: React.DragEvent) => { e.preventDefault(); onCellDragEnter?.(position); },
+    onDragLeave: () => onCellDragLeave?.(),
+    onDrop: (e: React.DragEvent) => { e.preventDefault(); onCellDragLeave?.(); onCellDrop(position); },
+  } : {};
 
   // ── Compact mode ────────────────────────────────────────────────────────────
   if (compact) {
@@ -81,6 +117,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
       cardBase = 'bg-slate-800/95 border-cyan-400/35 shadow-[0_0_16px_rgba(34,211,238,0.08)]';
       headerText = 'text-white';
     }
+    const dragOverClass = isDragOver ? 'ring-2 ring-emerald-300/90 bg-emerald-500/20' : '';
     return (
       <button
         type="button"
@@ -88,7 +125,10 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
         title={`${shelfCode} ${displayNum}${isEmpty ? ' · Vacía' : ` · ${itemCount} artículo(s)`}`}
         className={`w-11 h-11 rounded-xl border-2 flex flex-col items-center justify-center relative
           transition-all active:scale-95 hover:-translate-y-0.5
-          ${cardBase}`}
+          ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''}
+          ${dragOverClass} ${cardBase}`}
+        {...dragProps}
+        {...dropProps}
       >
         <span className={`text-[9px] font-black font-mono ${headerText}`}>{displayNum}</span>
         {!isEmpty && <span className="w-2 h-2 rounded-full bg-cyan-300 mt-0.5 shadow-[0_0_10px_rgba(103,232,249,0.8)]" />}
@@ -140,7 +180,9 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
         onClick={onPress ? handleClick : undefined}
         className={`rounded-2xl border transition-all duration-200 overflow-hidden w-full
           hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20 ${onPress ? 'cursor-pointer' : 'cursor-default'}
+          ${isDragOver ? 'ring-2 ring-emerald-300/90 bg-emerald-500/10' : ''}
           ${emptyBorder} ${emptyBg}`}
+        {...dropProps}
       >
         <div className="px-3 py-3 flex items-center justify-between gap-2">
           <span className={`text-[11px] font-black font-mono tracking-wider ${emptyCode}`}>
@@ -241,9 +283,12 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
       className={`rounded-2xl border transition-all duration-200 overflow-hidden w-full
         hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/25
         ${isHighlighted ? 'animate-pulse' : ''}
-        ${onPress ? 'cursor-pointer active:scale-[0.98]' : 'cursor-default'}
+        ${isDraggable ? 'cursor-grab active:cursor-grabbing' : (onPress ? 'cursor-pointer active:scale-[0.98]' : 'cursor-default')}
+        ${isDragOver ? 'ring-2 ring-emerald-300/90 scale-[1.02]' : ''}
         ${cardBase}`}
       onClick={onPress ? handleClick : undefined}
+      {...dragProps}
+      {...dropProps}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 gap-2">

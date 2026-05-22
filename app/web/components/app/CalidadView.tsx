@@ -45,7 +45,8 @@ const CalidadView: React.FC = () => {
   const [currentBatchRetirarIndex, setCurrentBatchRetirarIndex] = useState(0);
 
   const { locations, loading, shelfDef, ubicar, retirar, mover, findArticle } = useShelf(SHELF);
-  const { operarioId, displayName, logout, canEditReprocesses, canViewReprocessCosts } = useAuth();
+  const { operarioId, firebaseUser, displayName, logout, canEditReprocesses, canViewReprocessCosts } = useAuth();
+  const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? '';
   const { createPickupRequest } = usePickupQueue();
 
   useEffect(() => {
@@ -102,7 +103,7 @@ const CalidadView: React.FC = () => {
         onConfirm: async () => {
           setProcessing(true);
           setConfirmModal((prev) => ({ ...prev, open: false }));
-          const ok = await createPickupRequest(operarioId || '', displayName, SHELF);
+          const ok = await createPickupRequest(effectiveOperarioId, displayName, SHELF);
           setProcessing(false);
           showFeedback(ok ? 'success' : 'error', ok ? '✅ Aviso enviado' : 'Error al enviar');
         },
@@ -198,7 +199,7 @@ const CalidadView: React.FC = () => {
         onConfirm: async () => {
           setProcessing(true);
           setConfirmModal((p) => ({ ...p, open: false }));
-          const r = await retirar(articleCode, orderFab, operarioId || '', displayName);
+          const r = await retirar(articleCode, orderFab, effectiveOperarioId, displayName);
           setProcessing(false);
           showFeedback(r.success ? 'success' : 'error', r.success ? '✅ Retirado' : 'Error');
         },
@@ -215,7 +216,7 @@ const CalidadView: React.FC = () => {
     let successCount = 0;
     for (const article of batchArticles) {
       for (const position of selectedPositions) {
-        const success = await ubicar(article.articleCode, article.orderFab, position, operarioId || '', displayName);
+        const success = await ubicar(article.articleCode, article.orderFab, position, effectiveOperarioId, displayName);
         if (success) successCount++;
       }
     }
@@ -226,7 +227,7 @@ const CalidadView: React.FC = () => {
     } else {
       showFeedback('error', `Parcial: ${successCount}/${batchArticles.length * selectedPositions.length} completadas`);
     }
-  }, [batchArticles, selectedPositions, operarioId, displayName, ubicar, showFeedback]);
+  }, [batchArticles, selectedPositions, effectiveOperarioId, displayName, ubicar, showFeedback]);
 
   const handleUbicarMultiPositionConfirm = useCallback(async () => {
     if (!scanData || selectedPositions.length === 0) return;
@@ -235,7 +236,7 @@ const CalidadView: React.FC = () => {
 
     let successCount = 0;
     for (const position of selectedPositions) {
-      const success = await ubicar(scanData.articleCode, scanData.orderFab, position, operarioId || '', displayName);
+      const success = await ubicar(scanData.articleCode, scanData.orderFab, position, effectiveOperarioId, displayName);
       if (success) successCount++;
     }
 
@@ -245,7 +246,7 @@ const CalidadView: React.FC = () => {
     } else {
       showFeedback('error', `Parcial: ${successCount}/${selectedPositions.length} ubicaciones completadas`);
     }
-  }, [scanData, selectedPositions, operarioId, displayName, ubicar, showFeedback]);
+  }, [scanData, selectedPositions, effectiveOperarioId, displayName, ubicar, showFeedback]);
 
   const handleRetirarBatchNext = useCallback(async () => {
     const processNext = async (index: number) => {
@@ -256,7 +257,7 @@ const CalidadView: React.FC = () => {
       }
 
       const item = batchRetiraPending[index];
-      const r = await retirar(item.articleCode, item.orderFab, operarioId || '', displayName);
+      const r = await retirar(item.articleCode, item.orderFab, effectiveOperarioId, displayName);
       if (!r.success) {
         showFeedback('error', 'Error al retirar artículo');
         resetAction();
@@ -267,7 +268,7 @@ const CalidadView: React.FC = () => {
     };
 
     processNext(currentBatchRetirarIndex);
-  }, [batchRetiraPending, currentBatchRetirarIndex, retirar, operarioId, displayName, showFeedback, resetAction]);
+  }, [batchRetiraPending, currentBatchRetirarIndex, retirar, effectiveOperarioId, displayName, showFeedback, resetAction]);
 
   const handleCellPress = useCallback((loc: ShelfLocationState) => {
     if (action === 'idle' && isReprocesosLocation(SHELF, parseInt(loc.position, 10))) {
@@ -306,12 +307,12 @@ const CalidadView: React.FC = () => {
         return [...prev, loc.position];
       });
     }
-  }, [action, batchMode, batchArticles, scanData, ubicar, findArticle, operarioId, displayName, canEditReprocesses]);
+  }, [action, batchMode, batchArticles, scanData, ubicar, findArticle, effectiveOperarioId, displayName, canEditReprocesses]);
 
   const handleMoverConfirm = async () => {
     if (!scanData || selectedPositions.length === 0) return;
     setProcessing(true);
-    const ok = await mover(scanData.articleCode, scanData.orderFab, selectedPositions, operarioId || '', displayName);
+    const ok = await mover(scanData.articleCode, scanData.orderFab, selectedPositions, effectiveOperarioId, displayName);
     setProcessing(false);
     showFeedback(ok ? 'success' : 'error', ok ? '✅ Movido' : 'Error');
   };

@@ -13,10 +13,15 @@ import ShelfGrid from '../kiosk/ShelfGrid';
 import KioskSearchBar from '../kiosk/KioskSearchBar';
 import ConfirmationModal from '../common/ConfirmationModal';
 import { SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
-import { formatArticleDisplay } from '../../lib/qrParser';
+import { formatArticleDisplay, parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
 import type { ShelfLocationState } from '../../hooks/useShelf';
+import type { CellDragData } from '../kiosk/ShelfGridCell';
+import CameraQRScanner from '../common/CameraQRScanner';
+import CameraOCRScanner from '../common/CameraOCRScanner';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../../lib/firebase';
 
-type AdminAction = 'idle' | 'ubicar' | 'retirar' | 'mover' | 'reubicar';
+type AdminAction = 'idle' | 'ubicar' | 'retirar' | 'mover' | 'reubicar' | 'moverSeccion';
 
 interface AdminShelfBrowserProps {
   onBack: () => void;
@@ -38,8 +43,20 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
     extraButton?: { text: string; onClick: () => void };
   }>({ open: false, title: '', message: '', icon: '', variant: 'info', onConfirm: () => {} });
   
-  // Reubicar: arrastrar de una celda a otra (dentro de la misma estantería)
+  // Camera scanning
+  const [showCameraQR, setShowCameraQR] = useState(false);
+  const [showCameraOCR, setShowCameraOCR] = useState(false);
+
+  // Reubicar: clic-clic o arrastrar dentro de la misma estantería
   const [reubicarSource, setReubicarSource] = useState<{ articleCode: string; orderFab: string; position: string } | null>(null);
+
+  // Drag & drop state
+  const [draggedArticle, setDraggedArticle] = useState<{ articleCode: string; orderFab: string; position: string } | null>(null);
+  const [dragOverPosition, setDragOverPosition] = useState<string | null>(null);
+
+  // Mover a otra sección
+  const [moverSeccionTargetShelf, setMoverSeccionTargetShelf] = useState<string | null>(null);
+  const [moverSeccionTargetPos, setMoverSeccionTargetPos] = useState('');
 
   // Batch support
   const [batchMode, setBatchMode] = useState(false);
@@ -56,6 +73,16 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
 
   const effectiveOperarioId = operarioId || '';
 
+  const handleCameraScan = useCallback((rawText: string, lenient = false) => {
+    const result = lenient ? parseScanInputLenient(rawText) : parseScanInput(rawText);
+    if (result.success) {
+      setArticleInput(result.data.articleCode);
+      setOfInput(result.data.orderFab);
+    } else {
+      showFeedback('error', 'error' in result ? result.error : 'No se reconoció el código');
+    }
+  }, []);
+
    const showFeedback = useCallback((type: 'success' | 'error' | 'info', msg: string) => {
      setFeedback({ type, msg });
      setTimeout(() => setFeedback(null), 3000);
@@ -71,6 +98,10 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
     setCurrentBatchRetirarIndex(0);
     setArticleInput('');
     setOfInput('');
+    setMoverSeccionTargetShelf(null);
+    setMoverSeccionTargetPos('');
+    setDraggedArticle(null);
+    setDragOverPosition(null);
   }, []);
 
   const startAction = useCallback((act: AdminAction) => {
@@ -158,6 +189,88 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
       showFeedback('error', 'Error al reubicar el artículo');
     }
   }, [mover, effectiveOperarioId, displayName, showFeedback]);
+
+  // ── Drag & drop handlers ──────────────────────────────────────────────────────
+  const handleDragStart = useCallback((data: CellDragData) => {
+    setDraggedArticle(data);
+  }, []);
+
+  const handleDragEnter = useCallback((position: string) => {
+    setDragOverPosition(position);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverPosition(null);
+  }, []);
+
+  const handleDrop = useCallback((targetPosition: string) => {
+    setDragOverPosition(null);
+    if (!draggedArticle) return;
+    if (draggedArticle.position === targetPosition) { setDraggedArticle(null); return; }
+    const src = draggedArticle;
+    setDraggedArticle(null);
+    setConfirmModal({
+      open: true,
+      title: 'Mover artículo',
+      message: `¿Mover ${formatArticleDisplay(src.articleCode, src.orderFab)} de pos. ${parseInt(src.position, 10)} a pos. ${parseInt(targetPosition, 10)}?`,
+      icon: '🔁',
+      variant: 'info',
+      onConfirm: async () => {
+        setConfirmModal((p) => ({ ...p, open: false }));
+        await doReubicar(src, targetPosition);
+      },
+      extraButton: { text: 'Cancelar', onClick: () => setConfirmModal((p) => ({ ...p, open: false })) },
+    });
+  }, [draggedArticle, doReubicar, formatArticleDisplay]);
+
+  // ── Mover a otra sección ──────────────────────────────────────────────────────
+  const startMoverSeccion = useCallback(() => {
+    const article = articleInput.trim();
+    const of = ofInput.trim();
+    if (!article || !of) {
+      showFeedback('error', 'Introduce código de artículo y OF antes de mover sección');
+      return;
+    }
+    setAction('moverSeccion');
+    setMoverSeccionTargetShelf(null);
+    setMoverSeccionTargetPos('');
+    setFeedback(null);
+  }, [articleInput, ofInput, showFeedback]);
+
+  const handleMoverSeccionConfirm = useCallback(async () => {
+    if (!moverSeccionTargetShelf || !moverSeccionTargetPos) return;
+    const article = articleInput.trim();
+    const of = ofInput.trim();
+    const destPos = parseInt(moverSeccionTargetPos, 10).toString().padStart(3, '0');
+    const destShelfName = SHELF_DEFINITIONS.find((s) => s.code === moverSeccionTargetShelf)?.name || moverSeccionTargetShelf;
+
+    setConfirmModal({
+      open: true,
+      title: 'Mover a otra sección',
+      message: `¿Mover ${formatArticleDisplay(article, of)} de ${shelfDef?.name || selectedShelf} → ${destShelfName} pos. ${parseInt(destPos, 10)}?`,
+      icon: '🚀',
+      variant: 'warning',
+      onConfirm: async () => {
+        setProcessing(true);
+        setConfirmModal((p) => ({ ...p, open: false }));
+        try {
+          const r = await retirar(article, of, effectiveOperarioId, displayName);
+          if (!r.success) throw new Error('Error al retirar del origen');
+          const fn = httpsCallable(functions, 'shelfOperate');
+          await fn({
+            op: 'ubicar',
+            payload: { articleCode: article, orderFab: of, shelfCode: moverSeccionTargetShelf, position: destPos },
+            session: { operarioId: effectiveOperarioId, operarioName: displayName },
+          });
+          showFeedback('success', `✅ Movido a ${destShelfName} pos. ${parseInt(destPos, 10)}`);
+          resetAction();
+        } catch (err: any) {
+          showFeedback('error', err?.message || 'Error al mover entre secciones');
+        }
+        setProcessing(false);
+      },
+    });
+  }, [moverSeccionTargetShelf, moverSeccionTargetPos, articleInput, ofInput, retirar, effectiveOperarioId, displayName, showFeedback, resetAction, selectedShelf, shelfDef]);
 
   const handleCellPress = useCallback((loc: ShelfLocationState) => {
     const article = articleInput.trim();
@@ -428,6 +541,22 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
             Operativa manual — {displayName}
           </p>
           <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => setShowCameraQR(true)}
+              disabled={action !== 'idle'}
+              title="Escanear código de barras con cámara"
+              className="px-3 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white rounded-lg font-bold text-sm flex items-center gap-1 shrink-0 transition-colors"
+            >
+              📷
+            </button>
+            <button
+              onClick={() => setShowCameraOCR(true)}
+              disabled={action !== 'idle'}
+              title="Leer texto con OCR"
+              className="px-3 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white rounded-lg font-bold text-sm flex items-center gap-1 shrink-0 transition-colors"
+            >
+              📸
+            </button>
             <input
               type="text"
               value={articleInput}
@@ -447,7 +576,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
           </div>
 
           {action === 'idle' ? (
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => startAction('ubicar')}
                 className="flex-1 h-10 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm active:scale-95 transition-all"
@@ -465,6 +594,73 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
                 className="flex-1 h-10 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm active:scale-95 transition-all"
               >
                 🔁 REUBICAR
+              </button>
+              <button
+                onClick={startMoverSeccion}
+                className="flex-1 h-10 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs active:scale-95 transition-all"
+              >
+                🚀 MOVER SECCIÓN
+              </button>
+            </div>
+          ) : action === 'moverSeccion' ? (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold px-2 py-1 rounded-lg bg-violet-500/20 text-violet-300">
+                  🚀 MOVER SECCIÓN
+                </span>
+                <span className="text-xs text-slate-400 font-mono">{articleInput} · {ofInput}</span>
+              </div>
+              {!moverSeccionTargetShelf ? (
+                <>
+                  <p className="text-xs text-slate-500">Selecciona sección destino:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {SHELF_DEFINITIONS.filter((s) => s.code !== selectedShelf).map((s) => (
+                      <button
+                        key={s.code}
+                        onClick={() => setMoverSeccionTargetShelf(s.code)}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-violet-100 border border-slate-300 hover:border-violet-400 text-slate-800 text-xs font-bold rounded-lg transition-colors"
+                      >
+                        {s.name}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-slate-500">
+                      Destino: <span className="text-violet-600 font-bold">{SHELF_DEFINITIONS.find((s) => s.code === moverSeccionTargetShelf)?.name}</span>
+                    </p>
+                    <button
+                      onClick={() => setMoverSeccionTargetShelf(null)}
+                      className="text-xs text-slate-400 hover:text-slate-700 underline"
+                    >
+                      ← Cambiar
+                    </button>
+                  </div>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="number"
+                      min={1}
+                      placeholder="Nº posición destino (ej: 5)"
+                      value={moverSeccionTargetPos}
+                      onChange={(e) => setMoverSeccionTargetPos(e.target.value)}
+                      className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-violet-400"
+                    />
+                  </div>
+                  {moverSeccionTargetPos && (
+                    <button
+                      onClick={handleMoverSeccionConfirm}
+                      disabled={processing}
+                      className="w-full py-2 bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm rounded-xl disabled:opacity-50 transition-colors"
+                    >
+                      ✓ Mover a {SHELF_DEFINITIONS.find((s) => s.code === moverSeccionTargetShelf)?.name} pos. {moverSeccionTargetPos}
+                    </button>
+                  )}
+                </>
+              )}
+              <button onClick={resetAction} className="text-xs text-slate-400 hover:text-red-500 text-right transition-colors">
+                ✕ Cancelar
               </button>
             </div>
           ) : batchMode && (action === 'ubicar' || action === 'retirar') ? (
@@ -641,11 +837,16 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
           <ShelfGrid
             locations={locations}
             shelfDef={shelfDef}
-            onCellPress={action !== 'idle' ? handleCellPress : undefined}
+            onCellPress={action !== 'idle' && action !== 'moverSeccion' ? handleCellPress : undefined}
             selectedPositions={selectedPositions}
             highlightedPositions={[...highlightedPositions, ...foundPositions]}
+            dragOverPosition={dragOverPosition}
             compact={false}
             fullscreenMode={true}
+            onCellDragStart={handleDragStart}
+            onCellDragEnter={handleDragEnter}
+            onCellDragLeave={handleDragLeave}
+            onCellDrop={handleDrop}
           />
         )}
       </div>
@@ -661,6 +862,19 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
         extraButton={confirmModal.extraButton}
         loading={processing}
       />
+
+      {showCameraQR && (
+        <CameraQRScanner
+          onScan={(text) => { setShowCameraQR(false); handleCameraScan(text, false); }}
+          onClose={() => setShowCameraQR(false)}
+        />
+      )}
+      {showCameraOCR && (
+        <CameraOCRScanner
+          onResult={(text) => { setShowCameraOCR(false); handleCameraScan(text, true); }}
+          onClose={() => setShowCameraOCR(false)}
+        />
+      )}
     </div>
   );
 };

@@ -7,6 +7,7 @@
 import React from 'react';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import type { ShelfPhysicalBlock } from '../../lib/firestoreSchema';
+import type { CellDragData } from './ShelfGridCell';
 import {
   isUrgentLocation,
   isTechReviewLocation,
@@ -78,25 +79,50 @@ interface RackSlotProps {
   isAluminio: boolean;
   isSelected: boolean;
   isHighlighted: boolean;
+  isDragOver?: boolean;
   showReprocessCosts: boolean;
   onPress?: (loc: ShelfLocationState) => void;
   createEmpty: (pos: string, code?: string) => ShelfLocationState;
   minHeight: number;
   shelfSurface: string;
+  onCellDragStart?: (data: CellDragData) => void;
+  onCellDragEnter?: (position: string) => void;
+  onCellDragLeave?: () => void;
+  onCellDrop?: (targetPosition: string) => void;
 }
 
 const RackSlot: React.FC<RackSlotProps> = ({
   position, posNum, location, shelfCode,
-  isUrgent, isTechReview, isAluminio, isSelected, isHighlighted,
+  isUrgent, isTechReview, isAluminio, isSelected, isHighlighted, isDragOver,
   showReprocessCosts, onPress, createEmpty, minHeight, shelfSurface,
+  onCellDragStart, onCellDragEnter, onCellDragLeave, onCellDrop,
 }) => {
   const items = location?.items ?? [];
   const isEmpty = items.length === 0;
   const isReproces = isReprocesosLocation(shelfCode, posNum);
+  const isDraggable = !isEmpty && !!onCellDragStart;
 
   const handleClick = () => {
     if (onPress) onPress(location ?? createEmpty(position, shelfCode));
   };
+
+  const dragProps = isDraggable ? {
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => {
+      if (!location?.items[0]) return;
+      const item = location.items[0];
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', JSON.stringify({ articleCode: item.articleCode, orderFab: item.orderFab, position }));
+      onCellDragStart?.({ articleCode: item.articleCode, orderFab: item.orderFab, position });
+    },
+  } : {};
+
+  const dropProps = onCellDrop ? {
+    onDragOver: (e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; onCellDragEnter?.(position); },
+    onDragEnter: (e: React.DragEvent) => { e.preventDefault(); onCellDragEnter?.(position); },
+    onDragLeave: () => onCellDragLeave?.(),
+    onDrop: (e: React.DragEvent) => { e.preventDefault(); onCellDragLeave?.(); onCellDrop(position); },
+  } : {};
 
   // ── Clases visuales según estado — tema claro (blanco hueso) ─────────────────
   let wrapBg = '#FAFAF7';
@@ -177,7 +203,7 @@ const RackSlot: React.FC<RackSlotProps> = ({
 
   return (
     <div
-      role={onPress ? 'button' : undefined}
+      role={onPress || isDraggable ? 'button' : undefined}
       tabIndex={onPress ? 0 : undefined}
       onClick={onPress ? handleClick : undefined}
       onKeyDown={onPress ? (e) => { if (e.key === 'Enter' || e.key === ' ') handleClick(); } : undefined}
@@ -186,16 +212,18 @@ const RackSlot: React.FC<RackSlotProps> = ({
         display: 'flex',
         flexDirection: 'column',
         minHeight,
-        background: wrapBg,
-        border: `1px solid ${wrapBorder}`,
+        background: isDragOver ? 'rgba(52,211,153,0.15)' : wrapBg,
+        border: isDragOver ? '2px solid rgba(52,211,153,0.8)' : `1px solid ${wrapBorder}`,
         borderRadius: 3,
         overflow: 'hidden',
-        boxShadow: wrapShadow,
-        cursor: onPress ? 'pointer' : 'default',
-        transition: 'filter 0.12s, transform 0.1s',
+        boxShadow: isDragOver ? '0 0 0 2px rgba(52,211,153,0.4)' : wrapShadow,
+        cursor: isDraggable ? 'grab' : (onPress ? 'pointer' : 'default'),
+        transition: 'filter 0.12s, transform 0.1s, background 0.1s, border 0.1s',
       }}
-      onMouseEnter={e => { if (onPress) (e.currentTarget as HTMLDivElement).style.filter = 'brightness(1.15)'; }}
+      onMouseEnter={e => { if (onPress || isDraggable) (e.currentTarget as HTMLDivElement).style.filter = 'brightness(1.15)'; }}
       onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.filter = 'brightness(1)'; }}
+      {...dragProps}
+      {...dropProps}
     >
       {/* Posición + badge */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 5px 0', gap: 3, flexShrink: 0 }}>
@@ -285,9 +313,14 @@ export interface ShelfRackViewProps {
   locationMap: Map<string, ShelfLocationState>;
   selectedPositions: string[];
   highlightedPositions: string[];
+  dragOverPosition?: string | null;
   onCellPress?: (location: ShelfLocationState) => void;
   showReprocessCosts: boolean;
   createEmptyLocation: (position: string, shelfCode?: string) => ShelfLocationState;
+  onCellDragStart?: (data: CellDragData) => void;
+  onCellDragEnter?: (position: string) => void;
+  onCellDragLeave?: () => void;
+  onCellDrop?: (targetPosition: string) => void;
 }
 
 const ShelfRackView: React.FC<ShelfRackViewProps> = ({
@@ -296,9 +329,14 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
   locationMap,
   selectedPositions,
   highlightedPositions,
+  dragOverPosition,
   onCellPress,
   showReprocessCosts,
   createEmptyLocation,
+  onCellDragStart,
+  onCellDragEnter,
+  onCellDragLeave,
+  onCellDrop,
 }) => {
   const pk = getPaletteKey(shelfCode, block.zoneName);
   const palette = PALETTES[pk];
@@ -401,11 +439,16 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
                     isAluminio={isAluminioLocation(shelfCode, posNum)}
                     isSelected={selectedPositions.includes(pos)}
                     isHighlighted={highlightedPositions.includes(pos)}
+                    isDragOver={dragOverPosition === pos}
                     showReprocessCosts={showReprocessCosts}
                     onPress={onCellPress}
                     createEmpty={createEmptyLocation}
                     minHeight={slotMinH - 12}
                     shelfSurface={palette.shelfSurface}
+                    onCellDragStart={onCellDragStart}
+                    onCellDragEnter={onCellDragEnter}
+                    onCellDragLeave={onCellDragLeave}
+                    onCellDrop={onCellDrop}
                   />
                 );
               })}

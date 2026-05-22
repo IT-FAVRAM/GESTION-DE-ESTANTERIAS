@@ -12,9 +12,11 @@ import { useAuth } from '../../hooks/useAuth';
 import ShelfGrid from '../kiosk/ShelfGrid';
 import KioskSearchBar from '../kiosk/KioskSearchBar';
 import ScannerInput from '../kiosk/ScannerInput';
+import CameraQRScanner from '../common/CameraQRScanner';
+import CameraOCRScanner from '../common/CameraOCRScanner';
 import ConfirmationModal from '../common/ConfirmationModal';
 import { ALL_SHELVES, SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
-import { formatArticleDisplay, type ScanParseResult } from '../../lib/qrParser';
+import { formatArticleDisplay, type ScanParseResult, parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import { usePickupQueue } from '../../hooks/usePickupQueue';
 import ShelfNavigatorTabs from './ShelfNavigatorTabs';
@@ -33,6 +35,8 @@ const ShelfNavigator: React.FC = () => {
 
   const [action, setAction] = useState<NavAction>('idle');
   const [scannerActive, setScannerActive] = useState(false);
+  const [showCameraQR, setShowCameraQR] = useState(false);
+  const [showCameraOCR, setShowCameraOCR] = useState(false);
   const [scanData, setScanData] = useState<{ articleCode: string; orderFab: string } | null>(null);
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
   const [processing, setProcessing] = useState(false);
@@ -238,7 +242,27 @@ const ShelfNavigator: React.FC = () => {
         </div>
       )}
 
-      <ScannerInput onScan={handleScan} active={scannerActive} disabled={processing} />
+      <ScannerInput
+        onScan={handleScan}
+        active={scannerActive}
+        disabled={processing}
+        onOpenQRCamera={() => { setScannerActive(false); setShowCameraQR(true); }}
+        onOpenOCRCamera={() => { setScannerActive(false); setShowCameraOCR(true); }}
+      />
+
+      {showCameraQR && (
+        <CameraQRScanner
+          onScan={(text) => { setShowCameraQR(false); handleScan(parseScanInput(text)); }}
+          onClose={() => { setShowCameraQR(false); setScannerActive(true); }}
+        />
+      )}
+      {showCameraOCR && (
+        <CameraOCRScanner
+          onResult={(text) => { setShowCameraOCR(false); handleScan(parseScanInputLenient(text)); }}
+          onClose={() => { setShowCameraOCR(false); setScannerActive(true); }}
+        />
+      )}
+
       <ConfirmationModal
         open={confirmModal.open}
         onClose={() => setConfirmModal(p => ({ ...p, open: false }))}

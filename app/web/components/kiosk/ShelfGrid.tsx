@@ -11,7 +11,7 @@ import {
   isUrgentLocation,
   isAluminioLocation,
 } from '../../lib/firestoreSchema';
-import ShelfGridCell from './ShelfGridCell';
+import ShelfGridCell, { type CellDragData } from './ShelfGridCell';
 import ShelfGridLegend from './ShelfGridLegend';
 import ShelfGridStats from './ShelfGridStats';
 import ShelfRackView from './ShelfRackView';
@@ -22,9 +22,14 @@ interface ShelfGridProps {
   onCellPress?: (location: ShelfLocationState) => void;
   selectedPositions?: string[];
   highlightedPositions?: string[];
+  dragOverPosition?: string | null;
   compact?: boolean;
   showReprocessCosts?: boolean;
   fullscreenMode?: boolean;
+  onCellDragStart?: (data: CellDragData) => void;
+  onCellDragEnter?: (position: string) => void;
+  onCellDragLeave?: () => void;
+  onCellDrop?: (targetPosition: string) => void;
 }
 
 const createEmptyLocation = (position: string, shelfCode?: string): ShelfLocationState => ({
@@ -185,10 +190,15 @@ interface BlockProps {
   locationMap: Map<string, ShelfLocationState>;
   selectedPositions: string[];
   highlightedPositions: string[];
+  dragOverPosition?: string | null;
   onCellPress?: (location: ShelfLocationState) => void;
   isCollapsed: boolean;
   onToggle: () => void;
   showReprocessCosts: boolean;
+  onCellDragStart?: (data: CellDragData) => void;
+  onCellDragEnter?: (position: string) => void;
+  onCellDragLeave?: () => void;
+  onCellDrop?: (targetPosition: string) => void;
 }
 
 const Block: React.FC<BlockProps> = ({
@@ -197,10 +207,15 @@ const Block: React.FC<BlockProps> = ({
   locationMap,
   selectedPositions,
   highlightedPositions,
+  dragOverPosition,
   onCellPress,
   isCollapsed,
   onToggle,
   showReprocessCosts,
+  onCellDragStart,
+  onCellDragEnter,
+  onCellDragLeave,
+  onCellDrop,
 }) => {
   const zone = shelfDef.layout.zones.find((z) => z.name === block.zoneName);
   const isUrgent = zone?.isUrgent ?? false;
@@ -241,9 +256,14 @@ const Block: React.FC<BlockProps> = ({
               locationMap={locationMap}
               selectedPositions={selectedPositions}
               highlightedPositions={highlightedPositions}
+              dragOverPosition={dragOverPosition}
               onCellPress={onCellPress}
               showReprocessCosts={showReprocessCosts}
               createEmptyLocation={createEmptyLocation}
+              onCellDragStart={onCellDragStart}
+              onCellDragEnter={onCellDragEnter}
+              onCellDragLeave={onCellDragLeave}
+              onCellDrop={onCellDrop}
             />
           </div>
         </div>
@@ -260,9 +280,14 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
   onCellPress,
   selectedPositions = [],
   highlightedPositions = [],
+  dragOverPosition = null,
   compact = false,
   showReprocessCosts = false,
   fullscreenMode = false,
+  onCellDragStart,
+  onCellDragEnter,
+  onCellDragLeave,
+  onCellDrop,
 }) => {
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
 
@@ -415,10 +440,15 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
                  locationMap={locationMap}
                  selectedPositions={selectedPositions}
                  highlightedPositions={highlightedPositions}
+                 dragOverPosition={dragOverPosition}
                  onCellPress={onCellPress}
                  isCollapsed={collapsedSections.has(block.id)}
                  onToggle={() => toggleSection(block.id)}
                  showReprocessCosts={showReprocessCosts}
+                 onCellDragStart={onCellDragStart}
+                 onCellDragEnter={onCellDragEnter}
+                 onCellDragLeave={onCellDragLeave}
+                 onCellDrop={onCellDrop}
                />
              </div>
            ))}
@@ -473,9 +503,14 @@ const isUrgentZone = zone.isUrgent ?? false;
                            isAluminio={isAluminioLocation(shelfDef?.code || '', posInt)}
                            isSelected={selectedPositions.includes(pos)}
                            isHighlighted={highlightedPositions.includes(pos)}
+                           isDragOver={dragOverPosition === pos}
                            showReprocessCosts={showReprocessCosts}
                            onPress={onCellPress}
                            createEmptyLocation={createEmptyLocation}
+                           onCellDragStart={onCellDragStart}
+                           onCellDragEnter={onCellDragEnter}
+                           onCellDragLeave={onCellDragLeave}
+                           onCellDrop={onCellDrop}
                          />
                        );
                      })}
