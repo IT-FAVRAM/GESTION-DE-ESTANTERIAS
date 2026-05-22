@@ -121,6 +121,77 @@ export const parseScanInput = (rawInput: string): ScanParseResult => {
 };
 
 /**
+ * Parser lenient para OCR — busca el patrón OF en cualquier parte
+ * del texto y toma el resto como código de artículo.
+ *
+ * Acepta:
+ *   "CL34712023 OF25-07221"          (espacio)
+ *   "CL34712023\nOF25-07221"         (multilínea)
+ *   "ARTÍCULO: CL34712023 OF25-07221" (con etiquetas)
+ *   "CL34712023 // OF25-07221"        (separador clásico)
+ *   "OF25-07221 CL34712023"           (orden invertida)
+ */
+export const parseScanInputLenient = (rawInput: string): ScanParseResult => {
+  if (!rawInput || typeof rawInput !== 'string') {
+    return { success: false, error: 'No se recibió ningún dato', rawInput: '' };
+  }
+
+  // Normaliza: une saltos de línea, colapsa espacios, mayúsculas
+  const cleaned = rawInput
+    .trim()
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .toUpperCase();
+
+  if (!cleaned) {
+    return { success: false, error: 'El texto está vacío', rawInput };
+  }
+
+  // 1º intenta el parser estricto (formatos clásicos de pistola)
+  const strict = parseScanInput(cleaned);
+  if (strict.success) return strict;
+
+  // 2º busca el patrón OF en cualquier parte
+  const ofMatch = cleaned.match(/OF\d{2}-\d+/);
+  if (!ofMatch) {
+    return {
+      success: false,
+      error: `No se encontró ningún código OFxx-nnnnn en el texto.\nRecibido: "${cleaned}"`,
+      rawInput,
+    };
+  }
+  const orderFab = ofMatch[0];
+
+  // 3º extrae el código de artículo: todo lo que no sea el OF ni etiquetas comunes
+  const withoutOF = cleaned.replace(orderFab, '');
+  const cleanedNoLabels = withoutOF
+    .replace(/\b(ART(I|Í)CULO|ARTICLE|REF(ERENCIA)?|ORDEN|ORDER|FABRICACI(O|Ó)N|OF|COD(IGO|Ó)?|PIEZA)\s*:?\s*/gi, '')
+    .replace(/[\/\\|–—]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // Toma el token más prometedor como código de artículo
+  const tokens = cleanedNoLabels.split(/\s+/).filter(Boolean);
+  // Preferir tokens alfanuméricos (letra+número) de longitud razonable
+  let articleCode = tokens.find((t) => /[A-Z].*\d|\d.*[A-Z]/.test(t) && t.length >= 4);
+  if (!articleCode) articleCode = tokens.find((t) => t.length >= 4);
+  if (!articleCode) articleCode = tokens[0];
+
+  if (!articleCode) {
+    return {
+      success: false,
+      error: `Se encontró OF (${orderFab}) pero no un código de artículo válido en: "${cleaned}"`,
+      rawInput,
+    };
+  }
+
+  return {
+    success: true,
+    data: { articleCode, orderFab },
+  };
+};
+
+/**
  * Formatea un artículo para mostrar en la UI.
  * "CL34712023 (OF25-07221)"
  */

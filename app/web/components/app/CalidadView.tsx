@@ -11,7 +11,7 @@ import ReprocesosEditor from '../kiosk/ReprocesosEditor';
 import { isReprocesosLocation } from '../../lib/firestoreSchema';
 import { calcReprocesosTotal } from '../../lib/api/reprocesosApi';
 import CalidadReprocesosSection from './CalidadReprocesosSection';
-import { formatArticleDisplay, type ScanParseResult, parseScanInput } from '../../lib/qrParser';
+import { formatArticleDisplay, type ScanParseResult, parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import { usePickupQueue } from '../../hooks/usePickupQueue';
 
@@ -324,10 +324,9 @@ const CalidadView: React.FC = () => {
 
   const handleOCRResult = useCallback((text: string) => {
     setShowOCRScanner(false);
-    const cleanText = text.trim();
-    const result = parseScanInput(cleanText);
+    const result = parseScanInputLenient(text);
     handleScan(result);
-  }, []);
+  }, [handleScan]);
 
   return (
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">

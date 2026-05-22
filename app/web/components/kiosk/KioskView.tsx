@@ -8,7 +8,9 @@ import ScannerInput from './ScannerInput';
 import ShelfSelector from './ShelfSelector';
 import DeviceInfoModal from '../common/DeviceInfoModal';
 import ConfirmationModal from '../common/ConfirmationModal';
-import { formatArticleDisplay, type ScanParseResult } from '../../lib/qrParser';
+import { formatArticleDisplay, type ScanParseResult, parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
+import CameraQRScanner from '../common/CameraQRScanner';
+import CameraOCRScanner from '../common/CameraOCRScanner';
 import KioskActionBar from './KioskActionBar';
 import KioskActionButtons from './KioskActionButtons';
 import KioskCellDetailDrawer from './KioskCellDetailDrawer';
@@ -44,6 +46,8 @@ const KioskView: React.FC = () => {
   const [batchArticles, setBatchArticles] = useState<ScanData[]>([]);
   const [batchRetiraPending, setBatchRetiraPending] = useState<Array<{ articleCode: string; orderFab: string; locations: ShelfLocationState[] }>>([]);
   const [currentBatchRetirarIndex, setCurrentBatchRetirarIndex] = useState(0);
+  const [showCameraQR, setShowCameraQR] = useState(false);
+  const [showCameraOCR, setShowCameraOCR] = useState(false);
 
   const cancelAction = useCallback(() => {
     setAction('idle');
@@ -332,6 +336,16 @@ const KioskView: React.FC = () => {
     }
   }, [action, batchMode, batchArticles, batchRetiraPending, findArticle, handleRetirarConfirm, showFeedback]);
 
+  const handleCameraQRScan = useCallback((qrCode: string) => {
+    setShowCameraQR(false);
+    handleScan(parseScanInput(qrCode));
+  }, [handleScan]);
+
+  const handleCameraOCRResult = useCallback((text: string) => {
+    setShowCameraOCR(false);
+    handleScan(parseScanInputLenient(text));
+  }, [handleScan]);
+
   const handleCellPress = useCallback((location: ShelfLocationState) => {
     if (action === 'ubicar' && batchMode && batchArticles.length > 0) {
       const position = location.position;
@@ -397,7 +411,7 @@ const KioskView: React.FC = () => {
         <div className="bg-white border-b border-slate-200 px-4 py-3">
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-bold text-white text-sm">
+              <h3 className="font-bold text-slate-900 text-sm">
                 {action === 'ubicar' ? '📦 Batch de Ubicación' : '📤 Batch de Retirada'}
               </h3>
               <span className="bg-cyan-600 text-white px-2 py-1 rounded text-xs font-bold">
@@ -511,13 +525,32 @@ const KioskView: React.FC = () => {
         </>
       )}
 
-      <ScannerInput onScan={handleScan} active={scannerActive} disabled={processing} />
+      <ScannerInput
+        onScan={handleScan}
+        active={scannerActive}
+        disabled={processing}
+        onOpenQRCamera={() => { setScannerActive(false); setShowCameraQR(true); }}
+        onOpenOCRCamera={() => { setScannerActive(false); setShowCameraOCR(true); }}
+      />
+
+      {showCameraQR && (
+        <CameraQRScanner
+          onScan={handleCameraQRScan}
+          onClose={() => { setShowCameraQR(false); setScannerActive(true); }}
+        />
+      )}
+      {showCameraOCR && (
+        <CameraOCRScanner
+          onResult={handleCameraOCRResult}
+          onClose={() => { setShowCameraOCR(false); setScannerActive(true); }}
+        />
+      )}
 
       {foundLocationsForRetirar.length > 1 && confirmModal.open && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white border border-slate-200 rounded-t-3xl sm:rounded-3xl w-full sm:max-w-sm max-h-[70vh] overflow-hidden flex flex-col shadow-xl">
             <div className="bg-sky-50 px-5 py-4 border-b border-slate-200">
-              <h3 className="text-lg font-black text-white">Selecciona posición</h3>
+              <h3 className="text-lg font-black text-slate-900">Selecciona posición</h3>
               <p className="text-xs text-slate-400 mt-1">¿De cuál ubicación quieres retirar?</p>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
