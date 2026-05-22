@@ -39,6 +39,7 @@ const AppV3: React.FC = () => {
     loading,
     isAuthenticated,
     role,
+    section,
     displayName,
     logout,
     deviceId,
@@ -149,7 +150,7 @@ const AppV3: React.FC = () => {
       <Suspense fallback={<AppLoadingScreen />}>
         {showOperativeMode
           ? <CarretilleroView onBack={() => setShowOperativeMode(false)} />
-          : <ManagerInfoView role={role} displayName={displayName} notification={pushNotif} onCloseNotification={() => setPushNotif(null)} onOpenOperativeMode={() => setShowOperativeMode(true)} onLogout={logout} />
+          : <ManagerInfoView role={role} displayName={displayName} section={section} notification={pushNotif} onCloseNotification={() => setPushNotif(null)} onOpenOperativeMode={() => setShowOperativeMode(true)} onLogout={logout} />
         }
       </Suspense>
     );

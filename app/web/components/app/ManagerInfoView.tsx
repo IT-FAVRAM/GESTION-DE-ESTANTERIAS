@@ -1,17 +1,32 @@
 import React from 'react';
 import OfflineIndicator from '../common/OfflineIndicator';
 import PushToast from './PushToast';
+import type { WarehouseSection } from '../../lib/schema/sections';
+
+const SECTION_LABEL: Record<WarehouseSection, string> = {
+  MECANIZADO: 'Mecanizado',
+  PLEGADORA: 'Plegadora',
+  PRENSAS: 'Prensas',
+  SOLDADURA: 'Soldadura',
+  AUTOPLEGADORA: 'Autoplegadora',
+  REPASADO: 'Repasado',
+  PINTURA: 'Pintura',
+  LASER: 'Láser',
+  CALIDAD: 'Calidad',
+  OTROS: 'Otros',
+};
 
 interface ManagerInfoViewProps {
   role: 'JEFE_SECCION' | 'CALIDAD';
   displayName: string;
+  section: WarehouseSection | null;
   notification: { title: string; body: string } | null;
   onCloseNotification: () => void;
   onOpenOperativeMode?: () => void;
   onLogout: () => Promise<void> | void;
 }
 
-const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, notification, onCloseNotification, onOpenOperativeMode, onLogout }) => (
+const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, section, notification, onCloseNotification, onOpenOperativeMode, onLogout }) => (
   <>
     <OfflineIndicator />
     <PushToast notification={notification} onClose={onCloseNotification} />
@@ -21,20 +36,37 @@ const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, no
           <div className="flex items-center gap-3">
             <span className="text-xl">{role === 'CALIDAD' ? '🔍' : '👷'}</span>
             <div>
-              <h1 className="text-lg font-black text-white">{role === 'CALIDAD' ? 'Calidad' : 'Jefe de Seccion'}</h1>
-              <p className="text-xs text-slate-400">{displayName}</p>
+              <h1 className="text-lg font-black text-white">{role === 'CALIDAD' ? 'Calidad' : 'Jefe de Sección'}</h1>
+              <p className="text-xs text-slate-400">
+                {displayName}
+                {role === 'JEFE_SECCION' && section && (
+                  <span className="ml-2 text-cyan-400 font-semibold">· {SECTION_LABEL[section]}</span>
+                )}
+              </p>
             </div>
           </div>
-          <button onClick={onLogout} className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl font-bold hover:bg-slate-700">Cerrar Sesion</button>
+          <button onClick={onLogout} className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl font-bold hover:bg-slate-700">Cerrar Sesión</button>
         </div>
       </header>
 
       <main className="flex-1 p-6">
         <div className="max-w-2xl mx-auto space-y-6">
           <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="text-xl font-black text-white mb-4">🎯 Tu Rol: {role === 'CALIDAD' ? 'Control de Calidad' : 'Jefe de Sección'}</h2>
+            <h2 className="text-xl font-black text-white mb-1">🎯 Tu Rol: {role === 'CALIDAD' ? 'Control de Calidad' : 'Jefe de Sección'}</h2>
+            {role === 'JEFE_SECCION' && section && (
+              <div className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 bg-cyan-900/40 border border-cyan-700/50 rounded-xl">
+                <span className="text-cyan-300 text-sm font-black tracking-wide">{SECTION_LABEL[section]}</span>
+                <span className="text-cyan-500 text-xs">· tu sección</span>
+              </div>
+            )}
+            {role === 'JEFE_SECCION' && !section && (
+              <div className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 bg-amber-900/40 border border-amber-700/50 rounded-xl">
+                <span className="text-amber-300 text-sm font-semibold">Sin sección asignada</span>
+                <span className="text-amber-500 text-xs">· pide a un SUPERADMIN que te asigne una</span>
+              </div>
+            )}
             <p className="text-slate-300 mb-4">
-              {role === 'CALIDAD' 
+              {role === 'CALIDAD'
                 ? <><span className="font-bold text-cyan-300">Consumidor pasivo</span> de alertas. No tienes acceso a la operativa de estanterías.</>
                 : <>Gestor de alertas y <span className="font-bold text-cyan-300">operativa en estanterías</span>.</>}
             </p>
