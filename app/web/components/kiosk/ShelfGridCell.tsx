@@ -118,20 +118,23 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
       headerText = 'text-white';
     }
     const dragOverClass = isDragOver ? 'ring-2 ring-emerald-300/90 bg-emerald-500/20' : '';
+    // Compact: single-item cells are draggable; multi-item cells show a ≡ indicator
+    const compactDraggable = isDraggable && itemCount === 1;
     return (
       <button
         type="button"
         onClick={handleClick}
-        title={`${shelfCode} ${displayNum}${isEmpty ? ' · Vacía' : ` · ${itemCount} artículo(s)`}`}
+        title={`${shelfCode} ${displayNum}${isEmpty ? ' · Vacía' : ` · ${itemCount} artículo(s)${itemCount > 1 ? ' · Arrastra en vista completa' : ''}`}`}
         className={`w-11 h-11 rounded-xl border-2 flex flex-col items-center justify-center relative
           transition-all active:scale-95 hover:-translate-y-0.5
-          ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''}
+          ${compactDraggable ? 'cursor-grab active:cursor-grabbing' : ''}
           ${dragOverClass} ${cardBase}`}
-        {...dragProps}
+        {...(compactDraggable ? dragProps : {})}
         {...dropProps}
       >
         <span className={`text-[9px] font-black font-mono ${headerText}`}>{displayNum}</span>
-        {!isEmpty && <span className="w-2 h-2 rounded-full bg-cyan-300 mt-0.5 shadow-[0_0_10px_rgba(103,232,249,0.8)]" />}
+        {!isEmpty && itemCount === 1 && <span className="w-2 h-2 rounded-full bg-cyan-300 mt-0.5 shadow-[0_0_10px_rgba(103,232,249,0.8)]" />}
+        {!isEmpty && itemCount > 1 && <span className={`text-[8px] font-black mt-0.5 ${headerText}`}>{itemCount}</span>}
       </button>
     );
   }
@@ -278,16 +281,19 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
     );
   }
 
+  // For multi-item cells, drag is per-item (not the whole card)
+  const multiItem = itemCount > 1;
+
   return (
     <div
       className={`rounded-2xl border transition-all duration-200 overflow-hidden w-full
         hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/25
         ${isHighlighted ? 'animate-pulse' : ''}
-        ${isDraggable ? 'cursor-grab active:cursor-grabbing' : (onPress ? 'cursor-pointer active:scale-[0.98]' : 'cursor-default')}
+        ${isDraggable && !multiItem ? 'cursor-grab active:cursor-grabbing' : (onPress ? 'cursor-pointer active:scale-[0.98]' : 'cursor-default')}
         ${isDragOver ? 'ring-2 ring-emerald-300/90 scale-[1.02]' : ''}
         ${cardBase}`}
       onClick={onPress ? handleClick : undefined}
-      {...dragProps}
+      {...(!multiItem ? dragProps : {})}
       {...dropProps}
     >
       {/* Header */}
@@ -308,9 +314,20 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
         {location!.items.map((item, idx) => (
           <div
             key={`${item.articleCode}-${item.orderFab}-${idx}`}
-            className={`rounded-xl px-2.5 py-2 ${itemBg}`}
+            className={`rounded-xl px-2.5 py-2 relative ${itemBg}
+              ${multiItem && onCellDragStart ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            draggable={multiItem && !!onCellDragStart}
+            onDragStart={multiItem && onCellDragStart ? (e) => {
+              e.stopPropagation();
+              e.dataTransfer.effectAllowed = 'move';
+              e.dataTransfer.setData('text/plain', JSON.stringify({ articleCode: item.articleCode, orderFab: item.orderFab, position }));
+              onCellDragStart({ articleCode: item.articleCode, orderFab: item.orderFab, position });
+            } : undefined}
           >
-            <p className="text-[13px] font-black font-mono text-white leading-tight break-all">
+            {multiItem && onCellDragStart && (
+              <span className="absolute right-2 top-2 text-slate-500/70 text-[10px] select-none pointer-events-none">⠿</span>
+            )}
+            <p className={`text-[13px] font-black font-mono text-white leading-tight break-all ${multiItem && onCellDragStart ? 'pr-4' : ''}`}>
               {item.articleCode}
             </p>
             <p className={`text-[11px] font-bold font-mono leading-tight break-all ${ofCls}`}>

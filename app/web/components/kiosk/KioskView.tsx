@@ -9,6 +9,7 @@ import ShelfSelector from './ShelfSelector';
 import DeviceInfoModal from '../common/DeviceInfoModal';
 import ConfirmationModal from '../common/ConfirmationModal';
 import { formatArticleDisplay, type ScanParseResult, parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
+import { findArticleGlobal } from '../../lib/findArticleGlobal';
 import CameraQRScanner from '../common/CameraQRScanner';
 import CameraOCRScanner from '../common/CameraOCRScanner';
 import KioskActionBar from './KioskActionBar';
@@ -248,7 +249,7 @@ const KioskView: React.FC = () => {
     setScannerActive(true);
   }, [handleAvisarConfirm, shelfCode, shelfDef]);
 
-  const handleScan = useCallback((result: ScanParseResult) => {
+  const handleScan = useCallback(async (result: ScanParseResult) => {
     if (!result.success) {
       showFeedback('error', 'error' in result ? result.error : 'Error de escaneo');
       return;
@@ -336,6 +337,34 @@ const KioskView: React.FC = () => {
         return;
       }
       setSelectedPositions([]);
+    }
+
+    // Ghost article check: warn if article is already located somewhere in the system
+    if (action === 'ubicar' && !batchMode) {
+      setProcessing(true);
+      const globalLocs = await findArticleGlobal(articleCode, orderFab);
+      setProcessing(false);
+      if (globalLocs.length > 0) {
+        const locationText = globalLocs
+          .map((l) => `• ${l.shelfName} — pos. ${parseInt(l.position, 10)}`)
+          .join('\n');
+        setConfirmModal({
+          open: true,
+          title: '⚠️ Artículo ya ubicado',
+          message: `${formatArticleDisplay(articleCode, orderFab)} ya figura en el sistema:\n\n${locationText}\n\n¿Confirmas que ya NO se encuentra ahí y quieres ubicarlo en un nuevo sitio?`,
+          icon: '⚠️',
+          variant: 'warning',
+          onConfirm: () => setConfirmModal((prev) => ({ ...prev, open: false })),
+          extraButton: {
+            text: 'Cancelar',
+            onClick: () => {
+              setScanData(null);
+              setScannerActive(true);
+              setConfirmModal((prev) => ({ ...prev, open: false }));
+            },
+          },
+        });
+      }
     }
   }, [action, batchMode, batchArticles, batchRetiraPending, findArticle, handleRetirarConfirm, showFeedback]);
 

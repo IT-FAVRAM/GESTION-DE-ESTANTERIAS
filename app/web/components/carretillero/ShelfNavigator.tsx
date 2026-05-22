@@ -17,6 +17,7 @@ import CameraOCRScanner from '../common/CameraOCRScanner';
 import ConfirmationModal from '../common/ConfirmationModal';
 import { ALL_SHELVES, SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
 import { formatArticleDisplay, type ScanParseResult, parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
+import { findArticleGlobal } from '../../lib/findArticleGlobal';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import { usePickupQueue } from '../../hooks/usePickupQueue';
 import ShelfNavigatorTabs from './ShelfNavigatorTabs';
@@ -76,11 +77,40 @@ const ShelfNavigator: React.FC = () => {
     }
   };
 
-  const handleScan = (result: ScanParseResult) => {
+  const handleScan = async (result: ScanParseResult) => {
     if (!result.success) { showFeedback('error', 'error' in result ? result.error : 'Error de escaneo'); return; }
     const { articleCode, orderFab } = result.data;
     setScanData({ articleCode, orderFab });
     setScannerActive(false);
+
+    // Ghost article check before ubicar
+    if (action === 'ubicar') {
+      setProcessing(true);
+      const globalLocs = await findArticleGlobal(articleCode, orderFab);
+      setProcessing(false);
+      if (globalLocs.length > 0) {
+        const locationText = globalLocs
+          .map((l) => `• ${l.shelfName} — pos. ${parseInt(l.position, 10)}`)
+          .join('\n');
+        setConfirmModal({
+          open: true,
+          title: '⚠️ Artículo ya ubicado',
+          message: `${formatArticleDisplay(articleCode, orderFab)} ya figura en el sistema:\n\n${locationText}\n\n¿Confirmas que ya NO se encuentra ahí?`,
+          icon: '⚠️',
+          variant: 'warning',
+          onConfirm: () => setConfirmModal((prev) => ({ ...prev, open: false })),
+          extraButton: {
+            text: 'Cancelar',
+            onClick: () => {
+              setScanData(null);
+              setScannerActive(true);
+              setConfirmModal((prev) => ({ ...prev, open: false }));
+            },
+          },
+        });
+        return;
+      }
+    }
 
     if (action === 'retirar') {
       const found = findArticle(articleCode, orderFab);

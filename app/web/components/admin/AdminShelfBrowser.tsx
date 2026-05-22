@@ -20,6 +20,7 @@ import CameraQRScanner from '../common/CameraQRScanner';
 import CameraOCRScanner from '../common/CameraOCRScanner';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../lib/firebase';
+import { findArticleGlobal } from '../../lib/findArticleGlobal';
 
 type AdminAction = 'idle' | 'ubicar' | 'retirar' | 'mover' | 'reubicar' | 'moverSeccion';
 
@@ -104,13 +105,45 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
     setDragOverPosition(null);
   }, []);
 
-  const startAction = useCallback((act: AdminAction) => {
+  const startAction = useCallback(async (act: AdminAction) => {
     const article = articleInput.trim();
     const of = ofInput.trim();
 
     if (!article || !of) {
       showFeedback('error', 'Introduce código de artículo y OF antes de seleccionar la acción');
       return;
+    }
+
+    // Ghost article check before ubicar
+    if (act === 'ubicar') {
+      setProcessing(true);
+      const globalLocs = await findArticleGlobal(article, of);
+      setProcessing(false);
+      if (globalLocs.length > 0) {
+        const locationText = globalLocs
+          .map((l) => `• ${l.shelfName} — pos. ${parseInt(l.position, 10)}`)
+          .join('\n');
+        setConfirmModal({
+          open: true,
+          title: '⚠️ Artículo ya ubicado',
+          message: `${formatArticleDisplay(article, of)} ya figura en el sistema:\n\n${locationText}\n\n¿Confirmas que ya NO se encuentra ahí y quieres ubicarlo en un nuevo sitio?`,
+          icon: '⚠️',
+          variant: 'warning',
+          onConfirm: () => {
+            setConfirmModal((p) => ({ ...p, open: false }));
+            // Proceed to ubicar flow
+            setBatchMode(false);
+            setAction('ubicar');
+            setSelectedPositions([]);
+            setFeedback(null);
+          },
+          extraButton: {
+            text: 'Cancelar',
+            onClick: () => setConfirmModal((p) => ({ ...p, open: false })),
+          },
+        });
+        return;
+      }
     }
 
     if (act === 'ubicar' || act === 'retirar') {
