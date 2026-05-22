@@ -302,6 +302,12 @@ export const useAuth = () => {
         });
       }
 
+      // JEFE_SECCION: derive assigned shelf from their section so KioskView works in operative mode
+      const sectionShelf =
+        resolvedRole === 'JEFE_SECCION' && resolvedSection
+          ? (SECTION_TO_SHELF[resolvedSection] || null)
+          : null;
+
       setState((prev) => ({
         ...prev,
         loading: false,
@@ -312,6 +318,7 @@ export const useAuth = () => {
         email: user.email,
         isKioskSession: false,
         authMethod: 'email',
+        assignedShelf: sectionShelf ?? prev.assignedShelf,
         error: resolvedRole ? null : 'Usuario no configurado',
       }));
     });

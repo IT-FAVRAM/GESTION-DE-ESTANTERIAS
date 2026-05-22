@@ -78,7 +78,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
             disabled={disabled}
             className="flex-1 px-3 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
           >
-            <span>📷</span> QR
+            <span>📷</span> Barras
           </button>
         )}
         {onOpenOCRCamera && (

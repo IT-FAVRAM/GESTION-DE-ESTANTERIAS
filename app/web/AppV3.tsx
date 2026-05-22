@@ -148,10 +148,16 @@ const AppV3: React.FC = () => {
   if (role === 'JEFE_SECCION') {
     return (
       <Suspense fallback={<AppLoadingScreen />}>
-        {showOperativeMode
-          ? <CarretilleroView onBack={() => setShowOperativeMode(false)} />
-          : <ManagerInfoView role={role} displayName={displayName} section={section} notification={pushNotif} onCloseNotification={() => setPushNotif(null)} onOpenOperativeMode={() => setShowOperativeMode(true)} onLogout={logout} />
-        }
+        {showOperativeMode ? (
+          <>
+            <OfflineIndicator />
+            <OfflineDebugPanel />
+            <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
+            <KioskView />
+          </>
+        ) : (
+          <ManagerInfoView role={role} displayName={displayName} section={section} notification={pushNotif} onCloseNotification={() => setPushNotif(null)} onOpenOperativeMode={() => setShowOperativeMode(true)} onLogout={logout} />
+        )}
       </Suspense>
     );
   }

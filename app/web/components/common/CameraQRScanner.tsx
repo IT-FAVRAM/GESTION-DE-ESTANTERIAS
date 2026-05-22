@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 
 interface CameraQRScannerProps {
   onScan: (qrCode: string) => void;
@@ -19,14 +19,27 @@ const CameraQRScanner: React.FC<CameraQRScannerProps> = ({ onScan, onError, onCl
 
     const init = async () => {
       try {
-        const scanner = new Html5Qrcode(SCANNER_ID);
+        const scanner = new Html5Qrcode(SCANNER_ID, {
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E,
+            Html5QrcodeSupportedFormats.QR_CODE,
+            Html5QrcodeSupportedFormats.DATA_MATRIX,
+          ],
+          verbose: false,
+        });
         scannerRef.current = scanner;
 
-        const size = Math.min(window.innerWidth * 0.7, 280);
+        const boxW = Math.min(window.innerWidth * 0.82, 340);
+        const boxH = Math.round(boxW * 0.38); // rectangular: optimized for 1D barcodes
 
         await scanner.start(
           { facingMode: 'environment' },
-          { fps: 20, qrbox: { width: size, height: size }, disableFlip: false },
+          { fps: 20, qrbox: { width: boxW, height: boxH }, disableFlip: false },
           (decodedText) => {
             if (cancelled) return;
             scanner.pause();
@@ -76,7 +89,7 @@ const CameraQRScanner: React.FC<CameraQRScannerProps> = ({ onScan, onError, onCl
         <div className="bg-slate-800 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
           <h3 className="font-bold text-white flex items-center gap-2">
             <span className="text-lg">📷</span>
-            Escanear QR
+            Escanear código de barras
           </h3>
           <button
             onClick={onClose}
@@ -108,7 +121,7 @@ const CameraQRScanner: React.FC<CameraQRScannerProps> = ({ onScan, onError, onCl
           {isScanning && !error ? (
             <div className="flex items-center justify-center gap-2">
               <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse" />
-              <p className="text-cyan-400 text-sm font-medium">Cámara activa — apunta al QR</p>
+              <p className="text-cyan-400 text-sm font-medium">Cámara activa — apunta al código</p>
             </div>
           ) : !error ? (
             <p className="text-slate-400 text-sm">Iniciando cámara...</p>
@@ -117,7 +130,7 @@ const CameraQRScanner: React.FC<CameraQRScannerProps> = ({ onScan, onError, onCl
 
         <div className="bg-slate-900/50 px-4 py-3 border-t border-slate-700">
           <p className="text-slate-300 text-xs text-center">
-            Apunta la cámara al código QR • Asegúrate de buena iluminación
+            Code128 · EAN · QR · DataMatrix • Mantén el código centrado y bien iluminado
           </p>
         </div>
       </div>

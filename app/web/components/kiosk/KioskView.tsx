@@ -21,7 +21,10 @@ import KioskSearchBar from './KioskSearchBar';
 import type { KioskAction, KioskConfirmModalState, KioskFeedback, ScanData } from './kioskShared';
 
 const KioskView: React.FC = () => {
-  const { assignedShelf, operarioId, displayName, logout, kioskId, deviceId } = useAuth();
+  const { assignedShelf, operarioId, firebaseUser, displayName, logout, kioskId, deviceId } = useAuth();
+  // Email-auth users (e.g. JEFE_SECCION in operative mode) have no numeric operarioId;
+  // fall back to their Firebase UID so audit logs are still attributed correctly.
+  const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? null;
   const { kiosk, shelves, currentShelf, setCurrentShelf } = useKiosk(kioskId);
   const [showDeviceInfo, setShowDeviceInfo] = useState(false);
 
@@ -74,27 +77,27 @@ const KioskView: React.FC = () => {
    }, [cancelAction]);
 
   const handleUbicarConfirm = useCallback(async (position: string) => {
-    if (!scanData || !operarioId) return;
+    if (!scanData || !effectiveOperarioId) return;
     setProcessing(true);
     setConfirmModal((prev) => ({ ...prev, open: false }));
-    const success = await ubicar(scanData.articleCode, scanData.orderFab, position, operarioId, displayName);
+    const success = await ubicar(scanData.articleCode, scanData.orderFab, position, effectiveOperarioId, displayName);
     setProcessing(false);
     if (success) showFeedback('success', `✅ ${scanData.articleCode} ubicado en posicion ${parseInt(position, 10)}`);
     else showFeedback('error', 'Error al ubicar el articulo');
   }, [displayName, operarioId, scanData, showFeedback, ubicar]);
 
   const handleRetirarConfirm = useCallback(async (articleCode: string, orderFab: string, specificPosition?: string) => {
-    if (!operarioId) return;
+    if (!effectiveOperarioId) return;
     setProcessing(true);
     setConfirmModal((prev) => ({ ...prev, open: false }));
 
     if (specificPosition) {
-      const result = await retirarDeUbicacion(articleCode, orderFab, specificPosition, operarioId, displayName);
+      const result = await retirarDeUbicacion(articleCode, orderFab, specificPosition, effectiveOperarioId, displayName);
       setProcessing(false);
       if (result.success) showFeedback('success', `✅ ${articleCode} retirado de posición ${parseInt(specificPosition, 10)}`);
       else showFeedback('error', 'Error al retirar el articulo');
     } else {
-      const result = await retirar(articleCode, orderFab, operarioId, displayName);
+      const result = await retirar(articleCode, orderFab, effectiveOperarioId, displayName);
       setProcessing(false);
       if (result.success) showFeedback('success', `✅ ${articleCode} retirado de ${result.positions.length} ubicacion(es)`);
       else showFeedback('error', 'Error al retirar el articulo');
@@ -102,26 +105,26 @@ const KioskView: React.FC = () => {
   }, [displayName, operarioId, retirar, retirarDeUbicacion, showFeedback]);
 
   const handleMoverConfirm = useCallback(async () => {
-    if (!scanData || !operarioId || selectedPositions.length === 0) return;
+    if (!scanData || !effectiveOperarioId || selectedPositions.length === 0) return;
     setProcessing(true);
-    const success = await mover(scanData.articleCode, scanData.orderFab, selectedPositions, operarioId, displayName);
+    const success = await mover(scanData.articleCode, scanData.orderFab, selectedPositions, effectiveOperarioId, displayName);
     setProcessing(false);
     if (success) showFeedback('success', `✅ ${scanData.articleCode} movido a nueva(s) ubicacion(es)`);
     else showFeedback('error', 'Error al mover el articulo');
   }, [displayName, mover, operarioId, scanData, selectedPositions, showFeedback]);
 
   const handleAvisarConfirm = useCallback(async () => {
-    if (!operarioId) return;
+    if (!effectiveOperarioId) return;
     setProcessing(true);
     setConfirmModal((prev) => ({ ...prev, open: false }));
-    const success = await createPickupRequest(operarioId, displayName, shelfCode);
+    const success = await createPickupRequest(effectiveOperarioId, displayName, shelfCode);
     setProcessing(false);
     if (success) showFeedback('success', '✅ Aviso enviado al carretillero');
     else showFeedback('error', 'Error al enviar aviso');
   }, [createPickupRequest, displayName, operarioId, shelfCode, showFeedback]);
 
   const handleUbicarBatchConfirm = useCallback(async () => {
-    if (!operarioId || selectedPositions.length === 0) return;
+    if (!effectiveOperarioId || selectedPositions.length === 0) return;
     setProcessing(true);
     setScannerActive(false);
     setConfirmModal((prev) => ({ ...prev, open: false }));
@@ -129,7 +132,7 @@ const KioskView: React.FC = () => {
     let successCount = 0;
     for (const article of batchArticles) {
       for (const position of selectedPositions) {
-        const success = await ubicar(article.articleCode, article.orderFab, position, operarioId, displayName);
+        const success = await ubicar(article.articleCode, article.orderFab, position, effectiveOperarioId, displayName);
         if (success) successCount++;
       }
     }
@@ -143,13 +146,13 @@ const KioskView: React.FC = () => {
   }, [batchArticles, selectedPositions, operarioId, displayName, ubicar, showFeedback]);
 
   const handleUbicarMultiPositionConfirm = useCallback(async () => {
-    if (!scanData || !operarioId || selectedPositions.length === 0) return;
+    if (!scanData || !effectiveOperarioId || selectedPositions.length === 0) return;
     setProcessing(true);
     setScannerActive(false);
 
     let successCount = 0;
     for (const position of selectedPositions) {
-      const success = await ubicar(scanData.articleCode, scanData.orderFab, position, operarioId, displayName);
+      const success = await ubicar(scanData.articleCode, scanData.orderFab, position, effectiveOperarioId, displayName);
       if (success) successCount++;
     }
 
