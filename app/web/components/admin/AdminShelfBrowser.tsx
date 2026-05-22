@@ -6,7 +6,7 @@
  * además de visualizar la saturación de todas las estanterías.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useShelf } from '../../hooks/useShelf';
 import { useAuth } from '../../hooks/useAuth';
 import ShelfGrid from '../kiosk/ShelfGrid';
@@ -512,6 +512,13 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
     ? findArticle(articleInput.trim(), ofInput.trim()).map((l) => l.position)
     : [];
 
+  // How many destination positions are needed for MOVER (= number of source positions)
+  const moverNeeded = useMemo(() => {
+    if (action !== 'mover' || !articleInput.trim() || !ofInput.trim()) return 1;
+    return findArticle(articleInput.trim(), ofInput.trim()).length || 1;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [action, articleInput, ofInput, locations]);
+
   return (
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
       {/* Header */}
@@ -801,16 +808,22 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
                 {action === 'reubicar' && reubicarSource && (
                   <span className="text-xs text-amber-400">Origen: {reubicarSource.position} → Elige destino</span>
                 )}
-                {action === 'mover' && selectedPositions.length === 0 && (
-                  <span className="text-xs text-slate-500">Pulsa la celda destino</span>
+                {action === 'mover' && (
+                  <span className={`text-xs font-bold px-2 py-1 rounded-lg
+                    ${selectedPositions.length === moverNeeded ? 'bg-emerald-100 text-emerald-700' :
+                      selectedPositions.length > 0 ? 'bg-amber-100 text-amber-700' :
+                      'bg-slate-100 text-slate-500'}`}>
+                    {selectedPositions.length}/{moverNeeded} destinos
+                    {selectedPositions.length === 0 && ' — pulsa celdas'}
+                  </span>
                 )}
-                {action === 'mover' && selectedPositions.length > 0 && (
+                {action === 'mover' && selectedPositions.length === moverNeeded && (
                   <button
                     onClick={handleMoverConfirm}
                     disabled={processing}
-                    className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg disabled:opacity-50"
+                    className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg disabled:opacity-50 active:scale-95 transition-all"
                   >
-                    Confirmar mover a {selectedPositions.map((p) => parseInt(p, 10)).join(', ')}
+                    Confirmar mover → {selectedPositions.map((p) => parseInt(p, 10)).join(', ')}
                   </button>
                 )}
               </div>

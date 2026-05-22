@@ -6,7 +6,7 @@
  * Al seleccionar una, muestra su grid.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useShelf } from '../../hooks/useShelf';
 import { useAuth } from '../../hooks/useAuth';
 import ShelfGrid from '../kiosk/ShelfGrid';
@@ -194,6 +194,12 @@ const ShelfNavigator: React.FC = () => {
     }
   };
 
+  const moverNeeded = useMemo(() => {
+    if (action !== 'mover' || !scanData) return 1;
+    return findArticle(scanData.articleCode, scanData.orderFab).length || 1;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [action, scanData, locations]);
+
   const handleMoverConfirm = async () => {
     if (!scanData || selectedPositions.length === 0) return;
     setProcessing(true);
@@ -205,7 +211,19 @@ const ShelfNavigator: React.FC = () => {
   return (
     <div className="flex flex-col h-full w-full min-w-0 overflow-hidden">
       <ShelfNavigatorTabs selectedShelf={selectedShelf} onSelectShelf={(shelfCode) => { setSelectedShelf(shelfCode); setAction('idle'); setScanData(null); setHighlightedSearch([]); }} />
-      <ShelfNavigatorStatus totalEmpty={totalEmpty} totalOccupied={totalOccupied} totalArticles={totalArticles} actionActive={action !== 'idle'} canConfirmMove={action === 'mover' && !!scanData && selectedPositions.length > 0} scannerActive={scannerActive} scanArticle={scanData && action === 'ubicar' ? scanData.articleCode : undefined} onConfirmMove={handleMoverConfirm} onCancel={() => { setAction('idle'); setScanData(null); setSelectedPositions([]); setScannerActive(false); }} />
+      <ShelfNavigatorStatus
+        totalEmpty={totalEmpty}
+        totalOccupied={totalOccupied}
+        totalArticles={totalArticles}
+        actionActive={action !== 'idle'}
+        canConfirmMove={action === 'mover' && !!scanData && selectedPositions.length === moverNeeded}
+        moverNeeded={action === 'mover' && !!scanData ? moverNeeded : undefined}
+        moverSelected={action === 'mover' ? selectedPositions.length : undefined}
+        scannerActive={scannerActive}
+        scanArticle={scanData && action === 'ubicar' ? scanData.articleCode : undefined}
+        onConfirmMove={handleMoverConfirm}
+        onCancel={() => { setAction('idle'); setScanData(null); setSelectedPositions([]); setScannerActive(false); }}
+      />
 
        {/* Search */}
        <KioskSearchBar 

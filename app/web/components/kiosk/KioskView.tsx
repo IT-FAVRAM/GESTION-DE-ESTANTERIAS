@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useKiosk } from '../../hooks/useKiosk';
 import { useShelf, type ShelfLocationState } from '../../hooks/useShelf';
@@ -418,6 +418,13 @@ const KioskView: React.FC = () => {
     }
   }, [action, batchMode, batchArticles, findArticle, handleUbicarConfirm, scanData]);
 
+  // Number of positions the article currently occupies — mover needs exactly this many destinations
+  const moverNeeded = useMemo(() => {
+    if (action !== 'mover' || !scanData) return 1;
+    return findArticle(scanData.articleCode, scanData.orderFab).length || 1;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [action, scanData, locations]); // locations triggers recompute when shelf data refreshes
+
   if (!assignedShelf) return <KioskEmptyState />;
 
   if (loading) {
@@ -434,10 +441,10 @@ const KioskView: React.FC = () => {
       <KioskHeader shelfName={shelfDef?.name || ''} shelfCode={shelfCode} totalOccupied={totalOccupied} totalEmpty={totalEmpty} totalArticles={totalArticles} displayName={displayName} operarioId={operarioId} deviceId={deviceId} onLogout={logout} onInfo={() => setShowDeviceInfo(true)} />
       {kiosk && shelves.length > 1 && (
         <div className="bg-sky-50 border-b border-slate-200 px-4 py-2 flex justify-center">
-          <ShelfSelector shelves={shelves} currentShelf={currentShelf} onSelectShelf={setCurrentShelf} />
+          <ShelfSelector shelves={shelves} currentShelf={currentShelf} onSelectShelf={(s) => { if (action !== 'idle') cancelAction(); setCurrentShelf(s); }} />
         </div>
       )}
-      {!batchMode && <KioskActionBar action={action} scanData={scanData} scannerActive={scannerActive} selectedPositions={selectedPositions} onConfirmMove={handleMoverConfirm} onConfirmUbicar={handleUbicarMultiPositionConfirm} onCancel={cancelAction} />}
+      {!batchMode && <KioskActionBar action={action} scanData={scanData} scannerActive={scannerActive} selectedPositions={selectedPositions} neededPositions={moverNeeded} onConfirmMove={handleMoverConfirm} onConfirmUbicar={handleUbicarMultiPositionConfirm} onCancel={cancelAction} />}
 
       {batchMode && (action === 'ubicar' || action === 'retirar') && (
         <div className="bg-white border-b border-slate-200 px-4 py-3">
