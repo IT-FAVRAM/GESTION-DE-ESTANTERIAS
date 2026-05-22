@@ -17,8 +17,6 @@ interface ShelfGridCellProps {
   isSelected?: boolean;
   isHighlighted?: boolean;
   compact?: boolean;
-  /** @deprecated El colapso es ahora por sección, no por celda. */
-  forceExpanded?: boolean | null;
   showReprocessCosts?: boolean;
   onPress?: (location: ShelfLocationState) => void;
   createEmptyLocation: (position: string, shelfCode?: string) => ShelfLocationState;

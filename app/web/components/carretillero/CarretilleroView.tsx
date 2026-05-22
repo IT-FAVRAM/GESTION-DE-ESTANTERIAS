@@ -28,9 +28,6 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack }) => {
 
   const handleQRScan = useCallback((qrCode: string) => {
     setLastScannedQR(qrCode);
-    // Log para debugging
-    console.log('[CarretilleroView] QR escaneado:', qrCode);
-    // Aquí se puede agregar lógica adicional si es necesaria
   }, []);
 
   return (

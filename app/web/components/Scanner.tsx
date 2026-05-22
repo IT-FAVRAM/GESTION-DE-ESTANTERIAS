@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Html5Qrcode, Html5QrcodeScannerState } from 'html5-qrcode';
-import { CloseIcon, ErrorIcon, FlashIcon, CheckIcon, InfoIcon, CameraIcon, ScannerIcon } from './Icons';
+import { Html5Qrcode } from 'html5-qrcode';
+import { CloseIcon, ErrorIcon, CheckIcon, InfoIcon, CameraIcon, ScannerIcon } from './Icons';
 import { useHaptic } from '../hooks/useHaptic';
 
 export type ValidationResult = {
@@ -25,7 +25,6 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onClose, onValidate, onPhotoR
   const { triggerHaptic } = useHaptic();
 
   // State
-  const [isContinuous, setIsContinuous] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scanStatus, setScanStatus] = useState<'idle' | 'success' | 'warning' | 'error'>('idle');
   const [feedbackMessage, setFeedbackMessage] = useState<{ title: string, subtitle?: string } | null>(null);
@@ -82,7 +81,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScan, onClose, onValidate, onPhotoR
       isProcessingRef.current = false;
     }, 1200);
 
-  }, [isContinuous, onScan, onClose, onValidate, instruction, triggerHaptic]);
+  }, [onScan, onValidate, triggerHaptic]);
 
   useEffect(() => {
     if (!scannerRef.current) return;
