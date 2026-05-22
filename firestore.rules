@@ -192,7 +192,7 @@ service cloud.firestore {
                     && request.resource.data.event is string
                     && request.resource.data.event in ['CONNECTED', 'DISCONNECTED', 'HEARTBEAT']
                     && (!('deviceName' in request.resource.data) || request.resource.data.deviceName is string)
-                    && (!('deviceType' in request.resource.data) || request.resource.data.deviceType in ['KIOSK', 'CARRETILLERO', 'UNKNOWN']);
+                    && (!('deviceType' in request.resource.data) || request.resource.data.deviceType in ['KIOSK', 'CARRETILLERO', 'ADMIN', 'UNKNOWN']);
       allow update, delete: if false;
     }
 
