@@ -595,8 +595,8 @@ const KioskView: React.FC = () => {
       <KioskFeedbackToast feedback={feedback} />
 
       {(!showShelf && action === 'idle') ? (
-        <main className="flex-1 flex flex-col items-center justify-center p-4">
-          <div className="grid grid-cols-2 gap-4 max-w-3xl w-full">
+        <main className="flex-1 flex flex-col items-center justify-center p-4 w-full">
+          <div className="grid grid-cols-2 gap-4 w-full max-w-6xl">
             <button onClick={() => startAction('ubicar')} className="h-32 rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 active:scale-95 text-white font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl shadow-emerald-950/40 transition-all"><span className="text-4xl">📦</span>UBICAR</button>
             <button onClick={() => startAction('retirar')} className="h-32 rounded-3xl border border-red-400/20 bg-gradient-to-br from-red-500 to-red-700 hover:from-red-400 hover:to-red-600 active:scale-95 text-white font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl shadow-red-950/40 transition-all"><span className="text-4xl">📤</span>RETIRAR</button>
             <button onClick={() => startAction('mover')} className="h-32 rounded-3xl border border-blue-400/20 bg-gradient-to-br from-blue-500 to-blue-700 hover:from-blue-400 hover:to-blue-600 active:scale-95 text-white font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl shadow-blue-950/40 transition-all"><span className="text-4xl">🔄</span>MOVER</button>

@@ -27,7 +27,9 @@
       });
     </script>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#0f172a" />
     <meta name="permissions-policy" content="camera=*, microphone=*, geolocation=*" />
     <meta http-equiv="Permissions-Policy" content="camera=*, microphone=*, geolocation=*" />
@@ -44,7 +46,7 @@
           -ms-overflow-style: none;  /* IE and Edge */
           scrollbar-width: none;  /* Firefox */
       }
-      
+
       /* Ensure touch scrolling is smooth */
       .smooth-scroll {
         -webkit-overflow-scrolling: touch;
@@ -53,6 +55,17 @@
       /* Prevent pull-to-refresh on mobile if needed, usually managed by overflow behavior */
       body {
         overscroll-behavior-y: none;
+      }
+
+      /* Landscape tablet: ensure full width viewport without margins */
+      @media screen and (orientation: landscape) {
+        html, body, #root {
+          width: 100vw;
+          height: 100vh;
+          margin: 0;
+          padding: 0;
+          border: 0;
+        }
       }
 
       /* Kiosk orientation: force landscape on ALL touch devices via CSS rotation fallback */

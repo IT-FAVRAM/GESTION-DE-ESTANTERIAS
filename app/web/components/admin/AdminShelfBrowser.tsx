@@ -518,8 +518,8 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
   return (
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-4 py-3 shadow-sm">
-        <div className="flex items-center justify-between max-w-6xl mx-auto">
+      <header className="bg-white border-b border-slate-200 px-4 py-3 shadow-sm w-full">
+        <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-3">
             <button
               onClick={onBack}

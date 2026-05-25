@@ -476,8 +476,8 @@ const CalidadView: React.FC = () => {
 
       {/* Action buttons */}
       {action === 'idle' && (
-        <div className="flex-shrink-0 bg-white border-t border-slate-200 p-3">
-          <div className="grid grid-cols-4 gap-2 max-w-2xl mx-auto">
+        <div className="flex-shrink-0 bg-white border-t border-slate-200 p-3 w-full">
+          <div className="grid grid-cols-4 gap-2 w-full max-w-4xl mx-auto">
             <button
               onClick={() => startAction('ubicar')}
               className="h-14 rounded-xl bg-emerald-600 text-white font-bold text-sm flex flex-col items-center justify-center active:scale-95 transition-all"
