@@ -8,6 +8,7 @@ import {
 } from '../../lib/firestoreSchema';
 import { readGuestSession } from './authStorage';
 import { resolveCapabilities } from './authCapabilities';
+import { resolveAssignedShelfForRole } from './sectionShelf';
 import type { AuthMethod, SessionCapabilities, SessionKind } from './authTypes';
 
 type GuestSession = {
@@ -71,12 +72,14 @@ export const resolveCurrentAuthSession = async (): Promise<ResolvedAuthSession> 
 
   const snap = await getDoc(doc(db, COLLECTIONS.USERS, user.uid));
   const userData = snap.exists() ? (snap.data() as UserDoc) : null;
+  const role = userData?.role || null;
+  const section = userData?.section || null;
 
   return buildResolvedSession({
-    role: userData?.role || null,
-    section: userData?.section || null,
+    role,
+    section,
     authMethod: 'email',
-    assignedShelf: null,
+    assignedShelf: resolveAssignedShelfForRole(role, section),
     sessionKind: 'authenticated',
     displayName: userData?.displayName || user.email || '',
   });

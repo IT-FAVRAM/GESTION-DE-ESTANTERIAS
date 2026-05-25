@@ -27,6 +27,7 @@ export type OperationalActor = UserContext & {
 
 const WMS_SHELF_SECTION: Record<string, string> = {
   MEC: 'MECANIZADO',
+  PRE: 'PRENSAS',
   PLE: 'PLEGADORA',
   SOL: 'SOLDADURA',
   RSO: 'SOLDADURA',
@@ -36,12 +37,49 @@ const WMS_SHELF_SECTION: Record<string, string> = {
   ZIN: 'REPASADO',
   CAL: 'CALIDAD',
   COM: 'OTROS',
-  RPL: 'ROBOT_PLEGADO',
+  RPL: 'AUTOPLEGADORA',
+  LASER: 'LASER',
 };
 
 export const getWmsSectionForShelf = (shelfCode?: string | null) => {
   const code = normalize(shelfCode);
   return WMS_SHELF_SECTION[code] || 'OTROS';
+};
+
+/** Valida que el actor puede operar sobre la estantería indicada (shelfOperate / pickup). */
+export const assertActorMayOperateShelf = (
+  actor: OperationalActor,
+  shelfCode: string,
+) => {
+  const shelf = normalize(shelfCode);
+  if (!shelf) {
+    throw new functions.https.HttpsError('invalid-argument', 'shelfCode requerido.');
+  }
+
+  if (actor.role === 'OPERARIO' && actor.assignedShelf && normalize(actor.assignedShelf) !== shelf) {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'El kiosko no puede operar otra estantería.',
+    );
+  }
+
+  if (actor.role === 'CALIDAD' && shelf !== 'CAL') {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'Calidad solo puede operar la estantería CAL.',
+    );
+  }
+
+  if (actor.role === 'JEFE_SECCION') {
+    const actorSection = normalize(actor.section);
+    const shelfSection = normalize(getWmsSectionForShelf(shelf));
+    if (!actorSection || actorSection !== shelfSection) {
+      throw new functions.https.HttpsError(
+        'permission-denied',
+        'No puedes operar estanterías fuera de tu sección.',
+      );
+    }
+  }
 };
 
 export const getUserContext = async (

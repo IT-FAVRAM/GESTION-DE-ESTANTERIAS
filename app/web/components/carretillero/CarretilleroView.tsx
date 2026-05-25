@@ -8,7 +8,6 @@
 import React, { useState, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { usePickupQueue } from '../../hooks/usePickupQueue';
-import CameraQRScanner from '../common/CameraQRScanner';
 import ShelfNavigator from './ShelfNavigator';
 import PickupQueue from './PickupQueue';
 import CartEditor from './CartEditor';
@@ -23,13 +22,6 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack }) => {
   const { displayName, operarioId, logout } = useAuth();
   const { pendingCount } = usePickupQueue();
   const [activeTab, setActiveTab] = useState<CarretilleroTab>('shelves');
-  const [showCameraScanner, setShowCameraScanner] = useState(false);
-  const [lastScannedQR, setLastScannedQR] = useState<string | null>(null);
-
-  const handleQRScan = useCallback((qrCode: string) => {
-    setLastScannedQR(qrCode);
-  }, []);
-
   return (
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
        {/* Header */}
@@ -43,13 +35,6 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack }) => {
              </div>
            </div>
            <div className="flex gap-2">
-             <button
-               onClick={() => setShowCameraScanner(true)}
-               className="px-3 py-2 text-xs font-bold bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition-all duration-200 flex items-center gap-2"
-               title="Escanear QR con cámara"
-             >
-               📷 Cámara
-             </button>
              <button
                onClick={onBack ? onBack : logout}
                className="px-3 py-2 text-xs font-bold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-all duration-200"
@@ -117,14 +102,6 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack }) => {
          )}
        </main>
 
-       {/* Camera QR Scanner */}
-       {showCameraScanner && (
-         <CameraQRScanner
-           onScan={handleQRScan}
-           onClose={() => setShowCameraScanner(false)}
-           onError={(error) => console.error('[CarretilleroView] Scanner error:', error)}
-         />
-       )}
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useShelf } from '../../hooks/useShelf';
 import { useAuth } from '../../hooks/useAuth';
 import ShelfGrid from '../kiosk/ShelfGrid';
@@ -6,8 +6,10 @@ import KioskSearchBar from '../kiosk/KioskSearchBar';
 import ScannerInput from '../kiosk/ScannerInput';
 import CameraQRScanner from '../common/CameraQRScanner';
 import CameraOCRScanner from '../common/CameraOCRScanner';
+import ScanMethodPicker, { type ScanMethod } from '../common/ScanMethodPicker';
 import ConfirmationModal from '../common/ConfirmationModal';
 import ReprocesosEditor from '../kiosk/ReprocesosEditor';
+import TraerArticuloModal from '../kiosk/TraerArticuloModal';
 import { isReprocesosLocation } from '../../lib/firestoreSchema';
 import { calcReprocesosTotal } from '../../lib/api/reprocesosApi';
 import CalidadReprocesosSection from './CalidadReprocesosSection';
@@ -30,6 +32,9 @@ const CalidadView: React.FC = () => {
   const [reprocesosCell, setReprocesosCell] = useState<ShelfLocationState | null>(null);
   const [showCameraScanner, setShowCameraScanner] = useState(false);
   const [showOCRScanner, setShowOCRScanner] = useState(false);
+  const [scanMethodPickerOpen, setScanMethodPickerOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<CalidadAction | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [confirmModal, setConfirmModal] = useState<{
     open: boolean; title: string; message: string; icon: string;
@@ -43,11 +48,14 @@ const CalidadView: React.FC = () => {
   const [batchArticles, setBatchArticles] = useState<Array<{ articleCode: string; orderFab: string }>>([]);
   const [batchRetiraPending, setBatchRetiraPending] = useState<Array<{ articleCode: string; orderFab: string; locations: ShelfLocationState[] }>>([]);
   const [currentBatchRetirarIndex, setCurrentBatchRetirarIndex] = useState(0);
+  const [retirarPosition, setRetirarPosition] = useState<string | null>(null);
+  const [foundLocationsForRetirar, setFoundLocationsForRetirar] = useState<ShelfLocationState[]>([]);
+  const [showTraerModal, setShowTraerModal] = useState(false);
 
-  const { locations, loading, shelfDef, ubicar, retirar, mover, findArticle } = useShelf(SHELF);
+  const { locations, loading, shelfDef, ubicar, ubicarMulti, retirar, retirarDeUbicacion, mover, findArticle } = useShelf(SHELF);
   const { operarioId, firebaseUser, displayName, logout, canEditReprocesses, canViewReprocessCosts } = useAuth();
   const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? '';
-  const { createPickupRequest } = usePickupQueue();
+  const { createPickupRequest, createDeliveryRequest } = usePickupQueue();
 
   useEffect(() => {
     if (!reprocesosCell) return;
@@ -72,10 +80,19 @@ const CalidadView: React.FC = () => {
     return Math.floor((now - Math.min(...times)) / 86_400_000);
   }, [reprocesosItems]);
 
-  const showFeedback = (type: 'success' | 'error', msg: string) => {
+  const showToast = useCallback((type: 'success' | 'error', msg: string, ms = 2500) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setFeedback({ type, msg });
-    setTimeout(() => { setFeedback(null); resetAction(); }, 3000);
-  };
+    toastTimerRef.current = setTimeout(() => {
+      setFeedback(null);
+      toastTimerRef.current = null;
+    }, ms);
+  }, []);
+
+  const finishAction = useCallback((type: 'success' | 'error', msg: string) => {
+    showToast(type, msg, 2800);
+    setTimeout(() => resetAction(), 2800);
+  }, [showToast]);
 
   const resetAction = () => {
     setAction('idle');
@@ -86,18 +103,40 @@ const CalidadView: React.FC = () => {
     setBatchArticles([]);
     setBatchRetiraPending([]);
     setCurrentBatchRetirarIndex(0);
+    setRetirarPosition(null);
+    setFoundLocationsForRetirar([]);
   };
 
+  const applyScanMethod = useCallback((method: ScanMethod) => {
+    setScanMethodPickerOpen(false);
+    if (!pendingAction) return;
+    setAction(pendingAction);
+    setPendingAction(null);
+    if (method === 'manual') setScannerActive(true);
+    else if (method === 'barcode') setShowCameraScanner(true);
+    else setShowOCRScanner(true);
+  }, [pendingAction]);
+
+  const beginBatchMode = useCallback(() => {
+    setScanMethodPickerOpen(false);
+    if (!pendingAction) return;
+    setAction(pendingAction);
+    setBatchMode(true);
+    setPendingAction(null);
+    setScannerActive(true);
+  }, [pendingAction]);
+
   const startAction = (act: CalidadAction) => {
-    setAction(act);
     setScanData(null);
     setSelectedPositions([]);
+    setBatchMode(false);
     setFeedback(null);
     if (act === 'avisar') {
+      setAction('avisar');
       setConfirmModal({
         open: true,
-        title: 'Solicitar Recogida',
-        message: `Se avisará al carretillero para recoger material de ${shelfDef?.name || SHELF}`,
+        title: '¿Qué necesitas?',
+        message: `Selecciona el tipo de solicitud al carretillero`,
         icon: '🚚',
         variant: 'warning',
         onConfirm: async () => {
@@ -105,38 +144,28 @@ const CalidadView: React.FC = () => {
           setConfirmModal((prev) => ({ ...prev, open: false }));
           const ok = await createPickupRequest(effectiveOperarioId, displayName, SHELF);
           setProcessing(false);
-          showFeedback(ok ? 'success' : 'error', ok ? '✅ Aviso enviado' : 'Error al enviar');
-        },
-      });
-    } else if (act === 'ubicar' || act === 'retirar') {
-      setConfirmModal({
-        open: true,
-        title: `¿${act === 'ubicar' ? 'UBICAR' : 'RETIRAR'} varios artículos?`,
-        message: `¿Vas a ${act === 'ubicar' ? 'ubicar' : 'retirar'} varios artículos a la vez?`,
-        icon: act === 'ubicar' ? '📦' : '📤',
-        variant: 'info',
-        onConfirm: () => {
-          setBatchMode(true);
-          setScannerActive(true);
-          setConfirmModal((prev) => ({ ...prev, open: false }));
+          if (ok) finishAction('success', '✅ Recogida solicitada');
+          else finishAction('error', 'Error al enviar');
         },
         extraButton: {
-          text: 'No, solo uno',
+          text: '📦 TRAER — Que me traigan un artículo',
           onClick: () => {
-            setBatchMode(false);
-            setScannerActive(true);
             setConfirmModal((prev) => ({ ...prev, open: false }));
+            setAction('idle');
+            setShowTraerModal(true);
           },
         },
       });
-    } else {
-      setScannerActive(true);
+      return;
     }
+    setPendingAction(act);
+    setScanMethodPickerOpen(true);
   };
 
   const handleScan = (result: ScanParseResult) => {
     if (!result.success) {
-      showFeedback('error', 'error' in result ? result.error : 'Error de escaneo');
+      showToast('error', 'error' in result ? result.error : 'Error de escaneo');
+      setScannerActive(true);
       return;
     }
     const { articleCode, orderFab } = result.data;
@@ -144,12 +173,12 @@ const CalidadView: React.FC = () => {
     if (action === 'ubicar' && batchMode) {
       const duplicate = batchArticles.some((a) => a.articleCode === articleCode && a.orderFab === orderFab);
       if (duplicate) {
-        showFeedback('error', `${articleCode} ${orderFab} ya está en el batch`);
+        showToast('error', `${articleCode} ya está en el lote`);
         setScannerActive(true);
         return;
       }
       setBatchArticles((prev) => [...prev, { articleCode, orderFab }]);
-      showFeedback('success', `✅ ${articleCode} ${orderFab} añadido`);
+      showToast('success', `✅ ${articleCode} añadido al lote`);
       setScannerActive(true);
       return;
     }
@@ -157,18 +186,18 @@ const CalidadView: React.FC = () => {
     if (action === 'retirar' && batchMode) {
       const found = findArticle(articleCode, orderFab);
       if (found.length === 0) {
-        showFeedback('error', `${articleCode} no encontrado`);
+        showToast('error', `${articleCode} no encontrado`);
         setScannerActive(true);
         return;
       }
       const duplicate = batchRetiraPending.some((a) => a.articleCode === articleCode && a.orderFab === orderFab);
       if (duplicate) {
-        showFeedback('error', `Este artículo se ha escaneado dos veces. Solo se puede retirar una vez.`);
+        showToast('error', 'Este artículo ya está en el lote');
         setScannerActive(true);
         return;
       }
       setBatchRetiraPending((prev) => [...prev, { articleCode, orderFab, locations: found }]);
-      showFeedback('success', `✅ ${articleCode} ${orderFab} añadido`);
+      showToast('success', `✅ ${articleCode} añadido al lote`);
       setScannerActive(true);
       return;
     }
@@ -178,32 +207,49 @@ const CalidadView: React.FC = () => {
 
     if (action === 'retirar') {
       const found = findArticle(articleCode, orderFab);
-      if (found.length === 0) { showFeedback('error', 'Artículo no encontrado'); return; }
+      if (found.length === 0) { showToast('error', 'Artículo no encontrado'); setScannerActive(true); return; }
 
-      const otherItemsCount = found.reduce((acc, loc) => {
-        return acc + (loc.items || []).filter(
-          (i) => i.articleCode !== articleCode || i.orderFab !== orderFab,
-        ).length;
-      }, 0);
-
-      let msg = `${formatArticleDisplay(articleCode, orderFab)} en: ${found.map((l) => parseInt(l.position, 10)).join(', ')}`;
-      if (found.length > 1) msg += `\n\n⚠️ Este artículo ocupa ${found.length} posiciones. Si lo retiras, se retirará de TODAS.`;
-      if (otherItemsCount > 0) msg += `\n\nHay ${otherItemsCount} artículo(s) más en esas ubicaciones que se mantendrán.`;
-
-      setConfirmModal({
-        open: true,
-        title: 'Confirmar Retirada',
-        message: msg,
-        icon: '📤',
-        variant: 'danger',
-        onConfirm: async () => {
-          setProcessing(true);
-          setConfirmModal((p) => ({ ...p, open: false }));
-          const r = await retirar(articleCode, orderFab, effectiveOperarioId, displayName);
-          setProcessing(false);
-          showFeedback(r.success ? 'success' : 'error', r.success ? '✅ Retirado' : 'Error');
-        },
-      });
+      if (found.length === 1) {
+        setConfirmModal({
+          open: true,
+          title: 'Confirmar retirada',
+          message: `¿Retirar ${formatArticleDisplay(articleCode, orderFab)} de posición ${parseInt(found[0].position, 10)}?`,
+          icon: '📤',
+          variant: 'danger',
+          onConfirm: async () => {
+            setProcessing(true);
+            setConfirmModal((p) => ({ ...p, open: false }));
+            const r = await retirarDeUbicacion(articleCode, orderFab, found[0].position, effectiveOperarioId, displayName);
+            setProcessing(false);
+            if (r.success) finishAction('success', '✅ Retirado');
+            else finishAction('error', r.error || 'Error al retirar');
+          },
+        });
+      } else {
+        setFoundLocationsForRetirar(found);
+        setRetirarPosition(null);
+        setConfirmModal({
+          open: true,
+          title: 'Selecciona de dónde retirar',
+          message: `${formatArticleDisplay(articleCode, orderFab)} está en ${found.length} ubicaciones`,
+          icon: '📤',
+          variant: 'warning',
+          onConfirm: async () => {
+            if (!retirarPosition) return;
+            setProcessing(true);
+            setConfirmModal((p) => ({ ...p, open: false }));
+            const r =
+              retirarPosition === 'TODAS'
+                ? await retirar(articleCode, orderFab, effectiveOperarioId, displayName)
+                : await retirarDeUbicacion(articleCode, orderFab, retirarPosition, effectiveOperarioId, displayName);
+            setProcessing(false);
+            setFoundLocationsForRetirar([]);
+            setRetirarPosition(null);
+            if (r.success) finishAction('success', '✅ Retirado');
+            else finishAction('error', r.error || 'Error al retirar');
+          },
+        });
+      }
     }
   };
 
@@ -215,52 +261,44 @@ const CalidadView: React.FC = () => {
 
     let successCount = 0;
     for (const article of batchArticles) {
-      for (const position of selectedPositions) {
-        const success = await ubicar(article.articleCode, article.orderFab, position, effectiveOperarioId, displayName);
-        if (success) successCount++;
-      }
+      const success = await ubicarMulti(article.articleCode, article.orderFab, selectedPositions, effectiveOperarioId, displayName);
+      if (success) successCount += selectedPositions.length;
     }
 
     setProcessing(false);
     if (successCount === batchArticles.length * selectedPositions.length) {
-      showFeedback('success', `✅ ${batchArticles.length} artículos ubicados`);
+      finishAction('success', `✅ ${batchArticles.length} artículos ubicados en ${selectedPositions.length} posición(es)`);
     } else {
-      showFeedback('error', `Parcial: ${successCount}/${batchArticles.length * selectedPositions.length} completadas`);
+      finishAction('error', `Parcial: ${successCount}/${batchArticles.length * selectedPositions.length} completadas`);
     }
-  }, [batchArticles, selectedPositions, effectiveOperarioId, displayName, ubicar, showFeedback]);
+  }, [batchArticles, selectedPositions, effectiveOperarioId, displayName, ubicarMulti, finishAction]);
 
   const handleUbicarMultiPositionConfirm = useCallback(async () => {
     if (!scanData || selectedPositions.length === 0) return;
     setProcessing(true);
     setScannerActive(false);
 
-    let successCount = 0;
-    for (const position of selectedPositions) {
-      const success = await ubicar(scanData.articleCode, scanData.orderFab, position, effectiveOperarioId, displayName);
-      if (success) successCount++;
-    }
+    const success = await ubicarMulti(scanData.articleCode, scanData.orderFab, selectedPositions, effectiveOperarioId, displayName);
 
     setProcessing(false);
-    if (successCount === selectedPositions.length) {
-      showFeedback('success', `✅ ${scanData.articleCode} ubicado en ${selectedPositions.length} posición(es)`);
+    if (success) {
+      finishAction('success', `✅ ${scanData.articleCode} ubicado en ${selectedPositions.length} posición(es)`);
     } else {
-      showFeedback('error', `Parcial: ${successCount}/${selectedPositions.length} ubicaciones completadas`);
+      finishAction('error', `Error al ubicar ${scanData.articleCode}`);
     }
-  }, [scanData, selectedPositions, effectiveOperarioId, displayName, ubicar, showFeedback]);
+  }, [scanData, selectedPositions, effectiveOperarioId, displayName, ubicarMulti, finishAction]);
 
   const handleRetirarBatchNext = useCallback(async () => {
     const processNext = async (index: number) => {
       if (index >= batchRetiraPending.length) {
-        showFeedback('success', '✅ Batch de retirada completado');
-        resetAction();
+        finishAction('success', '✅ Lote de retirada completado');
         return;
       }
 
       const item = batchRetiraPending[index];
       const r = await retirar(item.articleCode, item.orderFab, effectiveOperarioId, displayName);
       if (!r.success) {
-        showFeedback('error', 'Error al retirar artículo');
-        resetAction();
+        finishAction('error', r.error || 'Error al retirar artículo');
         return;
       }
       setCurrentBatchRetirarIndex(index + 1);
@@ -268,12 +306,12 @@ const CalidadView: React.FC = () => {
     };
 
     processNext(currentBatchRetirarIndex);
-  }, [batchRetiraPending, currentBatchRetirarIndex, retirar, effectiveOperarioId, displayName, showFeedback, resetAction]);
+  }, [batchRetiraPending, currentBatchRetirarIndex, retirar, effectiveOperarioId, displayName, finishAction]);
 
   const handleCellPress = useCallback((loc: ShelfLocationState) => {
     if (action === 'idle' && isReprocesosLocation(SHELF, parseInt(loc.position, 10))) {
       if (!canEditReprocesses) {
-        showFeedback('error', 'Tu sesión actual no puede editar reprocesos');
+        showToast('error', 'Tu sesión no puede editar reprocesos');
         return;
       }
       setReprocesosCell(loc);
@@ -314,7 +352,8 @@ const CalidadView: React.FC = () => {
     setProcessing(true);
     const ok = await mover(scanData.articleCode, scanData.orderFab, selectedPositions, effectiveOperarioId, displayName);
     setProcessing(false);
-    showFeedback(ok ? 'success' : 'error', ok ? '✅ Movido' : 'Error');
+    if (ok) finishAction('success', '✅ Movido');
+    else finishAction('error', 'Error al mover');
   };
 
   const handleQRScan = useCallback((qrCode: string) => {
@@ -342,13 +381,6 @@ const CalidadView: React.FC = () => {
              </div>
            </div>
            <div className="flex gap-2">
-             <button
-               onClick={() => setShowCameraScanner(true)}
-               className="px-3 py-2 text-xs font-bold bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition-all duration-200 flex items-center gap-2"
-               title="Escanear QR con cámara"
-             >
-               📷 Cámara
-             </button>
              <button
                onClick={logout}
                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all duration-200"
@@ -379,6 +411,14 @@ const CalidadView: React.FC = () => {
             )}
             {scanData && (
               <span className="text-xs text-slate-800 font-bold">{scanData.articleCode} ({scanData.orderFab})</span>
+            )}
+            {action === 'ubicar' && !scanData && !batchMode && scannerActive && (
+              <span className="text-xs text-slate-500">Escanea o escribe el código abajo</span>
+            )}
+            {action === 'ubicar' && scanData && (
+              <span className="text-xs text-emerald-700 font-bold">
+                Toca celdas vacías ({selectedPositions.length} seleccionada{selectedPositions.length !== 1 ? 's' : ''})
+              </span>
             )}
             {action === 'ubicar' && scanData && selectedPositions.length > 0 && (
               <button
@@ -502,7 +542,7 @@ const CalidadView: React.FC = () => {
                     if (selectedPositions.length > 0) {
                       handleUbicarBatchConfirm();
                     } else {
-                      showFeedback('error', 'Selecciona al menos una posición');
+                      showToast('error', 'Selecciona al menos una posición');
                     }
                   } else {
                     handleRetirarBatchNext();
@@ -524,16 +564,81 @@ const CalidadView: React.FC = () => {
         </div>
       )}
 
+      <ScanMethodPicker
+        open={scanMethodPickerOpen}
+        actionLabel={
+          pendingAction === 'ubicar' ? 'Ubicar en Calidad' :
+          pendingAction === 'retirar' ? 'Retirar de Calidad' :
+          pendingAction === 'mover' ? 'Mover en Calidad' : 'Escanear'
+        }
+        onSelect={applyScanMethod}
+        onBatch={pendingAction === 'ubicar' || pendingAction === 'retirar' ? beginBatchMode : undefined}
+        onClose={() => { setScanMethodPickerOpen(false); setPendingAction(null); }}
+      />
+
       <ScannerInput
         onScan={handleScan}
         active={scannerActive}
         disabled={processing}
-        onOpenQRCamera={() => setShowCameraScanner(true)}
-        onOpenOCRCamera={() => setShowOCRScanner(true)}
+        showCameraButtons={false}
       />
 
+      {foundLocationsForRetirar.length > 1 && confirmModal.open && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-sm max-h-[70vh] overflow-hidden flex flex-col shadow-xl">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <h3 className="text-lg font-black text-slate-900">Selecciona posición</h3>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              {foundLocationsForRetirar.map((loc) => (
+                <button
+                  key={loc.position}
+                  type="button"
+                  onClick={() => setRetirarPosition(loc.position)}
+                  className={`w-full rounded-xl px-4 py-3 text-sm font-bold border-2 text-left ${
+                    retirarPosition === loc.position
+                      ? 'border-sky-500 bg-sky-50 text-sky-900'
+                      : 'border-slate-200 bg-white text-slate-800'
+                  }`}
+                >
+                  CAL {parseInt(loc.position, 10).toString().padStart(3, '0')}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setRetirarPosition('TODAS')}
+                className={`w-full rounded-xl px-4 py-3 text-sm font-bold border-2 ${
+                  retirarPosition === 'TODAS'
+                    ? 'border-red-500 bg-red-50 text-red-800'
+                    : 'border-slate-200 text-slate-800'
+                }`}
+              >
+                Retirar de todas ({foundLocationsForRetirar.length})
+              </button>
+            </div>
+            <div className="px-4 py-3 border-t border-slate-100 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmModal((p) => ({ ...p, open: false }))}
+                className="flex-1 rounded-xl bg-slate-100 text-slate-700 py-3 text-sm font-bold"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => confirmModal.onConfirm()}
+                disabled={!retirarPosition}
+                className="flex-1 rounded-xl bg-sky-600 text-white py-3 text-sm font-black disabled:opacity-50"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ConfirmationModal
-        open={confirmModal.open}
+        open={confirmModal.open && foundLocationsForRetirar.length <= 1}
         onClose={() => setConfirmModal((p) => ({ ...p, open: false }))}
         title={confirmModal.title}
         message={confirmModal.message}
@@ -560,6 +665,22 @@ const CalidadView: React.FC = () => {
         <CameraQRScanner
           onScan={handleQRScan}
           onClose={() => setShowCameraScanner(false)}
+        />
+      )}
+
+      {showTraerModal && (
+        <TraerArticuloModal
+          open={showTraerModal}
+          currentShelfCode={SHELF}
+          onClose={() => setShowTraerModal(false)}
+          onConfirm={async (articleCode, orderFab, shelfCode, shelfName, positions) => {
+            setProcessing(true);
+            setShowTraerModal(false);
+            const ok = await createDeliveryRequest(effectiveOperarioId, displayName, SHELF, shelfName, articleCode, orderFab, shelfName, positions);
+            setProcessing(false);
+            if (ok) finishAction('success', '✅ Traer solicitado');
+            else finishAction('error', 'Error al enviar');
+          }}
         />
       )}
 

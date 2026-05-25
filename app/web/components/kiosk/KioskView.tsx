@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useKiosk } from '../../hooks/useKiosk';
 import { useShelf, type ShelfLocationState } from '../../hooks/useShelf';
@@ -8,10 +8,12 @@ import ScannerInput from './ScannerInput';
 import ShelfSelector from './ShelfSelector';
 import DeviceInfoModal from '../common/DeviceInfoModal';
 import ConfirmationModal from '../common/ConfirmationModal';
+import IdEntryModal from '../common/IdEntryModal';
 import { formatArticleDisplay, type ScanParseResult, parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
 import { findArticleGlobal } from '../../lib/findArticleGlobal';
 import CameraQRScanner from '../common/CameraQRScanner';
 import CameraOCRScanner from '../common/CameraOCRScanner';
+import ScanMethodPicker, { type ScanMethod } from '../common/ScanMethodPicker';
 import KioskActionBar from './KioskActionBar';
 import KioskActionButtons from './KioskActionButtons';
 import KioskCellDetailDrawer from './KioskCellDetailDrawer';
@@ -19,6 +21,9 @@ import KioskEmptyState from './KioskEmptyState';
 import KioskFeedbackToast from './KioskFeedbackToast';
 import KioskHeader from './KioskHeader';
 import KioskSearchBar from './KioskSearchBar';
+import TraerArticuloModal from './TraerArticuloModal';
+import RetirarCellModal from './RetirarCellModal';
+import type { LocationItem } from '../../lib/schema/locations';
 import type { KioskAction, KioskConfirmModalState, KioskFeedback, ScanData } from './kioskShared';
 
 const KioskView: React.FC = () => {
@@ -31,8 +36,8 @@ const KioskView: React.FC = () => {
 
   // Determinar la estantería a mostrar: usar kiosko si está disponible, sino assignedShelf
   const shelfCode = currentShelf || assignedShelf || '';
-  const { locations, loading, shelfDef, ubicar, retirar, retirarDeUbicacion, mover, findArticle, totalArticles, totalOccupied, totalEmpty } = useShelf(shelfCode);
-  const { createPickupRequest } = usePickupQueue();
+  const { locations, loading, shelfDef, ubicar, ubicarMulti, retirar, retirarDeUbicacion, mover, findArticle, totalArticles, totalOccupied, totalEmpty } = useShelf(shelfCode);
+  const { createPickupRequest, createDeliveryRequest } = usePickupQueue();
 
   const [action, setAction] = useState<KioskAction>('idle');
   const [scanData, setScanData] = useState<ScanData | null>(null);
@@ -52,6 +57,19 @@ const KioskView: React.FC = () => {
   const [currentBatchRetirarIndex, setCurrentBatchRetirarIndex] = useState(0);
   const [showCameraQR, setShowCameraQR] = useState(false);
   const [showCameraOCR, setShowCameraOCR] = useState(false);
+  const [scanMethodPickerOpen, setScanMethodPickerOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<KioskAction | null>(null);
+  const [showTraerModal, setShowTraerModal] = useState(false);
+  const [traerProcessing, setTraerProcessing] = useState(false);
+  const [showIdModal, setShowIdModal] = useState(false);
+  const [pendingOperation, setPendingOperation] = useState<{
+    type: string;
+    execute: (enteredId: string) => Promise<void>;
+  } | null>(null);
+  const [showRetirarCellModal, setShowRetirarCellModal] = useState(false);
+  const [retirarCellPosition, setRetirarCellPosition] = useState('');
+  const [retirarCellItems, setRetirarCellItems] = useState<LocationItem[]>([]);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const cancelAction = useCallback(() => {
     setAction('idle');
@@ -69,13 +87,59 @@ const KioskView: React.FC = () => {
     setCurrentBatchRetirarIndex(0);
   }, []);
 
-   const showFeedback = useCallback((type: 'success' | 'error' | 'info', message: string) => {
-     setFeedback({ type, message });
-     setTimeout(() => {
-       setFeedback(null);
-       cancelAction();
-     }, 3000);
-   }, [cancelAction]);
+  const showToast = useCallback((type: 'success' | 'error' | 'info', message: string, ms = 2500) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setFeedback({ type, message });
+    toastTimerRef.current = setTimeout(() => {
+      setFeedback(null);
+      toastTimerRef.current = null;
+    }, ms);
+  }, []);
+
+  const finishAction = useCallback((type: 'success' | 'error' | 'info', message: string) => {
+    showToast(type, message, 2800);
+    setTimeout(() => cancelAction(), 2800);
+  }, [showToast, cancelAction]);
+
+  // ─── ID entry flow ──────────────────────────────────────────────────────
+  const executeWithId = useCallback((type: string, execute: (enteredId: string) => Promise<void>) => {
+    setPendingOperation({ type, execute });
+    setShowIdModal(true);
+  }, []);
+
+  const handleIdConfirm = useCallback(async (enteredId: string) => {
+    if (!pendingOperation) return;
+    setShowIdModal(false);
+    const exec = pendingOperation.execute;
+    setPendingOperation(null);
+    await exec(enteredId);
+  }, [pendingOperation]);
+
+  const handleIdCancel = useCallback(() => {
+    setShowIdModal(false);
+    setPendingOperation(null);
+  }, []);
+
+  const handleRetirarCellItemsConfirm = useCallback((selectedItems: LocationItem[]) => {
+    setShowRetirarCellModal(false);
+    const position = retirarCellPosition;
+    if (selectedItems.length === 0) return;
+
+    executeWithId('retirar', async (enteredId: string) => {
+      let successCount = 0;
+      setProcessing(true);
+      for (const item of selectedItems) {
+        const result = await retirarDeUbicacion(item.articleCode, item.orderFab, position, enteredId, displayName);
+        if (result.success) successCount++;
+      }
+      setProcessing(false);
+      if (successCount === selectedItems.length) {
+        finishAction('success', `✅ ${selectedItems.length} artículo(s) retirado(s) de posición ${parseInt(position, 10)}`);
+      } else {
+        finishAction('error', `Parcial: ${successCount}/${selectedItems.length} artículos retirados`);
+      }
+    });
+  }, [retirarCellPosition, displayName, retirarDeUbicacion, executeWithId, finishAction]);
 
   const handleUbicarConfirm = useCallback(async (position: string) => {
     if (!scanData || !effectiveOperarioId) return;
@@ -83,9 +147,9 @@ const KioskView: React.FC = () => {
     setConfirmModal((prev) => ({ ...prev, open: false }));
     const success = await ubicar(scanData.articleCode, scanData.orderFab, position, effectiveOperarioId, displayName);
     setProcessing(false);
-    if (success) showFeedback('success', `✅ ${scanData.articleCode} ubicado en posicion ${parseInt(position, 10)}`);
-    else showFeedback('error', 'Error al ubicar el articulo');
-  }, [displayName, operarioId, scanData, showFeedback, ubicar]);
+    if (success) finishAction('success', `✅ ${scanData.articleCode} ubicado en posición ${parseInt(position, 10)}`);
+    else finishAction('error', 'Error al ubicar el artículo');
+  }, [displayName, scanData, finishAction, ubicar, effectiveOperarioId]);
 
   const handleRetirarConfirm = useCallback(async (articleCode: string, orderFab: string, specificPosition?: string) => {
     if (!effectiveOperarioId) return;
@@ -95,24 +159,27 @@ const KioskView: React.FC = () => {
     if (specificPosition) {
       const result = await retirarDeUbicacion(articleCode, orderFab, specificPosition, effectiveOperarioId, displayName);
       setProcessing(false);
-      if (result.success) showFeedback('success', `✅ ${articleCode} retirado de posición ${parseInt(specificPosition, 10)}`);
-      else showFeedback('error', 'Error al retirar el articulo');
+      if (result.success) finishAction('success', `✅ ${articleCode} retirado de posición ${parseInt(specificPosition, 10)}`);
+      else finishAction('error', result.error || 'Error al retirar el artículo');
     } else {
       const result = await retirar(articleCode, orderFab, effectiveOperarioId, displayName);
       setProcessing(false);
-      if (result.success) showFeedback('success', `✅ ${articleCode} retirado de ${result.positions.length} ubicacion(es)`);
-      else showFeedback('error', 'Error al retirar el articulo');
+      if (result.success) finishAction('success', `✅ ${articleCode} retirado de ${result.positions.length} ubicación(es)`);
+      else finishAction('error', result.error || 'Error al retirar el artículo');
     }
-  }, [displayName, operarioId, retirar, retirarDeUbicacion, showFeedback]);
+  }, [displayName, effectiveOperarioId, retirar, retirarDeUbicacion, finishAction]);
 
-  const handleMoverConfirm = useCallback(async () => {
+  const handleMoverConfirm = useCallback(() => {
     if (!scanData || !effectiveOperarioId || selectedPositions.length === 0) return;
-    setProcessing(true);
-    const success = await mover(scanData.articleCode, scanData.orderFab, selectedPositions, effectiveOperarioId, displayName);
-    setProcessing(false);
-    if (success) showFeedback('success', `✅ ${scanData.articleCode} movido a nueva(s) ubicacion(es)`);
-    else showFeedback('error', 'Error al mover el articulo');
-  }, [displayName, mover, operarioId, scanData, selectedPositions, showFeedback]);
+
+    executeWithId('mover', async (enteredId: string) => {
+      setProcessing(true);
+      const success = await mover(scanData!.articleCode, scanData!.orderFab, selectedPositions, enteredId, displayName);
+      setProcessing(false);
+      if (success) finishAction('success', `✅ ${scanData!.articleCode} movido correctamente`);
+      else finishAction('error', 'Error al mover el artículo');
+    });
+  }, [displayName, mover, effectiveOperarioId, scanData, selectedPositions, finishAction, executeWithId]);
 
   const handleAvisarConfirm = useCallback(async () => {
     if (!effectiveOperarioId) return;
@@ -120,54 +187,78 @@ const KioskView: React.FC = () => {
     setConfirmModal((prev) => ({ ...prev, open: false }));
     const success = await createPickupRequest(effectiveOperarioId, displayName, shelfCode);
     setProcessing(false);
-    if (success) showFeedback('success', '✅ Aviso enviado al carretillero');
-    else showFeedback('error', 'Error al enviar aviso');
-  }, [createPickupRequest, displayName, operarioId, shelfCode, showFeedback]);
+    if (success) finishAction('success', '✅ Aviso enviado al carretillero');
+    else finishAction('error', 'Error al enviar aviso');
+  }, [createPickupRequest, displayName, effectiveOperarioId, shelfCode, finishAction]);
 
-  const handleUbicarBatchConfirm = useCallback(async () => {
+  const handleTraerConfirm = useCallback(async (
+    articleCode: string,
+    articleOrderFab: string,
+    articleShelfCode: string,
+    articleShelfName: string,
+    articlePositions: string[],
+  ) => {
+    if (!effectiveOperarioId) return;
+    setTraerProcessing(true);
+    const success = await createDeliveryRequest(
+      effectiveOperarioId,
+      displayName,
+      shelfCode,
+      shelfDef?.name || shelfCode,
+      articleCode,
+      articleOrderFab,
+      articleShelfName,
+      articlePositions,
+    );
+    setTraerProcessing(false);
+    if (success) {
+      setShowTraerModal(false);
+      showToast('success', `✅ Aviso enviado: el carretillero traerá ${articleCode}`);
+    } else {
+      showToast('error', 'Error al enviar la solicitud');
+    }
+  }, [createDeliveryRequest, displayName, effectiveOperarioId, shelfCode, shelfDef, showToast]);
+
+  const handleUbicarBatchConfirm = useCallback(() => {
     if (!effectiveOperarioId || selectedPositions.length === 0) return;
-    setProcessing(true);
     setScannerActive(false);
     setConfirmModal((prev) => ({ ...prev, open: false }));
 
-    let successCount = 0;
-    for (const article of batchArticles) {
-      for (const position of selectedPositions) {
-        const success = await ubicar(article.articleCode, article.orderFab, position, effectiveOperarioId, displayName);
+    executeWithId('ubicar_batch', async (enteredId: string) => {
+      setProcessing(true);
+      let successCount = 0;
+      for (const article of batchArticles) {
+        const success = await ubicarMulti(article.articleCode, article.orderFab, selectedPositions, enteredId, displayName);
         if (success) successCount++;
       }
-    }
+      setProcessing(false);
+      if (successCount === batchArticles.length) {
+        finishAction('success', `✅ ${batchArticles.length} artículos ubicados en ${selectedPositions.length} posición(es)`);
+      } else {
+        finishAction('error', `Parcial: ${successCount}/${batchArticles.length} artículos completados`);
+      }
+    });
+  }, [batchArticles, selectedPositions, effectiveOperarioId, displayName, ubicarMulti, finishAction, executeWithId]);
 
-    setProcessing(false);
-    if (successCount === batchArticles.length * selectedPositions.length) {
-      showFeedback('success', `✅ ${batchArticles.length} artículos ubicados en ${selectedPositions.length} posición(es)`);
-    } else {
-      showFeedback('error', `Parcial: ${successCount}/${batchArticles.length * selectedPositions.length} ubicaciones completadas`);
-    }
-  }, [batchArticles, selectedPositions, operarioId, displayName, ubicar, showFeedback]);
-
-  const handleUbicarMultiPositionConfirm = useCallback(async () => {
+  const handleUbicarMultiPositionConfirm = useCallback(() => {
     if (!scanData || !effectiveOperarioId || selectedPositions.length === 0) return;
-    setProcessing(true);
     setScannerActive(false);
 
-    let successCount = 0;
-    for (const position of selectedPositions) {
-      const success = await ubicar(scanData.articleCode, scanData.orderFab, position, effectiveOperarioId, displayName);
-      if (success) successCount++;
-    }
-
-    setProcessing(false);
-    if (successCount === selectedPositions.length) {
-      showFeedback('success', `✅ ${scanData.articleCode} ubicado en ${selectedPositions.length} posición(es)`);
-    } else {
-      showFeedback('error', `Parcial: ${successCount}/${selectedPositions.length} ubicaciones completadas`);
-    }
-  }, [displayName, operarioId, scanData, selectedPositions, ubicar, showFeedback]);
+    executeWithId('ubicar', async (enteredId: string) => {
+      setProcessing(true);
+      const success = await ubicarMulti(scanData!.articleCode, scanData!.orderFab, selectedPositions, enteredId, displayName);
+      setProcessing(false);
+      if (success) {
+        finishAction('success', `✅ ${scanData!.articleCode} ubicado en ${selectedPositions.length} posición(es)`);
+      } else {
+        finishAction('error', 'Error al ubicar en múltiples posiciones');
+      }
+    });
+  }, [displayName, effectiveOperarioId, scanData, selectedPositions, ubicarMulti, finishAction, executeWithId]);
 
   const handleRetirarBatchNext = useCallback(async () => {
     if (currentBatchRetirarIndex >= batchRetiraPending.length) {
-      showFeedback('success', '✅ Batch de retirada completado');
+      finishAction('success', '✅ Lote de retirada completado');
       return;
     }
 
@@ -204,54 +295,71 @@ const KioskView: React.FC = () => {
         },
       });
     }
-  }, [batchRetiraPending, currentBatchRetirarIndex, handleRetirarConfirm, showFeedback, retirarPosition, formatArticleDisplay]);
+  }, [batchRetiraPending, currentBatchRetirarIndex, handleRetirarConfirm, finishAction, retirarPosition, formatArticleDisplay]);
+
+  const applyScanMethod = useCallback((method: ScanMethod) => {
+    setScanMethodPickerOpen(false);
+    if (!pendingAction) return;
+    setAction(pendingAction);
+    setPendingAction(null);
+    if (method === 'manual') {
+      setScannerActive(true);
+    } else if (method === 'barcode') {
+      setShowCameraQR(true);
+    } else {
+      setShowCameraOCR(true);
+    }
+  }, [pendingAction]);
+
+  const beginBatchMode = useCallback(() => {
+    setScanMethodPickerOpen(false);
+    if (!pendingAction) return;
+    setAction(pendingAction);
+    setBatchMode(true);
+    setPendingAction(null);
+    setScannerActive(true);
+  }, [pendingAction]);
 
   const startAction = useCallback((nextAction: KioskAction) => {
-    setAction(nextAction);
     setScanData(null);
     setSelectedCell(null);
     setSelectedPositions([]);
+    setBatchMode(false);
     setFeedback(null);
     if (nextAction === 'avisar') {
+      setAction('avisar');
       setConfirmModal({
         open: true,
-        title: 'Avisar al Carretillero',
-        message: `Se avisara que hay una pieza para recoger en la seccion de ${shelfDef?.name || shelfCode}`,
+        title: '¿Qué necesitas?',
+        message: `Selecciona el tipo de solicitud al carretillero`,
         icon: '🚚',
         variant: 'warning',
+        confirmText: '📤 RECOGIDA — Que venga a recoger',
         onConfirm: handleAvisarConfirm,
-      });
-      return;
-    }
-    if (nextAction === 'ubicar' || nextAction === 'retirar') {
-      setConfirmModal({
-        open: true,
-        title: `¿${nextAction === 'ubicar' ? 'UBICAR' : 'RETIRAR'} varios artículos?`,
-        message: `¿Vas a ${nextAction === 'ubicar' ? 'ubicar' : 'retirar'} varios artículos a la vez?`,
-        icon: nextAction === 'ubicar' ? '📦' : '📤',
-        variant: 'info',
-        onConfirm: () => {
-          setBatchMode(true);
-          setScannerActive(true);
-          setConfirmModal((prev) => ({ ...prev, open: false }));
-        },
         extraButton: {
-          text: 'No, solo uno',
+          text: '📦 TRAER — Que me traigan un artículo',
           onClick: () => {
-            setBatchMode(false);
-            setScannerActive(true);
             setConfirmModal((prev) => ({ ...prev, open: false }));
+            setAction('idle');
+            setShowTraerModal(true);
           },
         },
       });
       return;
     }
-    setScannerActive(true);
+    if (nextAction === 'retirar') {
+      // Retirar: selección directa de celda, sin escaneo
+      setAction('retirar');
+      return;
+    }
+    setPendingAction(nextAction);
+    setScanMethodPickerOpen(true);
   }, [handleAvisarConfirm, shelfCode, shelfDef]);
 
   const handleScan = useCallback(async (result: ScanParseResult) => {
     if (!result.success) {
-      showFeedback('error', 'error' in result ? result.error : 'Error de escaneo');
+      showToast('error', 'error' in result ? result.error : 'Error de escaneo');
+      setScannerActive(true);
       return;
     }
 
@@ -260,12 +368,12 @@ const KioskView: React.FC = () => {
     if (action === 'ubicar' && batchMode) {
       const duplicate = batchArticles.some((a) => a.articleCode === articleCode && a.orderFab === orderFab);
       if (duplicate) {
-        showFeedback('error', `${articleCode} ${orderFab} ya está en el batch`);
+        showToast('error', `${articleCode} ${orderFab} ya está en el lote`);
         setScannerActive(true);
         return;
       }
       setBatchArticles((prev) => [...prev, { articleCode, orderFab }]);
-      showFeedback('success', `✅ ${articleCode} ${orderFab} añadido al batch`);
+      showToast('success', `✅ ${articleCode} añadido (${batchArticles.length + 1} en lote)`);
       setScannerActive(true);
       return;
     }
@@ -273,18 +381,18 @@ const KioskView: React.FC = () => {
     if (action === 'retirar' && batchMode) {
       const foundLocations = findArticle(articleCode, orderFab);
       if (foundLocations.length === 0) {
-        showFeedback('error', `Articulo ${articleCode} no encontrado en esta estanteria`);
+        showToast('error', `${articleCode} no encontrado en esta estantería`);
         setScannerActive(true);
         return;
       }
       const duplicate = batchRetiraPending.some((a) => a.articleCode === articleCode && a.orderFab === orderFab);
       if (duplicate) {
-        showFeedback('error', `Este artículo se ha escaneado dos veces. Solo se puede retirar una vez.`);
+        showToast('error', 'Este artículo ya está en el lote');
         setScannerActive(true);
         return;
       }
       setBatchRetiraPending((prev) => [...prev, { articleCode, orderFab, locations: foundLocations }]);
-      showFeedback('success', `✅ ${articleCode} ${orderFab} añadido al batch`);
+      showToast('success', `✅ ${articleCode} añadido al lote de retirada`);
       setScannerActive(true);
       return;
     }
@@ -292,48 +400,11 @@ const KioskView: React.FC = () => {
     setScanData({ articleCode, orderFab });
     setScannerActive(false);
 
-    if (action === 'retirar') {
-      const foundLocations = findArticle(articleCode, orderFab);
-      if (foundLocations.length === 0) {
-        showFeedback('error', `Articulo ${articleCode} no encontrado en esta estanteria`);
-        return;
-      }
-
-      if (foundLocations.length === 1) {
-        setConfirmModal({
-          open: true,
-          title: 'Confirmar Retirada',
-          message: `¿Retirar ${formatArticleDisplay(articleCode, orderFab)} de posición ${parseInt(foundLocations[0].position, 10)}?`,
-          icon: '📤',
-          variant: 'danger',
-          onConfirm: () => handleRetirarConfirm(articleCode, orderFab, foundLocations[0].position),
-        });
-      } else {
-        setFoundLocationsForRetirar(foundLocations);
-        setConfirmModal({
-          open: true,
-          title: 'Selecciona de dónde retirar',
-          message: `${formatArticleDisplay(articleCode, orderFab)} está en ${foundLocations.length} ubicaciones`,
-          icon: '📤',
-          variant: 'warning',
-          onConfirm: () => {
-            if (retirarPosition === 'TODAS') {
-              handleRetirarConfirm(articleCode, orderFab);
-            } else if (retirarPosition) {
-              handleRetirarConfirm(articleCode, orderFab, retirarPosition);
-            }
-            setRetirarPosition(null);
-            setFoundLocationsForRetirar([]);
-          },
-        });
-      }
-      return;
-    }
-
     if (action === 'mover') {
       const foundLocations = findArticle(articleCode, orderFab);
       if (foundLocations.length === 0) {
-        showFeedback('error', `Articulo ${articleCode} no encontrado`);
+        showToast('error', `${articleCode} no encontrado`);
+        setScannerActive(true);
         return;
       }
       setSelectedPositions([]);
@@ -366,7 +437,7 @@ const KioskView: React.FC = () => {
         });
       }
     }
-  }, [action, batchMode, batchArticles, batchRetiraPending, findArticle, handleRetirarConfirm, showFeedback]);
+  }, [action, batchMode, batchArticles, batchRetiraPending, findArticle, handleRetirarConfirm, showToast]);
 
   const handleCameraQRScan = useCallback((qrCode: string) => {
     setShowCameraQR(false);
@@ -398,6 +469,16 @@ const KioskView: React.FC = () => {
     }
 
     if (action === 'ubicar' && !scanData && !batchMode) {
+      return;
+    }
+
+    if (action === 'retirar') {
+      // Retirar: mostrar artículos de la celda para seleccionar
+      if (!location.isEmpty && location.items.length > 0) {
+        setRetirarCellPosition(location.position);
+        setRetirarCellItems(location.items);
+        setShowRetirarCellModal(true);
+      }
       return;
     }
 
@@ -490,7 +571,7 @@ const KioskView: React.FC = () => {
                     if (selectedPositions.length > 0) {
                       handleUbicarBatchConfirm();
                     } else {
-                      showFeedback('error', 'Debes seleccionar al menos una posición');
+                      showToast('error', 'Selecciona al menos una posición en la estantería');
                     }
                   } else {
                     handleRetirarBatchNext();
@@ -543,7 +624,7 @@ const KioskView: React.FC = () => {
                canNavigateToShelf={false}
                onOutOfShelfResult={(result) => {
                  // Mostrar aviso de que el resultado está en otra estantería
-                 showFeedback('info', `El artículo ${result.articleCode} ${result.orderFab} está en la estantería ${result.shelfCode} (posición(es): ${result.positions.join(', ')})`);
+                 showToast('info', `Está en ${result.shelfCode} (pos. ${result.positions.join(', ')})`);
                }}
              />
              <ShelfGrid
@@ -564,12 +645,23 @@ const KioskView: React.FC = () => {
         </>
       )}
 
+      <ScanMethodPicker
+        open={scanMethodPickerOpen}
+        actionLabel={
+          pendingAction === 'ubicar' ? 'Ubicar artículo' :
+          pendingAction === 'retirar' ? 'Retirar artículo' :
+          pendingAction === 'mover' ? 'Mover artículo' : 'Escanear'
+        }
+        onSelect={applyScanMethod}
+        onBatch={pendingAction === 'ubicar' || pendingAction === 'retirar' ? beginBatchMode : undefined}
+        onClose={() => { setScanMethodPickerOpen(false); setPendingAction(null); }}
+      />
+
       <ScannerInput
         onScan={handleScan}
         active={scannerActive}
         disabled={processing}
-        onOpenQRCamera={() => { setScannerActive(false); setShowCameraQR(true); }}
-        onOpenOCRCamera={() => { setScannerActive(false); setShowCameraOCR(true); }}
+        showCameraButtons={false}
       />
 
       {showCameraQR && (
@@ -603,7 +695,7 @@ const KioskView: React.FC = () => {
                       : 'border-slate-700 bg-slate-800 text-white hover:border-slate-600'
                   }`}
                 >
-                  📍 PLE {parseInt(loc.position, 10).toString().padStart(3, '0')}
+                  📍 {shelfCode} {parseInt(loc.position, 10).toString().padStart(3, '0')}
                   {loc.items.length > 0 && (
                     <span className="block text-xs text-slate-400 mt-0.5">
                       {loc.items.length} artículo{loc.items.length !== 1 ? 's' : ''} en la celda
@@ -643,7 +735,7 @@ const KioskView: React.FC = () => {
         </div>
       )}
 
-      <ConfirmationModal open={confirmModal.open && foundLocationsForRetirar.length <= 1} onClose={() => setConfirmModal((prev) => ({ ...prev, open: false }))} title={confirmModal.title} message={confirmModal.message} icon={confirmModal.icon} variant={confirmModal.variant} onConfirm={confirmModal.onConfirm} extraButton={confirmModal.extraButton} loading={processing} />
+      <ConfirmationModal open={confirmModal.open && foundLocationsForRetirar.length <= 1} onClose={() => setConfirmModal((prev) => ({ ...prev, open: false }))} title={confirmModal.title} message={confirmModal.message} icon={confirmModal.icon} variant={confirmModal.variant} confirmText={confirmModal.confirmText} onConfirm={confirmModal.onConfirm} extraButton={confirmModal.extraButton} loading={processing} />
 
       {showDeviceInfo && (
         <DeviceInfoModal
@@ -651,6 +743,30 @@ const KioskView: React.FC = () => {
           onClose={() => setShowDeviceInfo(false)}
         />
       )}
+
+      <TraerArticuloModal
+        open={showTraerModal}
+        onClose={() => setShowTraerModal(false)}
+        onConfirm={handleTraerConfirm}
+        currentShelfCode={shelfCode}
+        loading={traerProcessing}
+      />
+
+      <RetirarCellModal
+        open={showRetirarCellModal}
+        position={retirarCellPosition}
+        items={retirarCellItems}
+        onConfirm={handleRetirarCellItemsConfirm}
+        onClose={() => setShowRetirarCellModal(false)}
+        loading={processing}
+      />
+
+      <IdEntryModal
+        open={showIdModal}
+        initialValue={effectiveOperarioId}
+        onConfirm={handleIdConfirm}
+        onClose={handleIdCancel}
+      />
     </div>
   );
 };

@@ -136,10 +136,25 @@ export const parseScanInputLenient = (rawInput: string): ScanParseResult => {
     return { success: false, error: 'No se recibió ningún dato', rawInput: '' };
   }
 
-  // Normaliza: une saltos de línea, colapsa espacios, mayúsculas
+  // Normaliza: une saltos de línea, colapsa espacios, mayúsculas, corrige OCR típico
   const cleaned = rawInput
     .trim()
     .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    // Correcciones OCR típicas para caracteres mal reconocidos
+    .replace(/\b0F(\d{2}-\d+)/gi, 'OF$1')          // 0F → OF
+    .replace(/\bO(?=\d{2}-\d+)/g, 'OF')             // O25- → OF25-
+    .replace(/\b0F\s*(\d{2,3})[-\s](\d+)/gi, 'OF$1-$2') // 0F 25 07221 → OF25-07221
+    .replace(/(\d)[|!¡](\d)/g, '$1I$2')             // dígito-|!¡-dígito
+    .replace(/[|!¡]/g, 'I')                           // | → I
+    .replace(/0(?=[A-Z])/g, 'O')                     // 0 seguido de letra → O
+    .replace(/(?<=\d)5(?=\d)/g, 'S')                 // 5 entre dígitos → S (caso raro)
+    .replace(/©/g, 'C')                              // © → C
+    .replace(/®/g, 'R')                              // ® → R
+    // Guiones confundidos con otros caracteres
+    .replace(/[–—―]/g, '-')
+    .replace(/\s*\/\/?\s*/g, ' // ')                // / simple → // con espacios
+    // Colapsar espacios múltiples de nuevo
     .replace(/\s+/g, ' ')
     .toUpperCase();
 
@@ -151,16 +166,26 @@ export const parseScanInputLenient = (rawInput: string): ScanParseResult => {
   const strict = parseScanInput(cleaned);
   if (strict.success) return strict;
 
-  // 2º busca el patrón OF en cualquier parte
-  const ofMatch = cleaned.match(/OF\d{2}-\d+/);
+  // 2º busca el patrón OF en cualquier parte (con o sin guion)
+  const ofMatch = cleaned.match(/OF\d{2}-\d{3,}/);
+  let orderFab = '';
   if (!ofMatch) {
+    // Buscar OF seguido de espacios + dígitos (OCR a veces omite el guion)
+    const noHyphenMatch = cleaned.match(/OF\s*(\d{2})\s*[-–—]?\s*(\d{3,})/);
+    if (noHyphenMatch) {
+      orderFab = `OF${noHyphenMatch[1]}-${noHyphenMatch[2]}`;
+    }
+  } else {
+    orderFab = ofMatch[0];
+  }
+
+  if (!orderFab) {
     return {
       success: false,
       error: `No se encontró ningún código OFxx-nnnnn en el texto.\nRecibido: "${cleaned}"`,
       rawInput,
     };
   }
-  const orderFab = ofMatch[0];
 
   // 3º extrae el código de artículo: todo lo que no sea el OF ni etiquetas comunes
   const withoutOF = cleaned.replace(orderFab, '');

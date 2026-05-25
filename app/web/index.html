@@ -54,9 +54,22 @@
       body {
         overscroll-behavior-y: none;
       }
+
+      /* Kiosk orientation: force landscape on ALL touch devices via CSS rotation fallback */
+      @media screen and (orientation: portrait) and (pointer: coarse) {
+        #orientation-overlay {
+          display: flex !important;
+        }
+      }
     </style>
 </head>
   <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-300 selection:bg-cyan-500 selection:text-white">
+    <!-- Landscape overlay for portrait tablets -->
+    <div id="orientation-overlay" style="display:none;position:fixed;inset:0;z-index:99999;background:#0f172a;align-items:center;justify-content:center;flex-direction:column;gap:16px;">
+      <div style="font-size:56px;">📱</div>
+      <p style="color:#e2e8f0;font-family:sans-serif;font-size:18px;font-weight:700;margin:0;">Gira la tablet</p>
+      <p style="color:#94a3b8;font-family:sans-serif;font-size:13px;margin:0;">La aplicación funciona en horizontal</p>
+    </div>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
     <script>

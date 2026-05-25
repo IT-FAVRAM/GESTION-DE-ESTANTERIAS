@@ -1,5 +1,6 @@
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from './firebase';
+import { isSameArticle } from './articleIdentity';
 import { SHELF_DEFINITIONS } from './firestoreSchema';
 import { COLLECTIONS } from './schema/collections';
 
@@ -29,7 +30,7 @@ export async function findArticleGlobal(
         snap.forEach((docSnap) => {
           const data = docSnap.data();
           const items: Array<{ articleCode: string; orderFab: string }> = data.items || [];
-          if (items.some((i) => i.articleCode === articleCode && i.orderFab === orderFab)) {
+          if (items.some((i) => isSameArticle(i.articleCode, i.orderFab, articleCode, orderFab))) {
             results.push({
               shelfCode: shelf.code,
               shelfName: shelf.name,

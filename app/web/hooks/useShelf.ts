@@ -6,10 +6,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { inventoryApi } from '../lib/api/inventoryApi';
+import { parseCallableError } from '../lib/callableError';
 import { enqueueOfflineOperation } from '../lib/offline/offlineQueue';
 import { getOperationalSession } from '../lib/operationalSession';
 import { resolveCurrentAuthSession } from '../domain/auth/authSessionResolver';
-import { applyUbicar, applyRetirar, applyRetirarDeUbicacion, applyMover } from '../lib/optimistic/shelfOptimisticUpdates';
+import { applyUbicar, applyUbicarMulti, applyRetirar, applyRetirarDeUbicacion, applyMover } from '../lib/optimistic/shelfOptimisticUpdates';
 import {
   type LocationDoc,
   type LocationItem,
@@ -23,9 +24,10 @@ import {
 export type { ShelfLocationState } from '../lib/schema/locations';
 
 import type { ShelfLocationState } from '../lib/schema/locations';
+import { isSameArticle } from '../lib/articleIdentity';
 
 const sameItem = (item: LocationItem, articleCode: string, orderFab: string) =>
-  item.articleCode === articleCode && item.orderFab === orderFab;
+  isSameArticle(item.articleCode, item.orderFab, articleCode, orderFab);
 
 const normalizePositions = (positions: string[]) =>
   positions.map((p) => p.trim()).filter(Boolean);
@@ -40,8 +42,9 @@ export interface UseShelfReturn {
   shelfCode: string;
   shelfDef: Shelf | undefined;
   ubicar: (articleCode: string, orderFab: string, position: string, operarioId: string, operarioName: string) => Promise<boolean>;
-  retirar: (articleCode: string, orderFab: string, operarioId: string, operarioName: string) => Promise<{ success: boolean; positions: string[] }>;
-  retirarDeUbicacion: (articleCode: string, orderFab: string, position: string, operarioId: string, operarioName: string) => Promise<{ success: boolean; position: string }>;
+  ubicarMulti: (articleCode: string, orderFab: string, positions: string[], operarioId: string, operarioName: string) => Promise<boolean>;
+  retirar: (articleCode: string, orderFab: string, operarioId: string, operarioName: string) => Promise<{ success: boolean; positions: string[]; error?: string }>;
+  retirarDeUbicacion: (articleCode: string, orderFab: string, position: string, operarioId: string, operarioName: string) => Promise<{ success: boolean; position: string; error?: string }>;
   mover: (articleCode: string, orderFab: string, newPositions: string[], operarioId: string, operarioName: string) => Promise<boolean>;
   findArticle: (articleCode: string, orderFab: string) => ShelfLocationState[];
   totalArticles: number;
@@ -144,7 +147,50 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
       return true;
     } catch (err: any) {
       console.error('[useShelf] Ubicar error:', err);
-      setError(err.message || 'Error al ubicar articulo');
+      setError(parseCallableError(err));
+      // Rollback optimistic update
+      setLocations(previousLocations);
+      return false;
+    }
+  }, [shelfCode, validateShelfAccess, locations]);
+
+  const ubicarMulti = useCallback(async (
+    articleCode: string,
+    orderFab: string,
+    positions: string[],
+    operarioId: string,
+    operarioName: string,
+  ): Promise<boolean> => {
+    const previousLocations = locations;
+    try {
+      const access = await validateShelfAccess('operate');
+      if (!access.ok) return false;
+      if (!shelfCode || positions.length === 0) {
+        setError('No hay estanteria o posiciones validas para ubicar.');
+        return false;
+      }
+      const normalizedPositions = positions.map((p) => p.trim()).filter(Boolean);
+      if (normalizedPositions.length === 0) {
+        setError('Debe seleccionar al menos una posicion.');
+        return false;
+      }
+      const session = getOperationalSession();
+
+      if (!navigator.onLine) {
+        enqueueOfflineOperation('UBICAR_MULTI', { shelfCode, articleCode, orderFab, positions: normalizedPositions, operarioId, operarioName }, session);
+        setLocations((prev) => applyUbicarMulti(prev, shelfCode, articleCode, orderFab, normalizedPositions, operarioId, operarioName));
+        return true;
+      }
+
+      // Optimistic update: apply all positions at once
+      setLocations((prev) => applyUbicarMulti(prev, shelfCode, articleCode, orderFab, normalizedPositions, operarioId, operarioName));
+
+      // Single API call with all positions
+      await inventoryApi.ubicarMulti({ shelfCode, articleCode, orderFab, positions: normalizedPositions, operarioId, operarioName }, session);
+      return true;
+    } catch (err: any) {
+      console.error('[useShelf] UbicarMulti error:', err);
+      setError(parseCallableError(err));
       // Rollback optimistic update
       setLocations(previousLocations);
       return false;
@@ -156,11 +202,11 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     orderFab: string,
     operarioId: string,
     operarioName: string,
-  ): Promise<{ success: boolean; positions: string[] }> => {
+  ): Promise<{ success: boolean; positions: string[]; error?: string }> => {
     const previousLocations = locations;
     try {
       const access = await validateShelfAccess('operate');
-      if (!access.ok) return { success: false, positions: [] };
+      if (!access.ok) return { success: false, positions: [], error: 'Sin permiso para operar en esta estantería' };
       const session = getOperationalSession();
       
       let optimisticPositions: string[] = [];
@@ -171,8 +217,9 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
           return result.next;
         });
         if (optimisticPositions.length === 0) {
-          setError('Articulo no encontrado');
-          return { success: false, positions: [] };
+          const msg = 'Articulo no encontrado';
+          setError(msg);
+          return { success: false, positions: [], error: msg };
         }
         enqueueOfflineOperation('RETIRAR', { shelfCode, articleCode, orderFab, operarioId, operarioName }, session);
         return { success: true, positions: optimisticPositions };
@@ -187,12 +234,12 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
 
       const { positions = [] } = await inventoryApi.retirar({ shelfCode, articleCode, orderFab, operarioId, operarioName }, session);
       return { success: true, positions: positions.length > 0 ? positions : optimisticPositions };
-    } catch (err: any) {
-      console.error('[useShelf] Retirar error:', err);
-      setError(err.message || 'Error al retirar articulo');
-      // Rollback
+    } catch (err: unknown) {
+      const msg = parseCallableError(err);
+      console.error('[useShelf] Retirar error:', msg);
+      setError(msg);
       setLocations(previousLocations);
-      return { success: false, positions: [] };
+      return { success: false, positions: [], error: msg };
     }
   }, [shelfCode, validateShelfAccess, locations]);
 
@@ -202,11 +249,11 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     position: string,
     operarioId: string,
     operarioName: string,
-  ): Promise<{ success: boolean; position: string }> => {
+  ): Promise<{ success: boolean; position: string; error?: string }> => {
     const previousLocations = locations;
     try {
       const access = await validateShelfAccess('operate');
-      if (!access.ok) return { success: false, position: '' };
+      if (!access.ok) return { success: false, position: '', error: 'Sin permiso para operar en esta estantería' };
       const session = getOperationalSession();
 
       // Apply optimistic update — only remove from the specific position
@@ -220,11 +267,12 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
 
       await inventoryApi.retirarDeUbicacion({ shelfCode, articleCode, orderFab, position, operarioId, operarioName }, session);
       return { success: true, position };
-    } catch (err: any) {
-      console.error('[useShelf] RetirarDeUbicacion error:', err);
-      setError(err.message || 'Error al retirar articulo de ubicacion');
+    } catch (err: unknown) {
+      const msg = parseCallableError(err);
+      console.error('[useShelf] RetirarDeUbicacion error:', msg);
+      setError(msg);
       setLocations(previousLocations);
-      return { success: false, position: '' };
+      return { success: false, position: '', error: msg };
     }
   }, [shelfCode, validateShelfAccess, locations]);
 
@@ -277,7 +325,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
       return true;
     } catch (err: any) {
       console.error('[useShelf] Mover error:', err);
-      setError(err.message || 'Error al mover articulo');
+      setError(parseCallableError(err));
       // Rollback
       setLocations(previousLocations);
       return false;
@@ -301,6 +349,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     shelfCode,
     shelfDef,
     ubicar,
+    ubicarMulti,
     retirar,
     retirarDeUbicacion,
     mover,

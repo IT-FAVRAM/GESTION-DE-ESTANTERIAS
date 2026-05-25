@@ -13,6 +13,8 @@ interface ScannerInputProps {
   disabled?: boolean;
   onOpenQRCamera?: () => void;
   onOpenOCRCamera?: () => void;
+  /** Si false, solo muestra input de pistola/teclado (cámara vía ScanMethodPicker). */
+  showCameraButtons?: boolean;
 }
 
 const ScannerInput: React.FC<ScannerInputProps> = ({
@@ -21,6 +23,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
   disabled = false,
   onOpenQRCamera,
   onOpenOCRCamera,
+  showCameraButtons = true,
 }) => {
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -71,6 +74,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
         </button>
       </div>
 
+      {showCameraButtons && (onOpenQRCamera || onOpenOCRCamera) && (
       <div className="flex gap-2">
         {onOpenQRCamera && (
           <button
@@ -91,6 +95,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
           </button>
         )}
       </div>
+      )}
     </div>
   );
 };

@@ -28,8 +28,14 @@ const KioskActionBar: React.FC<KioskActionBarProps> = ({ action, scanData, scann
             <p className="text-sm font-bold text-cyan-300 uppercase">{action}</p>
             {scanData && <p className="text-xs text-cyan-400/70 truncate">{formatArticleDisplay(scanData.articleCode, scanData.orderFab)}</p>}
             {scannerActive && <p className="text-xs text-cyan-400 animate-pulse">Esperando escaneo...</p>}
+            {action === 'ubicar' && scanData && selectedPositions.length === 0 && (
+              <p className="text-xs text-emerald-400/90">Toca celdas vacías en la estantería</p>
+            )}
             {action === 'ubicar' && scanData && selectedPositions.length > 0 && (
               <p className="text-xs text-cyan-400">Pos. seleccionadas: {selectedPositions.map((p) => parseInt(p, 10)).join(', ')}</p>
+            )}
+            {action === 'retirar' && !scanData && (
+              <p className="text-xs text-red-400/90">Toca una celda ocupada para retirar artículos</p>
             )}
             {action === 'mover' && scanData && neededPositions > 0 && (
               <p className={`text-xs font-bold ${moverReady ? 'text-emerald-400' : moverPartial ? 'text-amber-400' : 'text-cyan-400/70'}`}>

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.resolveOperationalActor = exports.requireAllowedRoles = exports.getUserContext = exports.getWmsSectionForShelf = exports.normalizeRole = void 0;
+exports.resolveOperationalActor = exports.requireAllowedRoles = exports.getUserContext = exports.assertActorMayOperateShelf = exports.getWmsSectionForShelf = exports.normalizeRole = void 0;
 const admin = require("firebase-admin");
 const functions = require("firebase-functions");
 const normalize = (value) => (value || '').trim().toUpperCase();
@@ -14,6 +14,7 @@ const normalizeRole = (role) => {
 exports.normalizeRole = normalizeRole;
 const WMS_SHELF_SECTION = {
     MEC: 'MECANIZADO',
+    PRE: 'PRENSAS',
     PLE: 'PLEGADORA',
     SOL: 'SOLDADURA',
     RSO: 'SOLDADURA',
@@ -23,13 +24,35 @@ const WMS_SHELF_SECTION = {
     ZIN: 'REPASADO',
     CAL: 'CALIDAD',
     COM: 'OTROS',
-    RPL: 'ROBOT_PLEGADO',
+    RPL: 'AUTOPLEGADORA',
+    LASER: 'LASER',
 };
 const getWmsSectionForShelf = (shelfCode) => {
     const code = normalize(shelfCode);
     return WMS_SHELF_SECTION[code] || 'OTROS';
 };
 exports.getWmsSectionForShelf = getWmsSectionForShelf;
+/** Valida que el actor puede operar sobre la estantería indicada (shelfOperate / pickup). */
+const assertActorMayOperateShelf = (actor, shelfCode) => {
+    const shelf = normalize(shelfCode);
+    if (!shelf) {
+        throw new functions.https.HttpsError('invalid-argument', 'shelfCode requerido.');
+    }
+    if (actor.role === 'OPERARIO' && actor.assignedShelf && normalize(actor.assignedShelf) !== shelf) {
+        throw new functions.https.HttpsError('permission-denied', 'El kiosko no puede operar otra estantería.');
+    }
+    if (actor.role === 'CALIDAD' && shelf !== 'CAL') {
+        throw new functions.https.HttpsError('permission-denied', 'Calidad solo puede operar la estantería CAL.');
+    }
+    if (actor.role === 'JEFE_SECCION') {
+        const actorSection = normalize(actor.section);
+        const shelfSection = normalize((0, exports.getWmsSectionForShelf)(shelf));
+        if (!actorSection || actorSection !== shelfSection) {
+            throw new functions.https.HttpsError('permission-denied', 'No puedes operar estanterías fuera de tu sección.');
+        }
+    }
+};
+exports.assertActorMayOperateShelf = assertActorMayOperateShelf;
 const getUserContext = async (context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Usuario no autenticado.');

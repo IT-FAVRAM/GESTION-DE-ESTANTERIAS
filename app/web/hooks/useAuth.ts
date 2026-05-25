@@ -30,6 +30,7 @@ import {
   canViewReprocessCosts as resolveCanViewReprocessCosts,
 } from '../domain/reprocesos/reprocesosVisibility';
 import { resolveCapabilities } from '../domain/auth/authCapabilities';
+import { SECTION_TO_SHELF, resolveAssignedShelfForRole } from '../domain/auth/sectionShelf';
 import type { AuthMethod } from '../domain/auth/authTypes';
 
 // ── Auth resolved-state cache (for offline startup resilience) ────────────────
@@ -62,17 +63,6 @@ const clearAuthResolvedCache = () => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SECTION_TO_SHELF: Partial<Record<WarehouseSection, string>> = {
-  MECANIZADO: 'MEC',
-  PRENSAS: 'PRE',
-  PLEGADORA: 'PLE',
-  SOLDADURA: 'SOL',
-  AUTOPLEGADORA: 'RPL',
-  REPASADO: 'REP',
-  PINTURA: 'PIN',
-  CALIDAD: 'CAL',
-};
-
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const signInAnonymouslyWithRetry = async () => {
@@ -103,14 +93,8 @@ type GuestSession = {
   displayName: string;
 };
 
-const resolveAssignedShelf = (role: UserRole, section?: WarehouseSection): string | null => {
-  if (role === 'CALIDAD') return 'CAL';
-  if (role !== 'OPERARIO') return null;
-  return SECTION_TO_SHELF[section || 'MECANIZADO'] || 'MEC';
-};
-
 const buildGuestSession = (role: UserRole, section?: WarehouseSection): GuestSession => {
-  const assignedShelf = resolveAssignedShelf(role, section);
+  const assignedShelf = resolveAssignedShelfForRole(role, section);
   const displayNameByRole: Record<UserRole, string> = {
     OPERARIO: 'Operario Desarrollo',
     CARRETILLERO: 'Carretillero Desarrollo',
@@ -292,21 +276,20 @@ export const useAuth = () => {
 
       // Update cache whenever we have a good profile (online or Firestore cached)
       if (resolvedRole) {
-        writeAuthResolvedCache({
-          uid: user.uid,
-          role: resolvedRole,
-          section: resolvedSection,
-          displayName: resolvedDisplayName,
-          email: user.email || '',
-          deviceMode: 'admin',
+        setState((prev) => {
+          writeAuthResolvedCache({
+            uid: user.uid,
+            role: resolvedRole,
+            section: resolvedSection,
+            displayName: resolvedDisplayName,
+            email: user.email || '',
+            deviceMode: prev.deviceMode || 'admin',
+          });
+          return prev;
         });
       }
 
-      // JEFE_SECCION: derive assigned shelf from their section so KioskView works in operative mode
-      const sectionShelf =
-        resolvedRole === 'JEFE_SECCION' && resolvedSection
-          ? (SECTION_TO_SHELF[resolvedSection] || null)
-          : null;
+      const emailAssignedShelf = resolveAssignedShelfForRole(resolvedRole, resolvedSection);
 
       setState((prev) => ({
         ...prev,
@@ -318,7 +301,7 @@ export const useAuth = () => {
         email: user.email,
         isKioskSession: false,
         authMethod: 'email',
-        assignedShelf: sectionShelf ?? prev.assignedShelf,
+        assignedShelf: emailAssignedShelf ?? prev.assignedShelf,
         error: resolvedRole ? null : 'Usuario no configurado',
       }));
     });

@@ -5,15 +5,17 @@ import { calculateBackoff, shouldRetry } from './retryStrategy';
 import { analyzeConflict, shouldAutoResolve } from './conflictResolver';
 import { enforceStorageLimits } from './storageManager';
 
-export type OfflineOperationType = 'UBICAR' | 'RETIRAR' | 'RETIRAR_DE_UBICACION' | 'MOVER' | 'AVISAR_CARRETILLERO' | 'COMPLETAR_RECOGIDA';
+export type OfflineOperationType = 'UBICAR' | 'UBICAR_MULTI' | 'RETIRAR' | 'RETIRAR_DE_UBICACION' | 'MOVER' | 'AVISAR_CARRETILLERO' | 'COMPLETAR_RECOGIDA' | 'SOLICITAR_TRASLADO';
 
 type OfflinePayloadByType = {
   UBICAR: Record<string, unknown>;
+  UBICAR_MULTI: Record<string, unknown>;
   RETIRAR: Record<string, unknown>;
   RETIRAR_DE_UBICACION: Record<string, unknown>;
   MOVER: Record<string, unknown>;
   AVISAR_CARRETILLERO: Record<string, unknown>;
   COMPLETAR_RECOGIDA: Record<string, unknown>;
+  SOLICITAR_TRASLADO: Record<string, unknown>;
 };
 
 export interface OfflineQueueEntry<T extends OfflineOperationType = OfflineOperationType> {
@@ -140,6 +142,8 @@ const buildEntryLabel = (entry: OfflineQueueEntry) => {
       return `Mover ${articleCode} ${orderFab} en ${shelfCode}`.trim();
     case 'AVISAR_CARRETILLERO':
       return `Avisar carretillero en ${String(payload.shelfName || shelfCode).trim()}`.trim();
+    case 'SOLICITAR_TRASLADO':
+      return `Solicitar traslado de ${String(payload.articleCode || '').trim()}`.trim();
     case 'COMPLETAR_RECOGIDA':
       return `Completar recogida ${String(payload.requestId || '').trim()}`.trim();
     default:
@@ -159,6 +163,7 @@ const processEntry = async (entry: OfflineQueueEntry) => {
     case 'MOVER':
       return inventoryApi.mover(entry.payload, session);
     case 'AVISAR_CARRETILLERO':
+    case 'SOLICITAR_TRASLADO':
       return pickupQueueApi.create(entry.payload, session);
     case 'COMPLETAR_RECOGIDA':
       return pickupQueueApi.complete(entry.payload, session);

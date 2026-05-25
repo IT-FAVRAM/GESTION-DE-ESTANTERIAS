@@ -6,7 +6,7 @@
  * Al seleccionar una, muestra su grid.
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useShelf } from '../../hooks/useShelf';
 import { useAuth } from '../../hooks/useAuth';
 import ShelfGrid from '../kiosk/ShelfGrid';
@@ -14,6 +14,8 @@ import KioskSearchBar from '../kiosk/KioskSearchBar';
 import ScannerInput from '../kiosk/ScannerInput';
 import CameraQRScanner from '../common/CameraQRScanner';
 import CameraOCRScanner from '../common/CameraOCRScanner';
+import ScanMethodPicker, { type ScanMethod } from '../common/ScanMethodPicker';
+import { parseCallableError } from '../../lib/callableError';
 import ConfirmationModal from '../common/ConfirmationModal';
 import { ALL_SHELVES, SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
 import { formatArticleDisplay, type ScanParseResult, parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
@@ -31,13 +33,17 @@ const ShelfNavigator: React.FC = () => {
   const [selectedShelf, setSelectedShelf] = useState(SHELF_DEFINITIONS[0]?.code || 'MEC');
   const [highlightedSearch, setHighlightedSearch] = useState<string[]>([]);
   const { locations, loading, shelfDef, ubicar, retirar, mover, findArticle, totalOccupied, totalEmpty, totalArticles } = useShelf(selectedShelf);
-  const { operarioId, displayName } = useAuth();
+  const { operarioId, firebaseUser, displayName } = useAuth();
+  const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? '';
   const { createPickupRequest } = usePickupQueue();
 
   const [action, setAction] = useState<NavAction>('idle');
   const [scannerActive, setScannerActive] = useState(false);
   const [showCameraQR, setShowCameraQR] = useState(false);
   const [showCameraOCR, setShowCameraOCR] = useState(false);
+  const [scanMethodPickerOpen, setScanMethodPickerOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<NavAction | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [scanData, setScanData] = useState<{ articleCode: string; orderFab: string } | null>(null);
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
   const [processing, setProcessing] = useState(false);
@@ -49,17 +55,43 @@ const ShelfNavigator: React.FC = () => {
     extraButton?: { text: string; onClick: () => void };
   }>({ open: false, title: '', message: '', icon: '', variant: 'info', onConfirm: () => {} });
 
-   const showFeedback = (type: 'success' | 'error' | 'info', msg: string) => {
-     setFeedback({ type, msg });
-     setTimeout(() => { setFeedback(null); setAction('idle'); setScanData(null); setSelectedPositions([]); setScannerActive(false); }, 3000);
-   };
+  const resetOperative = () => {
+    setAction('idle');
+    setScanData(null);
+    setSelectedPositions([]);
+    setScannerActive(false);
+  };
+
+  const showToast = (type: 'success' | 'error' | 'info', msg: string, ms = 2500) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setFeedback({ type, msg });
+    toastTimerRef.current = setTimeout(() => {
+      setFeedback(null);
+      toastTimerRef.current = null;
+    }, ms);
+  };
+
+  const finishAction = (type: 'success' | 'error' | 'info', msg: string) => {
+    showToast(type, msg, 2800);
+    setTimeout(() => resetOperative(), 2800);
+  };
+
+  const applyScanMethod = (method: ScanMethod) => {
+    setScanMethodPickerOpen(false);
+    if (!pendingAction) return;
+    setAction(pendingAction);
+    setPendingAction(null);
+    if (method === 'manual') setScannerActive(true);
+    else if (method === 'barcode') setShowCameraQR(true);
+    else setShowCameraOCR(true);
+  };
 
   const startAction = (act: NavAction) => {
-    setAction(act);
     setScanData(null);
     setSelectedPositions([]);
     setFeedback(null);
     if (act === 'avisar') {
+      setAction('avisar');
       setConfirmModal({
         open: true, title: 'Avisar al Carretillero',
         message: `Se avisará que hay una pieza para recoger en ${shelfDef?.name || selectedShelf}`,
@@ -67,18 +99,24 @@ const ShelfNavigator: React.FC = () => {
         onConfirm: async () => {
           setProcessing(true);
           setConfirmModal(prev => ({ ...prev, open: false }));
-          const ok = await createPickupRequest(operarioId || '', displayName, selectedShelf);
+          const ok = await createPickupRequest(effectiveOperarioId, displayName, selectedShelf);
           setProcessing(false);
-          showFeedback(ok ? 'success' : 'error', ok ? '✅ Aviso enviado' : 'Error al enviar');
+          if (ok) finishAction('success', '✅ Aviso enviado');
+          else finishAction('error', 'Error al enviar');
         },
       });
-    } else {
-      setScannerActive(true);
+      return;
     }
+    setPendingAction(act);
+    setScanMethodPickerOpen(true);
   };
 
   const handleScan = async (result: ScanParseResult) => {
-    if (!result.success) { showFeedback('error', 'error' in result ? result.error : 'Error de escaneo'); return; }
+    if (!result.success) {
+      showToast('error', 'error' in result ? result.error : 'Error de escaneo');
+      setScannerActive(true);
+      return;
+    }
     const { articleCode, orderFab } = result.data;
     setScanData({ articleCode, orderFab });
     setScannerActive(false);
@@ -114,7 +152,7 @@ const ShelfNavigator: React.FC = () => {
 
     if (action === 'retirar') {
       const found = findArticle(articleCode, orderFab);
-      if (found.length === 0) { showFeedback('error', 'Artículo no encontrado'); return; }
+      if (found.length === 0) { showToast('error', 'Artículo no encontrado'); setScannerActive(true); return; }
 
       let msg = `${formatArticleDisplay(articleCode, orderFab)} en: ${found.map(l => parseInt(l.position, 10)).join(', ')}`;
       if (found.length > 1) {
@@ -136,9 +174,10 @@ const ShelfNavigator: React.FC = () => {
         icon: '📤', variant: 'danger',
         onConfirm: async () => {
           setProcessing(true); setConfirmModal(p => ({ ...p, open: false }));
-          const r = await retirar(articleCode, orderFab, operarioId || '', displayName);
+          const r = await retirar(articleCode, orderFab, effectiveOperarioId, displayName);
           setProcessing(false);
-          showFeedback(r.success ? 'success' : 'error', r.success ? '✅ Retirado' : 'Error');
+          if (r.success) finishAction('success', '✅ Retirado');
+          else finishAction('error', r.error || 'Error al retirar');
         },
       });
     } else if (action === 'almacen') {
@@ -154,12 +193,12 @@ const ShelfNavigator: React.FC = () => {
             const result = await fn({
               op: 'enviarAlmacen',
               payload: { articleCode, orderFab, shelfCode: selectedShelf },
-              session: { operarioId: operarioId || '', operarioName: displayName },
+              session: { operarioId: effectiveOperarioId, operarioName: displayName },
             });
             const data = result.data as any;
-            showFeedback('success', `✅ Enviado a almacén. Retirado de ${data.removedFrom || 0} ubicaciones.`);
-          } catch (err: any) {
-            showFeedback('error', err?.message || 'Error al enviar a almacén');
+            finishAction('success', `✅ Enviado a almacén (${data.removedFrom || 0} ubicaciones)`);
+          } catch (err: unknown) {
+            finishAction('error', parseCallableError(err));
           }
           setProcessing(false);
         },
@@ -177,9 +216,10 @@ const ShelfNavigator: React.FC = () => {
         icon: loc.isEmpty ? '📦' : '⚠️', variant: loc.isEmpty ? 'success' : 'warning',
         onConfirm: async () => {
           setProcessing(true); setConfirmModal(p => ({ ...p, open: false }));
-          const ok = await ubicar(scanData.articleCode, scanData.orderFab, loc.position, operarioId || '', displayName);
+          const ok = await ubicar(scanData.articleCode, scanData.orderFab, loc.position, effectiveOperarioId, displayName);
           setProcessing(false);
-          showFeedback(ok ? 'success' : 'error', ok ? '✅ Ubicado' : 'Error');
+          if (ok) finishAction('success', '✅ Ubicado');
+          else finishAction('error', 'Error al ubicar');
         },
         extraButton: !loc.isEmpty ? { text: 'Elegir otra', onClick: () => setConfirmModal(p => ({ ...p, open: false })) } : undefined,
       });
@@ -203,9 +243,10 @@ const ShelfNavigator: React.FC = () => {
   const handleMoverConfirm = async () => {
     if (!scanData || selectedPositions.length === 0) return;
     setProcessing(true);
-    const ok = await mover(scanData.articleCode, scanData.orderFab, selectedPositions, operarioId || '', displayName);
+    const ok = await mover(scanData.articleCode, scanData.orderFab, selectedPositions, effectiveOperarioId, displayName);
     setProcessing(false);
-    showFeedback(ok ? 'success' : 'error', ok ? '✅ Movido' : 'Error');
+    if (ok) finishAction('success', '✅ Movido');
+    else finishAction('error', 'Error al mover');
   };
 
   return (
@@ -235,7 +276,7 @@ const ShelfNavigator: React.FC = () => {
          onShelfNavigate={setSelectedShelf}
          onOutOfShelfResult={(result) => {
            // Mostrar aviso de que el resultado está en otra estantería
-           showFeedback('info', `El artículo ${result.articleCode} ${result.orderFab} está en la estantería ${result.shelfCode} (posición(es): ${result.positions.join(', ')})`);
+           showToast('info', `En ${result.shelfCode} (pos. ${result.positions.join(', ')})`);
          }}
        />
 
@@ -290,12 +331,23 @@ const ShelfNavigator: React.FC = () => {
         </div>
       )}
 
+      <ScanMethodPicker
+        open={scanMethodPickerOpen}
+        actionLabel={
+          pendingAction === 'ubicar' ? 'Ubicar artículo' :
+          pendingAction === 'retirar' ? 'Retirar artículo' :
+          pendingAction === 'mover' ? 'Mover artículo' :
+          pendingAction === 'almacen' ? 'Enviar a almacén' : 'Escanear'
+        }
+        onSelect={applyScanMethod}
+        onClose={() => { setScanMethodPickerOpen(false); setPendingAction(null); }}
+      />
+
       <ScannerInput
         onScan={handleScan}
         active={scannerActive}
         disabled={processing}
-        onOpenQRCamera={() => { setScannerActive(false); setShowCameraQR(true); }}
-        onOpenOCRCamera={() => { setScannerActive(false); setShowCameraOCR(true); }}
+        showCameraButtons={false}
       />
 
       {showCameraQR && (

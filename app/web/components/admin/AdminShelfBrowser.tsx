@@ -18,6 +18,7 @@ import type { ShelfLocationState } from '../../hooks/useShelf';
 import type { CellDragData } from '../kiosk/ShelfGridCell';
 import CameraQRScanner from '../common/CameraQRScanner';
 import CameraOCRScanner from '../common/CameraOCRScanner';
+import ScanMethodPicker, { type ScanMethod } from '../common/ScanMethodPicker';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../lib/firebase';
 import { findArticleGlobal } from '../../lib/findArticleGlobal';
@@ -47,6 +48,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
   // Camera scanning
   const [showCameraQR, setShowCameraQR] = useState(false);
   const [showCameraOCR, setShowCameraOCR] = useState(false);
+  const [scanPickerOpen, setScanPickerOpen] = useState(false);
 
   // Reubicar: clic-clic o arrastrar dentro de la misma estantería
   const [reubicarSource, setReubicarSource] = useState<{ articleCode: string; orderFab: string; position: string } | null>(null);
@@ -65,29 +67,40 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
   const [batchRetiraPending, setBatchRetiraPending] = useState<Array<{ articleCode: string; orderFab: string; locations: ShelfLocationState[] }>>([]);
   const [currentBatchRetirarIndex, setCurrentBatchRetirarIndex] = useState(0);
 
-  const { locations, loading, shelfDef, ubicar, retirar, mover, findArticle, totalOccupied, totalEmpty, totalArticles } = useShelf(selectedShelf);
-  const { operarioId, displayName } = useAuth();
+  const { locations, loading, shelfDef, ubicar, ubicarMulti, retirar, mover, findArticle, totalOccupied, totalEmpty, totalArticles } = useShelf(selectedShelf);
+  const { operarioId, firebaseUser, displayName } = useAuth();
 
   const occupancyPct = totalOccupied + totalEmpty > 0
     ? Math.round((totalOccupied / (totalOccupied + totalEmpty)) * 100)
     : 0;
 
-  const effectiveOperarioId = operarioId || '';
+  const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? '';
+
+   const showFeedback = useCallback((type: 'success' | 'error' | 'info', msg: string) => {
+     setFeedback({ type, msg });
+     setTimeout(() => setFeedback(null), 3000);
+   }, []);
 
   const handleCameraScan = useCallback((rawText: string, lenient = false) => {
     const result = lenient ? parseScanInputLenient(rawText) : parseScanInput(rawText);
     if (result.success) {
       setArticleInput(result.data.articleCode);
       setOfInput(result.data.orderFab);
+      showFeedback('success', `✅ ${result.data.articleCode} ${result.data.orderFab}`);
     } else {
       showFeedback('error', 'error' in result ? result.error : 'No se reconoció el código');
     }
-  }, []);
+  }, [showFeedback]);
 
-   const showFeedback = useCallback((type: 'success' | 'error' | 'info', msg: string) => {
-     setFeedback({ type, msg });
-     setTimeout(() => setFeedback(null), 3000);
-   }, []);
+  const applyScanMethod = (method: ScanMethod) => {
+    setScanPickerOpen(false);
+    if (method === 'manual') {
+      showFeedback('info', 'Escribe artículo y OF en los campos');
+      return;
+    }
+    if (method === 'barcode') setShowCameraQR(true);
+    else setShowCameraOCR(true);
+  };
 
   const resetAction = useCallback(() => {
     setAction('idle');
@@ -146,59 +159,42 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
       }
     }
 
-    if (act === 'ubicar' || act === 'retirar') {
+    if (act === 'retirar') {
+      const found = findArticle(article, of);
+      if (found.length === 0) {
+        showFeedback('error', 'Artículo no encontrado en esta estantería');
+        return;
+      }
+      const posStr = found.map((l) => parseInt(l.position, 10)).join(', ');
+      let msg = `${formatArticleDisplay(article, of)} en: ${posStr}`;
+      if (found.length > 1) msg += `\n\n⚠️ Ocupa ${found.length} posiciones. Se retirará de todas.`;
       setConfirmModal({
         open: true,
-        title: `¿${act === 'ubicar' ? 'UBICAR' : 'RETIRAR'} varios artículos?`,
-        message: `¿Vas a ${act === 'ubicar' ? 'ubicar' : 'retirar'} varios artículos a la vez?`,
-        icon: act === 'ubicar' ? '📦' : '📤',
-        variant: 'info',
-        onConfirm: () => {
-          setBatchMode(true);
-          setAction(act);
-          setSelectedPositions([]);
-          setFeedback(null);
+        title: 'Confirmar retirada',
+        message: msg,
+        icon: '📤',
+        variant: 'danger',
+        onConfirm: async () => {
+          setProcessing(true);
           setConfirmModal((p) => ({ ...p, open: false }));
-        },
-        extraButton: {
-          text: 'No, solo uno',
-          onClick: () => {
-            setBatchMode(false);
-            setAction(act);
-            setSelectedPositions([]);
-            setFeedback(null);
-            setConfirmModal((p) => ({ ...p, open: false }));
-            if (act === 'retirar') {
-              const found = findArticle(article, of);
-              if (found.length === 0) {
-                showFeedback('error', 'Artículo no encontrado en esta estantería');
-                setAction('idle');
-                return;
-              }
-              const posStr = found.map((l) => parseInt(l.position, 10)).join(', ');
-              let msg = `${formatArticleDisplay(article, of)} en: ${posStr}`;
-              if (found.length > 1) msg += `\n\n⚠️ Ocupa ${found.length} posiciones. Se retirará de todas.`;
-
-              setConfirmModal({
-                open: true,
-                title: 'Confirmar Retirada',
-                message: msg,
-                icon: '📤',
-                variant: 'danger',
-                onConfirm: async () => {
-                  setProcessing(true);
-                  setConfirmModal((p) => ({ ...p, open: false }));
-                  const r = await retirar(article, of, effectiveOperarioId, displayName);
-                  setProcessing(false);
-                  if (r.success) showFeedback('success', '✅ Artículo retirado');
-                  else showFeedback('error', 'Error al retirar el artículo');
-                  resetAction();
-                },
-              });
-            }
-          },
+          const r = await retirar(article, of, effectiveOperarioId, displayName);
+          setProcessing(false);
+          if (r.success) {
+            showFeedback('success', '✅ Artículo retirado');
+            resetAction();
+          } else {
+            showFeedback('error', r.error || 'Error al retirar');
+          }
         },
       });
+      return;
+    }
+
+    if (act === 'ubicar') {
+      setBatchMode(false);
+      setAction('ubicar');
+      setSelectedPositions([]);
+      setFeedback(null);
       return;
     }
 
@@ -357,6 +353,12 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
           showFeedback('info', 'Origen y destino iguales');
           return;
         }
+        const allPos = findArticle(reubicarSource.articleCode, reubicarSource.orderFab);
+        if (allPos.length > 1) {
+          showFeedback('error', `El artículo ocupa ${allPos.length} posiciones. Debes seleccionar ${allPos.length} celdas de destino usando MOVER en su lugar.`);
+          setReubicarSource(null);
+          return;
+        }
         if (!loc.isEmpty) {
           setConfirmModal({
             open: true,
@@ -432,10 +434,8 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
 
     let successCount = 0;
     for (const article of batchArticles) {
-      for (const position of selectedPositions) {
-        const success = await ubicar(article.articleCode, article.orderFab, position, effectiveOperarioId, displayName);
-        if (success) successCount++;
-      }
+      const success = await ubicarMulti(article.articleCode, article.orderFab, selectedPositions, effectiveOperarioId, displayName);
+      if (success) successCount += selectedPositions.length;
     }
 
     setProcessing(false);
@@ -445,7 +445,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
       showFeedback('error', `Parcial: ${successCount}/${batchArticles.length * selectedPositions.length} ubicaciones completadas`);
     }
     resetAction();
-  }, [batchArticles, selectedPositions, ubicar, effectiveOperarioId, displayName, showFeedback, resetAction]);
+  }, [batchArticles, selectedPositions, ubicarMulti, effectiveOperarioId, displayName, showFeedback, resetAction]);
 
   const handleUbicarMultiPositionConfirm = useCallback(async () => {
     const article = articleInput.trim();
@@ -453,20 +453,16 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
     if (!article || !of || selectedPositions.length === 0) return;
     setProcessing(true);
 
-    let successCount = 0;
-    for (const position of selectedPositions) {
-      const success = await ubicar(article, of, position, effectiveOperarioId, displayName);
-      if (success) successCount++;
-    }
+    const success = await ubicarMulti(article, of, selectedPositions, effectiveOperarioId, displayName);
 
     setProcessing(false);
-    if (successCount === selectedPositions.length) {
+    if (success) {
       showFeedback('success', `✅ ${article} ubicado en ${selectedPositions.length} posición(es)`);
     } else {
-      showFeedback('error', `Parcial: ${successCount}/${selectedPositions.length} ubicaciones completadas`);
+      showFeedback('error', `Error al ubicar ${article}`);
     }
     resetAction();
-  }, [articleInput, ofInput, selectedPositions, ubicar, effectiveOperarioId, displayName, showFeedback, resetAction]);
+  }, [articleInput, ofInput, selectedPositions, ubicarMulti, effectiveOperarioId, displayName, showFeedback, resetAction]);
 
   const handleRetirarBatchNext = useCallback(async () => {
     const processNext = async (index: number) => {
@@ -582,20 +578,13 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
           </p>
           <div className="flex gap-2 flex-wrap">
             <button
-              onClick={() => setShowCameraQR(true)}
+              type="button"
+              onClick={() => setScanPickerOpen(true)}
               disabled={action !== 'idle'}
-              title="Escanear código de barras con cámara"
-              className="px-3 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white rounded-lg font-bold text-sm flex items-center gap-1 shrink-0 transition-colors"
+              title="Escanear artículo y OF"
+              className="px-3 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 text-white rounded-lg font-bold text-sm shrink-0 transition-colors"
             >
-              📷
-            </button>
-            <button
-              onClick={() => setShowCameraOCR(true)}
-              disabled={action !== 'idle'}
-              title="Leer texto con OCR"
-              className="px-3 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white rounded-lg font-bold text-sm flex items-center gap-1 shrink-0 transition-colors"
-            >
-              📸
+              Escanear
             </button>
             <input
               type="text"
@@ -907,6 +896,13 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
         onConfirm={confirmModal.onConfirm}
         extraButton={confirmModal.extraButton}
         loading={processing}
+      />
+
+      <ScanMethodPicker
+        open={scanPickerOpen}
+        actionLabel="Capturar artículo y OF"
+        onSelect={applyScanMethod}
+        onClose={() => setScanPickerOpen(false)}
       />
 
       {showCameraQR && (

@@ -1,6 +1,7 @@
 import type { WarehouseSection } from './sections';
 
 export type PickupStatus = 'PENDING' | 'COMPLETED';
+export type PickupRequestType = 'RECOGER' | 'TRAER';
 
 export interface PickupRequestDoc {
   operarioId: string;
@@ -12,11 +13,19 @@ export interface PickupRequestDoc {
   createdAt: string;
   completedAt: string | null;
   completedBy: string | null;
+  requestType?: PickupRequestType;
+  // Solo para requestType === 'TRAER':
+  articleCode?: string;
+  articleOrderFab?: string;
+  articleShelfName?: string;
+  articlePositions?: string[];
 }
 
 export type HistoryAction =
   | 'UBICAR'
+  | 'UBICAR_MULTI'
   | 'RETIRAR'
+  | 'RETIRAR_DE_UBICACION'
   | 'MOVER'
   | 'AVISAR_CARRETILLERO'
   | 'ENVIAR_ALMACEN';

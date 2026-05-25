@@ -73,13 +73,37 @@ exports.notifyPickupQueueCreated = functions.firestore
     .document('pickupQueue/{requestId}')
     .onCreate(async (snapshot, context) => {
     const data = snapshot.data() || {};
+    const requestType = String(data.requestType || 'RECOGER');
     const shelfSection = String(data.shelfSection || 'OTROS');
     const shelfName = String(data.shelfName || data.shelfCode || 'estanteria');
-    const operarioId = String(data.operarioId || '---');
+    const operarioName = String(data.operarioName || data.operarioId || '---');
+    const requestId = String(context.params.requestId || '');
+    const shelfCode = String(data.shelfCode || '');
+    let title;
+    let body;
+    let notifType;
+    if (requestType === 'TRAER') {
+        const articleCode = String(data.articleCode || 'Artículo');
+        const articleOrderFab = String(data.articleOrderFab || '');
+        const articleShelfName = String(data.articleShelfName || 'estantería desconocida');
+        const articlePositions = Array.isArray(data.articlePositions) ? data.articlePositions : [];
+        const posText = articlePositions.length > 0
+            ? `posición ${articlePositions.join(', posición ')}`
+            : 'ubicación desconocida';
+        title = `📦 ${operarioName} (${shelfSection}) solicita traslado`;
+        body = `Necesita: ${articleCode}${articleOrderFab ? ' ' + articleOrderFab : ''}.\nEstá en: ${articleShelfName}, ${posText}.\nLlevar a: ${shelfSection} — ${shelfName}.`;
+        notifType = 'DELIVERY_REQUEST';
+    }
+    else {
+        const operarioId = String(data.operarioId || '---');
+        title = `🛑 ${operarioName} solicita recogida`;
+        body = `${shelfSection} — ${shelfName} (${operarioId}).`;
+        notifType = 'PICKUP_QUEUE_CREATED';
+    }
     await (0, push_1.notifyUsersByRole)('CARRETILLERO', {
-        title: 'Nueva solicitud de recogida',
-        body: `Operario ${operarioId} solicita recogida en ${shelfSection} (${shelfName}).`,
-        data: { type: 'PICKUP_QUEUE_CREATED', requestId: String(context.params.requestId || ''), shelfCode: String(data.shelfCode || ''), shelfSection },
+        title,
+        body,
+        data: { type: notifType, requestId, shelfCode, shelfSection },
     });
     return null;
 });
@@ -252,29 +276,41 @@ exports.pickupQueueOperate = functions.https.onCall(async (data, context) => {
         const operarioId = String((payload === null || payload === void 0 ? void 0 : payload.operarioId) || actor.operarioId || actor.uid).trim();
         const operarioName = String((payload === null || payload === void 0 ? void 0 : payload.operarioName) || actor.operarioName || actor.email || actor.uid).trim();
         const shelfName = String((payload === null || payload === void 0 ? void 0 : payload.shelfName) || shelfCode).trim() || shelfCode;
+        const requestType = String((payload === null || payload === void 0 ? void 0 : payload.requestType) || 'RECOGER').trim().toUpperCase();
         if (!shelfCode || !operarioId) {
             throw new functions.https.HttpsError('invalid-argument', 'Datos incompletos para crear recogida.');
         }
-        if (actor.role === 'OPERARIO' && actor.assignedShelf && actor.assignedShelf !== shelfCode) {
-            throw new functions.https.HttpsError('permission-denied', 'El kiosko no puede crear recogidas en otra estanteria.');
+        // Solo verificar autorización de estantería para recogidas (no para solicitudes de traslado)
+        if (requestType !== 'TRAER') {
+            (0, authz_1.assertActorMayOperateShelf)(actor, shelfCode);
         }
         const createdAt = new Date().toISOString();
-        const queueRef = await firebaseAdmin_1.admin.firestore().collection('pickupQueue').add({
+        const docData = {
             operarioId,
             operarioName,
             shelfSection: (0, authz_1.getWmsSectionForShelf)(shelfCode),
             shelfCode,
             shelfName,
+            requestType,
             status: 'PENDING',
             createdAt,
             completedAt: null,
             completedBy: null,
-        });
+        };
+        if (requestType === 'TRAER') {
+            docData.articleCode = String((payload === null || payload === void 0 ? void 0 : payload.articleCode) || '').trim();
+            docData.articleOrderFab = String((payload === null || payload === void 0 ? void 0 : payload.articleOrderFab) || '').trim();
+            docData.articleShelfName = String((payload === null || payload === void 0 ? void 0 : payload.articleShelfName) || '').trim();
+            docData.articlePositions = Array.isArray(payload === null || payload === void 0 ? void 0 : payload.articlePositions)
+                ? payload.articlePositions.map((p) => String(p))
+                : [];
+        }
+        const queueRef = await firebaseAdmin_1.admin.firestore().collection('pickupQueue').add(docData);
         await firebaseAdmin_1.admin.firestore().collection('history').add({
-            action: 'AVISAR_CARRETILLERO',
-            articleCode: '',
-            orderFab: '',
-            fromLocation: null,
+            action: requestType === 'TRAER' ? 'SOLICITAR_TRASLADO' : 'AVISAR_CARRETILLERO',
+            articleCode: requestType === 'TRAER' ? String((payload === null || payload === void 0 ? void 0 : payload.articleCode) || '') : '',
+            orderFab: requestType === 'TRAER' ? String((payload === null || payload === void 0 ? void 0 : payload.articleOrderFab) || '') : '',
+            fromLocation: requestType === 'TRAER' ? String((payload === null || payload === void 0 ? void 0 : payload.articleShelfName) || '') : null,
             toLocation: null,
             shelfCode,
             operarioId,

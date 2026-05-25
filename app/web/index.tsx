@@ -4,39 +4,22 @@ import { BrowserRouter } from 'react-router-dom';
 import './index.css';
 import AppV3 from './AppV3';
 
-// ─── Orientation lock: tablets → landscape, phones → portrait ──────────────
-const isTabletDevice = (): boolean => {
-  const ua = navigator.userAgent;
-  // iPad (iOS 13+ reporta como Mac con touch)
-  const isIPad = /iPad/.test(ua) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  // Android tablet (Android sin "Mobile" en UA)
-  const isAndroidTablet = /Android/.test(ua) && !/Mobile/.test(ua);
-  // Heurística por tamaño: dispositivo táctil con pantalla >= 768px
-  const isLargeTouch = window.matchMedia('(min-width: 768px) and (pointer: coarse)').matches;
-  return isIPad || isAndroidTablet || isLargeTouch;
-};
-
-const lockOrientationByDevice = async (): Promise<void> => {
-  // screen.orientation puede no existir o no soportar lock en algunos navegadores
+// ─── Orientation lock: siempre landscape para kiosko/tablets ─────────────────
+const lockOrientation = async (): Promise<void> => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const orientation = (screen as any).orientation;
   if (!orientation || typeof orientation.lock !== 'function') return;
 
   try {
-    if (isTabletDevice()) {
-      await orientation.lock('landscape');
-    } else {
-      await orientation.lock('portrait');
-    }
+    // Forzar landscape para todos los dispositivos (kiosko, tablets, etc.)
+    await orientation.lock('landscape');
   } catch (e) {
-    // Falla en navegadores que no son PWA standalone o en iOS Safari (no soporta lock).
-    // En esos casos la orientación queda libre y el usuario rota manualmente.
+    // Falla en navegadores que no son PWA standalone o en iOS Safari
     console.debug('[orientation] lock no soportado:', e);
   }
 };
 
-lockOrientationByDevice();
+lockOrientation();
 
 class AppErrorBoundary extends React.Component<
   { children: React.ReactNode },

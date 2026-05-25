@@ -8,9 +8,7 @@
 
 import type { ShelfLocationState } from '../schema/locations';
 import type { LocationItem } from '../schema/locations';
-
-const sameItem = (item: LocationItem, articleCode: string, orderFab: string) =>
-  item.articleCode === articleCode && item.orderFab === orderFab;
+import { isSameArticle } from '../articleIdentity';
 
 export const applyUbicar = (
   prev: ShelfLocationState[],
@@ -21,27 +19,43 @@ export const applyUbicar = (
   operarioId: string,
   operarioName: string,
 ): ShelfLocationState[] => {
-  const now = new Date().toISOString();
-  const next = [...prev];
-  const index = next.findIndex((loc) => loc.position === position);
-  const nextItem: LocationItem = {
-    presenceId: `offline-${Date.now()}`,
-    articleCode,
-    orderFab,
-    locatedBy: operarioId,
-    locatedByName: operarioName,
-    locatedAt: now,
-  };
+  return applyUbicarMulti(prev, shelfCode, articleCode, orderFab, [position], operarioId, operarioName);
+};
 
-  if (index >= 0) {
-    next[index] = { ...next[index], items: [...next[index].items, nextItem], isEmpty: false };
-  } else {
-    next.push({
-      position,
-      items: [nextItem],
-      isEmpty: false,
-      locationId: `${shelfCode}_${position}`,
-    });
+export const applyUbicarMulti = (
+  prev: ShelfLocationState[],
+  shelfCode: string,
+  articleCode: string,
+  orderFab: string,
+  positions: string[],
+  operarioId: string,
+  operarioName: string,
+): ShelfLocationState[] => {
+  const now = new Date().toISOString();
+  let next = [...prev];
+
+  for (const position of positions) {
+    const index = next.findIndex((loc) => loc.position === position);
+    const presenceId = `offline-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const nextItem: LocationItem = {
+      presenceId,
+      articleCode,
+      orderFab,
+      locatedBy: operarioId,
+      locatedByName: operarioName,
+      locatedAt: now,
+    };
+
+    if (index >= 0) {
+      next[index] = { ...next[index], items: [...next[index].items, nextItem], isEmpty: false };
+    } else {
+      next.push({
+        position,
+        items: [nextItem],
+        isEmpty: false,
+        locationId: `${shelfCode}_${position}`,
+      });
+    }
   }
 
   return next.sort((a, b) => Number.parseInt(a.position, 10) - Number.parseInt(b.position, 10));
@@ -54,7 +68,7 @@ export const applyRetirar = (
 ): { next: ShelfLocationState[]; positions: string[] } => {
   const positions: string[] = [];
   const next = prev.map((loc) => {
-    const updatedItems = loc.items.filter((item) => !sameItem(item, articleCode, orderFab));
+    const updatedItems = loc.items.filter((item) => !isSameArticle(item.articleCode, item.orderFab, articleCode, orderFab));
     if (updatedItems.length !== loc.items.length) positions.push(loc.position);
     return { ...loc, items: updatedItems, isEmpty: updatedItems.length === 0 };
   });
@@ -70,7 +84,7 @@ export const applyRetirarDeUbicacion = (
   let found = false;
   const next = prev.map((loc) => {
     if (loc.position !== position) return loc;
-    const updatedItems = loc.items.filter((item) => !sameItem(item, articleCode, orderFab));
+    const updatedItems = loc.items.filter((item) => !isSameArticle(item.articleCode, item.orderFab, articleCode, orderFab));
     if (updatedItems.length !== loc.items.length) found = true;
     return { ...loc, items: updatedItems, isEmpty: updatedItems.length === 0 };
   });
@@ -87,16 +101,16 @@ export const applyMover = (
 ): ShelfLocationState[] => {
   const now = new Date().toISOString();
   const matchedItems = prev.flatMap((loc) =>
-    loc.items.filter((item) => sameItem(item, articleCode, orderFab)),
+    loc.items.filter((item) => isSameArticle(item.articleCode, item.orderFab, articleCode, orderFab)),
   );
   const cleaned = prev
     .map((loc) => ({
       ...loc,
-      items: loc.items.filter((item) => !sameItem(item, articleCode, orderFab)),
+      items: loc.items.filter((item) => !isSameArticle(item.articleCode, item.orderFab, articleCode, orderFab)),
     }))
     .map((loc) => ({ ...loc, isEmpty: loc.items.length === 0 }));
 
-  return cleaned.map((loc) => {
+  let result = cleaned.map((loc) => {
     const targetIndex = newPositions.findIndex((p) => p === loc.position);
     if (targetIndex < 0) return loc;
     const sourceItem = matchedItems[targetIndex] || matchedItems[0];
@@ -117,4 +131,28 @@ export const applyMover = (
       isEmpty: false,
     };
   });
+
+  const existingPositions = new Set(result.map((loc) => loc.position));
+  const missingPositions = newPositions.filter((p) => !existingPositions.has(p));
+  for (let i = 0; i < missingPositions.length; i++) {
+    const sourceItem = matchedItems[newPositions.indexOf(missingPositions[i])] || matchedItems[0];
+    result.push({
+      position: missingPositions[i],
+      items: [
+        {
+          ...sourceItem,
+          presenceId: sourceItem?.presenceId || `offline-${Date.now()}-${i}`,
+          articleCode,
+          orderFab,
+          locatedBy: operarioId,
+          locatedByName: operarioName,
+          locatedAt: now,
+        },
+      ],
+      isEmpty: false,
+      locationId: `${newPositions[0]?.split('_')[0]}_${missingPositions[i]}`,
+    });
+  }
+
+  return result.sort((a, b) => Number.parseInt(a.position, 10) - Number.parseInt(b.position, 10));
 };

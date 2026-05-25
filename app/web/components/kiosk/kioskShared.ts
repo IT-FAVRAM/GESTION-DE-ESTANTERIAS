@@ -18,6 +18,7 @@ export interface KioskConfirmModalState {
   message: string;
   icon: string;
   variant: 'success' | 'danger' | 'warning' | 'info';
+  confirmText?: string;
   onConfirm: () => void;
   extraButton?: { text: string; onClick: () => void };
 }

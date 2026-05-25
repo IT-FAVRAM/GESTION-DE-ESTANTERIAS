@@ -68,7 +68,20 @@
       "Bash(curl -k https://localhost:3006)",
       "Bash(xargs grep -l \"shelf\\\\|estanter\" -i)",
       "Bash(xargs grep -l \"shelfGrid\\\\|ShelfGrid\\\\|shelf.*render\\\\|estanter\" -i)",
-      "Bash(npx firebase *)"
+      "Bash(npx firebase *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\-- APLICACIONES DANI --\\\\APP -- ESTANTERIAS\" -Force)",
+      "Bash(Select-Object -Property Name, PSIsContainer)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(grep -r \"console.error\\\\|throw new Error\" \"C:\\\\-- APLICACIONES DANI --\\\\APP -- ESTANTERIAS\\\\app\\\\web\" --include=\"*.tsx\" --include=\"*.ts\" ! -path \"*/node_modules/*\")",
+      "Bash(grep -r \"console.error\" \"C:\\\\-- APLICACIONES DANI --\\\\APP -- ESTANTERIAS\\\\app\\\\web\" --include=\"*.tsx\" --include=\"*.ts\" ! -path \"*/node_modules/*\")",
+      "Bash(grep -r \"any\\\\|todo\\\\|TODO\\\\|FIXME\" \"C:\\\\-- APLICACIONES DANI --\\\\APP -- ESTANTERIAS\\\\app\\\\web\" --include=\"*.tsx\" --include=\"*.ts\" ! -path \"*/node_modules/*\")",
+      "PowerShell(npm run *)",
+      "PowerShell(cd \"C:\\\\-- APLICACIONES DANI --\\\\APP -- ESTANTERIAS\\\\app\\\\web\"; Start-Process powershell -ArgumentList \"-NoProfile -Command cd 'C:\\\\-- APLICACIONES DANI --\\\\APP -- ESTANTERIAS\\\\app\\\\web'; npm run dev 2>&1 | Out-File C:\\\\Temp\\\\vite-dev.log\" -WindowStyle Hidden; Start-Sleep -Seconds 5; Get-Content C:\\\\Temp\\\\vite-dev.log -ErrorAction SilentlyContinue | Select-Object -Last 10)",
+      "Bash(dir \"C:\\\\-- APLICACIONES DANI --\\\\APP -- ESTANTERIAS\\\\app\\\\web\")",
+      "Bash(firebase emulators:start --import=./emulator-data)",
+      "Bash(curl -s -k https://localhost:3000)",
+      "Bash(firebase projects:list)",
+      "Bash(curl -s -I https://gestion-de-estanterias.web.app)"
     ]
   }
 }

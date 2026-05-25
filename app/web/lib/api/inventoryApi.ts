@@ -1,5 +1,6 @@
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
+import { parseCallableError } from '../callableError';
 
 type SessionPayload = {
     role?: string | null;
@@ -8,7 +9,7 @@ type SessionPayload = {
     operarioName?: string | null;
 };
 
-type InventoryOp = 'ubicar' | 'retirar' | 'retirarDeUbicacion' | 'mover';
+type InventoryOp = 'ubicar' | 'ubicarMulti' | 'retirar' | 'retirarDeUbicacion' | 'mover';
 
 interface InventoryOperateParams {
     op: InventoryOp;
@@ -33,10 +34,8 @@ const callInventoryOperate = async ({ op, payload, session, opId }: InventoryOpe
     try {
         const result = await callable({ op, payload, session, opId: opId || generateUUID() });
         return (result?.data || {}) as { ok?: boolean; opId?: string; positions?: string[] };
-    } catch (error: any) {
-        const code = error?.code || 'unknown';
-        const message = error?.message || 'Operation failed';
-        throw new Error(`${code}:${message}`);
+    } catch (error: unknown) {
+        throw new Error(parseCallableError(error));
     }
 };
 
@@ -48,6 +47,7 @@ const callLegacyInventoryOperate = async (op: 'assign' | 'remove' | 'move' | 'em
 
 export const inventoryApi = {
     ubicar: (payload: Record<string, unknown>, session?: SessionPayload, opId?: string) => callInventoryOperate({ op: 'ubicar', payload, session, opId }),
+    ubicarMulti: (payload: Record<string, unknown>, session?: SessionPayload, opId?: string) => callInventoryOperate({ op: 'ubicarMulti', payload, session, opId }),
     retirar: (payload: Record<string, unknown>, session?: SessionPayload, opId?: string) => callInventoryOperate({ op: 'retirar', payload, session, opId }),
     retirarDeUbicacion: (payload: Record<string, unknown>, session?: SessionPayload, opId?: string) => callInventoryOperate({ op: 'retirarDeUbicacion', payload, session, opId }),
     mover: (payload: Record<string, unknown>, session?: SessionPayload, opId?: string) => callInventoryOperate({ op: 'mover', payload, session, opId }),

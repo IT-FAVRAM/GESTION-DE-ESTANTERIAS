@@ -1,8 +1,8 @@
 /**
- * PickupQueue — Cola de recogidas para el carretillero
+ * PickupQueue — Cola de solicitudes para el carretillero
  * Gestor de Estanterías WMS v3.0
- * 
- * Muestra solicitudes agrupadas por sección, con botón de completar.
+ *
+ * Muestra solicitudes agrupadas por sección. Distingue RECOGER (naranja) de TRAER (azul).
  */
 
 import React, { useState } from 'react';
@@ -18,6 +18,120 @@ const timeAgo = (dateStr: string): string => {
   if (hrs > 0) return `hace ${hrs}h`;
   if (mins > 0) return `hace ${mins}min`;
   return 'ahora';
+};
+
+interface RequestCardProps {
+  req: PickupRequest;
+  onComplete: (id: string) => void;
+  processingId: string | null;
+}
+
+const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId }) => {
+  const isTraer = req.requestType === 'TRAER';
+
+  if (isTraer) {
+    return (
+      <div className="bg-slate-900 border border-blue-500/30 rounded-2xl p-4">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-blue-500/15 flex items-center justify-center shrink-0">
+              <span className="text-lg">📦</span>
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-blue-400 bg-blue-500/15 px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                  Traer
+                </span>
+                <span className="text-xs text-slate-500">{timeAgo(req.createdAt)}</span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {req.operarioName} · {req.shelfName}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => onComplete(req.id)}
+            disabled={processingId === req.id}
+            className="shrink-0 px-3 py-2 bg-blue-600 text-white text-sm font-bold
+              rounded-xl hover:bg-blue-500 active:scale-95 transition-all
+              disabled:opacity-50 flex items-center gap-1.5 shadow-md"
+          >
+            {processingId === req.id ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : <span>✓</span>}
+            HECHO
+          </button>
+        </div>
+        {/* Article info */}
+        {req.articleCode && (
+          <div className="mt-3 bg-blue-950/40 border border-blue-500/20 rounded-xl p-3">
+            <p className="font-black text-white font-mono text-base leading-tight">
+              {req.articleCode}
+            </p>
+            {req.articleOrderFab && (
+              <p className="text-xs text-slate-400 font-mono mt-0.5">OF: {req.articleOrderFab}</p>
+            )}
+            {req.articleShelfName && (
+              <div className="mt-2 flex items-baseline gap-1.5">
+                <span className="text-[10px] text-blue-400">📍</span>
+                <div>
+                  <span className="text-xs font-bold text-blue-300">{req.articleShelfName}</span>
+                  {req.articlePositions && req.articlePositions.length > 0 && (
+                    <span className="text-xs text-slate-400 ml-1">
+                      — {req.articlePositions.length === 1
+                        ? `posición ${req.articlePositions[0]}`
+                        : `posiciones ${req.articlePositions.join(', ')}`}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            <p className="text-[10px] text-slate-500 mt-2">
+              Llevar a: <span className="text-slate-400">{req.shelfName}</span>
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // RECOGER (default)
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
+          <span className="text-lg">🔔</span>
+        </div>
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-orange-400 bg-orange-500/15 px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+              Recoger
+            </span>
+          </div>
+          <p className="text-sm font-bold text-white mt-0.5">
+            {req.operarioName}
+          </p>
+          <p className="text-xs text-slate-500 mt-0.5">
+            {timeAgo(req.createdAt)} · {req.shelfName}
+          </p>
+        </div>
+      </div>
+
+      <button
+        onClick={() => onComplete(req.id)}
+        disabled={processingId === req.id}
+        className="px-4 py-2.5 bg-emerald-600 text-white text-sm font-bold
+          rounded-xl hover:bg-emerald-500 active:scale-95 transition-all
+          disabled:opacity-50 flex items-center gap-2 shadow-lg"
+      >
+        {processingId === req.id ? (
+          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        ) : <span>✓</span>}
+        HECHO
+      </button>
+    </div>
+  );
 };
 
 const PickupQueue: React.FC = () => {
@@ -63,57 +177,22 @@ const PickupQueue: React.FC = () => {
           <div className="space-y-6">
             {groupedPending.map((group) => (
               <div key={group.section}>
-                {/* Section header */}
                 <div className="flex items-center gap-2 mb-3">
                   <div className="h-px flex-1 bg-slate-800" />
                   <span className="text-xs font-black text-slate-400 uppercase tracking-wider">
                     {group.sectionName}
                   </span>
-                  <span className="text-xs text-slate-600">
-                    ({group.requests.length})
-                  </span>
+                  <span className="text-xs text-slate-600">({group.requests.length})</span>
                   <div className="h-px flex-1 bg-slate-800" />
                 </div>
-
-                {/* Requests */}
                 <div className="space-y-2">
                   {group.requests.map((req) => (
-                    <div
+                    <RequestCard
                       key={req.id}
-                      className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
-                          <span className="text-lg">🔔</span>
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-white">
-                            Operario {req.operarioId}
-                          </p>
-                          <p className="text-xs text-slate-400">
-                            {req.operarioName}
-                          </p>
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            {timeAgo(req.createdAt)} · {req.shelfName}
-                          </p>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => handleComplete(req.id)}
-                        disabled={processingId === req.id}
-                        className="px-4 py-2.5 bg-emerald-600 text-white text-sm font-bold 
-                          rounded-xl hover:bg-emerald-500 active:scale-95 transition-all
-                          disabled:opacity-50 flex items-center gap-2 shadow-lg"
-                      >
-                        {processingId === req.id ? (
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <span>✓</span>
-                        )}
-                        HECHO
-                      </button>
-                    </div>
+                      req={req}
+                      onComplete={handleComplete}
+                      processingId={processingId}
+                    />
                   ))}
                 </div>
               </div>
@@ -131,14 +210,14 @@ const PickupQueue: React.FC = () => {
           >
             {showCompleted ? '▲ Ocultar' : '▼ Mostrar'} completadas ({completedRequests.length})
           </button>
-
           {showCompleted && (
             <div className="space-y-2 mt-2 opacity-50">
               {completedRequests.slice(0, 20).map((req) => (
                 <div key={req.id} className="bg-slate-900/50 rounded-xl p-3 flex items-center justify-between">
                   <div>
                     <p className="text-sm text-slate-400 line-through">
-                      Op. {req.operarioId} · {req.shelfName}
+                      {req.requestType === 'TRAER' ? `📦 ${req.articleCode || 'Traslado'}` : `🔔 ${req.operarioName}`}
+                      {' · '}{req.shelfName}
                     </p>
                     <p className="text-xs text-slate-600">
                       {req.completedAt ? timeAgo(req.completedAt) : ''}

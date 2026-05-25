@@ -1,6 +1,11 @@
 import * as functions from 'firebase-functions';
 import { admin } from './firebaseAdmin';
-import { requireAllowedRoles, resolveOperationalActor } from './authz';
+import {
+  assertActorMayOperateShelf,
+  getWmsSectionForShelf,
+  requireAllowedRoles,
+  resolveOperationalActor,
+} from './authz';
 
 const normalize = (value?: string | null) => (value || '').trim().toUpperCase();
 
@@ -26,15 +31,7 @@ const samePresence = (item: any, presenceId: string, articleCode: string, orderF
   return normalize(item?.articleCode) === normalize(articleCode) && normalize(item?.orderFab) === normalize(orderFab);
 };
 
-const sectionForWarehouse = (warehouseId: string) => {
-  if (warehouseId === 'MEC') return 'MECANIZADO';
-  if (warehouseId === 'PLE') return 'PLEGADORA';
-  if (warehouseId === 'RPL') return 'ROBOT_PLEGADO';
-  if (['SOL', 'RSO', 'SXP'].includes(warehouseId)) return 'SOLDADURA';
-  if (['REP', 'ZIN'].includes(warehouseId)) return 'REPASADO';
-  if (warehouseId === 'PIN') return 'PINTURA';
-  return 'OTROS';
-};
+const sectionForWarehouse = (warehouseId: string) => getWmsSectionForShelf(warehouseId);
 
 const canOperateWarehouse = (role: string, section: string | null, warehouseId: string) => {
   if (['ADMIN', 'CARRETILLERO', 'SUPERADMIN', 'CALIDAD'].includes(role)) return true;
@@ -240,9 +237,7 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
     throw new functions.https.HttpsError('invalid-argument', 'shelfCode requerido.');
   }
 
-  if (actor.role === 'OPERARIO' && actor.assignedShelf && actor.assignedShelf !== shelfCode) {
-    throw new functions.https.HttpsError('permission-denied', 'El kiosko no puede operar otra estanteria.');
-  }
+  assertActorMayOperateShelf(actor, shelfCode);
 
   const writeHistory = (tx: FirebaseFirestore.Transaction, entry: Record<string, unknown>) => {
     const historyRef = db.collection('history').doc();
@@ -311,6 +306,63 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
     } catch { /* non-critical */ }
 
     return { ok: true, warning };
+  }
+
+  if (op === 'ubicarMulti') {
+    const rawPositions = Array.isArray(payload?.positions) ? payload.positions : [];
+    const positions = rawPositions.map((value: unknown) => String(value).trim()).filter(Boolean);
+    if (!articleCode || !orderFab || positions.length === 0) {
+      throw new functions.https.HttpsError('invalid-argument', 'Datos incompletos para ubicar múltiple.');
+    }
+    const db2 = admin.firestore();
+    const results: string[] = [];
+
+    await db2.runTransaction(async (tx) => {
+      const aggregateKey = `${normalize(articleCode)}__${normalize(orderFab)}`;
+      const aggregateRef = db2.collection('itemAggregates').doc(aggregateKey);
+      const aggregateSnap = await tx.get(aggregateRef);
+
+      let totalPresencesAdded = 0;
+      const presenceIdsToAdd: string[] = [];
+
+      for (const position of positions) {
+        const locationId = `${shelfCode}-${position}`;
+        const locRef = db2.collection('shelves').doc(shelfCode).collection('locations').doc(position);
+        const presenceRef = db2.collection('items').doc();
+
+        const locSnap = await tx.get(locRef);
+        const currentItems = locSnap.exists ? ((locSnap.data()?.items || []) as any[]) : [];
+        tx.set(locRef, {
+          position,
+          items: [...currentItems, { presenceId: presenceRef.id, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now }],
+          isEmpty: false,
+        }, { merge: true });
+        tx.set(presenceRef, { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true });
+
+        totalPresencesAdded++;
+        presenceIdsToAdd.push(presenceRef.id);
+        results.push(locationId);
+      }
+
+      if (aggregateSnap.exists) {
+        const aggregate = aggregateSnap.data() as any;
+        const currentIds: string[] = aggregate.activePresenceIds || [];
+        const totalActive = (currentIds.length + totalPresencesAdded);
+        if (totalActive > 500) {
+          throw new functions.https.HttpsError(
+            'resource-exhausted',
+            `El agregado ${aggregateKey} ha alcanzado el limite de 500 presencias activas simultaneas.`,
+          );
+        }
+        tx.set(aggregateRef, { activePresenceIds: [...currentIds, ...presenceIdsToAdd], totalActivePresences: (aggregate.totalActivePresences || 0) + totalPresencesAdded, totalPlacements: (aggregate.totalPlacements || 0) + totalPresencesAdded, updatedAt: now }, { merge: true });
+      } else {
+        tx.set(aggregateRef, { aggregateKey, articleCode, orderFab, activePresenceIds: presenceIdsToAdd, totalActivePresences: totalPresencesAdded, totalPlacements: totalPresencesAdded, updatedAt: now });
+      }
+
+      writeHistory(tx, { action: 'UBICAR_MULTI', articleCode, orderFab, fromLocation: null, toLocation: results.join(', '), shelfCode, operarioId, operarioName });
+    });
+
+    return { ok: true, positions: results };
   }
 
   if (op === 'retirar') {
@@ -472,10 +524,11 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
     const presenceSnapshot = await db.collection('items')
       .where('aggregateKey', '==', aggregateKey)
       .where('active', '==', true)
+      .where('shelfCode', '==', shelfCode)
       .get();
 
     if (presenceSnapshot.empty) {
-      throw new functions.https.HttpsError('not-found', 'Articulo no encontrado en ninguna estanteria.');
+      throw new functions.https.HttpsError('not-found', 'Articulo no encontrado en esta estanteria.');
     }
 
     const removedFromLocations: string[] = [];

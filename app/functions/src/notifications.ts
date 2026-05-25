@@ -1,6 +1,6 @@
 import * as functions from 'firebase-functions';
 import { admin } from './firebaseAdmin';
-import { getWmsSectionForShelf, resolveOperationalActor } from './authz';
+import { assertActorMayOperateShelf, getWmsSectionForShelf, resolveOperationalActor } from './authz';
 import { getAppConfig, getUsersByEmails, getUsersByRole, notifyUsersByEmails, notifyUsersByRole, sendPushToUsers } from './push';
 
 const normalize = (value?: string | null) => (value || '').trim().toUpperCase();
@@ -75,13 +75,39 @@ export const notifyPickupQueueCreated = functions.firestore
   .document('pickupQueue/{requestId}')
   .onCreate(async (snapshot: any, context: any) => {
     const data = snapshot.data() || {};
+    const requestType = String(data.requestType || 'RECOGER');
     const shelfSection = String(data.shelfSection || 'OTROS');
     const shelfName = String(data.shelfName || data.shelfCode || 'estanteria');
-    const operarioId = String(data.operarioId || '---');
+    const operarioName = String(data.operarioName || data.operarioId || '---');
+    const requestId = String(context.params.requestId || '');
+    const shelfCode = String(data.shelfCode || '');
+
+    let title: string;
+    let body: string;
+    let notifType: string;
+
+    if (requestType === 'TRAER') {
+      const articleCode = String(data.articleCode || 'Artículo');
+      const articleOrderFab = String(data.articleOrderFab || '');
+      const articleShelfName = String(data.articleShelfName || 'estantería desconocida');
+      const articlePositions: string[] = Array.isArray(data.articlePositions) ? data.articlePositions : [];
+      const posText = articlePositions.length > 0
+        ? `posición ${articlePositions.join(', posición ')}`
+        : 'ubicación desconocida';
+      title = `📦 ${operarioName} (${shelfSection}) solicita traslado`;
+      body = `Necesita: ${articleCode}${articleOrderFab ? ' ' + articleOrderFab : ''}.\nEstá en: ${articleShelfName}, ${posText}.\nLlevar a: ${shelfSection} — ${shelfName}.`;
+      notifType = 'DELIVERY_REQUEST';
+    } else {
+      const operarioId = String(data.operarioId || '---');
+      title = `🛑 ${operarioName} solicita recogida`;
+      body = `${shelfSection} — ${shelfName} (${operarioId}).`;
+      notifType = 'PICKUP_QUEUE_CREATED';
+    }
+
     await notifyUsersByRole('CARRETILLERO', {
-      title: 'Nueva solicitud de recogida',
-      body: `Operario ${operarioId} solicita recogida en ${shelfSection} (${shelfName}).`,
-      data: { type: 'PICKUP_QUEUE_CREATED', requestId: String(context.params.requestId || ''), shelfCode: String(data.shelfCode || ''), shelfSection },
+      title,
+      body,
+      data: { type: notifType, requestId, shelfCode, shelfSection },
     });
     return null;
   });
@@ -267,29 +293,41 @@ export const pickupQueueOperate = functions.https.onCall(async (data: any, conte
     const operarioId = String(payload?.operarioId || actor.operarioId || actor.uid).trim();
     const operarioName = String(payload?.operarioName || actor.operarioName || actor.email || actor.uid).trim();
     const shelfName = String(payload?.shelfName || shelfCode).trim() || shelfCode;
+    const requestType = String(payload?.requestType || 'RECOGER').trim().toUpperCase();
     if (!shelfCode || !operarioId) {
       throw new functions.https.HttpsError('invalid-argument', 'Datos incompletos para crear recogida.');
     }
-    if (actor.role === 'OPERARIO' && actor.assignedShelf && actor.assignedShelf !== shelfCode) {
-      throw new functions.https.HttpsError('permission-denied', 'El kiosko no puede crear recogidas en otra estanteria.');
+    // Solo verificar autorización de estantería para recogidas (no para solicitudes de traslado)
+    if (requestType !== 'TRAER') {
+      assertActorMayOperateShelf(actor, shelfCode);
     }
     const createdAt = new Date().toISOString();
-    const queueRef = await admin.firestore().collection('pickupQueue').add({
+    const docData: Record<string, unknown> = {
       operarioId,
       operarioName,
       shelfSection: getWmsSectionForShelf(shelfCode),
       shelfCode,
       shelfName,
+      requestType,
       status: 'PENDING',
       createdAt,
       completedAt: null,
       completedBy: null,
-    });
+    };
+    if (requestType === 'TRAER') {
+      docData.articleCode = String(payload?.articleCode || '').trim();
+      docData.articleOrderFab = String(payload?.articleOrderFab || '').trim();
+      docData.articleShelfName = String(payload?.articleShelfName || '').trim();
+      docData.articlePositions = Array.isArray(payload?.articlePositions)
+        ? payload.articlePositions.map((p: unknown) => String(p))
+        : [];
+    }
+    const queueRef = await admin.firestore().collection('pickupQueue').add(docData);
     await admin.firestore().collection('history').add({
-      action: 'AVISAR_CARRETILLERO',
-      articleCode: '',
-      orderFab: '',
-      fromLocation: null,
+      action: requestType === 'TRAER' ? 'SOLICITAR_TRASLADO' : 'AVISAR_CARRETILLERO',
+      articleCode: requestType === 'TRAER' ? String(payload?.articleCode || '') : '',
+      orderFab: requestType === 'TRAER' ? String(payload?.articleOrderFab || '') : '',
+      fromLocation: requestType === 'TRAER' ? String(payload?.articleShelfName || '') : null,
       toLocation: null,
       shelfCode,
       operarioId,

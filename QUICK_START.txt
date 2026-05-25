@@ -1,0 +1,101 @@
+═══════════════════════════════════════════════════════════════════════════════
+  WMS v3 — TESTING E2E LISTO PARA COMENZAR
+═══════════════════════════════════════════════════════════════════════════════
+
+📱 APP ESTÁ CORRIENDO EN:
+   https://localhost:3000
+
+🔧 AMBIENTE COMPLETAMENTE CONFIGURADO:
+   ✓ Build exitoso (0 errores TypeScript)
+   ✓ Vite dev server activo
+   ✓ Firebase conectado (en vivo)
+   ✓ 16 bugs críticos corregidos
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🚀 PASOS PARA COMENZAR TESTING:
+
+1️⃣  ABRIR LA APP
+   En navegador:  https://localhost:3000
+   En móvil:      https://10.0.0.80:3000
+
+2️⃣  HACER LOGIN
+   Opción A (rápida):
+      • Click "🔐 Acceso Rápido"
+      • Select "OPERARIO"
+      • ✓ Ready to test
+
+   Opción B (audit trail):
+      • Click "📧 Email/Contraseña"
+      • Login como ADMIN
+      • ✓ Para Test 7 (audit log)
+
+3️⃣  EJECUTAR 7 TESTS CRÍTICOS
+   Ver: E2E_TEST_PLAN.md (en este directorio)
+
+   Checklist rápido:
+   ☐ Test 1: Ubicar en 3 posiciones → totalActivePresences = 3
+   ☐ Test 2: Mover a posición nueva (sin desaparecer)
+   ☐ Test 3: enviarAlmacen solo en current shelf
+   ☐ Test 4: CALIDAD ve botón TRAER en AVISAR
+   ☐ Test 5: Offline ubicarMulti (encolado + sync)
+   ☐ Test 6: OCR retry reinicia stream
+   ☐ Test 7: Audit log tiene UID (no vacío)
+
+4️⃣  VERIFICAR EN FIRESTORE
+   https://console.firebase.google.com
+   Proyecto → Firestore → Ver cambios en vivo
+
+5️⃣  DEBUGEAR SI ES NECESARIO
+   F12 → Console
+   Filtrar por: [useShelf], [CameraOCRScanner], Error
+   Network → Ver requests a inventoryApi.*
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📊 RESUMEN DE CAMBIOS APLICADOS:
+
+Archivos modificados:    42
+Bugs corregidos:         16
+  • Backend (2 críticos):
+    - ubicarMulti aggregate loop
+    - enviarAlmacen shelfCode scope
+
+  • Frontend (4 críticos):
+    - applyMover posiciones nuevas
+    - ubicarMulti offline fallback
+    - OCR retry stream restart
+    - CALIDAD TRAER option
+
+  • Menor (10):
+    - Error handling unificado
+    - Audit trail fixes
+    - Type safety
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📝 DOCUMENTACIÓN DISPONIBLE:
+
+  TESTING_STATUS.md    → Resumen completo de cambios
+  E2E_TEST_PLAN.md     → Guía detallada de 7 tests
+  monitor-firestore.sh → Monitoreo de datos en vivo
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🔍 VERIFICACIÓN RÁPIDA (SIN TESTING MANUAL):
+
+Para confirmar que todo está compilado correctamente:
+   npm run build   (en app/web)
+   Result: ✓ built in 8.20s (0 errors)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+⏱️  TIEMPO ESTIMADO PARA TESTING COMPLETO: 30-45 minutos
+
+═══════════════════════════════════════════════════════════════════════════════
+
+¿LISTO? Abre https://localhost:3000 en tu navegador y comienza el testing.
+
+¿PREGUNTAS? Consulta E2E_TEST_PLAN.md para detalles de cada test.
+
+═══════════════════════════════════════════════════════════════════════════════

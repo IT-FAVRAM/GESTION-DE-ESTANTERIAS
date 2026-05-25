@@ -20,21 +20,7 @@ const samePresence = (item, presenceId, articleCode, orderFab) => {
     }
     return normalize(item === null || item === void 0 ? void 0 : item.articleCode) === normalize(articleCode) && normalize(item === null || item === void 0 ? void 0 : item.orderFab) === normalize(orderFab);
 };
-const sectionForWarehouse = (warehouseId) => {
-    if (warehouseId === 'MEC')
-        return 'MECANIZADO';
-    if (warehouseId === 'PLE')
-        return 'PLEGADORA';
-    if (warehouseId === 'RPL')
-        return 'ROBOT_PLEGADO';
-    if (['SOL', 'RSO', 'SXP'].includes(warehouseId))
-        return 'SOLDADURA';
-    if (['REP', 'ZIN'].includes(warehouseId))
-        return 'REPASADO';
-    if (warehouseId === 'PIN')
-        return 'PINTURA';
-    return 'OTROS';
-};
+const sectionForWarehouse = (warehouseId) => (0, authz_1.getWmsSectionForShelf)(warehouseId);
 const canOperateWarehouse = (role, section, warehouseId) => {
     if (['ADMIN', 'CARRETILLERO', 'SUPERADMIN', 'CALIDAD'].includes(role))
         return true;
@@ -257,9 +243,7 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
     if (!shelfCode) {
         throw new functions.https.HttpsError('invalid-argument', 'shelfCode requerido.');
     }
-    if (actor.role === 'OPERARIO' && actor.assignedShelf && actor.assignedShelf !== shelfCode) {
-        throw new functions.https.HttpsError('permission-denied', 'El kiosko no puede operar otra estanteria.');
-    }
+    (0, authz_1.assertActorMayOperateShelf)(actor, shelfCode);
     const writeHistory = (tx, entry) => {
         const historyRef = db.collection('history').doc();
         tx.set(historyRef, Object.assign(Object.assign({}, entry), { id: historyRef.id, timestamp: now, uid: actor.uid, role: actor.role, user: operarioName, source: 'shelfOperate' }));
@@ -314,6 +298,53 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
         }
         catch ( /* non-critical */_a) { /* non-critical */ }
         return { ok: true, warning };
+    }
+    if (op === 'ubicarMulti') {
+        const rawPositions = Array.isArray(payload === null || payload === void 0 ? void 0 : payload.positions) ? payload.positions : [];
+        const positions = rawPositions.map((value) => String(value).trim()).filter(Boolean);
+        if (!articleCode || !orderFab || positions.length === 0) {
+            throw new functions.https.HttpsError('invalid-argument', 'Datos incompletos para ubicar múltiple.');
+        }
+        const db2 = firebaseAdmin_1.admin.firestore();
+        const results = [];
+        await db2.runTransaction(async (tx) => {
+            var _a;
+            const aggregateKey = `${normalize(articleCode)}__${normalize(orderFab)}`;
+            const aggregateRef = db2.collection('itemAggregates').doc(aggregateKey);
+            const aggregateSnap = await tx.get(aggregateRef);
+            let totalPresencesAdded = 0;
+            const presenceIdsToAdd = [];
+            for (const position of positions) {
+                const locationId = `${shelfCode}-${position}`;
+                const locRef = db2.collection('shelves').doc(shelfCode).collection('locations').doc(position);
+                const presenceRef = db2.collection('items').doc();
+                const locSnap = await tx.get(locRef);
+                const currentItems = locSnap.exists ? (((_a = locSnap.data()) === null || _a === void 0 ? void 0 : _a.items) || []) : [];
+                tx.set(locRef, {
+                    position,
+                    items: [...currentItems, { presenceId: presenceRef.id, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now }],
+                    isEmpty: false,
+                }, { merge: true });
+                tx.set(presenceRef, { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true });
+                totalPresencesAdded++;
+                presenceIdsToAdd.push(presenceRef.id);
+                results.push(locationId);
+            }
+            if (aggregateSnap.exists) {
+                const aggregate = aggregateSnap.data();
+                const currentIds = aggregate.activePresenceIds || [];
+                const totalActive = (currentIds.length + totalPresencesAdded);
+                if (totalActive > 500) {
+                    throw new functions.https.HttpsError('resource-exhausted', `El agregado ${aggregateKey} ha alcanzado el limite de 500 presencias activas simultaneas.`);
+                }
+                tx.set(aggregateRef, { activePresenceIds: [...currentIds, ...presenceIdsToAdd], totalActivePresences: (aggregate.totalActivePresences || 0) + totalPresencesAdded, totalPlacements: (aggregate.totalPlacements || 0) + totalPresencesAdded, updatedAt: now }, { merge: true });
+            }
+            else {
+                tx.set(aggregateRef, { aggregateKey, articleCode, orderFab, activePresenceIds: presenceIdsToAdd, totalActivePresences: totalPresencesAdded, totalPlacements: totalPresencesAdded, updatedAt: now });
+            }
+            writeHistory(tx, { action: 'UBICAR_MULTI', articleCode, orderFab, fromLocation: null, toLocation: results.join(', '), shelfCode, operarioId, operarioName });
+        });
+        return { ok: true, positions: results };
     }
     if (op === 'retirar') {
         if (!articleCode || !orderFab) {
@@ -460,9 +491,10 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
         const presenceSnapshot = await db.collection('items')
             .where('aggregateKey', '==', aggregateKey)
             .where('active', '==', true)
+            .where('shelfCode', '==', shelfCode)
             .get();
         if (presenceSnapshot.empty) {
-            throw new functions.https.HttpsError('not-found', 'Articulo no encontrado en ninguna estanteria.');
+            throw new functions.https.HttpsError('not-found', 'Articulo no encontrado en esta estanteria.');
         }
         const removedFromLocations = [];
         await db.runTransaction(async (tx) => {

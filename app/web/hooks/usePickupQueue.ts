@@ -22,6 +22,7 @@ import {
 import { db } from '../lib/firebase';
 import { resolveCurrentAuthSession } from '../domain/auth/authSessionResolver';
 import { pickupQueueApi } from '../lib/api/pickupQueueApi';
+import { parseCallableError } from '../lib/callableError';
 import { enqueueOfflineOperation } from '../lib/offline/offlineQueue';
 import { getOperationalSession } from '../lib/operationalSession';
 import {
@@ -199,9 +200,68 @@ export const usePickupQueue = () => {
       await pickupQueueApi.create({ operarioId, operarioName, shelfCode, shelfSection: section, shelfName: shelfDef?.name || shelfCode }, session);
       return true;
       
-    } catch (err: any) {
-      console.error('[usePickupQueue] Create error:', err);
-      setError(err.message || 'Error al enviar aviso');
+    } catch (err: unknown) {
+      const msg = parseCallableError(err);
+      console.error('[usePickupQueue] Create error:', msg);
+      setError(msg);
+      return false;
+    }
+  }, []);
+
+  // ─── Create delivery request — operario pide que le traigan un artículo ───
+  const createDeliveryRequest = useCallback(async (
+    operarioId: string,
+    operarioName: string,
+    requesterShelfCode: string,
+    requesterShelfName: string,
+    articleCode: string,
+    articleOrderFab: string,
+    articleShelfName: string,
+    articlePositions: string[],
+  ): Promise<boolean> => {
+    try {
+      const section = getSectionForShelf(requesterShelfCode);
+      const session = getOperationalSession();
+
+      if (!navigator.onLine) {
+        const tempRequest: PickupRequest = {
+          id: `offline-${Date.now()}`,
+          operarioId,
+          operarioName,
+          shelfSection: section,
+          shelfCode: requesterShelfCode,
+          shelfName: requesterShelfName,
+          requestType: 'TRAER',
+          articleCode,
+          articleOrderFab,
+          articleShelfName,
+          articlePositions,
+          status: 'PENDING',
+          createdAt: new Date().toISOString(),
+          completedAt: null,
+          completedBy: null,
+        };
+        setPendingRequests((prev) => [tempRequest, ...prev]);
+        enqueueOfflineOperation('SOLICITAR_TRASLADO', {
+          operarioId, operarioName,
+          shelfCode: requesterShelfCode, shelfSection: section, shelfName: requesterShelfName,
+          requestType: 'TRAER',
+          articleCode, articleOrderFab, articleShelfName, articlePositions,
+        }, session);
+        return true;
+      }
+
+      await pickupQueueApi.create({
+        operarioId, operarioName,
+        shelfCode: requesterShelfCode, shelfSection: section, shelfName: requesterShelfName,
+        requestType: 'TRAER',
+        articleCode, articleOrderFab, articleShelfName, articlePositions,
+      }, session);
+      return true;
+    } catch (err: unknown) {
+      const msg = parseCallableError(err);
+      console.error('[usePickupQueue] Create delivery error:', msg);
+      setError(msg);
       return false;
     }
   }, []);
@@ -213,29 +273,30 @@ export const usePickupQueue = () => {
   ): Promise<boolean> => {
     try {
       const session = getOperationalSession();
+      const completedReq = pendingRequests.find((req) => req.id === requestId);
+      if (completedReq) {
+        const completedWithMeta: PickupRequest = {
+          ...completedReq,
+          status: 'COMPLETED' as PickupStatus,
+          completedAt: new Date().toISOString(),
+          completedBy: completedByUid,
+        };
+        setPendingRequests((prev) => prev.filter((req) => req.id !== requestId));
+        setCompletedRequests((prev) => [completedWithMeta, ...prev]);
+      }
+
       if (!navigator.onLine) {
-        const completedReq = pendingRequests.find((req) => req.id === requestId);
-        if (completedReq) {
-          const completedWithMeta: PickupRequest = {
-            ...completedReq,
-            status: 'COMPLETED' as PickupStatus,
-            completedAt: new Date().toISOString(),
-            completedBy: completedByUid,
-          };
-          setPendingRequests((prev) => prev.filter((req) => req.id !== requestId));
-          setCompletedRequests((prev) => [completedWithMeta, ...prev]);
-        }
         enqueueOfflineOperation('COMPLETAR_RECOGIDA', { requestId, completedByUid }, session);
         return true;
       }
 
       await pickupQueueApi.complete({ requestId, completedByUid }, session);
-      
+
       return true;
-      
+
     } catch (err: any) {
       console.error('[usePickupQueue] Complete error:', err);
-      setError(err.message || 'Error al completar solicitud');
+      setError(parseCallableError(err));
       return false;
     }
   }, [pendingRequests]);
@@ -248,6 +309,7 @@ export const usePickupQueue = () => {
     error,
     pendingCount: pendingRequests.length,
     createPickupRequest,
+    createDeliveryRequest,
     completeRequest,
   };
 };

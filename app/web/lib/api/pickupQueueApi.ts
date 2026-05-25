@@ -1,5 +1,6 @@
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
+import { parseCallableError } from '../callableError';
 
 type SessionPayload = {
   role?: string | null;
@@ -10,8 +11,12 @@ type SessionPayload = {
 
 const callPickupQueueOperate = async (op: 'create' | 'complete', payload: Record<string, unknown>, session?: SessionPayload) => {
   const callable = httpsCallable(functions, 'pickupQueueOperate');
-  const result = await callable({ op, payload, session });
-  return (result?.data || {}) as { ok?: boolean; requestId?: string };
+  try {
+    const result = await callable({ op, payload, session });
+    return (result?.data || {}) as { ok?: boolean; requestId?: string };
+  } catch (error: unknown) {
+    throw new Error(parseCallableError(error));
+  }
 };
 
 export const pickupQueueApi = {
