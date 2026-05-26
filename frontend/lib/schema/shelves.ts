@@ -427,7 +427,18 @@ export const CART_DEFINITIONS: Shelf[] = [
     section: 'SOLDADURA',
     type: 'cart',
     locationCount: 8,
-    layout: { zones: [{ name: 'BALDAS', range: [1, 8], color: '#10b981' }] },
+    layout: {
+      zones: [{ name: 'BALDAS', range: [1, 8], color: '#10b981' }],
+      physicalBlocks: [
+        {
+          id: 'rsol-main',
+          title: 'Repuestos Soldadura',
+          subtitle: '8 baldas',
+          zoneName: 'BALDAS',
+          rows: [[1, 2], [3, 4], [5, 6], [7, 8]],
+        },
+      ],
+    },
   },
   {
     code: 'CSOL',
@@ -435,7 +446,18 @@ export const CART_DEFINITIONS: Shelf[] = [
     section: 'SOLDADURA',
     type: 'cart',
     locationCount: 8,
-    layout: { zones: [{ name: 'BALDAS', range: [1, 8], color: '#10b981' }] },
+    layout: {
+      zones: [{ name: 'BALDAS', range: [1, 8], color: '#10b981' }],
+      physicalBlocks: [
+        {
+          id: 'csol-main',
+          title: 'Carro Soldadura',
+          subtitle: '8 baldas',
+          zoneName: 'BALDAS',
+          rows: [[1, 2], [3, 4], [5, 6], [7, 8]],
+        },
+      ],
+    },
   },
   {
     code: 'CSXP',
@@ -443,7 +465,18 @@ export const CART_DEFINITIONS: Shelf[] = [
     section: 'SOLDADURA',
     type: 'cart',
     locationCount: 4,
-    layout: { zones: [{ name: 'BALDAS', range: [1, 4], color: '#10b981' }] },
+    layout: {
+      zones: [{ name: 'BALDAS', range: [1, 4], color: '#10b981' }],
+      physicalBlocks: [
+        {
+          id: 'csxp-main',
+          title: 'Carro SXP',
+          subtitle: '4 baldas',
+          zoneName: 'BALDAS',
+          rows: [[1, 2], [3, 4]],
+        },
+      ],
+    },
   },
   {
     code: 'CRPL',
@@ -451,7 +484,18 @@ export const CART_DEFINITIONS: Shelf[] = [
     section: 'AUTOPLEGADORA',
     type: 'cart',
     locationCount: 4,
-    layout: { zones: [{ name: 'BALDAS', range: [1, 4], color: '#10b981' }] },
+    layout: {
+      zones: [{ name: 'BALDAS', range: [1, 4], color: '#10b981' }],
+      physicalBlocks: [
+        {
+          id: 'crpl-main',
+          title: 'Carro Autoplegadora',
+          subtitle: '4 baldas',
+          zoneName: 'BALDAS',
+          rows: [[1, 2], [3, 4]],
+        },
+      ],
+    },
   },
 ];
 

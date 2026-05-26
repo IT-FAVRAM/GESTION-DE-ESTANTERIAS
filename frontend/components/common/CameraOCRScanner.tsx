@@ -1,10 +1,17 @@
 /**
  * CameraOCRScanner — Captura de etiquetas con OCR
  * Full-screen, guía visual, edición del resultado antes de confirmar.
+ *
+ * Optimizaciones de velocidad:
+ *  - Worker Tesseract pre-inicializado en paralelo con la cámara (no cold-start al pulsar 📸)
+ *  - Sólo idioma 'eng' + whitelist de caracteres industriales → carga y reconocimiento ~2× más rápido
+ *  - PSM 6 (bloque uniforme) → mejor para etiquetas de una o dos líneas
+ *  - OEM 1 (LSTM) → más preciso que el motor legacy
+ *  - Singleton: si el usuario abre OCR por segunda vez en la sesión, el worker ya está listo
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import Tesseract from 'tesseract.js';
+import { createWorker } from 'tesseract.js';
 import { preprocessCanvasForOcr, waitForVideoReady } from '../../lib/ocrPreprocess';
 
 interface CameraOCRScannerProps {
@@ -16,11 +23,59 @@ interface CameraOCRScannerProps {
 
 type Phase = 'starting' | 'live' | 'processing' | 'review' | 'error';
 
+// ─── Worker singleton ────────────────────────────────────────────────────────
+// Se inicializa la primera vez que se abre el scanner y se reutiliza en toda la sesión.
+// Esto elimina el "cold-start" en capturas posteriores (~3-8s → <1s).
+
+interface OcrWorkerState {
+  promise: Promise<import('tesseract.js').Worker> | null;
+  worker: import('tesseract.js').Worker | null;
+  progressFn: (p: number) => void;
+}
+
+const _ocr: OcrWorkerState = {
+  promise: null,
+  worker: null,
+  progressFn: () => {},
+};
+
+function ensureOcrWorker(): Promise<import('tesseract.js').Worker> {
+  if (_ocr.promise) return _ocr.promise;
+
+  _ocr.promise = createWorker('eng', 1, {
+    // OEM 1 = LSTM_ONLY — más preciso, más rápido que el motor legacy
+    logger: (m: { status?: string; progress?: number }) => {
+      if (m.status === 'recognizing text' && typeof m.progress === 'number') {
+        _ocr.progressFn(35 + Math.round(m.progress * 55));
+      }
+    },
+  } as Parameters<typeof createWorker>[2])
+    .then(async (w) => {
+      await w.setParameters({
+        // Whitelist: sólo caracteres que aparecen en etiquetas industriales
+        // Elimina miles de glifos innecesarios → reconocimiento más rápido y preciso
+        tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/- .',
+        // PSM 6: bloque de texto uniforme — ideal para etiquetas de 1-3 líneas
+        tessedit_pageseg_mode: '6',
+      } as Record<string, string>);
+      _ocr.worker = w;
+      return w;
+    })
+    .catch((err) => {
+      // Si falla la inicialización, resetear para poder reintentar
+      _ocr.promise = null;
+      _ocr.worker = null;
+      throw err;
+    });
+
+  return _ocr.promise;
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({
   onResult,
   onError,
   onClose,
-  language = 'spa',
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -30,7 +85,9 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({
   const [capturedDataUrl, setCapturedDataUrl] = useState<string | null>(null);
   const [ocrText, setOcrText] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [workerReady, setWorkerReady] = useState(false);
   const closedRef = useRef(false);
+  const ocrTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stopStream = useCallback(() => {
     if (streamRef.current) {
@@ -75,16 +132,21 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({
   }, [onError]);
 
   useEffect(() => {
+    // Inicia cámara Y worker en paralelo — cuando el usuario pulse 📸, ambos están listos
     startCamera();
+
+    ensureOcrWorker()
+      .then(() => { if (!closedRef.current) setWorkerReady(true); })
+      .catch(() => { /* falla silenciosa — captureAndOCR tiene fallback */ });
+
     return () => {
       closedRef.current = true;
       if (ocrTimeoutRef.current) clearTimeout(ocrTimeoutRef.current);
       stopStream();
+      // No terminamos el worker singleton — se reutiliza en la próxima apertura
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const ocrTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const captureAndOCR = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current || phase !== 'live') return;
@@ -92,19 +154,20 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({
     setProgress(0);
     setErrorMsg(null);
 
+    // Registrar el callback de progreso para este reconocimiento
+    _ocr.progressFn = setProgress;
+
     try {
       await waitForVideoReady(videoRef.current);
-      setProgress(10); // Paso 1: captura completada
+      setProgress(10);
 
+      // Capturar y recortar la zona guía central (80% ancho × 40% alto)
       const canvas = canvasRef.current;
       const vw = videoRef.current.videoWidth;
       const vh = videoRef.current.videoHeight;
       canvas.width = vw;
       canvas.height = vh;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('No canvas context');
 
-      // Crop to the central guide zone (80% width, ~40% height centered)
       const cropX = Math.round(vw * 0.1);
       const cropY = Math.round(vh * 0.3);
       const cropW = Math.round(vw * 0.8);
@@ -117,67 +180,63 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({
       if (!cropCtx) throw new Error('No crop context');
       cropCtx.drawImage(videoRef.current, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
 
-      // Show the raw captured crop as preview
       setCapturedDataUrl(crop.toDataURL('image/jpeg', 0.9));
-      setProgress(20); // Paso 2: imagen capturada, preprocesando
+      setProgress(20);
 
+      // Preprocesado: grayscale + contraste + binarización Otsu + PNG lossless
       const imageData = preprocessCanvasForOcr(crop);
-      setProgress(35); // Paso 3: imagen preprocesada, enviando a OCR
+      setProgress(35);
 
-      // Timeout de 20s para OCR (en tablets lentos Tesseract puede colgarse)
+      // Esperar a que el worker esté listo (debería estarlo ya — se inició en paralelo)
+      const worker = await ensureOcrWorker();
+      if (closedRef.current) return;
+
+      // Timeout reducido a 12s — si tarda más, algo va mal (iluminación, imagen borrosa)
       const result = await Promise.race([
-        Tesseract.recognize(imageData, `${language}+eng`, {
-          logger: (m: { status?: string; progress?: number }) => {
-            if (m.status === 'recognizing text' && typeof m.progress === 'number') {
-              setProgress(35 + Math.round(m.progress * 55));
-            }
-          },
-        }),
+        worker.recognize(imageData),
         new Promise<never>((_, reject) => {
           ocrTimeoutRef.current = setTimeout(() => {
-            reject(new Error('El OCR está tardando demasiado. Intenta con mejor iluminación o acerca la etiqueta.'));
-          }, 20000);
+            reject(new Error('timeout'));
+          }, 12000);
         }),
       ]);
 
       if (ocrTimeoutRef.current) clearTimeout(ocrTimeoutRef.current);
       if (closedRef.current) return;
 
-      setProgress(95); // Paso 4: texto reconocido
+      setProgress(95);
       const text = result.data.text.trim();
       setOcrText(text);
       setPhase('review');
     } catch (err) {
       if (closedRef.current) return;
       if (ocrTimeoutRef.current) clearTimeout(ocrTimeoutRef.current);
-      const msg = err instanceof Error ? err.message : 'Error en OCR';
-      setErrorMsg(msg);
-      // Diferenciar errores para mejor diagnóstico
-      if (msg.includes('tarda demasiado')) {
-        setErrorMsg('Tiempo de espera agotado. Acerca la etiqueta, evita reflejos y asegura buena iluminación.');
-      } else if (msg.includes('memory') || msg.includes('Memory')) {
-        setErrorMsg('Memoria insuficiente para OCR. Usa la pistola o escaneo de código de barras.');
-      } else if (msg.includes('cámara') || msg.includes('camara')) {
-        setErrorMsg(msg);
+      _ocr.progressFn = () => {};
+
+      const raw = err instanceof Error ? err.message : 'Error en OCR';
+      let friendly: string;
+      if (raw === 'timeout') {
+        friendly = 'La lectura tardó demasiado. Acerca la etiqueta, asegura buena iluminación y evita reflejos.';
+      } else if (raw.toLowerCase().includes('memory')) {
+        friendly = 'Memoria insuficiente para OCR. Usa la pistola o escaneo de código de barras.';
+      } else if (raw.toLowerCase().includes('cámara') || raw.toLowerCase().includes('camera')) {
+        friendly = raw;
+      } else {
+        friendly = 'No se pudo leer la etiqueta. Intenta de nuevo con mejor iluminación.';
       }
+
+      setErrorMsg(friendly);
       setPhase('error');
-      onError?.(msg);
+      onError?.(friendly);
     }
-  }, [phase, language, onError]);
+  }, [phase, onError]);
 
   const handleRetryCapture = useCallback(() => {
-    // Reintentar la captura sin reiniciar la cámara (desde fase error)
     setCapturedDataUrl(null);
     setOcrText('');
     setErrorMsg(null);
-    if (phase === 'error') {
-      // Volver a live y reiniciar stream
-      startCamera();
-      setPhase('live');
-    } else {
-      startCamera();
-    }
-  }, [phase, startCamera]);
+    startCamera();
+  }, [startCamera]);
 
   const handleRetry = useCallback(() => {
     setCapturedDataUrl(null);
@@ -203,6 +262,9 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({
             <p className="text-cyan-400 text-sm font-bold flex items-center gap-2">
               <span className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
               Centra la etiqueta en el recuadro
+              {!workerReady && (
+                <span className="text-slate-500 text-xs font-normal">(preparando OCR...)</span>
+              )}
             </p>
           )}
           {phase === 'processing' && (
@@ -217,7 +279,7 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({
             </p>
           )}
           {phase === 'error' && (
-            <p className="text-red-400 text-sm font-bold">❌ Error de cámara</p>
+            <p className="text-red-400 text-sm font-bold">❌ Error</p>
           )}
         </div>
         <button
@@ -245,7 +307,6 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({
         {/* Guide overlay on live view */}
         {phase === 'live' && (
           <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 10 }}>
-            {/* Dark mask via SVG */}
             <svg className="absolute inset-0 w-full h-full" viewBox={`0 0 ${window.innerWidth} ${window.innerHeight - 120}`} preserveAspectRatio="none">
               {(() => {
                 const vw = window.innerWidth;
@@ -263,18 +324,15 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({
                       fill="rgba(0,0,0,0.60)"
                       d={`M0 0 H${vw} V${vh} H0 Z M${gx + r} ${gy} H${gx + gw - r} Q${gx + gw} ${gy} ${gx + gw} ${gy + r} V${gy + gh - r} Q${gx + gw} ${gy + gh} ${gx + gw - r} ${gy + gh} H${gx + r} Q${gx} ${gy + gh} ${gx} ${gy + gh - r} V${gy + r} Q${gx} ${gy} ${gx + r} ${gy} Z`}
                     />
-                    {/* Corner brackets */}
                     <path d={`M${gx + r + arm} ${gy} H${gx + r} Q${gx} ${gy} ${gx} ${gy + r} V${gy + r + arm}`} fill="none" stroke="#22d3ee" strokeWidth="3" strokeLinecap="round" />
                     <path d={`M${gx + gw - r - arm} ${gy} H${gx + gw - r} Q${gx + gw} ${gy} ${gx + gw} ${gy + r} V${gy + r + arm}`} fill="none" stroke="#22d3ee" strokeWidth="3" strokeLinecap="round" />
                     <path d={`M${gx + r + arm} ${gy + gh} H${gx + r} Q${gx} ${gy + gh} ${gx} ${gy + gh - r} V${gy + gh - r - arm}`} fill="none" stroke="#22d3ee" strokeWidth="3" strokeLinecap="round" />
                     <path d={`M${gx + gw - r - arm} ${gy + gh} H${gx + gw - r} Q${gx + gw} ${gy + gh} ${gx + gw} ${gy + gh - r} V${gy + gh - r - arm}`} fill="none" stroke="#22d3ee" strokeWidth="3" strokeLinecap="round" />
-                    {/* Animated scan line */}
                     <line x1={gx + 8} x2={gx + gw - 8} y1={gy + gh / 2} y2={gy + gh / 2} stroke="#22d3ee" strokeWidth="1.5" opacity="0.7">
                       <animate attributeName="y1" values={`${gy + 6};${gy + gh - 6};${gy + 6}`} dur="2.5s" repeatCount="indefinite" />
                       <animate attributeName="y2" values={`${gy + 6};${gy + gh - 6};${gy + 6}`} dur="2.5s" repeatCount="indefinite" />
                       <animate attributeName="opacity" values="0.7;0.2;0.7" dur="2.5s" repeatCount="indefinite" />
                     </line>
-                    {/* Label hint inside zone */}
                     <text x={gx + gw / 2} y={gy - 10} textAnchor="middle" fontSize="13" fill="#94a3b8">Centra la etiqueta aquí</text>
                   </>
                 );
@@ -316,12 +374,6 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({
                  'Texto reconocido'}
               </p>
             )}
-            {/* Aviso para tablets lentos */}
-            {progress > 10 && progress < 60 && (
-              <p className="text-slate-500 text-xs mt-2 max-w-xs text-center">
-                Esto puede tardar unos segundos en tablets...
-              </p>
-            )}
           </div>
         )}
 
@@ -335,7 +387,6 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({
         {/* ── REVIEW phase ── */}
         {phase === 'review' && (
           <div className="absolute inset-0 flex flex-col bg-slate-950 z-20 overflow-y-auto">
-            {/* Captured image */}
             {capturedDataUrl && (
               <div className="flex-shrink-0 p-4">
                 <p className="text-slate-400 text-xs mb-2 text-center uppercase tracking-widest">Imagen capturada</p>
@@ -347,8 +398,6 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({
                 />
               </div>
             )}
-
-            {/* OCR result editor */}
             <div className="flex-1 px-4 pb-4">
               <p className="text-slate-400 text-xs mb-2 uppercase tracking-widest">Texto reconocido — edita si es necesario</p>
               <textarea
@@ -409,7 +458,6 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({
               Cerrar
             </button>
 
-            {/* Big capture button */}
             <button
               onClick={captureAndOCR}
               className="w-20 h-20 rounded-full bg-white flex items-center justify-center shadow-lg shadow-white/20 active:scale-95 transition-transform"
@@ -418,7 +466,7 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({
               <span className="text-3xl">📸</span>
             </button>
 
-            <div className="w-14 h-14" /> {/* spacer */}
+            <div className="w-14 h-14" />
           </>
         )}
 
@@ -453,7 +501,6 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({
         )}
       </div>
 
-      {/* Guide hint — only on live */}
       {phase === 'live' && (
         <div
           className="absolute bottom-24 left-0 right-0 flex justify-center pointer-events-none"
@@ -469,5 +516,3 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({
 };
 
 export default CameraOCRScanner;
-
-

@@ -24,6 +24,7 @@ import KioskSearchBar from './KioskSearchBar';
 import TraerArticuloModal from './TraerArticuloModal';
 import MoverArticleList from './MoverArticleList';
 import RetirarCellModal from './RetirarCellModal';
+import RetirarArticleList, { type RetirarItem } from './RetirarArticleList';
 import type { LocationItem } from '../../lib/schema/locations';
 import type { KioskAction, KioskConfirmModalState, KioskFeedback, ScanData } from './kioskShared';
 
@@ -82,6 +83,7 @@ const KioskView: React.FC = () => {
   const [showRetirarCellModal, setShowRetirarCellModal] = useState(false);
   const [retirarCellPosition, setRetirarCellPosition] = useState('');
   const [retirarCellItems, setRetirarCellItems] = useState<LocationItem[]>([]);
+  const [showRetirarArticleList, setShowRetirarArticleList] = useState(false);
   const [pendingRetirarQueue, setPendingRetirarQueue] = useState<Array<{ position: string; items: LocationItem[] }>>([]);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -99,6 +101,7 @@ const KioskView: React.FC = () => {
     setBatchArticles([]);
     setPendingRetirarQueue([]);
     setShowMoverArticleList(false);
+    setShowRetirarArticleList(false);
   }, []);
 
   const showToast = useCallback((type: 'success' | 'error' | 'info', message: string, ms = 2500) => {
@@ -133,6 +136,25 @@ const KioskView: React.FC = () => {
     setShowIdModal(false);
     setPendingOperation(null);
   }, []);
+
+  const handleRetirarArticleListConfirm = useCallback((selectedItems: RetirarItem[]) => {
+    setShowRetirarArticleList(false);
+    executeWithId('retirar', async (enteredId: string) => {
+      const normalizedId = String(parseInt(enteredId, 10));
+      let successCount = 0;
+      setProcessing(true);
+      for (const item of selectedItems) {
+        const result = await retirarDeUbicacion(item.articleCode, item.orderFab, item.position, normalizedId, displayName);
+        if (result.success) successCount++;
+      }
+      setProcessing(false);
+      if (successCount === selectedItems.length) {
+        finishAction('success', `✅ ${selectedItems.length} artículo${selectedItems.length !== 1 ? 's' : ''} retirado${selectedItems.length !== 1 ? 's' : ''} correctamente`);
+      } else {
+        finishAction('error', `Parcial: ${successCount}/${selectedItems.length} artículos retirados`);
+      }
+    });
+  }, [executeWithId, displayName, retirarDeUbicacion, finishAction]);
 
   const handleRetirarCellItemsConfirm = useCallback((selectedItems: LocationItem[]) => {
     setShowRetirarCellModal(false);
@@ -381,8 +403,8 @@ const KioskView: React.FC = () => {
       return;
     }
     if (nextAction === 'retirar') {
-      // Retirar: selección directa de celda, sin escaneo
       setAction('retirar');
+      setShowRetirarArticleList(true);
       return;
     }
     if (nextAction === 'mover') {
@@ -764,6 +786,15 @@ const KioskView: React.FC = () => {
           shelfCode={shelfCode}
           onSelect={handleMoverSelectArticle}
           onClose={() => { setShowMoverArticleList(false); cancelAction(); }}
+        />
+      )}
+
+      {showRetirarArticleList && (
+        <RetirarArticleList
+          locations={locations}
+          shelfCode={shelfCode}
+          onConfirm={handleRetirarArticleListConfirm}
+          onClose={() => { setShowRetirarArticleList(false); cancelAction(); }}
         />
       )}
 

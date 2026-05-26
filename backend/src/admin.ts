@@ -128,12 +128,13 @@ export const resolveDeviceConfig = functions.https.onCall(async (data: any, cont
     type?: string;
     active?: boolean;
     assignedShelf?: string | null;
+    kioskId?: string | null;
     name?: string;
   };
 
   const result: {
     exists: boolean;
-    device?: { type: string; active: boolean; assignedShelf: string | null; name: string };
+    device?: { type: string; active: boolean; assignedShelf: string | null; kioskId: string | null; name: string };
     claimsUpdated: boolean;
   } = {
     exists: true,
@@ -141,6 +142,7 @@ export const resolveDeviceConfig = functions.https.onCall(async (data: any, cont
       type: device.type === 'CARRETILLERO' ? 'CARRETILLERO' : 'KIOSK',
       active: device.active !== false,
       assignedShelf: device.assignedShelf || null,
+      kioskId: device.kioskId || null,
       name: normalize(device.name) || 'Dispositivo',
     },
     claimsUpdated: false,

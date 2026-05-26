@@ -10,7 +10,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { usePickupQueue } from '../../hooks/usePickupQueue';
 import ShelfNavigator from './ShelfNavigator';
 import PickupQueue from './PickupQueue';
-import CartEditor from './CartEditor';
+import CarrosView from './CarrosView';
 
 type CarretilleroTab = 'shelves' | 'pickups' | 'carts';
 
@@ -96,9 +96,7 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack }) => {
              <PickupQueue />
            </div>
          ) : (
-           <div className="h-full overflow-y-auto">
-             <CartEditor />
-           </div>
+           <CarrosView />
          )}
        </main>
 

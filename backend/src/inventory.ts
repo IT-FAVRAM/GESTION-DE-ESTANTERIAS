@@ -322,17 +322,27 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
     await db2.runTransaction(async (tx) => {
       const aggregateKey = `${normalize(articleCode)}__${normalize(orderFab)}`;
       const aggregateRef = db2.collection('itemAggregates').doc(aggregateKey);
-      const aggregateSnap = await tx.get(aggregateRef);
+
+      // Pre-build all refs and pre-read all docs before any writes
+      const locRefs = positions.map((pos: string) =>
+        db2.collection('shelves').doc(shelfCode).collection('locations').doc(pos)
+      );
+      const presenceRefs = positions.map(() => db2.collection('items').doc());
+      const [aggregateSnap, ...locSnaps] = await Promise.all([
+        tx.get(aggregateRef),
+        ...locRefs.map((ref: any) => tx.get(ref)),
+      ]);
 
       let totalPresencesAdded = 0;
       const presenceIdsToAdd: string[] = [];
 
-      for (const position of positions) {
+      for (let i = 0; i < positions.length; i++) {
+        const position = positions[i];
         const locationId = `${shelfCode}-${position}`;
-        const locRef = db2.collection('shelves').doc(shelfCode).collection('locations').doc(position);
-        const presenceRef = db2.collection('items').doc();
+        const locRef = locRefs[i];
+        const locSnap = locSnaps[i];
+        const presenceRef = presenceRefs[i];
 
-        const locSnap = await tx.get(locRef);
         const currentItems = locSnap.exists ? ((locSnap.data()?.items || []) as any[]) : [];
         const locationItem: any = { presenceId: presenceRef.id, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now };
         if (importe !== undefined) locationItem.unitCost = importe;
@@ -391,16 +401,26 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
     }
     const positions: string[] = [];
     await db.runTransaction(async (tx) => {
-      const aggregateSnap = await tx.get(aggregateRef);
+      // Pre-compute all location refs from presence data
+      const presenceLocData = activePresences.map((presence) => {
+        const locationId = String(presence.data.locationIds?.[0] || '');
+        const position = locationId.split('-').slice(1).join('-');
+        const locRef = db.collection('shelves').doc(shelfCode).collection('locations').doc(position);
+        return { presence, position, locRef };
+      });
+
+      // All reads before any writes
+      const [aggregateSnap, ...locSnaps] = await Promise.all([
+        tx.get(aggregateRef),
+        ...presenceLocData.map(({ locRef }) => tx.get(locRef)),
+      ]);
       const aggregate = aggregateSnap.exists ? (aggregateSnap.data() as any) : null;
       const removedPresenceIds: string[] = [];
-      for (const presence of activePresences) {
-        const locationId = String(presence.data.locationIds?.[0] || '');
-        const parsed = locationId.split('-');
-        const position = parsed.slice(1).join('-');
+
+      for (let i = 0; i < presenceLocData.length; i++) {
+        const { presence, position, locRef } = presenceLocData[i];
+        const locSnap = locSnaps[i];
         positions.push(position);
-        const locRef = db.collection('shelves').doc(shelfCode).collection('locations').doc(position);
-        const locSnap = await tx.get(locRef);
         if (locSnap.exists) {
           const locData = locSnap.data() as any;
           const updatedItems = (locData.items || []).filter((item: any) => !samePresence(item, presence.data.presenceId, articleCode, orderFab));
@@ -409,6 +429,7 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         tx.update(presence.ref, { active: false, removedAt: now, removedBy: operarioId, locationIds: [] });
         removedPresenceIds.push(presence.ref.id);
       }
+
       if (aggregate) {
         const remainingPresenceIds = (aggregate.activePresenceIds || []).filter((id: string) => !removedPresenceIds.includes(id));
         tx.set(aggregateRef, { activePresenceIds: remainingPresenceIds, totalActivePresences: remainingPresenceIds.length, totalPlacements: aggregate.totalPlacements, updatedAt: now }, { merge: true });
@@ -428,7 +449,9 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
     const aggregateRef = db.collection('itemAggregates').doc(aggregateKey);
 
     await db.runTransaction(async (tx) => {
-      const locSnap = await tx.get(locRef);
+      // All reads must come before writes in a Firestore transaction
+      const [locSnap, aggregateSnap] = await Promise.all([tx.get(locRef), tx.get(aggregateRef)]);
+
       if (!locSnap.exists) {
         throw new functions.https.HttpsError('not-found', 'Ubicacion no encontrada.');
       }
@@ -449,12 +472,14 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
       const presenceId = removedItem.presenceId;
       const newItems = items.filter((_: any, idx: number) => idx !== itemIndex);
 
+      // Writes after all reads
       tx.set(locRef, { position, items: newItems, isEmpty: newItems.length === 0 }, { merge: true });
 
-      const presenceRef = db.collection('items').doc(presenceId);
-      tx.update(presenceRef, { active: false, removedAt: now, removedBy: operarioId, locationIds: [] });
+      if (presenceId) {
+        const presenceRef = db.collection('items').doc(presenceId);
+        tx.update(presenceRef, { active: false, removedAt: now, removedBy: operarioId, locationIds: [] });
+      }
 
-      const aggregateSnap = await tx.get(aggregateRef);
       if (aggregateSnap.exists) {
         const aggregate = aggregateSnap.data() as any;
         const newActiveIds = (aggregate.activePresenceIds || []).filter((id: string) => id !== presenceId);
@@ -485,33 +510,55 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
       throw new functions.https.HttpsError('failed-precondition', 'Las presencias activas no coinciden con los destinos.');
     }
     await db.runTransaction(async (tx) => {
-      const aggregateSnap = await tx.get(aggregateRef);
-      const oldLocationIds: string[] = [];
-      const newLocationIds: string[] = [];
-      for (const presence of activePresences) {
+      // Pre-compute all old and new location refs
+      const oldLocData = activePresences.map((presence) => {
         const locationId = String(presence.data.locationIds?.[0] || '');
-        oldLocationIds.push(locationId);
         const position = locationId.split('-').slice(1).join('-');
         const locRef = db.collection('shelves').doc(shelfCode).collection('locations').doc(position);
-        const locSnap = await tx.get(locRef);
-        if (locSnap.exists) {
+        return { presence, locationId, position, locRef };
+      });
+      const newLocData = newPositions.map((position: string, index: number) => ({
+        position,
+        locationId: `${shelfCode}-${position}`,
+        locRef: db.collection('shelves').doc(shelfCode).collection('locations').doc(position),
+        presence: activePresences[index],
+      }));
+
+      // Deduplicate refs by path, then read all in one pass before any writes
+      const refByPath = new Map<string, any>();
+      refByPath.set(aggregateRef.path, aggregateRef);
+      for (const d of oldLocData) refByPath.set(d.locRef.path, d.locRef);
+      for (const d of newLocData) refByPath.set(d.locRef.path, d.locRef);
+      const refEntries = [...refByPath.entries()];
+      const allSnaps = await Promise.all(refEntries.map(([, ref]) => tx.get(ref)));
+      const snapByPath = new Map<string, any>();
+      for (let i = 0; i < refEntries.length; i++) snapByPath.set(refEntries[i][0], allSnaps[i]);
+
+      const aggregateSnap = snapByPath.get(aggregateRef.path);
+      const oldLocationIds: string[] = [];
+      const newLocationIds: string[] = [];
+
+      // Remove article from old positions
+      for (const { presence, locationId, position, locRef } of oldLocData) {
+        oldLocationIds.push(locationId);
+        const locSnap = snapByPath.get(locRef.path);
+        if (locSnap?.exists) {
           const locData = locSnap.data() as any;
           const updatedItems = (locData.items || []).filter((item: any) => !samePresence(item, presence.data.presenceId, articleCode, orderFab));
           tx.set(locRef, { position, items: updatedItems, isEmpty: updatedItems.length === 0 }, { merge: true });
         }
       }
-      for (let index = 0; index < newPositions.length; index += 1) {
-        const position = newPositions[index];
-        const presence = activePresences[index];
-        const locationId = `${shelfCode}-${position}`;
+
+      // Add article to new positions
+      for (const { position, locationId, locRef, presence } of newLocData) {
         newLocationIds.push(locationId);
-        const locRef = db.collection('shelves').doc(shelfCode).collection('locations').doc(position);
-        const locSnap = await tx.get(locRef);
-        const currentItems = locSnap.exists ? ((locSnap.data()?.items || []) as any[]) : [];
+        const locSnap = snapByPath.get(locRef.path);
+        const currentItems = locSnap?.exists ? ((locSnap.data()?.items || []) as any[]) : [];
         tx.set(locRef, { position, items: [...currentItems, { presenceId: presence.data.presenceId, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now }], isEmpty: false }, { merge: true });
         tx.update(presence.ref, { locationIds: [locationId], shelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now });
       }
-      if (aggregateSnap.exists) {
+
+      if (aggregateSnap?.exists) {
         tx.set(aggregateRef, { updatedAt: now }, { merge: true });
       }
       writeHistory(tx, { action: 'MOVER', articleCode, orderFab, fromLocation: oldLocationIds.join(', '), toLocation: newLocationIds.join(', '), shelfCode, operarioId, operarioName });
@@ -543,17 +590,35 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
     const removedFromLocations: string[] = [];
 
     await db.runTransaction(async (tx) => {
-      for (const presSnap of presenceSnapshot.docs) {
+      const aggregateRef = db.collection('itemAggregates').doc(aggregateKey);
+
+      // Pre-compute all location refs from presence data
+      const presLocData = presenceSnapshot.docs.map((presSnap) => {
         const presData = presSnap.data();
         const locId = String(presData.locationIds?.[0] || '');
         const parts = locId.split('-');
         const sc = parts[0] || '';
         const pos = parts.slice(1).join('-');
+        const locRef = sc && pos ? db.collection('shelves').doc(sc).collection('locations').doc(pos) : null;
+        return { presSnap, presData, locId, pos, locRef };
+      });
 
-        if (sc && pos) {
-          const locRef = db.collection('shelves').doc(sc).collection('locations').doc(pos);
-          const locSnap = await tx.get(locRef);
-          if (locSnap.exists) {
+      // All reads before any writes: aggregate + all location docs
+      const validLocData = presLocData.filter(({ locRef }) => locRef !== null);
+      const [aggregateSnap, ...locSnaps] = await Promise.all([
+        tx.get(aggregateRef),
+        ...validLocData.map(({ locRef }) => tx.get(locRef!)),
+      ]);
+      const locSnapByPath = new Map<string, any>();
+      for (let i = 0; i < validLocData.length; i++) {
+        locSnapByPath.set(validLocData[i].locRef!.path, locSnaps[i]);
+      }
+
+      // All writes
+      for (const { presSnap, presData, locId, pos, locRef } of presLocData) {
+        if (locRef) {
+          const locSnap = locSnapByPath.get(locRef.path);
+          if (locSnap?.exists) {
             const locData = locSnap.data() as any;
             const updatedItems = (locData.items || []).filter((item: any) =>
               !samePresence(item, presData.presenceId, articleCode, orderFab)
@@ -562,12 +627,9 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
           }
           removedFromLocations.push(locId);
         }
-
         tx.update(presSnap.ref, { active: false, removedAt: now, removedBy: operarioId, locationIds: [], sentToWarehouse: true });
       }
 
-      const aggregateRef = db.collection('itemAggregates').doc(aggregateKey);
-      const aggregateSnap = await tx.get(aggregateRef);
       if (aggregateSnap.exists) {
         tx.update(aggregateRef, { activePresenceIds: [], totalActivePresences: 0, updatedAt: now });
       }

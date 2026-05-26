@@ -221,18 +221,27 @@ export const useAuth = () => {
 
       const isKiosk = deviceConfig.type === 'KIOSK';
 
-      // Auto-login como OPERARIO para kioskos, sobrescribiendo sesiones obsoletas
+      // Auto-login como OPERARIO para kioskos, sobrescribiendo sesiones obsoletas o sin estantería.
+      // Para dispositivos no-KIOSK (CARRETILLERO, ADMIN), NO tocamos assignedShelf — viene de la sesión.
       const existingSession = readGuestSession<GuestSession>();
-      if (isKiosk && (!existingSession || existingSession.role !== 'OPERARIO')) {
-        const session = buildGuestSession('OPERARIO', undefined, deviceConfig.kioskId, deviceConfig.assignedShelf);
-        writeGuestSession(session);
+      let shelfUpdate: { assignedShelf: string | null } | undefined;
+      if (isKiosk) {
+        let resolvedShelf = deviceConfig.assignedShelf || null;
+        if (!existingSession || existingSession.role !== 'OPERARIO' || !existingSession.assignedShelf) {
+          const session = buildGuestSession('OPERARIO', existingSession?.section, deviceConfig.kioskId, deviceConfig.assignedShelf);
+          writeGuestSession(session);
+          resolvedShelf = session.assignedShelf || resolvedShelf;
+        } else {
+          resolvedShelf = existingSession.assignedShelf;
+        }
+        shelfUpdate = { assignedShelf: resolvedShelf };
       }
 
       setState((prev) => ({
         ...prev,
         deviceMode: (deviceConfig.type?.toLowerCase() as AuthMode) || 'admin',
-        assignedShelf: deviceConfig.assignedShelf || null,
-        kioskId: deviceConfig.kioskId || null,
+        ...(shelfUpdate ?? {}),
+        kioskId: isKiosk ? (deviceConfig.kioskId || null) : prev.kioskId,
         error: null,
       }));
     };

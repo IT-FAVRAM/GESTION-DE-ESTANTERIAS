@@ -141,22 +141,23 @@ export const parseScanInputLenient = (rawInput: string): ScanParseResult => {
     .trim()
     .replace(/[\r\n\t]+/g, ' ')
     .replace(/\s+/g, ' ')
-    // Correcciones OCR típicas para caracteres mal reconocidos
-    .replace(/\b0F(\d{2}-\d+)/gi, 'OF$1')          // 0F → OF
-    .replace(/\bO(?=\d{2}-\d+)/g, 'OF')             // O25- → OF25-
-    .replace(/\b0F\s*(\d{2,3})[-\s](\d+)/gi, 'OF$1-$2') // 0F 25 07221 → OF25-07221
-    .replace(/(\d)[|!¡](\d)/g, '$1I$2')             // dígito-|!¡-dígito
-    .replace(/[|!¡]/g, 'I')                           // | → I
-    .replace(/0(?=[A-Z])/g, 'O')                     // 0 seguido de letra → O
-    .replace(/(?<=\d)5(?=\d)/g, 'S')                 // 5 entre dígitos → S (caso raro)
-    .replace(/©/g, 'C')                              // © → C
-    .replace(/®/g, 'R')                              // ® → R
-    // Guiones confundidos con otros caracteres
+    .toUpperCase()
+    // Correcciones OCR para "OF" mal reconocido (aplicar ANTES de otros reemplazos)
+    .replace(/\b0F(\d{2}[-\s]\d+)/g, 'OF$1')        // 0F25-07221 → OF25-07221
+    .replace(/\bOF\s+(\d{2})\s+(\d{3,})/g, 'OF$1-$2') // OF 25 07221 → OF25-07221
+    .replace(/\bOF\s+(\d{2})-(\d{3,})/g, 'OF$1-$2') // OF 25-07221 → OF25-07221
+    .replace(/\b0F\s*(\d{2,3})[-\s](\d{3,})/g, 'OF$1-$2') // 0F 25 07221 → OF25-07221
+    .replace(/\bO(\d{2}-\d{3,})/g, 'OF$1')          // O25-07221 → OF25-07221
+    // Correcciones de caracteres individuales
+    .replace(/[|!¡]/g, 'I')                           // | ! ¡ → I
+    .replace(/©/g, 'C')                               // © → C
+    .replace(/®/g, 'R')                               // ® → R
+    // Guiones y separadores confundidos
     .replace(/[–—―]/g, '-')
-    .replace(/\s*\/\/?\s*/g, ' // ')                // / simple → // con espacios
-    // Colapsar espacios múltiples de nuevo
+    .replace(/\s*\/\/?\s*/g, ' // ')                  // / simple → // con espacios
+    // Colapsar espacios múltiples
     .replace(/\s+/g, ' ')
-    .toUpperCase();
+    .trim();
 
   if (!cleaned) {
     return { success: false, error: 'El texto está vacío', rawInput };

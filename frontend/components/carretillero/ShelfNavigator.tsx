@@ -32,10 +32,15 @@ import type { LocationItem } from '../../lib/schema/locations';
 
 type NavAction = 'idle' | 'ubicar' | 'retirar' | 'mover' | 'avisar' | 'almacen';
 
-const ShelfNavigator: React.FC = () => {
-  const [selectedShelf, setSelectedShelf] = useState(SHELF_DEFINITIONS[0]?.code || 'MEC');
+interface ShelfNavigatorProps {
+  /** Si se pasa, bloquea el navegador a ese shelf/carro y oculta el selector de pestañas */
+  shelfCode?: string;
+}
+
+const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf }) => {
+  const [selectedShelf, setSelectedShelf] = useState(lockedShelf ?? SHELF_DEFINITIONS[0]?.code ?? 'MEC');
   const [highlightedSearch, setHighlightedSearch] = useState<string[]>([]);
-  const { locations, loading, shelfDef, ubicar, retirar, mover, findArticle, totalOccupied, totalEmpty, totalArticles } = useShelf(selectedShelf);
+  const { locations, loading, shelfDef, ubicar, retirar, retirarDeUbicacion, mover, findArticle, totalOccupied, totalEmpty, totalArticles } = useShelf(selectedShelf);
   const { operarioId, firebaseUser, displayName } = useAuth();
   const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? '';
   const { createPickupRequest } = usePickupQueue();
@@ -308,7 +313,8 @@ const ShelfNavigator: React.FC = () => {
     const position = retirarCellPosition;
     if (selectedItems.length === 0) return;
 
-    setPendingRetirarQueue((prev) => [...prev, { position, items: selectedItems }]);
+    const updatedQueue = [...pendingRetirarQueue, { position, items: selectedItems }];
+    setPendingRetirarQueue(updatedQueue);
     setConfirmModal({
       open: true,
       title: '¿Retirar algo más?',
@@ -318,7 +324,22 @@ const ShelfNavigator: React.FC = () => {
       confirmText: 'NO, finalizar retirada',
       onConfirm: async () => {
         setConfirmModal((prev) => ({ ...prev, open: false }));
-        await handleFinalizarRetiradaCarretillero();
+        setProcessing(true);
+        let successCount = 0;
+        for (const queueItem of updatedQueue) {
+          for (const item of queueItem.items) {
+            const result = await retirarDeUbicacion(item.articleCode, item.orderFab, queueItem.position, effectiveOperarioId, displayName);
+            if (result.success) successCount++;
+          }
+        }
+        setProcessing(false);
+        const totalItems = updatedQueue.reduce((sum, q) => sum + q.items.length, 0);
+        if (successCount === totalItems) {
+          finishAction('success', `✅ ${totalItems} artículo(s) retirado(s) correctamente`);
+        } else {
+          finishAction('error', `Parcial: ${successCount}/${totalItems} artículos retirados`);
+        }
+        setPendingRetirarQueue([]);
       },
       extraButton: {
         text: 'SÍ, retirar más',
@@ -327,30 +348,12 @@ const ShelfNavigator: React.FC = () => {
     });
   };
 
-  const handleFinalizarRetiradaCarretillero = async () => {
-    let successCount = 0;
-    setProcessing(true);
-
-    for (const queueItem of pendingRetirarQueue) {
-      for (const item of queueItem.items) {
-        const result = await retirar(item.articleCode, item.orderFab, effectiveOperarioId, displayName);
-        if (result.success) successCount++;
-      }
-    }
-
-    setProcessing(false);
-    const totalItems = pendingRetirarQueue.reduce((sum, q) => sum + q.items.length, 0);
-    if (successCount === totalItems) {
-      finishAction('success', `✅ ${totalItems} artículo(s) retirado(s) correctamente`);
-    } else {
-      finishAction('error', `Parcial: ${successCount}/${totalItems} artículos retirados`);
-    }
-    setPendingRetirarQueue([]);
-  };
-
   return (
     <div className="flex flex-col h-full w-full min-w-0 overflow-hidden">
-      <ShelfNavigatorTabs selectedShelf={selectedShelf} onSelectShelf={(shelfCode) => { setSelectedShelf(shelfCode); setAction('idle'); setScanData(null); setHighlightedSearch([]); }} />
+      {/* Selector de estanterías — oculto cuando estamos en modo carro */}
+      {!lockedShelf && (
+        <ShelfNavigatorTabs selectedShelf={selectedShelf} onSelectShelf={(shelfCode) => { setSelectedShelf(shelfCode); setAction('idle'); setScanData(null); setHighlightedSearch([]); }} />
+      )}
       <ShelfNavigatorStatus
         totalEmpty={totalEmpty}
         totalOccupied={totalOccupied}
@@ -409,7 +412,7 @@ const ShelfNavigator: React.FC = () => {
       {/* Action buttons */}
       {action === 'idle' && (
         <div className="flex-shrink-0 bg-white border-t border-slate-200 p-3">
-          <div className="grid grid-cols-4 gap-2 max-w-2xl mx-auto">
+          <div className={`grid gap-2 max-w-2xl mx-auto ${shelfDef?.type === 'cart' ? 'grid-cols-3' : 'grid-cols-4'}`}>
             <button onClick={() => startAction('ubicar')}
               className="h-14 rounded-xl bg-emerald-600 text-white font-bold text-sm flex flex-col items-center justify-center active:scale-95 transition-all">
               <span>📦</span> UBICAR
@@ -422,10 +425,13 @@ const ShelfNavigator: React.FC = () => {
               className="h-14 rounded-xl bg-blue-600 text-white font-bold text-sm flex flex-col items-center justify-center active:scale-95 transition-all">
               <span>🔄</span> MOVER
             </button>
-            <button onClick={() => startAction('almacen')}
-              className="h-14 rounded-xl bg-purple-600 text-white font-bold text-xs flex flex-col items-center justify-center active:scale-95 transition-all">
-              <span>🏭</span> ALMACÉN
-            </button>
+            {/* ALMACÉN sólo para estanterías, no para carros */}
+            {shelfDef?.type !== 'cart' && (
+              <button onClick={() => startAction('almacen')}
+                className="h-14 rounded-xl bg-purple-600 text-white font-bold text-xs flex flex-col items-center justify-center active:scale-95 transition-all">
+                <span>🏭</span> ALMACÉN
+              </button>
+            )}
           </div>
         </div>
       )}
