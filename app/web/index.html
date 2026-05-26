@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="es">
   <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
     <script>
       window.onerror = function(message, source, lineno, colno, error) {
         var errorDiv = document.createElement('div');
@@ -15,9 +17,9 @@
         errorDiv.style.fontFamily = 'monospace';
         errorDiv.style.fontSize = '12px';
         errorDiv.style.wordBreak = 'break-all';
-        errorDiv.innerHTML = '<strong>FATAL ERROR:</strong><br/>' + 
-          message + '<br/><br/>' + 
-          'Source: ' + source + ':' + lineno + ':' + colno + '<br/><br/>' + 
+        errorDiv.innerHTML = '<strong>FATAL ERROR:</strong><br/>' +
+          message + '<br/><br/>' +
+          'Source: ' + source + ':' + lineno + ':' + colno + '<br/><br/>' +
           (error && error.stack ? error.stack.replace(/\n/g, '<br/>') : '');
         document.body.appendChild(errorDiv);
         return false;
@@ -26,8 +28,6 @@
         window.onerror('Unhandled Promise Rejection: ' + (event.reason && event.reason.message ? event.reason.message : event.reason), null, 0, 0, event.reason);
       });
     </script>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#0f172a" />
@@ -43,8 +43,8 @@
       }
       /* Hide scrollbar for IE, Edge and Firefox */
       .no-scrollbar {
-          -ms-overflow-style: none;  /* IE and Edge */
-          scrollbar-width: none;  /* Firefox */
+          -ms-overflow-style: none;
+          scrollbar-width: none;
       }
 
       /* Ensure touch scrolling is smooth */
@@ -52,29 +52,41 @@
         -webkit-overflow-scrolling: touch;
       }
 
-      /* Prevent pull-to-refresh on mobile if needed, usually managed by overflow behavior */
       body {
         overscroll-behavior-y: none;
       }
-
-      /* Landscape tablet: ensure full width viewport without margins */
-      @media screen and (orientation: landscape) {
-        html, body, #root {
-          width: 100vw;
-          height: 100vh;
-          margin: 0;
-          padding: 0;
-          border: 0;
-        }
-      }
-
-      /* Kiosk orientation: force landscape on ALL touch devices via CSS rotation fallback */
-      @media screen and (orientation: portrait) and (pointer: coarse) {
-        #orientation-overlay {
-          display: flex !important;
-        }
-      }
     </style>
+    <script>
+      // Show "rotate device" overlay when held in portrait. The app is designed
+      // for physical landscape; forcing a landscape render on a portrait-held
+      // device is what produced the black side bands, so we guide the user to
+      // rotate instead of forcing it.
+      (function () {
+        function updateOrientationOverlay() {
+          var overlay = document.getElementById('orientation-overlay');
+          if (!overlay) return;
+          var isPortrait = window.matchMedia('(orientation: portrait)').matches;
+          overlay.style.display = isPortrait ? 'flex' : 'none';
+        }
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', updateOrientationOverlay);
+        } else {
+          updateOrientationOverlay();
+        }
+
+        var mq = window.matchMedia('(orientation: portrait)');
+        if (mq.addEventListener) {
+          mq.addEventListener('change', updateOrientationOverlay);
+        } else if (mq.addListener) {
+          mq.addListener(updateOrientationOverlay);
+        }
+        window.addEventListener('resize', updateOrientationOverlay);
+        window.addEventListener('orientationchange', function () {
+          setTimeout(updateOrientationOverlay, 200);
+        });
+      })();
+    </script>
 </head>
   <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-300 selection:bg-cyan-500 selection:text-white">
     <!-- Landscape overlay for portrait tablets -->

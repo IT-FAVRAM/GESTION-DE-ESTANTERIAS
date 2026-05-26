@@ -218,6 +218,18 @@ export const useAuth = () => {
         setState((prev) => ({ ...prev, deviceMode: 'admin', error: null }));
         return;
       }
+
+      const isKiosk = deviceConfig.type === 'KIOSK';
+
+      // Auto-login como OPERARIO para kioskos sin sesión activa
+      if (isKiosk && !readGuestSession<GuestSession>()) {
+        const session = buildGuestSession('OPERARIO');
+        if (deviceConfig.kioskId) {
+          session.kioskId = deviceConfig.kioskId;
+        }
+        writeGuestSession(session);
+      }
+
       setState((prev) => ({
         ...prev,
         deviceMode: (deviceConfig.type?.toLowerCase() as AuthMode) || 'admin',

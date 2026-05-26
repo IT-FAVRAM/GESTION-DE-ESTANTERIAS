@@ -4,11 +4,35 @@ import type { KioskAction } from './kioskShared';
 interface KioskActionButtonsProps {
   action: KioskAction;
   onStartAction: (action: KioskAction) => void;
+  showShelf?: boolean;
 }
 
-const KioskActionButtons: React.FC<KioskActionButtonsProps> = ({ action, onStartAction }) => {
+const KioskActionButtons: React.FC<KioskActionButtonsProps> = ({ action, onStartAction, showShelf = false }) => {
   if (action !== 'idle') return null;
 
+  // Modo pequeños en estantería
+  if (showShelf) {
+    return (
+      <div className="flex-shrink-0 border-t border-slate-200 bg-white p-2 shadow-md">
+        <div className="flex gap-1.5 justify-center flex-wrap max-w-full">
+          <button onClick={() => onStartAction('ubicar')} className="h-10 px-3 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-all">
+            📦 UBICAR
+          </button>
+          <button onClick={() => onStartAction('retirar')} className="h-10 px-3 rounded-lg text-xs font-bold text-white bg-red-600 hover:bg-red-500 active:scale-95 transition-all">
+            📤 RETIRAR
+          </button>
+          <button onClick={() => onStartAction('mover')} className="h-10 px-3 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 active:scale-95 transition-all">
+            🔄 MOVER
+          </button>
+          <button onClick={() => onStartAction('avisar')} className="h-10 px-3 rounded-lg text-xs font-bold text-white bg-amber-600 hover:bg-amber-500 active:scale-95 transition-all">
+            🚚 CARRETILLERO
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Modo grandes en menú principal
   return (
     <div className="flex-shrink-0 border-t border-slate-800 bg-slate-950/90 p-4 backdrop-blur-md">
       <div className="mx-auto grid max-w-3xl grid-cols-2 gap-3 lg:grid-cols-4">

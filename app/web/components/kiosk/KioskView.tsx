@@ -22,6 +22,7 @@ import KioskFeedbackToast from './KioskFeedbackToast';
 import KioskHeader from './KioskHeader';
 import KioskSearchBar from './KioskSearchBar';
 import TraerArticuloModal from './TraerArticuloModal';
+import MoverArticleList from './MoverArticleList';
 import RetirarCellModal from './RetirarCellModal';
 import type { LocationItem } from '../../lib/schema/locations';
 import type { KioskAction, KioskConfirmModalState, KioskFeedback, ScanData } from './kioskShared';
@@ -61,6 +62,7 @@ const KioskView: React.FC = () => {
   const [pendingAction, setPendingAction] = useState<KioskAction | null>(null);
   const [showTraerModal, setShowTraerModal] = useState(false);
   const [traerProcessing, setTraerProcessing] = useState(false);
+  const [showMoverArticleList, setShowMoverArticleList] = useState(false);
   const [showIdModal, setShowIdModal] = useState(false);
   const [pendingOperation, setPendingOperation] = useState<{
     type: string;
@@ -69,6 +71,7 @@ const KioskView: React.FC = () => {
   const [showRetirarCellModal, setShowRetirarCellModal] = useState(false);
   const [retirarCellPosition, setRetirarCellPosition] = useState('');
   const [retirarCellItems, setRetirarCellItems] = useState<LocationItem[]>([]);
+  const [pendingRetirarQueue, setPendingRetirarQueue] = useState<Array<{ position: string; items: LocationItem[] }>>([]);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const cancelAction = useCallback(() => {
@@ -85,6 +88,8 @@ const KioskView: React.FC = () => {
     setBatchArticles([]);
     setBatchRetiraPending([]);
     setCurrentBatchRetirarIndex(0);
+    setPendingRetirarQueue([]);
+    setShowMoverArticleList(false);
   }, []);
 
   const showToast = useCallback((type: 'success' | 'error' | 'info', message: string, ms = 2500) => {
@@ -125,21 +130,44 @@ const KioskView: React.FC = () => {
     const position = retirarCellPosition;
     if (selectedItems.length === 0) return;
 
-    executeWithId('retirar', async (enteredId: string) => {
-      let successCount = 0;
-      setProcessing(true);
-      for (const item of selectedItems) {
-        const result = await retirarDeUbicacion(item.articleCode, item.orderFab, position, enteredId, displayName);
-        if (result.success) successCount++;
-      }
-      setProcessing(false);
-      if (successCount === selectedItems.length) {
-        finishAction('success', `✅ ${selectedItems.length} artículo(s) retirado(s) de posición ${parseInt(position, 10)}`);
-      } else {
-        finishAction('error', `Parcial: ${successCount}/${selectedItems.length} artículos retirados`);
-      }
+    setPendingRetirarQueue((prev) => [...prev, { position, items: selectedItems }]);
+    setConfirmModal({
+      open: true,
+      title: '¿Retirar algo más?',
+      message: `${selectedItems.length} artículo(s) de posición ${parseInt(position, 10)} añadido(s) a la cola`,
+      icon: '📤',
+      variant: 'info',
+      confirmText: 'NO, finalizar retirada',
+      onConfirm: () => {
+        setConfirmModal((prev) => ({ ...prev, open: false }));
+        executeWithId('retirar', async (enteredId: string) => {
+          const normalizedId = String(parseInt(enteredId, 10));
+          let successCount = 0;
+          setProcessing(true);
+
+          for (const queueItem of pendingRetirarQueue) {
+            for (const item of queueItem.items) {
+              const result = await retirarDeUbicacion(item.articleCode, item.orderFab, queueItem.position, normalizedId, displayName);
+              if (result.success) successCount++;
+            }
+          }
+
+          setProcessing(false);
+          const totalItems = pendingRetirarQueue.reduce((sum, q) => sum + q.items.length, 0);
+          if (successCount === totalItems) {
+            finishAction('success', `✅ ${totalItems} artículo(s) retirado(s) correctamente`);
+          } else {
+            finishAction('error', `Parcial: ${successCount}/${totalItems} artículos retirados`);
+          }
+          setPendingRetirarQueue([]);
+        });
+      },
+      extraButton: {
+        text: 'SÍ, retirar más',
+        onClick: () => setConfirmModal((prev) => ({ ...prev, open: false })),
+      },
     });
-  }, [retirarCellPosition, displayName, retirarDeUbicacion, executeWithId, finishAction]);
+  }, [retirarCellPosition, executeWithId, pendingRetirarQueue, displayName, retirarDeUbicacion, finishAction]);
 
   const handleUbicarConfirm = useCallback(async (position: string) => {
     if (!scanData || !effectiveOperarioId) return;
@@ -176,10 +204,36 @@ const KioskView: React.FC = () => {
       setProcessing(true);
       const success = await mover(scanData!.articleCode, scanData!.orderFab, selectedPositions, enteredId, displayName);
       setProcessing(false);
-      if (success) finishAction('success', `✅ ${scanData!.articleCode} movido correctamente`);
-      else finishAction('error', 'Error al mover el artículo');
+      if (success) {
+        setSelectedPositions([]);
+        setConfirmModal({
+          open: true,
+          title: '✅ Movido correctamente',
+          message: `${scanData!.articleCode} movido a ${selectedPositions.length} posición(es). ¿Quieres mover algo más?`,
+          icon: '🔄',
+          variant: 'success',
+          confirmText: 'SÍ, mover otro',
+          onConfirm: () => {
+            setConfirmModal((prev) => ({ ...prev, open: false }));
+            setScanData(null);
+            setShowMoverArticleList(true);
+          },
+          extraButton: {
+            text: 'NO, finalizar',
+            onClick: () => finishAction('success', `✅ ${scanData!.articleCode} movido correctamente`),
+          },
+        });
+      } else {
+        finishAction('error', 'Error al mover el artículo');
+      }
     });
   }, [displayName, mover, effectiveOperarioId, scanData, selectedPositions, finishAction, executeWithId]);
+
+  const handleMoverSelectArticle = useCallback((articleCode: string, orderFab: string) => {
+    setShowMoverArticleList(false);
+    setScanData({ articleCode, orderFab });
+    setSelectedPositions([]);
+  }, []);
 
   const handleAvisarConfirm = useCallback(async () => {
     if (!effectiveOperarioId) return;
@@ -352,6 +406,11 @@ const KioskView: React.FC = () => {
       setAction('retirar');
       return;
     }
+    if (nextAction === 'mover') {
+      setAction('mover');
+      setShowMoverArticleList(true);
+      return;
+    }
     setPendingAction(nextAction);
     setScanMethodPickerOpen(true);
   }, [handleAvisarConfirm, shelfCode, shelfDef]);
@@ -506,7 +565,7 @@ const KioskView: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [action, scanData, locations]); // locations triggers recompute when shelf data refreshes
 
-  if (!assignedShelf) return <KioskEmptyState />;
+  if (!shelfCode) return <KioskEmptyState />;
 
   if (loading) {
     return (
@@ -518,7 +577,7 @@ const KioskView: React.FC = () => {
   }
 
   return (
-    <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col relative overflow-hidden">
+    <div className="h-dvh w-full bg-sky-50 flex flex-col relative overflow-hidden">
       <KioskHeader shelfName={shelfDef?.name || ''} shelfCode={shelfCode} totalOccupied={totalOccupied} totalEmpty={totalEmpty} totalArticles={totalArticles} displayName={displayName} operarioId={operarioId} deviceId={deviceId} onLogout={logout} onInfo={() => setShowDeviceInfo(true)} />
       {kiosk && shelves.length > 1 && (
         <div className="bg-sky-50 border-b border-slate-200 px-4 py-2 flex justify-center">
@@ -641,7 +700,7 @@ const KioskView: React.FC = () => {
            </main>
 
           <KioskCellDetailDrawer selectedCell={selectedCell} onClose={() => setSelectedCell(null)} />
-          <KioskActionButtons action={action} onStartAction={startAction} />
+          <KioskActionButtons action={action} onStartAction={startAction} showShelf={showShelf} />
         </>
       )}
 
@@ -751,6 +810,15 @@ const KioskView: React.FC = () => {
         currentShelfCode={shelfCode}
         loading={traerProcessing}
       />
+
+      {showMoverArticleList && (
+        <MoverArticleList
+          locations={locations}
+          shelfCode={shelfCode}
+          onSelect={handleMoverSelectArticle}
+          onClose={() => { setShowMoverArticleList(false); cancelAction(); }}
+        />
+      )}
 
       <RetirarCellModal
         open={showRetirarCellModal}

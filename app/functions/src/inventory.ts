@@ -500,7 +500,7 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         const locSnap = await tx.get(locRef);
         const currentItems = locSnap.exists ? ((locSnap.data()?.items || []) as any[]) : [];
         tx.set(locRef, { position, items: [...currentItems, { presenceId: presence.data.presenceId, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now }], isEmpty: false }, { merge: true });
-        tx.update(presence.ref, { locationIds: [locationId], shelfCode });
+        tx.update(presence.ref, { locationIds: [locationId], shelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now });
       }
       if (aggregateSnap.exists) {
         tx.set(aggregateRef, { updatedAt: now }, { merge: true });

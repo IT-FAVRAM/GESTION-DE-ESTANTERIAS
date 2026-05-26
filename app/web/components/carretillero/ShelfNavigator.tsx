@@ -24,8 +24,11 @@ import type { ShelfLocationState } from '../../hooks/useShelf';
 import { usePickupQueue } from '../../hooks/usePickupQueue';
 import ShelfNavigatorTabs from './ShelfNavigatorTabs';
 import ShelfNavigatorStatus from './ShelfNavigatorStatus';
+import RetirarCellModal from '../kiosk/RetirarCellModal';
+import MoverArticleList from '../kiosk/MoverArticleList';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../lib/firebase';
+import type { LocationItem } from '../../lib/schema/locations';
 
 type NavAction = 'idle' | 'ubicar' | 'retirar' | 'mover' | 'avisar' | 'almacen';
 
@@ -54,12 +57,19 @@ const ShelfNavigator: React.FC = () => {
     onConfirm: () => void;
     extraButton?: { text: string; onClick: () => void };
   }>({ open: false, title: '', message: '', icon: '', variant: 'info', onConfirm: () => {} });
+  const [retirarCellPosition, setRetirarCellPosition] = useState('');
+  const [retirarCellItems, setRetirarCellItems] = useState<LocationItem[]>([]);
+  const [showRetirarCellModal, setShowRetirarCellModal] = useState(false);
+  const [pendingRetirarQueue, setPendingRetirarQueue] = useState<Array<{ position: string; items: LocationItem[] }>>([]);
+  const [showMoverArticleList, setShowMoverArticleList] = useState(false);
 
   const resetOperative = () => {
     setAction('idle');
     setScanData(null);
     setSelectedPositions([]);
     setScannerActive(false);
+    setPendingRetirarQueue([]);
+    setShowMoverArticleList(false);
   };
 
   const showToast = (type: 'success' | 'error' | 'info', msg: string, ms = 2500) => {
@@ -105,6 +115,15 @@ const ShelfNavigator: React.FC = () => {
           else finishAction('error', 'Error al enviar');
         },
       });
+      return;
+    }
+    if (act === 'retirar') {
+      setAction('retirar');
+      return;
+    }
+    if (act === 'mover') {
+      setAction('mover');
+      setShowMoverArticleList(true);
       return;
     }
     setPendingAction(act);
@@ -207,10 +226,18 @@ const ShelfNavigator: React.FC = () => {
   };
 
   const handleCellPress = (loc: ShelfLocationState) => {
+    if (action === 'retirar') {
+      if (!loc.isEmpty && loc.items.length > 0) {
+        setRetirarCellPosition(loc.position);
+        setRetirarCellItems(loc.items);
+        setShowRetirarCellModal(true);
+      }
+      return;
+    }
     if (action === 'ubicar' && scanData) {
       setConfirmModal({
         open: true, title: loc.isEmpty ? 'Confirmar Ubicación' : 'Celda Ocupada',
-        message: loc.isEmpty 
+        message: loc.isEmpty
           ? `¿Ubicar ${scanData.articleCode} en posición ${parseInt(loc.position, 10)}?`
           : `Esta celda tiene ${loc.items.length} artículo(s). ¿Añadir igualmente?`,
         icon: loc.isEmpty ? '📦' : '⚠️', variant: loc.isEmpty ? 'success' : 'warning',
@@ -234,6 +261,12 @@ const ShelfNavigator: React.FC = () => {
     }
   };
 
+  const handleMoverSelectArticle = useCallback((articleCode: string, orderFab: string) => {
+    setShowMoverArticleList(false);
+    setScanData({ articleCode, orderFab });
+    setSelectedPositions([]);
+  }, []);
+
   const moverNeeded = useMemo(() => {
     if (action !== 'mover' || !scanData) return 1;
     return findArticle(scanData.articleCode, scanData.orderFab).length || 1;
@@ -245,8 +278,73 @@ const ShelfNavigator: React.FC = () => {
     setProcessing(true);
     const ok = await mover(scanData.articleCode, scanData.orderFab, selectedPositions, effectiveOperarioId, displayName);
     setProcessing(false);
-    if (ok) finishAction('success', '✅ Movido');
-    else finishAction('error', 'Error al mover');
+    if (ok) {
+      setSelectedPositions([]);
+      setConfirmModal({
+        open: true,
+        title: '✅ Movido correctamente',
+        message: `${scanData.articleCode} movido. ¿Quieres mover algo más?`,
+        icon: '🔄',
+        variant: 'success',
+        confirmText: 'SÍ, mover otro',
+        onConfirm: () => {
+          setConfirmModal((prev) => ({ ...prev, open: false }));
+          setScanData(null);
+          setShowMoverArticleList(true);
+        },
+        extraButton: {
+          text: 'NO, finalizar',
+          onClick: () => finishAction('success', `✅ ${scanData.articleCode} movido correctamente`),
+        },
+      });
+    } else {
+      finishAction('error', 'Error al mover');
+    }
+  };
+
+  const handleRetirarCellItemsConfirm = (selectedItems: LocationItem[]) => {
+    setShowRetirarCellModal(false);
+    const position = retirarCellPosition;
+    if (selectedItems.length === 0) return;
+
+    setPendingRetirarQueue((prev) => [...prev, { position, items: selectedItems }]);
+    setConfirmModal({
+      open: true,
+      title: '¿Retirar algo más?',
+      message: `${selectedItems.length} artículo(s) de posición ${parseInt(position, 10)} añadido(s) a la cola`,
+      icon: '📤',
+      variant: 'info',
+      confirmText: 'NO, finalizar retirada',
+      onConfirm: async () => {
+        setConfirmModal((prev) => ({ ...prev, open: false }));
+        await handleFinalizarRetiradaCarretillero();
+      },
+      extraButton: {
+        text: 'SÍ, retirar más',
+        onClick: () => setConfirmModal((prev) => ({ ...prev, open: false })),
+      },
+    });
+  };
+
+  const handleFinalizarRetiradaCarretillero = async () => {
+    let successCount = 0;
+    setProcessing(true);
+
+    for (const queueItem of pendingRetirarQueue) {
+      for (const item of queueItem.items) {
+        const result = await retirar(item.articleCode, item.orderFab, effectiveOperarioId, displayName);
+        if (result.success) successCount++;
+      }
+    }
+
+    setProcessing(false);
+    const totalItems = pendingRetirarQueue.reduce((sum, q) => sum + q.items.length, 0);
+    if (successCount === totalItems) {
+      finishAction('success', `✅ ${totalItems} artículo(s) retirado(s) correctamente`);
+    } else {
+      finishAction('error', `Parcial: ${successCount}/${totalItems} artículos retirados`);
+    }
+    setPendingRetirarQueue([]);
   };
 
   return (
@@ -363,12 +461,30 @@ const ShelfNavigator: React.FC = () => {
         />
       )}
 
+      {showMoverArticleList && (
+        <MoverArticleList
+          locations={locations}
+          shelfCode={selectedShelf}
+          onSelect={handleMoverSelectArticle}
+          onClose={() => { setShowMoverArticleList(false); resetOperative(); }}
+        />
+      )}
+
       <ConfirmationModal
         open={confirmModal.open}
         onClose={() => setConfirmModal(p => ({ ...p, open: false }))}
         title={confirmModal.title} message={confirmModal.message}
         icon={confirmModal.icon} variant={confirmModal.variant}
         onConfirm={confirmModal.onConfirm} extraButton={confirmModal.extraButton}
+        loading={processing}
+      />
+
+      <RetirarCellModal
+        open={showRetirarCellModal}
+        position={retirarCellPosition}
+        items={retirarCellItems}
+        onConfirm={handleRetirarCellItemsConfirm}
+        onClose={() => setShowRetirarCellModal(false)}
         loading={processing}
       />
     </div>

@@ -1,4 +1,5 @@
 import type { UserRole } from '../../lib/firestoreSchema';
+import { getSectionForShelf } from '../../lib/firestoreSchema';
 import type { AuthMethod, SessionCapabilities } from './authTypes';
 
 const OPERATIVE_ROLES: UserRole[] = [
@@ -35,10 +36,13 @@ export const resolveCapabilities = (
     canBrowseAllShelves: role === 'CARRETILLERO' || isAdminLevel || role === 'JEFE_SECCION',
     canOperateShelf: canOperate,
     canAccessShelf: (shelfCode: string) => {
-      if (role === 'OPERARIO') return assignedShelf === shelfCode;
+      if (role === 'OPERARIO') return true;
       if (role === 'CALIDAD') return shelfCode === 'CAL';
       if (role === 'JEFE_SECCION') {
-        return !!assignedShelf && assignedShelf === shelfCode;
+        if (!assignedShelf) return false;
+        const userSection = getSectionForShelf(assignedShelf);
+        const targetSection = getSectionForShelf(shelfCode);
+        return userSection === targetSection;
       }
       return true;
     },

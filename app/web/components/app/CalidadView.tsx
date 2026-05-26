@@ -10,6 +10,7 @@ import ScanMethodPicker, { type ScanMethod } from '../common/ScanMethodPicker';
 import ConfirmationModal from '../common/ConfirmationModal';
 import ReprocesosEditor from '../kiosk/ReprocesosEditor';
 import TraerArticuloModal from '../kiosk/TraerArticuloModal';
+import MoverArticleList from '../kiosk/MoverArticleList';
 import { isReprocesosLocation } from '../../lib/firestoreSchema';
 import { calcReprocesosTotal } from '../../lib/api/reprocesosApi';
 import CalidadReprocesosSection from './CalidadReprocesosSection';
@@ -51,6 +52,7 @@ const CalidadView: React.FC = () => {
   const [retirarPosition, setRetirarPosition] = useState<string | null>(null);
   const [foundLocationsForRetirar, setFoundLocationsForRetirar] = useState<ShelfLocationState[]>([]);
   const [showTraerModal, setShowTraerModal] = useState(false);
+  const [showMoverArticleList, setShowMoverArticleList] = useState(false);
 
   const { locations, loading, shelfDef, ubicar, ubicarMulti, retirar, retirarDeUbicacion, mover, findArticle } = useShelf(SHELF);
   const { operarioId, firebaseUser, displayName, logout, canEditReprocesses, canViewReprocessCosts } = useAuth();
@@ -105,6 +107,7 @@ const CalidadView: React.FC = () => {
     setCurrentBatchRetirarIndex(0);
     setRetirarPosition(null);
     setFoundLocationsForRetirar([]);
+    setShowMoverArticleList(false);
   };
 
   const applyScanMethod = useCallback((method: ScanMethod) => {
@@ -156,6 +159,11 @@ const CalidadView: React.FC = () => {
           },
         },
       });
+      return;
+    }
+    if (act === 'mover') {
+      setAction('mover');
+      setShowMoverArticleList(true);
       return;
     }
     setPendingAction(act);
@@ -347,13 +355,39 @@ const CalidadView: React.FC = () => {
     }
   }, [action, batchMode, batchArticles, scanData, ubicar, findArticle, effectiveOperarioId, displayName, canEditReprocesses]);
 
+  const handleMoverSelectArticle = useCallback((articleCode: string, orderFab: string) => {
+    setShowMoverArticleList(false);
+    setScanData({ articleCode, orderFab });
+    setSelectedPositions([]);
+  }, []);
+
   const handleMoverConfirm = async () => {
     if (!scanData || selectedPositions.length === 0) return;
     setProcessing(true);
     const ok = await mover(scanData.articleCode, scanData.orderFab, selectedPositions, effectiveOperarioId, displayName);
     setProcessing(false);
-    if (ok) finishAction('success', '✅ Movido');
-    else finishAction('error', 'Error al mover');
+    if (ok) {
+      setSelectedPositions([]);
+      setConfirmModal({
+        open: true,
+        title: '✅ Movido correctamente',
+        message: `${scanData.articleCode} movido. ¿Quieres mover algo más?`,
+        icon: '🔄',
+        variant: 'success',
+        confirmText: 'SÍ, mover otro',
+        onConfirm: () => {
+          setConfirmModal((prev) => ({ ...prev, open: false }));
+          setScanData(null);
+          setShowMoverArticleList(true);
+        },
+        extraButton: {
+          text: 'NO, finalizar',
+          onClick: () => finishAction('success', `✅ ${scanData.articleCode} movido correctamente`),
+        },
+      });
+    } else {
+      finishAction('error', 'Error al mover');
+    }
   };
 
   const handleQRScan = useCallback((qrCode: string) => {
@@ -635,6 +669,15 @@ const CalidadView: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {showMoverArticleList && (
+        <MoverArticleList
+          locations={locations}
+          shelfCode={SHELF}
+          onSelect={handleMoverSelectArticle}
+          onClose={() => { setShowMoverArticleList(false); resetAction(); }}
+        />
       )}
 
       <ConfirmationModal

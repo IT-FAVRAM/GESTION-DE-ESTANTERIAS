@@ -81,7 +81,10 @@
       "Bash(firebase emulators:start --import=./emulator-data)",
       "Bash(curl -s -k https://localhost:3000)",
       "Bash(firebase projects:list)",
-      "Bash(curl -s -I https://gestion-de-estanterias.web.app)"
+      "Bash(curl -s -I https://gestion-de-estanterias.web.app)",
+      "Bash(curl -s https://localhost:3001 --insecure)",
+      "Bash(npx playwright *)",
+      "Bash(pkill *)"
     ]
   }
 }

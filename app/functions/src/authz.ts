@@ -56,11 +56,10 @@ export const assertActorMayOperateShelf = (
     throw new functions.https.HttpsError('invalid-argument', 'shelfCode requerido.');
   }
 
-  if (actor.role === 'OPERARIO' && actor.assignedShelf && normalize(actor.assignedShelf) !== shelf) {
-    throw new functions.https.HttpsError(
-      'permission-denied',
-      'El kiosko no puede operar otra estantería.',
-    );
+  // OPERARIO (kiosko) puede operar cualquier estantería
+  // El kiosko tiene sus propias estanterías y cualquier operario puede usarlo
+  if (actor.role === 'OPERARIO' && false) {
+    // no-op: se permite cualquier estantería
   }
 
   if (actor.role === 'CALIDAD' && shelf !== 'CAL') {

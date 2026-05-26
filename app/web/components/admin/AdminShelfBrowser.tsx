@@ -22,6 +22,8 @@ import ScanMethodPicker, { type ScanMethod } from '../common/ScanMethodPicker';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../lib/firebase';
 import { findArticleGlobal } from '../../lib/findArticleGlobal';
+import RetirarCellModal from '../kiosk/RetirarCellModal';
+import type { LocationItem } from '../../lib/schema/locations';
 
 type AdminAction = 'idle' | 'ubicar' | 'retirar' | 'mover' | 'reubicar' | 'moverSeccion';
 
@@ -66,6 +68,10 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
   const [batchArticles, setBatchArticles] = useState<Array<{ articleCode: string; orderFab: string }>>([]);
   const [batchRetiraPending, setBatchRetiraPending] = useState<Array<{ articleCode: string; orderFab: string; locations: ShelfLocationState[] }>>([]);
   const [currentBatchRetirarIndex, setCurrentBatchRetirarIndex] = useState(0);
+  const [retirarCellPosition, setRetirarCellPosition] = useState('');
+  const [retirarCellItems, setRetirarCellItems] = useState<LocationItem[]>([]);
+  const [showRetirarCellModal, setShowRetirarCellModal] = useState(false);
+  const [pendingRetirarQueue, setPendingRetirarQueue] = useState<Array<{ position: string; items: LocationItem[] }>>([]);
 
   const { locations, loading, shelfDef, ubicar, ubicarMulti, retirar, mover, findArticle, totalOccupied, totalEmpty, totalArticles } = useShelf(selectedShelf);
   const { operarioId, firebaseUser, displayName } = useAuth();
@@ -116,6 +122,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
     setMoverSeccionTargetPos('');
     setDraggedArticle(null);
     setDragOverPosition(null);
+    setPendingRetirarQueue([]);
   }, []);
 
   const startAction = useCallback(async (act: AdminAction) => {
@@ -160,33 +167,9 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
     }
 
     if (act === 'retirar') {
-      const found = findArticle(article, of);
-      if (found.length === 0) {
-        showFeedback('error', 'Artículo no encontrado en esta estantería');
-        return;
-      }
-      const posStr = found.map((l) => parseInt(l.position, 10)).join(', ');
-      let msg = `${formatArticleDisplay(article, of)} en: ${posStr}`;
-      if (found.length > 1) msg += `\n\n⚠️ Ocupa ${found.length} posiciones. Se retirará de todas.`;
-      setConfirmModal({
-        open: true,
-        title: 'Confirmar retirada',
-        message: msg,
-        icon: '📤',
-        variant: 'danger',
-        onConfirm: async () => {
-          setProcessing(true);
-          setConfirmModal((p) => ({ ...p, open: false }));
-          const r = await retirar(article, of, effectiveOperarioId, displayName);
-          setProcessing(false);
-          if (r.success) {
-            showFeedback('success', '✅ Artículo retirado');
-            resetAction();
-          } else {
-            showFeedback('error', r.error || 'Error al retirar');
-          }
-        },
-      });
+      setAction('retirar');
+      setFeedback(null);
+      setSelectedPositions([]);
       return;
     }
 
@@ -304,6 +287,15 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
   const handleCellPress = useCallback((loc: ShelfLocationState) => {
     const article = articleInput.trim();
     const of = ofInput.trim();
+
+    if (action === 'retirar') {
+      if (!loc.isEmpty && loc.items.length > 0) {
+        setRetirarCellPosition(loc.position);
+        setRetirarCellItems(loc.items);
+        setShowRetirarCellModal(true);
+      }
+      return;
+    }
 
     if (action === 'ubicar' && batchMode) {
       const position = loc.position;
@@ -503,6 +495,52 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
 
     processNext(currentBatchRetirarIndex);
   }, [batchRetiraPending, currentBatchRetirarIndex, retirar, effectiveOperarioId, displayName, showFeedback, resetAction]);
+
+  const handleRetirarCellItemsConfirm = (selectedItems: LocationItem[]) => {
+    setShowRetirarCellModal(false);
+    const position = retirarCellPosition;
+    if (selectedItems.length === 0) return;
+
+    setPendingRetirarQueue((prev) => [...prev, { position, items: selectedItems }]);
+    setConfirmModal({
+      open: true,
+      title: '¿Retirar algo más?',
+      message: `${selectedItems.length} artículo(s) de posición ${parseInt(position, 10)} añadido(s) a la cola`,
+      icon: '📤',
+      variant: 'info',
+      confirmText: 'NO, finalizar retirada',
+      onConfirm: async () => {
+        setConfirmModal((prev) => ({ ...prev, open: false }));
+        await handleFinalizarRetiradaAdmin();
+      },
+      extraButton: {
+        text: 'SÍ, retirar más',
+        onClick: () => setConfirmModal((prev) => ({ ...prev, open: false })),
+      },
+    });
+  };
+
+  const handleFinalizarRetiradaAdmin = async () => {
+    let successCount = 0;
+    setProcessing(true);
+
+    for (const queueItem of pendingRetirarQueue) {
+      for (const item of queueItem.items) {
+        const result = await retirar(item.articleCode, item.orderFab, effectiveOperarioId, displayName);
+        if (result.success) successCount++;
+      }
+    }
+
+    setProcessing(false);
+    const totalItems = pendingRetirarQueue.reduce((sum, q) => sum + q.items.length, 0);
+    if (successCount === totalItems) {
+      showFeedback('success', `✅ ${totalItems} artículo(s) retirado(s) correctamente`);
+    } else {
+      showFeedback('error', `Parcial: ${successCount}/${totalItems} artículos retirados`);
+    }
+    setPendingRetirarQueue([]);
+    resetAction();
+  };
 
   const foundPositions = (action !== 'idle' && articleInput.trim() && ofInput.trim())
     ? findArticle(articleInput.trim(), ofInput.trim()).map((l) => l.position)
@@ -895,6 +933,15 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
         variant={confirmModal.variant}
         onConfirm={confirmModal.onConfirm}
         extraButton={confirmModal.extraButton}
+        loading={processing}
+      />
+
+      <RetirarCellModal
+        open={showRetirarCellModal}
+        position={retirarCellPosition}
+        items={retirarCellItems}
+        onConfirm={handleRetirarCellItemsConfirm}
+        onClose={() => setShowRetirarCellModal(false)}
         loading={processing}
       />
 
