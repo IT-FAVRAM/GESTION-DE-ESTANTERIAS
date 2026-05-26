@@ -93,8 +93,8 @@ type GuestSession = {
   displayName: string;
 };
 
-const buildGuestSession = (role: UserRole, section?: WarehouseSection): GuestSession => {
-  const assignedShelf = resolveAssignedShelfForRole(role, section);
+const buildGuestSession = (role: UserRole, section?: WarehouseSection, kioskId?: string | null, deviceAssignedShelf?: string | null): GuestSession => {
+  const assignedShelf = resolveAssignedShelfForRole(role, section, kioskId, deviceAssignedShelf);
   const displayNameByRole: Record<UserRole, string> = {
     OPERARIO: 'Operario Desarrollo',
     CARRETILLERO: 'Carretillero Desarrollo',
@@ -113,7 +113,7 @@ const buildGuestSession = (role: UserRole, section?: WarehouseSection): GuestSes
     section,
     guest: true,
     assignedShelf,
-    kioskId: role === 'OPERARIO' ? 'kiosko-mecanizado' : null,
+    kioskId: kioskId || null,
     displayName: displayNameByRole[role],
   };
 };
@@ -221,12 +221,10 @@ export const useAuth = () => {
 
       const isKiosk = deviceConfig.type === 'KIOSK';
 
-      // Auto-login como OPERARIO para kioskos sin sesión activa
-      if (isKiosk && !readGuestSession<GuestSession>()) {
-        const session = buildGuestSession('OPERARIO');
-        if (deviceConfig.kioskId) {
-          session.kioskId = deviceConfig.kioskId;
-        }
+      // Auto-login como OPERARIO para kioskos, sobrescribiendo sesiones obsoletas
+      const existingSession = readGuestSession<GuestSession>();
+      if (isKiosk && (!existingSession || existingSession.role !== 'OPERARIO')) {
+        const session = buildGuestSession('OPERARIO', undefined, deviceConfig.kioskId, deviceConfig.assignedShelf);
         writeGuestSession(session);
       }
 
@@ -361,7 +359,7 @@ export const useAuth = () => {
   const loginAsGuest = useCallback(async (role: UserRole, section?: WarehouseSection) => {
     setState((prev) => ({ ...prev, loading: true }));
     try {
-      if (!['OPERARIO', 'CARRETILLERO'].includes(role)) {
+      if (!['OPERARIO', 'CARRETILLERO', 'ADMIN', 'CALIDAD'].includes(role)) {
         setState((prev) => ({
           ...prev,
           loading: false,
@@ -388,12 +386,7 @@ export const useAuth = () => {
         }
       }
 
-      const session = buildGuestSession(role, section);
-      
-      // Si estamos en un dispositivo configurado con kioskId (como la Honor Pad X8a), lo preservamos en la sesión
-      if (state.kioskId) {
-        session.kioskId = state.kioskId;
-      }
+      const session = buildGuestSession(role, section, state.kioskId, role === 'OPERARIO' ? state.assignedShelf : undefined);
 
       writeGuestSession(session);
       setState((prev) => ({
@@ -470,3 +463,5 @@ export const useAuth = () => {
     deviceId,
   };
 };
+
+

@@ -48,17 +48,20 @@ export const useKiosk = (kioskId: string | null | undefined): UseKioskReturn => 
           setError(null);
         } else {
           // Fallback robusto para desarrollo y dispositivos no registrados
-          if (kioskId === 'kiosko-mecanizado') {
-            const now = new Date().toISOString();
-            const fallbackKiosk: KioskDoc = {
+          const fallbackMap: Record<string, KioskDoc> = {
+            'kiosko-mecanizado': {
               id: 'kiosko-mecanizado',
               name: 'Mecanizado-Prensas',
               shelves: ['MEC', 'PRE'],
               location: 'Zona Mecanizado y Prensas',
               isActive: true,
-              createdAt: now,
-              updatedAt: now,
-            };
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+          };
+
+          if (kioskId in fallbackMap) {
+            const fallbackKiosk = fallbackMap[kioskId];
             setKiosk(fallbackKiosk);
             const savedShelf = localStorage.getItem(`kiosk-${kioskId}-shelf`);
             const defaultShelf = savedShelf || fallbackKiosk.shelves[0] || null;
@@ -73,17 +76,20 @@ export const useKiosk = (kioskId: string | null | undefined): UseKioskReturn => 
       } catch (err) {
         console.warn('[useKiosk] Fallback activated for kiosk:', kioskId, err);
         // Fallback robusto si la consulta de red o reglas de seguridad fallan
-        if (kioskId === 'kiosko-mecanizado') {
-          const now = new Date().toISOString();
-          const fallbackKiosk: KioskDoc = {
+        const fallbackMap: Record<string, KioskDoc> = {
+          'kiosko-mecanizado': {
             id: 'kiosko-mecanizado',
             name: 'Mecanizado-Prensas',
             shelves: ['MEC', 'PRE'],
             location: 'Zona Mecanizado y Prensas',
             isActive: true,
-            createdAt: now,
-            updatedAt: now,
-          };
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        };
+
+        if (kioskId in fallbackMap) {
+          const fallbackKiosk = fallbackMap[kioskId];
           setKiosk(fallbackKiosk);
           const savedShelf = localStorage.getItem(`kiosk-${kioskId}-shelf`);
           const defaultShelf = savedShelf || fallbackKiosk.shelves[0] || null;
@@ -120,3 +126,5 @@ export const useKiosk = (kioskId: string | null | undefined): UseKioskReturn => 
     error,
   };
 };
+
+
