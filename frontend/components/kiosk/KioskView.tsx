@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useKiosk } from '../../hooks/useKiosk';
 import { useShelf, type ShelfLocationState } from '../../hooks/useShelf';
@@ -37,6 +37,18 @@ const KioskView: React.FC = () => {
 
   // Determinar la estantería a mostrar: usar kiosko si está disponible, sino assignedShelf
   const shelfCode = currentShelf || assignedShelf || '';
+
+  // DEBUG
+  useEffect(() => {
+    console.log('[KioskView] DEBUG:', {
+      assignedShelf,
+      currentShelf,
+      shelfCode,
+      kioskId,
+      kiosk: kiosk?.id,
+      shelves,
+    });
+  }, [assignedShelf, currentShelf, shelfCode, kioskId, kiosk, shelves]);
   const { locations, loading, shelfDef, ubicar, ubicarMulti, retirar, retirarDeUbicacion, mover, findArticle, totalArticles, totalOccupied, totalEmpty } = useShelf(shelfCode);
   const { createPickupRequest, createDeliveryRequest } = usePickupQueue();
 

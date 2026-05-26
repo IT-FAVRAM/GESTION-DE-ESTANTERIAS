@@ -388,6 +388,7 @@ export const useAuth = () => {
 
       const session = buildGuestSession(role, section, state.kioskId, role === 'OPERARIO' ? state.assignedShelf : undefined);
 
+      console.log('[loginAsGuest] session:', session);
       writeGuestSession(session);
       setState((prev) => ({
         ...prev,
@@ -404,6 +405,7 @@ export const useAuth = () => {
         authMethod: 'guest',
         error: null,
       }));
+      console.log('[loginAsGuest] Setting assignedShelf to:', session.assignedShelf);
       return true;
     } catch (error: any) {
       localStorage.removeItem(AUTH_STORAGE_KEYS.GUEST_SESSION);
