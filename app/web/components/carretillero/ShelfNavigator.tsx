@@ -56,6 +56,7 @@ const ShelfNavigator: React.FC = () => {
     variant: 'success' | 'danger' | 'warning' | 'info';
     onConfirm: () => void;
     extraButton?: { text: string; onClick: () => void };
+    confirmText?: string;
   }>({ open: false, title: '', message: '', icon: '', variant: 'info', onConfirm: () => {} });
   const [retirarCellPosition, setRetirarCellPosition] = useState('');
   const [retirarCellItems, setRetirarCellItems] = useState<LocationItem[]>([]);

@@ -45,6 +45,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
     variant: 'success' | 'danger' | 'warning' | 'info';
     onConfirm: () => void;
     extraButton?: { text: string; onClick: () => void };
+    confirmText?: string;
   }>({ open: false, title: '', message: '', icon: '', variant: 'info', onConfirm: () => {} });
   
   // Camera scanning

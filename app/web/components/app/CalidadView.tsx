@@ -42,6 +42,7 @@ const CalidadView: React.FC = () => {
     variant: 'success' | 'danger' | 'warning' | 'info';
     onConfirm: () => void;
     extraButton?: { text: string; onClick: () => void };
+    confirmText?: string;
   }>({ open: false, title: '', message: '', icon: '', variant: 'info', onConfirm: () => {} });
 
   // Batch support
