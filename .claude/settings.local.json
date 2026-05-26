@@ -92,7 +92,25 @@
       "Bash(netstat -tuln)",
       "Bash(Select-Object Name, Length, LastWriteTime)",
       "PowerShell(Get-ChildItem \"C:\\\\-- APLICACIONES DANI --\\\\APP -- ESTANTERIAS\\\\docs\" -File | Select-Object Name, @{N='Size\\(KB\\)';E={[math]::Round\\($_.Length/1KB,1\\)}}, LastWriteTime | Sort-Object LastWriteTime | Format-Table -AutoSize)",
-      "Bash(Get-Content *)"
+      "Bash(Get-Content *)",
+      "Bash(xargs grep -l \"\\\\.collection\\\\\\(\")",
+      "Bash(firebase firestore:delete --project=gestion-de-estanterias /tablets --recursive --yes)",
+      "Bash(firebase firestore:delete --help)",
+      "Bash(firebase firestore:delete --recursive -f --project=gestion-de-estanterias /tablets)",
+      "Bash(firebase firestore:delete --recursive -f --project=gestion-de-estanterias /piezas_agregadas)",
+      "Bash(firebase firestore:delete --recursive -f --project=gestion-de-estanterias /avisos)",
+      "Bash(firebase firestore:delete --recursive -f --project=gestion-de-estanterias /chat_mensajes)",
+      "Bash(firebase firestore:delete --recursive -f --project=gestion-de-estanterias /piezas_en_curso)",
+      "Bash(firebase firestore:delete --recursive -f --project=gestion-de-estanterias /piezas_terminadas)",
+      "Bash(firebase firestore:inspect --project=gestion-de-estanterias)",
+      "Bash(gcloud firestore collections *)",
+      "Bash(grep -v \"^//\")",
+      "Bash(firebase firestore:indexes)",
+      "Bash(npm list *)",
+      "Bash(git rm *)",
+      "Bash(tee /tmp/dev.log)",
+      "Bash(curl -k https://localhost:3001)",
+      "Bash(xargs grep -l \"fetchDeviceConfig\\\\|getDeviceConfig\\\\|device.*kioskId\")"
     ]
   }
 }

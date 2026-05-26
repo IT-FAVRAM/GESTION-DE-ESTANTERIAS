@@ -111,7 +111,7 @@ service cloud.firestore {
       allow write:     if false;
     }
 
-    match /tablets/{tabletId} {
+    match /kiosks/{kioskId} {
       allow read:  if isAdminLike() || isValidatedDevice();
       allow write: if isSuperAdmin();
     }
@@ -136,11 +136,6 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    match /piezas_agregadas/{document=**} {
-      allow read:  if canReadWarehouseState();
-      allow write: if false;
-    }
-
     match /cola_recogida/{document=**} {
       allow read:  if isValidatedDevice() || isOperationalUser();
       allow write: if false;
@@ -148,26 +143,6 @@ service cloud.firestore {
 
     match /historial/{document=**} {
       allow read:  if canReadHistory();
-      allow write: if false;
-    }
-
-    match /avisos/{document=**} {
-      allow read:  if isOperationalUser() || isMonitoringUser();
-      allow write: if false;
-    }
-
-    match /chat_mensajes/{document=**} {
-      allow read:  if isRegisteredUser();
-      allow write: if false;
-    }
-
-    match /piezas_en_curso/{document=**} {
-      allow read:  if isMonitoringUser();
-      allow write: if false;
-    }
-
-    match /piezas_terminadas/{document=**} {
-      allow read:  if isMonitoringUser();
       allow write: if false;
     }
 

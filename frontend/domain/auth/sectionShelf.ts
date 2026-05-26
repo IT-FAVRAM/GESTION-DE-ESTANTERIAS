@@ -25,8 +25,12 @@ export const resolveAssignedShelfForRole = (
     return SECTION_TO_SHELF[section] ?? null;
   }
   if (role === 'OPERARIO') {
+    // Intenta usar deviceAssignedShelf si está configurado
     if (deviceAssignedShelf) return deviceAssignedShelf;
+    // Fallback para kioskos conocidos
     if (kioskId === 'kiosko-mecanizado') return 'MEC';
+    // Fallback: mapea section a shelf si está disponible
+    if (section) return SECTION_TO_SHELF[section] ?? null;
   }
   return null;
 };

@@ -1,5 +1,8 @@
 {
-  "dependencies": {
-    "firebase-admin": "^13.10.0"
-  }
+  "name": "gestion-estanterias-cleanup",
+  "version": "1.0.0",
+  "description": "Script to clean duplicate Firestore collections",
+  "main": "cleanup.js",
+  "scripts": {"clean": "node cleanup.js"},
+  "dependencies": {"firebase-admin": "^12.4.0"}
 }
