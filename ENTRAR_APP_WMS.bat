@@ -14,6 +14,6 @@ echo Cuando aparezca la URL, abre el navegador en:
 echo http://localhost:5173
 echo.
 
-npm --prefix app/web run dev
+npm --prefix frontend run dev
 
 endlocal

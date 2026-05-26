@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 *.local
+app/web/dist/
+nul
+scratch_pdf/
 
 # Editor directories and files
 .vscode/*
