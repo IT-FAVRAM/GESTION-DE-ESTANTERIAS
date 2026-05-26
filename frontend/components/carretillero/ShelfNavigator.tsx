@@ -352,43 +352,51 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf 
     <div className="flex flex-col h-full w-full min-w-0 overflow-hidden">
       {/* Selector de estanterías — oculto cuando estamos en modo carro */}
       {!lockedShelf && (
-        <ShelfNavigatorTabs selectedShelf={selectedShelf} onSelectShelf={(shelfCode) => { setSelectedShelf(shelfCode); setAction('idle'); setScanData(null); setHighlightedSearch([]); }} />
-      )}
-      <ShelfNavigatorStatus
-        totalEmpty={totalEmpty}
-        totalOccupied={totalOccupied}
-        totalArticles={totalArticles}
-        actionActive={action !== 'idle'}
-        canConfirmMove={action === 'mover' && !!scanData && selectedPositions.length === moverNeeded}
-        moverNeeded={action === 'mover' && !!scanData ? moverNeeded : undefined}
-        moverSelected={action === 'mover' ? selectedPositions.length : undefined}
-        scannerActive={scannerActive}
-        scanArticle={scanData && action === 'ubicar' ? scanData.articleCode : undefined}
-        onConfirmMove={handleMoverConfirm}
-        onCancel={() => { setAction('idle'); setScanData(null); setSelectedPositions([]); setScannerActive(false); }}
-      />
-
-       {/* Search */}
-       <KioskSearchBar 
-         locations={locations} 
-         onHighlight={setHighlightedSearch} 
-         global={true}
-         currentShelfCode={selectedShelf}
-         canNavigateToShelf={true}
-         onShelfNavigate={setSelectedShelf}
-         onOutOfShelfResult={(result) => {
-           // Mostrar aviso de que el resultado está en otra estantería
-           showToast('info', `En ${result.shelfCode} (pos. ${result.positions.join(', ')})`);
-         }}
-       />
-
-      {/* Feedback */}
-      {feedback && (
-        <div className={`mx-4 mt-2 p-3 rounded-xl text-center font-bold text-sm
-          ${feedback.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
-          {feedback.msg}
+        <div className="flex-shrink-0">
+          <ShelfNavigatorTabs selectedShelf={selectedShelf} onSelectShelf={(shelfCode) => { setSelectedShelf(shelfCode); setAction('idle'); setScanData(null); setHighlightedSearch([]); }} />
         </div>
       )}
+      <div className="flex-shrink-0">
+        <ShelfNavigatorStatus
+          totalEmpty={totalEmpty}
+          totalOccupied={totalOccupied}
+          totalArticles={totalArticles}
+          actionActive={action !== 'idle'}
+          canConfirmMove={action === 'mover' && !!scanData && selectedPositions.length === moverNeeded}
+          moverNeeded={action === 'mover' && !!scanData ? moverNeeded : undefined}
+          moverSelected={action === 'mover' ? selectedPositions.length : undefined}
+          scannerActive={scannerActive}
+          scanArticle={scanData && action === 'ubicar' ? scanData.articleCode : undefined}
+          onConfirmMove={handleMoverConfirm}
+          onCancel={() => { setAction('idle'); setScanData(null); setSelectedPositions([]); setScannerActive(false); }}
+        />
+      </div>
+
+       {/* Search */}
+       <div className="flex-shrink-0">
+         <KioskSearchBar
+           locations={locations}
+           onHighlight={setHighlightedSearch}
+           global={true}
+           currentShelfCode={selectedShelf}
+           canNavigateToShelf={true}
+           onShelfNavigate={setSelectedShelf}
+           onOutOfShelfResult={(result) => {
+             // Mostrar aviso de que el resultado está en otra estantería
+             showToast('info', `En ${result.shelfCode} (pos. ${result.positions.join(', ')})`);
+           }}
+         />
+       </div>
+
+      {/* Feedback */}
+      <div className="flex-shrink-0">
+        {feedback && (
+          <div className={`mx-4 mt-2 p-3 rounded-xl text-center font-bold text-sm
+            ${feedback.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+            {feedback.msg}
+          </div>
+        )}
+      </div>
 
       {/* Grid — scroll vertical aquí; cada bloque de estantería gestiona su propio scroll horizontal */}
       <div className="flex-1 min-h-0 min-w-0 w-full overflow-y-auto overscroll-contain p-2 sm:p-4 [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
