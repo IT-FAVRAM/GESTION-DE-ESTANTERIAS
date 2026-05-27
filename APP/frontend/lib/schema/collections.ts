@@ -1,14 +1,14 @@
 export const COLLECTIONS = {
-  CONFIG: 'configuracion',
-  SHELVES: 'shelves',       // Backend shelfOperate escribe en 'shelves/{shelfCode}/locations/'
-  LOCATIONS: 'locations',   // Subcollección bajo SHELVES — debe coincidir con backend
-  ITEMS: 'piezas',
-  ITEM_AGGREGATES: 'resumen_piezas',
+  CONFIG: 'config',
+  SHELVES: 'shelves',
+  LOCATIONS: 'locations',
+  ITEMS: 'items',
+  ITEM_AGGREGATES: 'itemAggregates',
   USERS: 'usuarios',
   DEVICES: 'dispositivos',
   KIOSKS: 'kiosks',
-  PICKUP_QUEUE: 'cola_recogida',
-  HISTORY: 'historial',
+  PICKUP_QUEUE: 'pickupQueue',
+  HISTORY: 'history',
   CONNECTION_STATUS: 'conexion_estado',
   CONNECTION_LOGS: 'conexion_logs',
 } as const;

@@ -9,7 +9,7 @@
 import { useEffect, useState } from 'react';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { COLLECTIONS } from '../lib/firestoreSchema';
+import { COLLECTIONS, CONFIG_DOC_ID } from '../lib/firestoreSchema';
 import { startBidirectionalSync, stopBidirectionalSync } from '../lib/offline/bidirectionalSync';
 
 export interface InitializationStatus {
@@ -70,7 +70,7 @@ export const useInitializeCriticalData = (): InitializationStatus => {
 
         // Precachear configuración
         try {
-          const configSnap = await getDoc(doc(db, COLLECTIONS.CONFIG, 'v1'));
+          const configSnap = await getDoc(doc(db, COLLECTIONS.CONFIG, CONFIG_DOC_ID));
           if (configSnap.exists()) {
             localStorage.setItem('wms-config-cache', JSON.stringify(configSnap.data()));
             localStorage.setItem('wms-config-cache-timestamp', new Date().toISOString());

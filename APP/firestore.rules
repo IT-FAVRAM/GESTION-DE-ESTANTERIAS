@@ -136,6 +136,43 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── ENGLISH COLLECTIONS (new system, matches backend + frontend) ─────
+
+    match /shelves/{shelfCode} {
+      allow read:  if canReadWarehouseState();
+      allow write: if false;
+
+      match /locations/{position} {
+        allow read:  if canReadWarehouseState();
+        allow write: if false;
+      }
+    }
+
+    match /items/{document=**} {
+      allow read:  if canReadWarehouseState();
+      allow write: if false;
+    }
+
+    match /itemAggregates/{document=**} {
+      allow read:  if canReadWarehouseState();
+      allow write: if false;
+    }
+
+    match /history/{document=**} {
+      allow read:  if canReadHistory();
+      allow write: if false;
+    }
+
+    match /config/{document=**} {
+      allow read:  if canReadWarehouseState();
+      allow write: if isSuperAdmin();
+    }
+
+    match /pickupQueue/{document=**} {
+      allow read:  if isValidatedDevice() || isOperationalUser();
+      allow write: if false;
+    }
+
     match /cola_recogida/{document=**} {
       allow read:  if isValidatedDevice() || isOperationalUser();
       allow write: if false;

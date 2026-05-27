@@ -81,6 +81,14 @@
                 { "fieldPath": "section",     "order": "ASCENDING" },
                 { "fieldPath": "finishedAt",  "order": "DESCENDING" }
             ]
+        },
+        {
+            "collectionGroup": "conexion_estado",
+            "queryScope": "COLLECTION",
+            "fields": [
+                { "fieldPath": "isOnline",           "order": "ASCENDING" },
+                { "fieldPath": "lastDisconnectedAt", "order": "ASCENDING" }
+            ]
         }
     ],
     "fieldOverrides": []
