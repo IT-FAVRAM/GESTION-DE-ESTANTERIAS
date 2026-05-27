@@ -126,7 +126,8 @@ export const notifySpecialLocationOccupancy = functions.firestore
     const isUrgent = urgentLocations.includes(locationId);
     const isTechReview = techReviewLocations.includes(locationId);
     const isSoldadura = ['SOL', 'RSO', 'SXP'].includes(shelfCode);
-    if (!isUrgent && !isTechReview && !isSoldadura) return null;
+    const isReprocesos = shelfCode === 'CAL' && position >= 1 && position <= 22;
+    if (!isUrgent && !isTechReview && !isSoldadura && !isReprocesos) return null;
     const addedItems = getAddedLocationItems(change.before.data(), change.after.data());
     if (addedItems.length === 0) return null;
     const chiefMapping = config.chiefMapping || {};
@@ -168,6 +169,30 @@ export const notifySpecialLocationOccupancy = functions.firestore
           body: `${articleCode} ${orderFab} ha sido ubicado en ${locationId} (${shelfCode}).`.trim(),
           data: { type: 'SOLDADURA_LOCATION', shelfCode, locationId, articleCode, orderFab },
         });
+      }
+    }
+
+    if (isReprocesos && qualityEmails.length > 0) {
+      // Determinar el rol del usuario que ubicó el artículo
+      const locatedBy = String(firstItem.locatedBy || '');
+      let placerRole = 'UNKNOWN';
+      if (locatedBy) {
+        try {
+          const userDoc = await admin.firestore().collection('usuarios').doc(locatedBy).get();
+          if (userDoc.exists) {
+            placerRole = String((userDoc.data() as any)?.role || 'UNKNOWN').toUpperCase();
+          }
+        } catch { /* non-critical, notificamos igualmente si no podemos resolver el rol */ }
+      }
+      // Solo notificar si quien ubica NO es CALIDAD (ellos ya saben lo que hacen)
+      if (placerRole !== 'CALIDAD') {
+        const placerName = String(firstItem.locatedByName || locatedBy || 'Alguien');
+        await notifyUsersByEmails(qualityEmails, {
+          title: '⚠️ Artículo en Reprocesos',
+          body: `${placerName} ha ubicado ${articleCode}${orderFab ? ' ' + orderFab : ''} en ${locationId}.`.trim(),
+          data: { type: 'REPROCESOS_LOCATION', shelfCode, locationId, articleCode, orderFab, placerRole },
+        });
+        console.log(`[notifySpecialLocationOccupancy] Reprocesos notif sent: ${articleCode} ${orderFab} → ${locationId} por ${placerName} (${placerRole})`);
       }
     }
 
