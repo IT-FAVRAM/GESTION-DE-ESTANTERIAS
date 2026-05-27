@@ -105,42 +105,42 @@ const UnifiedLogin: React.FC = () => {
   }
 
   return (
-    <div className="min-h-dvh flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 sm:p-6 animate-fade-in safe-area-inset-top safe-area-inset-bottom">
-      <div className="w-full max-w-4xl flex flex-col gap-8">
-        
-        {/* Header */}
-        <div className="flex flex-col items-center gap-6 text-center">
-          <div className="p-6 bg-white dark:bg-slate-900 rounded-[2rem] shadow-xl border border-slate-100 dark:border-slate-800">
-            <LogoIcon className="h-16 w-16 text-cyan-500 dark:text-cyan-400" />
+    <div className="h-dvh flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 py-4 sm:p-6 animate-fade-in overflow-hidden">
+      <div className="w-full max-w-4xl flex flex-col gap-3 sm:gap-8">
+
+        {/* Header — compacto en móvil */}
+        <div className="flex flex-col items-center gap-2 sm:gap-6 text-center">
+          <div className="p-3 sm:p-6 bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2rem] shadow-xl border border-slate-100 dark:border-slate-800">
+            <LogoIcon className="h-10 w-10 sm:h-16 sm:w-16 text-cyan-500 dark:text-cyan-400" />
           </div>
-          <div className="space-y-2">
-            <h1 className="text-4xl sm:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
+          <div className="space-y-0.5 sm:space-y-2">
+            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
               WMS <span className="text-cyan-500">CONTROL</span>
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 text-lg font-medium">Desarrollo • Selección de Perfil</p>
+            <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-lg font-medium">Selección de Perfil</p>
           </div>
         </div>
 
-        {/* Role Selection Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          <RoleCard 
-            icon={<div className="text-4xl">🏭</div>}
+        {/* Role Selection Grid — 2×2 en móvil, 4 cols en desktop */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+          <RoleCard
+            icon={<div className="text-2xl sm:text-4xl">🏭</div>}
             title="KIOSKO"
             description="Operario · MEC"
             color="blue"
             onClick={() => handleQuickAccess('OPERARIO', 'MECANIZADO')}
             disabled={localLoading || loading}
           />
-          <RoleCard 
-            icon={<div className="text-4xl">🚜</div>}
+          <RoleCard
+            icon={<div className="text-2xl sm:text-4xl">🚜</div>}
             title="CARRETILLA"
             description="Logística"
             color="amber"
             onClick={() => handleQuickAccess('CARRETILLERO')}
             disabled={localLoading || loading}
           />
-          <RoleCard 
-            icon={<div className="text-4xl">🛡️</div>}
+          <RoleCard
+            icon={<div className="text-2xl sm:text-4xl">🛡️</div>}
             title="ADMIN"
             description={formFactor === 'desktop' ? 'Acceso rápido' : 'Con cuenta'}
             color="slate"
@@ -154,8 +154,8 @@ const UnifiedLogin: React.FC = () => {
             }}
             disabled={localLoading || loading}
           />
-          <RoleCard 
-            icon={<div className="text-4xl">🔍</div>}
+          <RoleCard
+            icon={<div className="text-2xl sm:text-4xl">🔍</div>}
             title="CALIDAD"
             description={formFactor === 'desktop' ? 'Acceso rápido' : 'Con cuenta'}
             color="emerald"
@@ -171,33 +171,32 @@ const UnifiedLogin: React.FC = () => {
           />
         </div>
 
-        {/* Footer Actions */}
-        <div className="flex flex-col items-center gap-6 pt-4">
+        {/* Footer */}
+        <div className="flex flex-col items-center gap-2 sm:gap-6">
           {(localError || authError) && (
             <div className="w-full max-w-xl rounded-2xl border border-red-900/50 bg-red-950/35 px-4 py-3 text-sm font-bold text-red-200 flex items-center gap-3">
               <ErrorIcon className="h-5 w-5" />
               <span>{localError || authError}</span>
             </div>
           )}
-          <button 
+          <button
             onClick={() => {
               setEmailLoginHint(null);
               setShowEmailLogin(true);
             }}
-            className="group flex items-center gap-3 px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full shadow-sm hover:shadow-md transition-all active:scale-95"
+            className="group flex items-center gap-2 sm:gap-3 px-5 py-2.5 sm:px-6 sm:py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full shadow-sm hover:shadow-md transition-all active:scale-95"
           >
-            <div className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-full group-hover:bg-cyan-50 dark:group-hover:bg-cyan-900/30 transition-colors">
-              <UserIcon className="h-4 w-4 text-slate-500 group-hover:text-cyan-600 dark:group-hover:text-cyan-400" />
+            <div className="p-1 sm:p-1.5 bg-slate-100 dark:bg-slate-800 rounded-full group-hover:bg-cyan-50 dark:group-hover:bg-cyan-900/30 transition-colors">
+              <UserIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-500 group-hover:text-cyan-600 dark:group-hover:text-cyan-400" />
             </div>
-            <span className="text-sm font-bold text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+            <span className="text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
               Entrar con cuenta autorizada
             </span>
           </button>
-          
-          <div className="text-center space-y-1">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Advanced Warehouse System</p>
-            <p className="text-xs text-slate-300 dark:text-slate-600 font-medium">v3.1 • Acceso Unificado</p>
-          </div>
+
+          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">
+            WMS v3.1 • Advanced Warehouse System
+          </p>
         </div>
 
       </div>
@@ -227,22 +226,22 @@ const RoleCard: React.FC<RoleCardProps> = ({ icon, title, description, color, on
       onClick={onClick}
       disabled={disabled}
       className={`
-        relative group flex flex-col items-center gap-4 p-8 
-        bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 
-        rounded-[2.5rem] shadow-xl hover:shadow-2xl active:scale-95 
+        relative group flex flex-col items-center gap-2 sm:gap-4 p-4 sm:p-8
+        bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800
+        rounded-2xl sm:rounded-[2.5rem] shadow-lg sm:shadow-xl hover:shadow-2xl active:scale-95
         transition-all duration-300 disabled:opacity-50
         ${colors[color]}
       `}
     >
-      <div className="p-5 bg-white dark:bg-slate-800 rounded-3xl shadow-inner group-hover:scale-110 transition-transform duration-300">
+      <div className="p-3 sm:p-5 bg-white dark:bg-slate-800 rounded-2xl sm:rounded-3xl shadow-inner group-hover:scale-110 transition-transform duration-300">
         {icon}
       </div>
-      <div className="text-center space-y-1">
-        <h3 className="text-xl font-black tracking-tight">{title}</h3>
-        <p className="text-xs font-bold opacity-60 uppercase">{description}</p>
+      <div className="text-center space-y-0.5 sm:space-y-1">
+        <h3 className="text-sm sm:text-xl font-black tracking-tight">{title}</h3>
+        <p className="text-[10px] sm:text-xs font-bold opacity-60 uppercase">{description}</p>
       </div>
-      <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-        <div className="w-2 h-2 rounded-full bg-current animate-pulse" />
+      <div className="absolute top-2 right-2 sm:top-4 sm:right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-current animate-pulse" />
       </div>
     </button>
   );
