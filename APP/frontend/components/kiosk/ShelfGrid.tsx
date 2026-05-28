@@ -54,7 +54,7 @@ interface SectionHeaderProps {
   onToggle: () => void;
 }
 
-const SectionHeader: React.FC<SectionHeaderProps> = ({
+const SectionHeader = React.memo(({
   title,
   subtitle,
   isUrgent,
@@ -65,7 +65,7 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
   totalArticles,
   isCollapsed,
   onToggle,
-}) => {
+}: SectionHeaderProps) => {
   const pct = totalCount > 0 ? Math.round((occupiedCount / totalCount) * 100) : 0;
 
   let wrapCls = 'bg-white border-slate-200 shadow-sm hover:bg-sky-50/60';
@@ -159,21 +159,21 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
       </svg>
     </button>
   );
-};
+});
 
 // ─── Collapsible content wrapper ──────────────────────────────────────────────
 
-const CollapsibleContent: React.FC<{ isCollapsed: boolean; children: React.ReactNode }> = ({
+const CollapsibleContent = React.memo(({
   isCollapsed,
   children,
-}) => (
+}: { isCollapsed: boolean; children: React.ReactNode }) => (
   <div
     className="overflow-hidden transition-all duration-300 ease-in-out min-w-0 w-full"
     style={{ display: 'grid', gridTemplateRows: isCollapsed ? '0fr' : '1fr' }}
   >
     <div className="min-h-0 min-w-0">{children}</div>
   </div>
-);
+));
 
 // ─── Block (physical layout) ──────────────────────────────────────────────────
 
@@ -201,7 +201,7 @@ interface BlockProps {
   onCellDrop?: (targetPosition: string) => void;
 }
 
-const Block: React.FC<BlockProps> = ({
+const Block = React.memo(({
   block,
   shelfDef,
   locationMap,
@@ -216,7 +216,7 @@ const Block: React.FC<BlockProps> = ({
   onCellDragEnter,
   onCellDragLeave,
   onCellDrop,
-}) => {
+}: BlockProps) => {
   const zone = shelfDef.layout.zones.find((z) => z.name === block.zoneName);
   const isUrgent = zone?.isUrgent ?? false;
   const isTechReview = zone?.isTechReview ?? false;
@@ -270,7 +270,7 @@ const Block: React.FC<BlockProps> = ({
       </CollapsibleContent>
     </div>
   );
-};
+});
 
 // ─── ShelfGrid ────────────────────────────────────────────────────────────────
 

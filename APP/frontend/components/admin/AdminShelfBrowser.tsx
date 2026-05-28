@@ -812,7 +812,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
                     <button
                       onClick={handleMoverSeccionConfirm}
                       disabled={processing}
-                      className="w-full py-2 bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm rounded-xl disabled:opacity-50 transition-colors"
+                      className="w-full py-2 bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       ✓ Mover a {SHELF_DEFINITIONS.find((s) => s.code === moverSeccionTargetShelf)?.name} pos. {moverSeccionTargetPos}
                     </button>
@@ -920,19 +920,19 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
                   <button
                     onClick={handleUbicarMultiPositionConfirm}
                     disabled={processing}
-                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg disabled:opacity-50"
+                    className="px-4 py-2 min-h-[44px] bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >
-                    Confirmar ubicación en {selectedPositions.map((p) => parseInt(p, 10)).join(', ')}
+                    ✓ Confirmar ubicación en {selectedPositions.map((p) => parseInt(p, 10)).join(', ')}
                   </button>
                 )}
                 {action === 'reubicar' && reubicarSource && (
                   <span className="text-xs text-amber-400">Origen: {reubicarSource.position} → Elige destino</span>
                 )}
                 {action === 'mover' && (
-                  <span className={`text-xs font-bold px-2 py-1 rounded-lg
-                    ${selectedPositions.length === moverNeeded ? 'bg-emerald-100 text-emerald-700' :
-                      selectedPositions.length > 0 ? 'bg-amber-100 text-amber-700' :
-                      'bg-slate-100 text-slate-500'}`}>
+                  <span className={`text-xs font-bold px-3 py-2 rounded-xl border
+                    ${selectedPositions.length === moverNeeded ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                      selectedPositions.length > 0 ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                      'bg-slate-100 text-slate-500 border-slate-200'}`}>
                     {selectedPositions.length}/{moverNeeded} destinos
                     {selectedPositions.length === 0 && ' — pulsa celdas'}
                   </span>
@@ -941,9 +941,9 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
                   <button
                     onClick={handleMoverConfirm}
                     disabled={processing}
-                    className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg disabled:opacity-50 active:scale-95 transition-all"
+                    className="px-4 py-2 min-h-[44px] bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >
-                    Confirmar mover → {selectedPositions.map((p) => parseInt(p, 10)).join(', ')}
+                    🔄 Confirmar mover → {selectedPositions.map((p) => parseInt(p, 10)).join(', ')}
                   </button>
                 )}
               </div>

@@ -567,13 +567,13 @@ const CalidadView: React.FC = () => {
               <button
                 onClick={() => handleUbicarMultiPositionConfirm()}
                 disabled={processing}
-                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg disabled:opacity-50"
+                className="px-4 py-2 min-h-[44px] bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
-                Confirmar ubicación
+                {processing ? '⏳' : '✓'} Confirmar ubicación
               </button>
             )}
             {action === 'mover' && scanData && (
-              <span className="text-xs font-bold px-2 py-1 rounded-lg bg-blue-100 text-blue-700">
+              <span className="text-xs font-bold px-3 py-2 rounded-xl bg-blue-100 text-blue-700 border border-blue-200">
                 {selectedPositions.length}/{moverNeeded} destinos
               </span>
             )}
@@ -581,9 +581,9 @@ const CalidadView: React.FC = () => {
               <button
                 onClick={handleMoverConfirm}
                 disabled={processing}
-                className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg disabled:opacity-50"
+                className="px-4 py-2 min-h-[44px] bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
-                Confirmar mover
+                {processing ? '⏳' : '🔄'} Confirmar mover
               </button>
             )}
           </div>
@@ -629,27 +629,27 @@ const CalidadView: React.FC = () => {
           <div className="grid grid-cols-4 gap-2 w-full max-w-4xl mx-auto">
             <button
               onClick={() => startAction('ubicar')}
-              className="h-14 rounded-xl bg-emerald-600 text-white font-bold text-sm flex flex-col items-center justify-center active:scale-95 transition-all"
+              className="h-16 rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-700 text-white font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 hover:from-emerald-400 hover:to-emerald-600 shadow-lg shadow-emerald-900/25 transition-all"
             >
-              <span>📦</span> UBICAR
+              <span className="text-xl">📦</span> UBICAR
             </button>
             <button
               onClick={() => startAction('retirar')}
-              className="h-14 rounded-xl bg-red-600 text-white font-bold text-sm flex flex-col items-center justify-center active:scale-95 transition-all"
+              className="h-16 rounded-2xl bg-gradient-to-b from-red-500 to-red-700 text-white font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 hover:from-red-400 hover:to-red-600 shadow-lg shadow-red-900/25 transition-all"
             >
-              <span>📤</span> RETIRAR
+              <span className="text-xl">📤</span> RETIRAR
             </button>
             <button
               onClick={() => startAction('mover')}
-              className="h-14 rounded-xl bg-blue-600 text-white font-bold text-sm flex flex-col items-center justify-center active:scale-95 transition-all"
+              className="h-16 rounded-2xl bg-gradient-to-b from-blue-500 to-blue-700 text-white font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 hover:from-blue-400 hover:to-blue-600 shadow-lg shadow-blue-900/25 transition-all"
             >
-              <span>🔄</span> MOVER
+              <span className="text-xl">🔄</span> MOVER
             </button>
             <button
               onClick={() => startAction('avisar')}
-              className="h-14 rounded-xl bg-amber-600 text-white font-bold text-sm flex flex-col items-center justify-center active:scale-95 transition-all"
+              className="h-16 rounded-2xl bg-gradient-to-b from-amber-500 to-amber-700 text-white font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 hover:from-amber-400 hover:to-amber-600 shadow-lg shadow-amber-900/25 transition-all"
             >
-              <span>🚚</span> AVISAR
+              <span className="text-xl">🚚</span> AVISAR
             </button>
           </div>
         </div>

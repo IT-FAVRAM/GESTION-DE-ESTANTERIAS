@@ -39,17 +39,6 @@ const KioskView: React.FC = () => {
   // Determinar la estantería a mostrar: usar kiosko si está disponible, sino assignedShelf
   const shelfCode = currentShelf || assignedShelf || '';
 
-  // DEBUG
-  useEffect(() => {
-    console.log('[KioskView] DEBUG:', {
-      assignedShelf,
-      currentShelf,
-      shelfCode,
-      kioskId,
-      kiosk: kiosk?.id,
-      shelves,
-    });
-  }, [assignedShelf, currentShelf, shelfCode, kioskId, kiosk, shelves]);
   const { locations, loading, shelfDef, ubicar, ubicarMulti, retirar, retirarDeUbicacion, mover, findArticle, totalArticles, totalOccupied, totalEmpty } = useShelf(shelfCode);
   const { createPickupRequest, createDeliveryRequest } = usePickupQueue();
 
