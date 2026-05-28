@@ -371,11 +371,16 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     operarioId: string,
     operarioName: string,
   ): Promise<boolean> => {
+    const previousLocations = locations;
     try {
       const access = await validateShelfAccess('operate');
       if (!access.ok) return false;
       if (!shelfCode) {
         setError('No hay estanteria para vaciar.');
+        return false;
+      }
+      if (!navigator.onLine) {
+        setError('Sin conexión. Vaciar estantería requiere conexión activa.');
         return false;
       }
       const session = getOperationalSession();
@@ -389,9 +394,11 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     } catch (err: any) {
       console.error('[useShelf] EmptyShelf error:', err);
       setError(parseCallableError(err));
+      // Rollback optimistic update
+      setLocations(previousLocations);
       return false;
     }
-  }, [shelfCode, validateShelfAccess]);
+  }, [shelfCode, validateShelfAccess, locations]);
 
   const totalArticles = locations.reduce((sum, loc) => sum + loc.items.length, 0);
   const totalOccupied = locations.filter((loc) => !loc.isEmpty).length;

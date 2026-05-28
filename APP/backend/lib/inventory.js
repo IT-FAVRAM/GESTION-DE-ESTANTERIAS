@@ -609,15 +609,43 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
         if (!['ADMIN', 'SUPERADMIN'].includes(actor.role)) {
             throw new functions.https.HttpsError('permission-denied', 'Solo admin puede vaciar estanterias.');
         }
-        const snapshot = await db
-            .collection('shelves').doc(shelfCode)
-            .collection('locations').get();
+        // 1. Delete all location documents
+        const locSnapshot = await db.collection('shelves').doc(shelfCode).collection('locations').get();
         const CHUNK = 30;
-        const docs = snapshot.docs;
-        for (let i = 0; i < docs.length; i += CHUNK) {
+        for (let i = 0; i < locSnapshot.docs.length; i += CHUNK) {
             const batchWrite = db.batch();
-            docs.slice(i, i + CHUNK).forEach((d) => batchWrite.delete(d.ref));
+            locSnapshot.docs.slice(i, i + CHUNK).forEach((d) => batchWrite.delete(d.ref));
             await batchWrite.commit();
+        }
+        // 2. Deactivate all active item presences for this shelf
+        const presenceSnapshot = await db.collection('items')
+            .where('shelfCode', '==', shelfCode)
+            .where('active', '==', true)
+            .get();
+        // Group presences by aggregateKey to update aggregates
+        const aggregateMap = new Map();
+        for (const presDoc of presenceSnapshot.docs) {
+            const data = presDoc.data();
+            const key = String(data.aggregateKey || '');
+            if (!aggregateMap.has(key))
+                aggregateMap.set(key, []);
+            aggregateMap.get(key).push(presDoc.id);
+        }
+        // Deactivate presences in batches
+        for (let i = 0; i < presenceSnapshot.docs.length; i += CHUNK) {
+            const batchWrite = db.batch();
+            presenceSnapshot.docs.slice(i, i + CHUNK).forEach((d) => batchWrite.update(d.ref, { active: false, removedAt: now, removedBy: operarioId, locationIds: [] }));
+            await batchWrite.commit();
+        }
+        // 3. Update itemAggregates to remove deactivated presenceIds
+        for (const [aggregateKey, removedIds] of aggregateMap) {
+            const aggRef = db.collection('itemAggregates').doc(aggregateKey);
+            const aggSnap = await aggRef.get();
+            if (aggSnap.exists) {
+                const aggData = aggSnap.data();
+                const remaining = (aggData.activePresenceIds || []).filter((id) => !removedIds.includes(id));
+                await aggRef.update({ activePresenceIds: remaining, totalActivePresences: remaining.length, updatedAt: now });
+            }
         }
         await db.collection('history').add({
             action: 'VACIAR_ESTANTERIA',
@@ -634,7 +662,7 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
             user: operarioName,
             source: 'shelfOperate',
         });
-        return { ok: true, deleted: docs.length };
+        return { ok: true, deleted: locSnapshot.docs.length, deactivatedPresences: presenceSnapshot.docs.length };
     }
     throw new functions.https.HttpsError('invalid-argument', `Operacion desconocida: ${op}`);
 });
