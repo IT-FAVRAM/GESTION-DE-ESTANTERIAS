@@ -1,6 +1,11 @@
 {
   "permissions": {
     "allow": [
+      "mcp__ruflo__memory_store",
+      "mcp__ruflo__memory_search",
+      "mcp__ruflo__hooks_route",
+      "mcp__ruflo__swarm_init",
+      "mcp__ruflo__agent_spawn",
       "Bash(npm --prefix app/web run build)",
       "Bash(node run_all.cjs)",
       "Bash(npx --no tsc --version)",
@@ -110,7 +115,36 @@
       "Bash(git rm *)",
       "Bash(tee /tmp/dev.log)",
       "Bash(curl -k https://localhost:3001)",
-      "Bash(xargs grep -l \"fetchDeviceConfig\\\\|getDeviceConfig\\\\|device.*kioskId\")"
+      "Bash(xargs grep -l \"fetchDeviceConfig\\\\|getDeviceConfig\\\\|device.*kioskId\")",
+      "Bash(Select-String -Path \"C:\\\\-- APLICACIONES DANI --\\\\APP -- ESTANTERIAS\\\\backend\\\\lib\\\\inventory.js\" -Pattern \"Pre-build all refs|Pre-compute all location refs|Deduplicate refs|All reads before any writes\")",
+      "Bash(Select-Object LineNumber, Line)",
+      "Bash(Start-Process npm *)",
+      "Bash(Start-Sleep -Seconds 4)",
+      "Bash(Write-Output \"Dev server starting...\")",
+      "Bash(Get-ChildItem -Path . -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(sed -i 's|addSheet\\('\\\\''🏗️ ESTANTERÍAS'\\\\''|addSheet\\('\\\\''🏗 ESTANTERIAS'\\\\''|g' generate-master-excel.cjs)",
+      "Bash(sed -i 's|addSheet\\('\\\\''📊 OCR / ESCÁNER'\\\\''|addSheet\\('\\\\''📊 OCR-ESCANЕР'\\\\''|g' generate-master-excel.cjs)",
+      "PowerShell(& \"C:\\\\-- APLICACIONES DANI --\\\\APP -- ESTANTERIAS\\\\APP\\\\frontend\\\\node_modules\\\\.bin\\\\playwright.cmd\" install chromium --with-deps 2>&1 | Select-Object -Last 5)",
+      "PowerShell($tmpDir = [System.IO.Path]::GetTempPath\\(\\); echo \"Temp dir: $tmpDir\")",
+      "mcp__firebase__firebase_get_environment",
+      "mcp__firebase__firebase_update_environment",
+      "mcp__firebase__firebase_get_security_rules",
+      "mcp__firebase__firestore_list_collections",
+      "mcp__firebase__functions_list_functions",
+      "mcp__firebase__functions_get_logs",
+      "mcp__firebase__firestore_list_documents",
+      "mcp__firebase__firestore_get_document",
+      "mcp__firebase__firestore_add_document",
+      "mcp__firebase__firestore_create_index",
+      "mcp__firebase__firestore_query_collection",
+      "mcp__firebase__firebase_deploy_status",
+      "mcp__firebase__firebase_deploy"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "firebase",
+    "ruflo",
+    "memory_store"
+  ]
 }

@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "firebase": {
+      "command": "node",
+      "args": ["-e", "require('firebase-tools/lib/bin/firebase').default(['mcp'], false)"],
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": ""
+      }
+    },
+    "ruflo": {
+      "command": "npx",
+      "args": ["--yes", "ruflo", "mcp"]
+    },
+    "memory_store": {
+      "command": "npx",
+      "args": ["--yes", "@anthropics-ai/memory-store", "mcp"]
+    }
+  }
+}
