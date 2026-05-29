@@ -15,8 +15,7 @@ import {
 } from '../../lib/firestoreSchema';
 import { useAnalytics } from '../../hooks/useAnalytics';
 import InventoryReport from './InventoryReport';
-import AdminDevicesTab from './AdminDevicesTab';
-import AdminUsersTab from './AdminUsersTab';
+import AdminUsersAndDevicesTab from './AdminUsersAndDevicesTab';
 import AdminSpecialLocationsTab from './AdminSpecialLocationsTab';
 import AdminChiefsTab from './AdminChiefsTab';
 import AdminMessagesTab from './AdminMessagesTab';
@@ -213,9 +212,15 @@ const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ onClose, role, initia
         <div className="mx-auto max-w-7xl">
           {activeTab === 'reports' && <InventoryReport />}
 
-          {role === 'SUPERADMIN' && activeTab === 'devices' && <AdminDevicesTab devices={devices} currentDeviceId={currentDeviceId} currentDeviceDraft={currentDeviceDraft} onCurrentDeviceDraftChange={setCurrentDeviceDraft} />}
-
-          {role === 'SUPERADMIN' && activeTab === 'users' && <AdminUsersTab users={users} />}
+          {role === 'SUPERADMIN' && activeTab === 'team' && (
+            <AdminUsersAndDevicesTab
+              users={users}
+              devices={devices}
+              currentDeviceId={currentDeviceId}
+              currentDeviceDraft={currentDeviceDraft}
+              onCurrentDeviceDraftChange={setCurrentDeviceDraft}
+            />
+          )}
 
           {role === 'SUPERADMIN' && activeTab === 'shelves' && (
             <div className="space-y-4">

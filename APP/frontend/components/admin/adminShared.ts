@@ -1,10 +1,9 @@
 import type { DeviceDoc } from '../../lib/firestoreSchema';
 
-export type AdminTab = 'devices' | 'users' | 'shelves' | 'special' | 'chiefs' | 'reports' | 'messages' | 'connections';
+export type AdminTab = 'team' | 'shelves' | 'special' | 'chiefs' | 'reports' | 'messages' | 'connections';
 
 export const ALL_TABS: Array<{ key: AdminTab; label: string; icon: string; superadminOnly?: boolean }> = [
-  { key: 'devices', label: 'Dispositivos', icon: '📱', superadminOnly: true },
-  { key: 'users', label: 'Usuarios', icon: '👥', superadminOnly: true },
+  { key: 'team', label: 'Usuarios y Dispositivos', icon: '👥', superadminOnly: true },
   { key: 'shelves', label: 'Estanterias', icon: '🏭', superadminOnly: true },
   { key: 'special', label: 'Ubicaciones Esp.', icon: '🚨', superadminOnly: true },
   { key: 'chiefs', label: 'Jefes x Seccion', icon: '👷', superadminOnly: true },

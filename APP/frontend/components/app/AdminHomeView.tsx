@@ -120,7 +120,6 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => onOpenPanel('reports')} className="px-4 py-2 bg-cyan-600/80 text-slate-100 rounded-xl font-bold hover:bg-cyan-500/80 hover:text-white transition-all duration-200">{role === 'SUPERADMIN' ? '⚙️ Panel' : '📊 Panel'}</button>
               <button onClick={onLogout} className="px-4 py-2 bg-slate-800/80 text-slate-100 rounded-xl font-bold hover:bg-slate-700/80 hover:text-white transition-all duration-200">Salir</button>
             </div>
           </div>
@@ -128,17 +127,31 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
 
         <main className="flex-1 p-4 max-w-6xl mx-auto w-full">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-            {/* Modo Operativo — móvil */}
-            <div className="bg-cyan-950/20 rounded-2xl border border-cyan-500/40 p-6 flex flex-col items-center gap-3 hover:border-cyan-400 transition-colors cursor-pointer" onClick={onOpenOperativeMode}>
-              <span className="text-4xl">📸</span>
-              <h3 className="font-bold text-white">Modo Operativo</h3>
-              <p className="text-xs text-cyan-200 text-center">Escanear, ubicar y retirar con el móvil</p>
-            </div>
-            {/* Estanterías — visual de todas las secciones */}
-            <div className="bg-slate-900 rounded-2xl border border-emerald-500/20 p-6 flex flex-col items-center gap-3 hover:border-emerald-500/50 transition-colors cursor-pointer" onClick={onOpenShelfBrowser}>
-              <span className="text-4xl">🏭</span>
-              <h3 className="font-bold text-white">Estanterías</h3>
-              <p className="text-xs text-slate-500 text-center">Visual de todas las secciones y saturación</p>
+            {/* Operaciones — acceso unificado a Estanterías y Carros */}
+            <div className="bg-cyan-950/20 rounded-2xl border border-cyan-500/40 p-5 flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <span className="text-4xl">🏭</span>
+                <div>
+                  <h3 className="font-bold text-white">Operaciones</h3>
+                  <p className="text-xs text-cyan-200">Gestión de estanterías y carros</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={onOpenShelfBrowser}
+                  className="bg-slate-800/80 hover:bg-slate-700 text-white text-sm font-bold py-2.5 px-3 rounded-xl transition-colors text-center"
+                >
+                  📦 Estanterías
+                </button>
+                <button
+                  type="button"
+                  onClick={onOpenOperativeMode}
+                  className="bg-slate-800/80 hover:bg-slate-700 text-white text-sm font-bold py-2.5 px-3 rounded-xl transition-colors text-center"
+                >
+                  🚜 Carros
+                </button>
+              </div>
             </div>
             {/* Monitor de conexiones — disponible para ADMIN y SUPERADMIN */}
             <div className="bg-slate-900 rounded-2xl border border-cyan-500/20 p-6 flex flex-col items-center gap-3 hover:border-cyan-400/50 transition-colors cursor-pointer" onClick={() => onOpenPanel('connections')}>
@@ -164,13 +177,6 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
               <h3 className="font-bold text-white">Solicitar Artículo</h3>
               <p className="text-xs text-slate-500 text-center">Pedir que traigan un artículo a una estantería</p>
             </div>
-            {role === 'SUPERADMIN' && (
-              <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 flex flex-col items-center gap-3 hover:border-cyan-500/30 transition-colors cursor-pointer" onClick={() => onOpenPanel('devices')}>
-                <span className="text-4xl">📱</span>
-                <h3 className="font-bold text-white">Dispositivos</h3>
-                <p className="text-xs text-slate-500 text-center">Gestionar kioskos y tablets</p>
-              </div>
-            )}
             <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 flex flex-col items-center gap-3 hover:border-emerald-500/30 transition-colors cursor-pointer" onClick={() => onOpenPanel('reports')}>
               <span className="text-4xl">📊</span>
               <h3 className="font-bold text-white">Informes</h3>
@@ -179,10 +185,10 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
 
             {role === 'SUPERADMIN' && (
               <>
-                <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 flex flex-col items-center gap-3 hover:border-cyan-500/30 transition-colors cursor-pointer" onClick={() => onOpenPanel('users')}>
+                <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 flex flex-col items-center gap-3 hover:border-cyan-500/30 transition-colors cursor-pointer" onClick={() => onOpenPanel('team')}>
                   <span className="text-4xl">👥</span>
-                  <h3 className="font-bold text-white">Usuarios</h3>
-                  <p className="text-xs text-slate-500 text-center">Gestionar roles y permisos</p>
+                  <h3 className="font-bold text-white">Usuarios y Dispositivos</h3>
+                  <p className="text-xs text-slate-500 text-center">Gestionar roles, permisos y kioskos</p>
                 </div>
                 <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 flex flex-col items-center gap-3 hover:border-amber-500/30 transition-colors cursor-pointer" onClick={() => onOpenPanel('special')}>
                   <span className="text-4xl">🚨</span>
