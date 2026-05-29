@@ -184,6 +184,7 @@ export const usePickupQueue = () => {
       const session = getOperationalSession();
 
       const payload: Record<string, unknown> = {
+        requestType: 'RECOGER',
         operarioId, operarioName, shelfCode,
         shelfSection: section, shelfName: shelfDef?.name || shelfCode,
         ...(articleToPickCode ? { articleToPickCode } : {}),
@@ -195,6 +196,7 @@ export const usePickupQueue = () => {
       if (!navigator.onLine) {
         const tempRequest: PickupRequest = {
           id: `offline-${Date.now()}`,
+          requestType: 'RECOGER',
           operarioId,
           operarioName,
           shelfSection: section,
