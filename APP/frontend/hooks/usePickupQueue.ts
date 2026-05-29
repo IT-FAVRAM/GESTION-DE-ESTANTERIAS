@@ -195,7 +195,7 @@ export const usePickupQueue = () => {
 
       if (!navigator.onLine) {
         const tempRequest: PickupRequest = {
-          id: `offline-${Date.now()}`,
+          id: `offline-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
           requestType: 'RECOGER',
           operarioId,
           operarioName,
@@ -244,7 +244,7 @@ export const usePickupQueue = () => {
 
       if (!navigator.onLine) {
         const tempRequest: PickupRequest = {
-          id: `offline-${Date.now()}`,
+          id: `offline-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
           operarioId,
           operarioName,
           shelfSection: section,

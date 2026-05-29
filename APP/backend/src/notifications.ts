@@ -334,10 +334,8 @@ export const pickupQueueOperate = functions.https.onCall(async (data: any, conte
     if (!shelfCode || !operarioId) {
       throw new functions.https.HttpsError('invalid-argument', 'Datos incompletos para crear recogida.');
     }
-    // Solo verificar autorización de estantería para recogidas (no para solicitudes de traslado)
-    if (requestType !== 'TRAER') {
-      assertActorMayOperateShelf(actor, shelfCode);
-    }
+    // Validar autorización de estantería para ambos tipos
+    assertActorMayOperateShelf(actor, shelfCode);
     const createdAt = new Date().toISOString();
     const docData: Record<string, unknown> = {
       operarioId,
