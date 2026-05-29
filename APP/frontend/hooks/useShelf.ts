@@ -113,6 +113,11 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
           if (!Number.isNaN(numA) && !Number.isNaN(numB)) return numA - numB;
           return a.position.localeCompare(b.position);
         });
+        // DEBUG PERSISTENCIA: log para diagnosticar desaparición de artículos
+        const totalItems = locs.reduce((sum, l) => sum + l.items.length, 0);
+        const fromCache = snapshot.metadata.fromCache;
+        const hasPending = snapshot.metadata.hasPendingWrites;
+        console.log(`[useShelf][onSnapshot] ${shelfCode} → ${locs.length} ubicaciones, ${totalItems} artículos | fromCache=${fromCache} | pendingWrites=${hasPending}`);
         setLocations(locs);
         setLoading(false);
         setError(null);

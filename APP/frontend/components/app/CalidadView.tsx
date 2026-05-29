@@ -869,7 +869,6 @@ const CalidadView: React.FC = () => {
         <CameraOCRScanner
           onResult={handleOCRResult}
           onClose={() => setShowOCRScanner(false)}
-          language="spa"
         />
       )}
     </div>

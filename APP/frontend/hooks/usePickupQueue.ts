@@ -173,12 +173,25 @@ export const usePickupQueue = () => {
     operarioId: string,
     operarioName: string,
     shelfCode: string,
+    articleToPickCode?: string,
+    articleToPickOrderFab?: string,
+    destinationShelfCode?: string,
+    destinationShelfName?: string,
   ): Promise<boolean> => {
     try {
       const shelfDef = getShelfDefinition(shelfCode);
       const section = getSectionForShelf(shelfCode);
       const session = getOperationalSession();
-      
+
+      const payload: Record<string, unknown> = {
+        operarioId, operarioName, shelfCode,
+        shelfSection: section, shelfName: shelfDef?.name || shelfCode,
+        ...(articleToPickCode ? { articleToPickCode } : {}),
+        ...(articleToPickOrderFab ? { articleToPickOrderFab } : {}),
+        ...(destinationShelfCode ? { destinationShelfCode } : {}),
+        ...(destinationShelfName ? { destinationShelfName } : {}),
+      };
+
       if (!navigator.onLine) {
         const tempRequest: PickupRequest = {
           id: `offline-${Date.now()}`,
@@ -187,19 +200,23 @@ export const usePickupQueue = () => {
           shelfSection: section,
           shelfCode,
           shelfName: shelfDef?.name || shelfCode,
+          articleToPickCode,
+          articleToPickOrderFab,
+          destinationShelfCode,
+          destinationShelfName,
           status: 'PENDING',
           createdAt: new Date().toISOString(),
           completedAt: null,
           completedBy: null,
         };
         setPendingRequests((prev) => [tempRequest, ...prev]);
-        enqueueOfflineOperation('AVISAR_CARRETILLERO', { operarioId, operarioName, shelfCode, shelfSection: section, shelfName: shelfDef?.name || shelfCode }, session);
+        enqueueOfflineOperation('AVISAR_CARRETILLERO', payload, session);
         return true;
       }
 
-      await pickupQueueApi.create({ operarioId, operarioName, shelfCode, shelfSection: section, shelfName: shelfDef?.name || shelfCode }, session);
+      await pickupQueueApi.create(payload, session);
       return true;
-      
+
     } catch (err: unknown) {
       const msg = parseCallableError(err);
       console.error('[usePickupQueue] Create error:', msg);

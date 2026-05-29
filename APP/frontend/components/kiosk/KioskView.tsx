@@ -8,7 +8,7 @@ import ScannerInput from './ScannerInput';
 import ShelfSelector from './ShelfSelector';
 import DeviceInfoModal from '../common/DeviceInfoModal';
 import ConfirmationModal from '../common/ConfirmationModal';
-import IdEntryModal from '../common/IdEntryModal';
+import RecogidaModal from './RecogidaModal';
 import { formatArticleDisplay, type ScanParseResult, parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
 import { findArticleGlobal } from '../../lib/findArticleGlobal';
 import CameraQRScanner from '../common/CameraQRScanner';
@@ -64,11 +64,8 @@ const KioskView: React.FC = () => {
   const [showTraerModal, setShowTraerModal] = useState(false);
   const [traerProcessing, setTraerProcessing] = useState(false);
   const [showMoverArticleList, setShowMoverArticleList] = useState(false);
-  const [showIdModal, setShowIdModal] = useState(false);
-  const [pendingOperation, setPendingOperation] = useState<{
-    type: string;
-    execute: (enteredId: string) => Promise<void>;
-  } | null>(null);
+  const [showRecogidaModal, setShowRecogidaModal] = useState(false);
+  const [recogidaProcessing, setRecogidaProcessing] = useState(false);
   const [showRetirarCellModal, setShowRetirarCellModal] = useState(false);
   const [retirarCellPosition, setRetirarCellPosition] = useState('');
   const [retirarCellItems, setRetirarCellItems] = useState<LocationItem[]>([]);
@@ -120,43 +117,22 @@ const KioskView: React.FC = () => {
     setShowRetirarArticleList(false);
   }, [showToast]);
 
-  // ─── ID entry flow ──────────────────────────────────────────────────────
-  const executeWithId = useCallback((type: string, execute: (enteredId: string) => Promise<void>) => {
-    setPendingOperation({ type, execute });
-    setShowIdModal(true);
-  }, []);
-
-  const handleIdConfirm = useCallback(async (enteredId: string) => {
-    if (!pendingOperation) return;
-    setShowIdModal(false);
-    const exec = pendingOperation.execute;
-    setPendingOperation(null);
-    await exec(enteredId);
-  }, [pendingOperation]);
-
-  const handleIdCancel = useCallback(() => {
-    setShowIdModal(false);
-    setPendingOperation(null);
-  }, []);
-
-  const handleRetirarArticleListConfirm = useCallback((selectedItems: RetirarItem[]) => {
+  const handleRetirarArticleListConfirm = useCallback(async (selectedItems: RetirarItem[]) => {
+    if (!effectiveOperarioId) return;
     setShowRetirarArticleList(false);
-    executeWithId('retirar', async (enteredId: string) => {
-      const normalizedId = String(parseInt(enteredId, 10));
-      let successCount = 0;
-      setProcessing(true);
-      for (const item of selectedItems) {
-        const result = await retirarDeUbicacion(item.articleCode, item.orderFab, item.position, normalizedId, displayName);
-        if (result.success) successCount++;
-      }
-      setProcessing(false);
-      if (successCount === selectedItems.length) {
-        finishAction('success', `✅ ${selectedItems.length} artículo${selectedItems.length !== 1 ? 's' : ''} retirado${selectedItems.length !== 1 ? 's' : ''} correctamente`);
-      } else {
-        finishAction('error', `Parcial: ${successCount}/${selectedItems.length} artículos retirados`);
-      }
-    });
-  }, [executeWithId, displayName, retirarDeUbicacion, finishAction]);
+    let successCount = 0;
+    setProcessing(true);
+    for (const item of selectedItems) {
+      const result = await retirarDeUbicacion(item.articleCode, item.orderFab, item.position, effectiveOperarioId, displayName);
+      if (result.success) successCount++;
+    }
+    setProcessing(false);
+    if (successCount === selectedItems.length) {
+      finishAction('success', `✅ ${selectedItems.length} artículo${selectedItems.length !== 1 ? 's' : ''} retirado${selectedItems.length !== 1 ? 's' : ''} correctamente`);
+    } else {
+      finishAction('error', `Parcial: ${successCount}/${selectedItems.length} artículos retirados`);
+    }
+  }, [effectiveOperarioId, displayName, retirarDeUbicacion, finishAction]);
 
   const handleRetirarCellItemsConfirm = useCallback((selectedItems: LocationItem[]) => {
     setShowRetirarCellModal(false);
@@ -172,36 +148,34 @@ const KioskView: React.FC = () => {
       icon: '📤',
       variant: 'info',
       confirmText: 'NO, finalizar retirada',
-      onConfirm: () => {
+      onConfirm: async () => {
+        if (!effectiveOperarioId) return;
         setConfirmModal((prev) => ({ ...prev, open: false }));
-        executeWithId('retirar', async (enteredId: string) => {
-          const normalizedId = String(parseInt(enteredId, 10));
-          let successCount = 0;
-          setProcessing(true);
+        let successCount = 0;
+        setProcessing(true);
 
-          for (const queueItem of updatedQueue) {
-            for (const item of queueItem.items) {
-              const result = await retirarDeUbicacion(item.articleCode, item.orderFab, queueItem.position, normalizedId, displayName);
-              if (result.success) successCount++;
-            }
+        for (const queueItem of updatedQueue) {
+          for (const item of queueItem.items) {
+            const result = await retirarDeUbicacion(item.articleCode, item.orderFab, queueItem.position, effectiveOperarioId, displayName);
+            if (result.success) successCount++;
           }
+        }
 
-          setProcessing(false);
-          const totalItems = updatedQueue.reduce((sum, q) => sum + q.items.length, 0);
-          if (successCount === totalItems) {
-            finishAction('success', `✅ ${totalItems} artículo(s) retirado(s) correctamente`);
-          } else {
-            finishAction('error', `Parcial: ${successCount}/${totalItems} artículos retirados`);
-          }
-          setPendingRetirarQueue([]);
-        });
+        setProcessing(false);
+        const totalItems = updatedQueue.reduce((sum, q) => sum + q.items.length, 0);
+        if (successCount === totalItems) {
+          finishAction('success', `✅ ${totalItems} artículo(s) retirado(s) correctamente`);
+        } else {
+          finishAction('error', `Parcial: ${successCount}/${totalItems} artículos retirados`);
+        }
+        setPendingRetirarQueue([]);
       },
       extraButton: {
         text: 'SÍ, retirar más',
         onClick: () => setConfirmModal((prev) => ({ ...prev, open: false })),
       },
     });
-  }, [retirarCellPosition, executeWithId, pendingRetirarQueue, displayName, retirarDeUbicacion, finishAction]);
+  }, [retirarCellPosition, effectiveOperarioId, pendingRetirarQueue, displayName, retirarDeUbicacion, finishAction]);
 
   const handleUbicarConfirm = useCallback(async (position: string) => {
     if (!scanData || !effectiveOperarioId) return;
@@ -231,20 +205,17 @@ const KioskView: React.FC = () => {
     }
   }, [displayName, effectiveOperarioId, retirar, retirarDeUbicacion, finishAction]);
 
-  const handleMoverConfirm = useCallback(() => {
+  const handleMoverConfirm = useCallback(async () => {
     if (!scanData || !effectiveOperarioId || selectedPositions.length === 0) return;
-
-    executeWithId('mover', async (enteredId: string) => {
-      setProcessing(true);
-      const success = await mover(scanData!.articleCode, scanData!.orderFab, selectedPositions, enteredId, displayName);
-      setProcessing(false);
-      if (success) {
-        finishAction('success', `✅ ${scanData!.articleCode} movido correctamente`);
-      } else {
-        finishAction('error', 'Error al mover el artículo');
-      }
-    });
-  }, [displayName, mover, effectiveOperarioId, scanData, selectedPositions, finishAction, executeWithId]);
+    setProcessing(true);
+    const success = await mover(scanData.articleCode, scanData.orderFab, selectedPositions, effectiveOperarioId, displayName);
+    setProcessing(false);
+    if (success) {
+      finishAction('success', `✅ ${scanData.articleCode} movido correctamente`);
+    } else {
+      finishAction('error', 'Error al mover el artículo');
+    }
+  }, [displayName, mover, effectiveOperarioId, scanData, selectedPositions, finishAction]);
 
   const handleMoverSelectArticle = useCallback((articleCode: string, orderFab: string) => {
     setShowMoverArticleList(false);
@@ -252,15 +223,32 @@ const KioskView: React.FC = () => {
     setSelectedPositions([]);
   }, []);
 
-  const handleAvisarConfirm = useCallback(async () => {
-    if (!effectiveOperarioId) return;
-    setProcessing(true);
+  const handleAvisarConfirm = useCallback(() => {
     setConfirmModal((prev) => ({ ...prev, open: false }));
-    const success = await createPickupRequest(effectiveOperarioId, displayName, shelfCode);
-    setProcessing(false);
-    if (success) finishAction('success', '✅ Aviso enviado al carretillero');
-    else finishAction('error', 'Error al enviar aviso');
-  }, [createPickupRequest, displayName, effectiveOperarioId, shelfCode, finishAction]);
+    setAction('idle');
+    setShowRecogidaModal(true);
+  }, []);
+
+  const handleRecogidaConfirm = useCallback(async (
+    articleCode: string,
+    articleOrderFab: string,
+    destShelfCode: string,
+    destShelfName: string,
+  ) => {
+    if (!effectiveOperarioId) return;
+    setRecogidaProcessing(true);
+    const success = await createPickupRequest(
+      effectiveOperarioId, displayName, shelfCode,
+      articleCode, articleOrderFab, destShelfCode, destShelfName,
+    );
+    setRecogidaProcessing(false);
+    if (success) {
+      setShowRecogidaModal(false);
+      showToast('success', `✅ Recogida solicitada: ${articleCode} → ${destShelfName}`);
+    } else {
+      showToast('error', 'Error al enviar la solicitud');
+    }
+  }, [createPickupRequest, displayName, effectiveOperarioId, shelfCode, showToast]);
 
   const handleTraerConfirm = useCallback(async (
     articleCode: string,
@@ -290,52 +278,46 @@ const KioskView: React.FC = () => {
     }
   }, [createDeliveryRequest, displayName, effectiveOperarioId, shelfCode, shelfDef, showToast]);
 
-  const handleUbicarBatchConfirm = useCallback(() => {
+  const handleUbicarBatchConfirm = useCallback(async () => {
     if (!effectiveOperarioId || selectedPositions.length === 0) return;
     setScannerActive(false);
     setConfirmModal((prev) => ({ ...prev, open: false }));
-
-    executeWithId('ubicar_batch', async (enteredId: string) => {
-      setProcessing(true);
-      let successCount = 0;
-      for (const article of batchArticles) {
-        let success: boolean;
-        if (selectedPositions.length === 1) {
-          success = await ubicar(article.articleCode, article.orderFab, selectedPositions[0], enteredId, displayName);
-        } else {
-          success = await ubicarMulti(article.articleCode, article.orderFab, selectedPositions, enteredId, displayName);
-        }
-        if (success) successCount += selectedPositions.length;
-      }
-      setProcessing(false);
-      if (successCount === batchArticles.length) {
-        finishAction('success', `✅ ${batchArticles.length} artículos ubicados en ${selectedPositions.length} posición(es)`);
-      } else {
-        finishAction('error', `Parcial: ${successCount}/${batchArticles.length} artículos completados`);
-      }
-    });
-  }, [batchArticles, selectedPositions, effectiveOperarioId, displayName, ubicar, ubicarMulti, finishAction, executeWithId]);
-
-  const handleUbicarMultiPositionConfirm = useCallback(() => {
-    if (!scanData || !effectiveOperarioId || selectedPositions.length === 0) return;
-    setScannerActive(false);
-
-    executeWithId('ubicar', async (enteredId: string) => {
-      setProcessing(true);
+    setProcessing(true);
+    let successCount = 0;
+    for (const article of batchArticles) {
       let success: boolean;
       if (selectedPositions.length === 1) {
-        success = await ubicar(scanData!.articleCode, scanData!.orderFab, selectedPositions[0], enteredId, displayName);
+        success = await ubicar(article.articleCode, article.orderFab, selectedPositions[0], effectiveOperarioId, displayName);
       } else {
-        success = await ubicarMulti(scanData!.articleCode, scanData!.orderFab, selectedPositions, enteredId, displayName);
+        success = await ubicarMulti(article.articleCode, article.orderFab, selectedPositions, effectiveOperarioId, displayName);
       }
-      setProcessing(false);
-      if (success) {
-        finishAction('success', `✅ ${scanData!.articleCode} ubicado en ${selectedPositions.length} posición(es)`);
-      } else {
-        finishAction('error', `Error al ubicar ${scanData!.articleCode}`);
-      }
-    });
-  }, [displayName, effectiveOperarioId, scanData, selectedPositions, ubicar, ubicarMulti, finishAction, executeWithId]);
+      if (success) successCount += selectedPositions.length;
+    }
+    setProcessing(false);
+    if (successCount === batchArticles.length) {
+      finishAction('success', `✅ ${batchArticles.length} artículos ubicados en ${selectedPositions.length} posición(es)`);
+    } else {
+      finishAction('error', `Parcial: ${successCount}/${batchArticles.length} artículos completados`);
+    }
+  }, [batchArticles, selectedPositions, effectiveOperarioId, displayName, ubicar, ubicarMulti, finishAction]);
+
+  const handleUbicarMultiPositionConfirm = useCallback(async () => {
+    if (!scanData || !effectiveOperarioId || selectedPositions.length === 0) return;
+    setScannerActive(false);
+    setProcessing(true);
+    let success: boolean;
+    if (selectedPositions.length === 1) {
+      success = await ubicar(scanData.articleCode, scanData.orderFab, selectedPositions[0], effectiveOperarioId, displayName);
+    } else {
+      success = await ubicarMulti(scanData.articleCode, scanData.orderFab, selectedPositions, effectiveOperarioId, displayName);
+    }
+    setProcessing(false);
+    if (success) {
+      finishAction('success', `✅ ${scanData.articleCode} ubicado en ${selectedPositions.length} posición(es)`);
+    } else {
+      finishAction('error', `Error al ubicar ${scanData.articleCode}`);
+    }
+  }, [displayName, effectiveOperarioId, scanData, selectedPositions, ubicar, ubicarMulti, finishAction]);
 
   const applyScanMethod = useCallback((method: ScanMethod) => {
     setScanMethodPickerOpen(false);
@@ -793,11 +775,12 @@ const KioskView: React.FC = () => {
         loading={processing}
       />
 
-      <IdEntryModal
-        open={showIdModal}
-        initialValue={effectiveOperarioId}
-        onConfirm={handleIdConfirm}
-        onClose={handleIdCancel}
+      <RecogidaModal
+        open={showRecogidaModal}
+        currentShelfCode={shelfCode}
+        processing={recogidaProcessing}
+        onConfirm={handleRecogidaConfirm}
+        onClose={() => setShowRecogidaModal(false)}
       />
     </div>
   );

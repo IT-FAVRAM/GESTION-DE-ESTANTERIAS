@@ -19,6 +19,11 @@ export interface PickupRequestDoc {
   articleOrderFab?: string;
   articleShelfName?: string;
   articlePositions?: string[];
+  // Solo para requestType === 'RECOGER' con detalles:
+  articleToPickCode?: string;
+  articleToPickOrderFab?: string;
+  destinationShelfCode?: string;
+  destinationShelfName?: string;
 }
 
 export type HistoryAction =

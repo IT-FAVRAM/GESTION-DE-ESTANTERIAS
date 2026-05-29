@@ -42,6 +42,31 @@
             ]
         },
         {
+            "collectionGroup": "history",
+            "queryScope": "COLLECTION",
+            "fields": [
+                { "fieldPath": "articleCode", "order": "ASCENDING" },
+                { "fieldPath": "timestamp",   "order": "ASCENDING" }
+            ]
+        },
+        {
+            "collectionGroup": "history",
+            "queryScope": "COLLECTION",
+            "fields": [
+                { "fieldPath": "orderFab",  "order": "ASCENDING" },
+                { "fieldPath": "timestamp", "order": "ASCENDING" }
+            ]
+        },
+        {
+            "collectionGroup": "history",
+            "queryScope": "COLLECTION",
+            "fields": [
+                { "fieldPath": "articleCode", "order": "ASCENDING" },
+                { "fieldPath": "orderFab",    "order": "ASCENDING" },
+                { "fieldPath": "timestamp",   "order": "ASCENDING" }
+            ]
+        },
+        {
             "collectionGroup": "items",
             "queryScope": "COLLECTION",
             "fields": [

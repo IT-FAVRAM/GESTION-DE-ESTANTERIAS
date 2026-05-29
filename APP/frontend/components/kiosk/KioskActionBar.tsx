@@ -29,18 +29,18 @@ const KioskActionBar: React.FC<KioskActionBarProps> = ({ action, scanData, scann
             {scanData && <p className="text-xs text-cyan-400/70 truncate">{formatArticleDisplay(scanData.articleCode, scanData.orderFab)}</p>}
             {scannerActive && <p className="text-xs text-cyan-400 animate-pulse">Esperando escaneo...</p>}
             {action === 'ubicar' && scanData && selectedPositions.length === 0 && (
-              <p className="text-xs text-emerald-400/90">Toca celdas vacías en la estantería</p>
+              <p className="text-sm font-black text-emerald-300 animate-pulse">👇 Toca una celda del grid para ubicar aquí</p>
             )}
             {action === 'ubicar' && scanData && selectedPositions.length > 0 && (
               <p className="text-xs text-cyan-400">Pos. seleccionadas: {selectedPositions.map((p) => parseInt(p, 10)).join(', ')}</p>
             )}
             {action === 'retirar' && !scanData && (
-              <p className="text-xs text-red-400/90">Toca una celda ocupada para retirar artículos</p>
+              <p className="text-sm font-black text-red-300 animate-pulse">👇 Toca la celda de donde quieres retirar</p>
             )}
             {action === 'mover' && scanData && neededPositions > 0 && (
-              <p className={`text-xs font-bold ${moverReady ? 'text-emerald-400' : moverPartial ? 'text-amber-400' : 'text-cyan-400/70'}`}>
-                {selectedPositions.length}/{neededPositions} posiciones destino seleccionadas
-                {!moverReady && selectedPositions.length === 0 && ' — toca las celdas destino'}
+              <p className={`text-sm font-black animate-pulse ${moverReady ? 'text-emerald-400' : moverPartial ? 'text-amber-400' : 'text-blue-300'}`}>
+                {moverReady ? `✓ ${selectedPositions.length}/${neededPositions} celdas listas` :
+                  `👇 Selecciona ${neededPositions - selectedPositions.length} celda${neededPositions - selectedPositions.length > 1 ? 's' : ''} de destino (${selectedPositions.length}/${neededPositions})`}
               </p>
             )}
           </div>

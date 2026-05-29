@@ -97,39 +97,53 @@ const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId
   }
 
   // RECOGER (default)
+  const hasDetails = !!(req.articleToPickCode || req.destinationShelfName);
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
-          <span className="text-lg">🔔</span>
-        </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-orange-400 bg-orange-500/15 px-1.5 py-0.5 rounded-full uppercase tracking-wider">
-              Recoger
-            </span>
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center shrink-0">
+            <span className="text-lg">🔔</span>
           </div>
-          <p className="text-sm font-bold text-white mt-0.5">
-            {req.operarioName}
-          </p>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {timeAgo(req.createdAt)} · {req.shelfName}
-          </p>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-orange-400 bg-orange-500/15 px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                Recoger
+              </span>
+              <span className="text-xs text-slate-500">{timeAgo(req.createdAt)}</span>
+            </div>
+            <p className="text-sm font-bold text-white mt-0.5">{req.operarioName}</p>
+            <p className="text-xs text-slate-500 mt-0.5">{req.shelfName}</p>
+          </div>
         </div>
+        <button
+          onClick={() => onComplete(req.id)}
+          disabled={processingId === req.id}
+          className="shrink-0 px-4 py-2.5 bg-emerald-600 text-white text-sm font-bold
+            rounded-xl hover:bg-emerald-500 active:scale-95 transition-all
+            disabled:opacity-50 flex items-center gap-2 shadow-lg"
+        >
+          {processingId === req.id ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : <span>✓</span>}
+          HECHO
+        </button>
       </div>
-
-      <button
-        onClick={() => onComplete(req.id)}
-        disabled={processingId === req.id}
-        className="px-4 py-2.5 bg-emerald-600 text-white text-sm font-bold
-          rounded-xl hover:bg-emerald-500 active:scale-95 transition-all
-          disabled:opacity-50 flex items-center gap-2 shadow-lg"
-      >
-        {processingId === req.id ? (
-          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-        ) : <span>✓</span>}
-        HECHO
-      </button>
+      {hasDetails && (
+        <div className="mt-3 bg-orange-950/30 border border-orange-500/20 rounded-xl p-3">
+          {req.articleToPickCode && (
+            <p className="font-black text-white font-mono text-base leading-tight">{req.articleToPickCode}</p>
+          )}
+          {req.articleToPickOrderFab && (
+            <p className="text-xs text-slate-400 font-mono mt-0.5">OF: {req.articleToPickOrderFab}</p>
+          )}
+          {req.destinationShelfName && (
+            <p className="text-[10px] text-slate-500 mt-2">
+              → Llevar a: <span className="text-orange-300 font-bold">{req.destinationShelfName}</span>
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 };

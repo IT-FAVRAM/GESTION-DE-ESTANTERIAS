@@ -1,10 +1,10 @@
 {
   "functions": {
-    "source": "backend",
+    "source": "APP/backend",
     "runtime": "nodejs20"
   },
   "hosting": {
-    "public": "frontend/dist",
+    "public": "APP/frontend/dist",
     "ignore": [
       "firebase.json",
       "**/.*",

@@ -1,40 +1,45 @@
-/** Preprocesa un frame de vídeo/canvas para mejorar OCR en etiquetas industriales. */
-export function preprocessCanvasForOcr(source: HTMLCanvasElement): string {
+/**
+ * ocrPreprocess — Pipeline de preprocesado multi-estrategia para OCR industrial
+ *
+ * Estrategias disponibles:
+ *  A) Otsu binarization (global) — etiquetas bien iluminadas
+ *  B) Adaptive block threshold — iluminación desigual, almacenes con sombras
+ *  C) Inverted Otsu — etiquetas con fondo oscuro y texto claro
+ *  D) High-contrast no-binarize — texto de bajo contraste, no binarizar
+ *
+ * measureSharpnessLive() — Laplacian variance sobre frame de vídeo reducido
+ * para mostrar indicador en tiempo real sin bloquear el hilo principal.
+ */
+
+export interface OcrVariant {
+  label: string;
+  dataUrl: string;
+}
+
+// ─── Upscaling ────────────────────────────────────────────────────────────────
+
+function upscaleCanvas(source: HTMLCanvasElement, targetLongSide = 1800): HTMLCanvasElement {
   const sw = source.width;
   const sh = source.height;
-  if (sw < 1 || sh < 1) {
-    throw new Error('Imagen no válida (cámara sin dimensiones). Espera un momento y vuelve a capturar.');
-  }
-
-  // Escalar a 1600px en el lado largo — más píxeles = mejor OCR para texto pequeño
-  const targetLong = 1600;
-  const scale = Math.min(2.0, targetLong / Math.max(sw, sh));
+  const scale = Math.min(2.5, targetLongSide / Math.max(sw, sh));
   const w = Math.round(sw * scale);
   const h = Math.round(sh * scale);
-
-  const work = document.createElement('canvas');
-  work.width = w;
-  work.height = h;
-  const ctx = work.getContext('2d');
-  if (!ctx) throw new Error('No se pudo preparar la imagen');
-
-  // Paso 1: grayscale + contraste via CSS filter (GPU, mucho más rápido que pixel loop)
-  ctx.filter = 'grayscale(1) contrast(1.8) brightness(1.1)';
+  const out = document.createElement('canvas');
+  out.width = w;
+  out.height = h;
+  const ctx = out.getContext('2d')!;
+  // Suavizado desactivado para preservar bordes del texto al escalar
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(source, 0, 0, w, h);
-  ctx.filter = 'none';
+  return out;
+}
 
-  // Paso 2: binarización con umbral Otsu (óptimo para texto sobre fondo)
-  const imageData = ctx.getImageData(0, 0, w, h);
-  const d = imageData.data;
-  const total = w * h;
+// ─── Otsu global threshold ────────────────────────────────────────────────────
 
-  // Histograma de grises
+function computeOtsuThreshold(gray: Uint8ClampedArray | Uint8Array, total: number): number {
   const hist = new Int32Array(256);
-  for (let i = 0; i < d.length; i += 4) {
-    hist[d[i]]++; // Canal R = G = B tras grayscale
-  }
-
-  // Método de Otsu: maximiza la varianza entre clases
+  for (let i = 0; i < gray.length; i++) hist[gray[i]]++;
   let sum = 0;
   for (let i = 0; i < 256; i++) sum += i * hist[i];
   let sumB = 0, wB = 0, maxVar = 0, threshold = 128;
@@ -46,21 +51,208 @@ export function preprocessCanvasForOcr(source: HTMLCanvasElement): string {
     sumB += i * hist[i];
     const mB = sumB / wB;
     const mF = (sum - sumB) / wF;
-    const variance = wB * wF * (mB - mF) * (mB - mF);
-    if (variance > maxVar) { maxVar = variance; threshold = i; }
+    const v = wB * wF * (mB - mF) * (mB - mF);
+    if (v > maxVar) { maxVar = v; threshold = i; }
+  }
+  return threshold;
+}
+
+// ─── Extract grayscale from RGBA imageData ────────────────────────────────────
+
+function toGrayArray(d: Uint8ClampedArray): Uint8Array {
+  const gray = new Uint8Array(d.length / 4);
+  for (let i = 0; i < gray.length; i++) {
+    gray[i] = Math.round(0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2]);
+  }
+  return gray;
+}
+
+// ─── Strategy A: Otsu binarization (GPU contrast boost + global threshold) ───
+
+function preprocessOtsu(source: HTMLCanvasElement, invert = false): string {
+  const up = upscaleCanvas(source);
+  const w = up.width;
+  const h = up.height;
+  const ctx = up.getContext('2d')!;
+
+  // GPU: grayscale + contraste + brillo
+  ctx.filter = 'grayscale(1) contrast(2.0) brightness(1.05)';
+  const tmp = document.createElement('canvas');
+  tmp.width = w; tmp.height = h;
+  const tmpCtx = tmp.getContext('2d')!;
+  tmpCtx.filter = 'grayscale(1) contrast(2.0) brightness(1.05)';
+  tmpCtx.drawImage(up, 0, 0);
+  tmpCtx.filter = 'none';
+
+  const imageData = tmpCtx.getImageData(0, 0, w, h);
+  const d = imageData.data;
+  const gray = toGrayArray(d);
+  const threshold = computeOtsuThreshold(gray, w * h);
+
+  for (let i = 0; i < gray.length; i++) {
+    const isLight = gray[i] > threshold;
+    const v = (invert ? !isLight : isLight) ? 255 : 0;
+    d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = v;
+  }
+  tmpCtx.putImageData(imageData, 0, 0);
+  return tmp.toDataURL('image/png');
+}
+
+// ─── Strategy B: Adaptive block thresholding ──────────────────────────────────
+// Divide la imagen en bloques y aplica Otsu local a cada uno.
+// Mucho más robusto ante iluminación desigual (sombras, fluorescentes laterales).
+
+function preprocessAdaptive(source: HTMLCanvasElement): string {
+  const up = upscaleCanvas(source, 1600);
+  const w = up.width;
+  const h = up.height;
+  const ctx = up.getContext('2d')!;
+
+  // Pre-normalizar contraste globalmente antes del Otsu local
+  ctx.filter = 'grayscale(1) contrast(1.6)';
+  const tmp = document.createElement('canvas');
+  tmp.width = w; tmp.height = h;
+  const tmpCtx = tmp.getContext('2d')!;
+  tmpCtx.filter = 'grayscale(1) contrast(1.6)';
+  tmpCtx.drawImage(up, 0, 0);
+  tmpCtx.filter = 'none';
+
+  const imageData = tmpCtx.getImageData(0, 0, w, h);
+  const d = imageData.data;
+  const gray = toGrayArray(d);
+
+  // Bloques de 64×64 px con solape
+  const blockSize = 64;
+  const overlap = 16;
+  const step = blockSize - overlap;
+
+  const threshMap = new Float32Array(w * h);
+
+  for (let by = 0; by < h; by += step) {
+    for (let bx = 0; bx < w; bx += step) {
+      const x0 = bx, y0 = by;
+      const x1 = Math.min(bx + blockSize, w);
+      const y1 = Math.min(by + blockSize, h);
+      const bw = x1 - x0;
+      const bh = y1 - y0;
+      const blockGray = new Uint8Array(bw * bh);
+      let gi = 0;
+      for (let y = y0; y < y1; y++) {
+        for (let x = x0; x < x1; x++) {
+          blockGray[gi++] = gray[y * w + x];
+        }
+      }
+      const t = computeOtsuThreshold(blockGray, bw * bh);
+      // Escribir threshold en el mapa (media ponderada con overlap)
+      for (let y = y0; y < y1; y++) {
+        for (let x = x0; x < x1; x++) {
+          const idx = y * w + x;
+          if (threshMap[idx] === 0) threshMap[idx] = t;
+          else threshMap[idx] = (threshMap[idx] + t) / 2;
+        }
+      }
+    }
   }
 
-  // Binarización estricta: blanco o negro (Tesseract prefiere binario puro)
-  for (let i = 0; i < d.length; i += 4) {
-    const v = d[i] > threshold ? 255 : 0;
-    d[i] = d[i + 1] = d[i + 2] = v;
-    // d[i+3] = alpha, dejar intacto
+  for (let i = 0; i < gray.length; i++) {
+    const v = gray[i] > (threshMap[i] || 128) ? 255 : 0;
+    d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = v;
+  }
+  tmpCtx.putImageData(imageData, 0, 0);
+  return tmp.toDataURL('image/png');
+}
+
+// ─── Strategy D: High-contrast no-binarize ───────────────────────────────────
+// Para etiquetas de bajo contraste donde la binarización destruye detalles.
+
+function preprocessHighContrast(source: HTMLCanvasElement): string {
+  const up = upscaleCanvas(source, 1600);
+  const w = up.width;
+  const h = up.height;
+  const tmp = document.createElement('canvas');
+  tmp.width = w; tmp.height = h;
+  const ctx = tmp.getContext('2d')!;
+  ctx.filter = 'grayscale(1) contrast(2.5) brightness(1.15) sharpen(1)';
+  ctx.drawImage(up, 0, 0);
+  ctx.filter = 'none';
+  return tmp.toDataURL('image/png');
+}
+
+// ─── Main export: generate all variants ──────────────────────────────────────
+
+/**
+ * Genera hasta 4 variantes de preprocesado del mismo frame.
+ * El caller ejecuta OCR en el orden dado y para al superar el umbral de confianza.
+ */
+export function generateOcrVariants(source: HTMLCanvasElement): OcrVariant[] {
+  if (source.width < 1 || source.height < 1) {
+    throw new Error('Imagen no válida (sin dimensiones). Espera y vuelve a capturar.');
+  }
+  return [
+    { label: 'adaptive',  dataUrl: preprocessAdaptive(source) },
+    { label: 'otsu',      dataUrl: preprocessOtsu(source, false) },
+    { label: 'inverted',  dataUrl: preprocessOtsu(source, true) },
+    { label: 'contrast',  dataUrl: preprocessHighContrast(source) },
+  ];
+}
+
+// ─── Sharpness estimation (Laplacian variance on small sample) ────────────────
+// Mide la nitidez del frame de vídeo actual sobre un canvas de 200×112 px.
+// Retorna un valor 0–100 donde >30 = aceptable, >50 = buena.
+
+let _sharpCanvas: HTMLCanvasElement | null = null;
+let _sharpCtx: CanvasRenderingContext2D | null = null;
+
+export function measureSharpnessLive(video: HTMLVideoElement): number {
+  if (!video || video.videoWidth === 0 || video.videoHeight === 0) return 0;
+
+  // Canvas fijo reutilizable (evita garbage collection)
+  if (!_sharpCanvas) {
+    _sharpCanvas = document.createElement('canvas');
+    _sharpCanvas.width = 200;
+    _sharpCanvas.height = 112;
+    _sharpCtx = _sharpCanvas.getContext('2d', { willReadFrequently: true })!;
   }
 
-  ctx.putImageData(imageData, 0, 0);
+  const sw = video.videoWidth;
+  const sh = video.videoHeight;
+  // Captura sólo la franja central (zona guía)
+  const sx = sw * 0.2;
+  const sy = sh * 0.3;
+  const sw2 = sw * 0.6;
+  const sh2 = sh * 0.4;
 
-  // PNG lossless: sin artefactos JPEG que confunden caracteres (ej. '8' vs 'B')
-  return work.toDataURL('image/png');
+  _sharpCtx!.drawImage(video, sx, sy, sw2, sh2, 0, 0, 200, 112);
+  const { data } = _sharpCtx!.getImageData(0, 0, 200, 112);
+
+  // Laplacian variance: mide cambios bruscos de intensidad (= nitidez)
+  let sum = 0, sumSq = 0, count = 0;
+  const W = 200, H = 112;
+  for (let y = 1; y < H - 1; y += 2) {
+    for (let x = 1; x < W - 1; x += 2) {
+      const i = (y * W + x) * 4;
+      const c  = 0.299 * data[i]   + 0.587 * data[i+1]   + 0.114 * data[i+2];
+      const u  = 0.299 * data[((y-1)*W+x)*4]   + 0.587 * data[((y-1)*W+x)*4+1]   + 0.114 * data[((y-1)*W+x)*4+2];
+      const d2 = 0.299 * data[((y+1)*W+x)*4]   + 0.587 * data[((y+1)*W+x)*4+1]   + 0.114 * data[((y+1)*W+x)*4+2];
+      const l  = 0.299 * data[(y*W+x-1)*4]     + 0.587 * data[(y*W+x-1)*4+1]     + 0.114 * data[(y*W+x-1)*4+2];
+      const r  = 0.299 * data[(y*W+x+1)*4]     + 0.587 * data[(y*W+x+1)*4+1]     + 0.114 * data[(y*W+x+1)*4+2];
+      const lap = 4 * c - u - d2 - l - r;
+      sum += lap;
+      sumSq += lap * lap;
+      count++;
+    }
+  }
+  if (count === 0) return 0;
+  const mean = sum / count;
+  const variance = sumSq / count - mean * mean;
+  // Normalizar: variance ~0 = borroso, ~2500+ = muy nítido
+  return Math.min(100, Math.round(Math.sqrt(Math.max(0, variance)) * 2));
+}
+
+// ─── Compat: función original para que los imports existentes no rompan ───────
+
+export function preprocessCanvasForOcr(source: HTMLCanvasElement): string {
+  return preprocessOtsu(source, false);
 }
 
 export function waitForVideoReady(video: HTMLVideoElement, timeoutMs = 8000): Promise<void> {
@@ -73,10 +265,7 @@ export function waitForVideoReady(video: HTMLVideoElement, timeoutMs = 8000): Pr
       reject(new Error('La cámara tarda demasiado. Comprueba permisos e iluminación.'));
     }, timeoutMs);
     const onReady = () => {
-      if (video.videoWidth > 0 && video.videoHeight > 0) {
-        cleanup();
-        resolve();
-      }
+      if (video.videoWidth > 0 && video.videoHeight > 0) { cleanup(); resolve(); }
     };
     const cleanup = () => {
       window.clearTimeout(timer);

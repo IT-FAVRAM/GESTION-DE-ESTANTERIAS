@@ -993,6 +993,36 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
         <p className="text-[10px] text-slate-500 mt-0.5 text-right">{occupancyPct}% ocupado</p>
       </div>
 
+      {/* Banner de selección de celda */}
+      {action !== 'idle' && action !== 'moverSeccion' && (
+        <div className={`mx-4 mb-2 px-4 py-3 rounded-2xl flex items-center gap-3 animate-pulse
+          ${action === 'ubicar' ? 'bg-emerald-500/20 border border-emerald-500/50' :
+            action === 'retirar' ? 'bg-red-500/20 border border-red-500/50' :
+            action === 'mover' ? 'bg-blue-500/20 border border-blue-500/50' :
+            'bg-amber-500/20 border border-amber-500/50'}`}>
+          <span className="text-2xl shrink-0">
+            {action === 'ubicar' ? '👇' :
+             action === 'retirar' ? '👇' :
+             action === 'mover' ? '👇' : '👇'}
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className={`text-sm font-black
+              ${action === 'ubicar' ? 'text-emerald-300' :
+                action === 'retirar' ? 'text-red-300' :
+                action === 'mover' ? 'text-blue-300' :
+                'text-amber-300'}`}>
+              {action === 'ubicar' && selectedPositions.length === 0 && 'Toca una celda del grid para seleccionar dónde ubicar'}
+              {action === 'ubicar' && selectedPositions.length > 0 && `${selectedPositions.length} celda${selectedPositions.length > 1 ? 's' : ''} seleccionada${selectedPositions.length > 1 ? 's' : ''} — confirma o añade más`}
+              {action === 'retirar' && 'Toca la celda del grid de donde quieres retirar'}
+              {action === 'mover' && selectedPositions.length < moverNeeded && `Selecciona ${moverNeeded - selectedPositions.length} celda${moverNeeded - selectedPositions.length > 1 ? 's' : ''} de destino (${selectedPositions.length}/${moverNeeded})`}
+              {action === 'mover' && selectedPositions.length === moverNeeded && 'Celdas de destino seleccionadas — confirma el movimiento'}
+              {action === 'reubicar' && !reubicarSource && 'Toca la celda con el artículo que quieres reubicar'}
+              {action === 'reubicar' && reubicarSource && 'Ahora toca la celda vacía de destino'}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Grid — scroll vertical; cada bloque gestiona su scroll horizontal */}
       <div className="flex-1 min-h-0 min-w-0 w-full overflow-y-auto overscroll-contain p-2 sm:p-4 pt-0 [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
         {loading ? (

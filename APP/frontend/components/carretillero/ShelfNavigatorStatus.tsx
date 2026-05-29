@@ -57,14 +57,21 @@ const ShelfNavigatorStatus: React.FC<ShelfNavigatorStatusProps> = ({
         </div>
       )}
       {scanArticle && (
-        <div className="mx-4 mt-2 p-3 rounded-xl bg-sky-50 border border-sky-300 text-center">
-          <p className="text-sm text-sky-700">Selecciona una celda para ubicar <strong>{scanArticle}</strong></p>
+        <div className="mx-4 mt-2 p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-400 text-center animate-pulse">
+          <p className="text-base font-black text-emerald-700">👇 Toca una celda del grid para ubicar <strong>{scanArticle}</strong></p>
         </div>
       )}
       {showMoverProgress && !moverComplete && moverSelected === 0 && (
-        <div className="mx-4 mt-2 p-3 rounded-xl bg-amber-50 border border-amber-300 text-center">
-          <p className="text-sm text-amber-700 font-bold">
-            Toca {moverNeeded} celda{moverNeeded !== 1 ? 's' : ''} destino en la estantería
+        <div className="mx-4 mt-2 p-4 rounded-2xl bg-blue-50 border-2 border-blue-400 text-center animate-pulse">
+          <p className="text-base font-black text-blue-700">
+            👇 Toca {moverNeeded} celda{moverNeeded !== 1 ? 's' : ''} de destino en el grid
+          </p>
+        </div>
+      )}
+      {showMoverProgress && !moverComplete && (moverSelected ?? 0) > 0 && (
+        <div className="mx-4 mt-2 p-3 rounded-xl bg-amber-50 border border-amber-400 text-center">
+          <p className="text-sm font-bold text-amber-700">
+            {moverSelected}/{moverNeeded} celdas seleccionadas — toca {(moverNeeded ?? 0) - (moverSelected ?? 0)} más
           </p>
         </div>
       )}
