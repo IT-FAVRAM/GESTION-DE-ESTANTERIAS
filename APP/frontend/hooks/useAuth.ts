@@ -16,7 +16,7 @@ import {
   type WarehouseSection,
   COLLECTIONS,
 } from '../lib/firestoreSchema';
-import { validateOperarioId, type Operario } from '../lib/api/operarioApi';
+import { type Operario } from '../lib/api/operarioApi';
 import {
   AUTH_SESSION_CHANGED_EVENT,
   AUTH_STORAGE_KEYS,
