@@ -119,8 +119,7 @@ export interface LeadTimeMetrics {
 
 export type Assignments = Record<LocationId, AssignmentItem[]>;
 
-export type ActionType = 'assigned' | 'removed' | 'relocated' | 'copied' | 'requested' | 'process_finished' | 'admin_cleared' | 'moved_to_working'
-  | 'UBICAR' | 'UBICAR_MULTI' | 'RETIRAR' | 'RETIRAR_DE_UBICACION' | 'MOVER' | 'AVISAR_CARRETILLERO' | 'ENVIAR_ALMACEN' | 'VACIAR_ESTANTERIA';
+export type ActionType = 'assigned' | 'removed' | 'relocated' | 'copied' | 'requested' | 'process_finished' | 'admin_cleared' | 'moved_to_working';
 
 export interface HistoryEntry {
   id: string;

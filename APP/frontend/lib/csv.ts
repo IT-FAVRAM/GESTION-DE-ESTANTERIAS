@@ -8,7 +8,7 @@ export const downloadHistoryCSV = (history: HistoryEntry[]) => {
   }
 
   // Definir cabeceras
-  const headers = ['Fecha', 'Hora', 'Código Artículo', 'Acción', 'Origen', 'Destino', 'Operario', 'ID Evento'];
+  const headers = ['Fecha', 'Hora', 'Código Artículo', 'Acción', 'Origen', 'Destino', 'ID Evento'];
 
   // Convertir datos a filas CSV
   // Sanear campos para evitar CSV Injection y romper formato
@@ -37,7 +37,6 @@ export const downloadHistoryCSV = (history: HistoryEntry[]) => {
       sanitizeField(translateAction(entry.action)),
       sanitizeField(entry.fromLocation || '-'),
       sanitizeField(entry.toLocation || '-'),
-      sanitizeField(entry.user || ''),
       sanitizeField(entry.id)
     ].join(',');
   });
@@ -64,15 +63,7 @@ const translateAction = (action: string): string => {
     'assigned': 'Asignación',
     'relocated': 'Movimiento',
     'removed': 'Eliminación',
-    'copied': 'Copia',
-    'UBICAR': 'Ubicación',
-    'UBICAR_MULTI': 'Ubicación Múltiple',
-    'RETIRAR': 'Retirada',
-    'RETIRAR_DE_UBICACION': 'Retirada de Ubicación',
-    'MOVER': 'Movimiento',
-    'AVISAR_CARRETILLERO': 'Aviso Carretillero',
-    'ENVIAR_ALMACEN': 'Envío a Almacén',
-    'VACIAR_ESTANTERIA': 'Vaciado de Estantería',
+    'copied': 'Copia'
   };
   return map[action] || action;
 };

@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { HistoryEntry, ActionType, formatLocation } from '../lib/warehouseData';
-import { AssignedIcon, RelocatedIcon, RemovedIcon, CopyIcon, BellIcon, CheckIcon, UserIcon } from '../icons/Icons';
+import { AssignedIcon, RelocatedIcon, RemovedIcon, CopyIcon, BellIcon, CheckIcon } from './Icons';
 
 interface HistoryTimelineProps {
     history: HistoryEntry[];
@@ -21,14 +21,6 @@ const actionConfig: Record<ActionType, { label: string; color: string; icon: Rea
     process_finished: { label: 'Proceso Terminado (Almacén)', color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800', icon: CheckIcon },
     admin_cleared: { label: 'Vaciado por Admin', color: 'text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800', icon: RemovedIcon },
     moved_to_working: { label: 'En Producción', color: 'text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800', icon: BellIcon },
-    UBICAR: { label: 'Ubicación', color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800', icon: AssignedIcon },
-    UBICAR_MULTI: { label: 'Ubicación Múltiple', color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800', icon: AssignedIcon },
-    RETIRAR: { label: 'Retirada', color: 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800', icon: RemovedIcon },
-    RETIRAR_DE_UBICACION: { label: 'Retirada de Ubicación', color: 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800', icon: RemovedIcon },
-    MOVER: { label: 'Movimiento', color: 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800', icon: RelocatedIcon },
-    AVISAR_CARRETILLERO: { label: 'Aviso Carretillero', color: 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800', icon: BellIcon },
-    ENVIAR_ALMACEN: { label: 'Envío a Almacén', color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800', icon: CheckIcon },
-    VACIAR_ESTANTERIA: { label: 'Vaciado de Estantería', color: 'text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800', icon: RemovedIcon },
 };
 
 const formatTime = (isoString: string) => {
@@ -112,22 +104,16 @@ const HistoryTimelineItem = React.memo(({ entry, showDate }: { entry: HistoryEnt
                             </div>
                         )}
 
-                    {entry.action === 'process_finished' && (
-                        <div className="flex-1 p-3 rounded-xl border bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/30">
-                            <p className="text-xs font-bold text-emerald-500 mb-1 uppercase">Estado</p>
-                            <p className="font-bold text-slate-700 dark:text-slate-200">
-                                Sube a Almacén
-                            </p>
-                        </div>
-                    )}
-                </div>
-
-                {entry.user && (
-                    <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 text-xs text-slate-500">
-                        <UserIcon className="h-3.5 w-3.5" />
-                        <span>por <strong className="text-slate-700 dark:text-slate-300">{entry.user}</strong></span>
+                        {entry.action === 'process_finished' && (
+                            <div className="flex-1 p-3 rounded-xl border bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/30">
+                                <p className="text-xs font-bold text-emerald-500 mb-1 uppercase">Estado</p>
+                                <p className="font-bold text-slate-700 dark:text-slate-200">
+                                    Sube a Almacén
+                                </p>
+                            </div>
+                        )}
                     </div>
-                )}
+                </div>
             </div>
         </div>
     );
