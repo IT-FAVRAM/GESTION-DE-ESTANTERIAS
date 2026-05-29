@@ -35,12 +35,13 @@ export const useHistory = () => {
           const data = docSnap.data();
           items.push({
             id: docSnap.id,
-            barcode: data.barcode,
-            orderId: data.orderId,
+            barcode: data.barcode || data.articleCode || '',
+            orderId: data.orderId || data.orderFab || '',
             action: data.action,
             fromLocation: data.fromLocation,
             toLocation: data.toLocation,
-            timestamp: data.timestamp
+            timestamp: data.timestamp,
+            user: data.user || data.operarioName || '',
           } as HistoryEntry);
         });
         setHistory(items);
@@ -76,14 +77,14 @@ export const useHistory = () => {
     if (auth.currentUser) {
         const historyRef = db.collection("history");
         try {
-            // Sanitize payload to remove undefined values
             const payload = {
                 barcode: entry.barcode,
                 action: entry.action,
                 timestamp: timestamp,
                 orderId: entry.orderId || null,
                 fromLocation: entry.fromLocation || null,
-                toLocation: entry.toLocation || null
+                toLocation: entry.toLocation || null,
+                user: entry.user || null,
             };
 
             await historyRef.add(payload);
