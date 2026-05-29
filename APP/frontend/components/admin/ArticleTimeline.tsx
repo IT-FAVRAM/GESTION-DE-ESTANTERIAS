@@ -19,9 +19,27 @@ interface TimelineEntry {
   fromLocation: string | null;
   toLocation: string | null;
   shelfCode: string;
-  operarioName: string;
+  role: string;
   timestamp: string;
 }
+
+const ROLE_BADGES: Record<string, string> = {
+  ADMIN: '🛡️',
+  SUPERADMIN: '⭐',
+  CARRETILLERO: '🔧',
+  OPERARIO: '👤',
+  JEFE_SECCION: '👔',
+  CALIDAD: '✅',
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: 'Admin',
+  SUPERADMIN: 'Superadmin',
+  CARRETILLERO: 'Carretillero',
+  OPERARIO: 'Operario',
+  JEFE_SECCION: 'Jefe Sección',
+  CALIDAD: 'Calidad',
+};
 
 interface ArticleTimelineProps {
   onBack: () => void;
@@ -69,6 +87,7 @@ const ArticleTimeline: React.FC<ArticleTimelineProps> = ({ onBack }) => {
   const [entries, setEntries] = useState<TimelineEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const handleSearch = useCallback(async () => {
     const article = searchArticle.trim().toUpperCase();
@@ -77,6 +96,7 @@ const ArticleTimeline: React.FC<ArticleTimelineProps> = ({ onBack }) => {
 
     setLoading(true);
     setSearched(true);
+    setSearchError(null);
     try {
       const historyRef = collection(db, COLLECTIONS.HISTORY);
       let q;
@@ -115,15 +135,19 @@ const ArticleTimeline: React.FC<ArticleTimelineProps> = ({ onBack }) => {
           fromLocation: d.fromLocation || null,
           toLocation: d.toLocation || null,
           shelfCode: d.shelfCode || '',
-          operarioName: d.operarioName || d.user || '',
+          role: d.role || '',
           timestamp: d.timestamp || '',
         };
       });
 
       setEntries(results);
-    } catch (err) {
+    } catch (err: any) {
       console.error('[ArticleTimeline] Search error:', err);
       setEntries([]);
+      const msg = err?.code === 'failed-precondition'
+        ? 'Índice de búsqueda no disponible aún. Espera unos minutos y vuelve a intentarlo.'
+        : (err?.message || 'Error al buscar. Revisa la consola.');
+      setSearchError(msg);
     } finally {
       setLoading(false);
     }
@@ -188,7 +212,13 @@ const ArticleTimeline: React.FC<ArticleTimelineProps> = ({ onBack }) => {
           </div>
         )}
 
-        {!loading && searched && entries.length === 0 && (
+        {!loading && searchError && (
+          <div className="rounded-xl bg-red-900/30 border border-red-500/40 p-4 text-sm text-red-300">
+            ⚠️ {searchError}
+          </div>
+        )}
+
+        {!loading && searched && !searchError && entries.length === 0 && (
           <div className="text-center py-12">
             <p className="text-3xl mb-3">🔍</p>
             <p className="text-slate-400">No se encontraron movimientos</p>
@@ -234,9 +264,12 @@ const ArticleTimeline: React.FC<ArticleTimelineProps> = ({ onBack }) => {
                       {entry.toLocation === 'ALMACEN' && (
                         <p className="text-amber-300 font-bold">→ 🏭 ALMACÉN (finalizado)</p>
                       )}
-                      <p className="text-slate-500">
-                        por {entry.operarioName}
-                      </p>
+                      {entry.role && (
+                        <p className="text-slate-500 flex items-center gap-1">
+                          <span>{ROLE_BADGES[entry.role] || '👤'}</span>
+                          <span>{ROLE_LABELS[entry.role] || entry.role}</span>
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
