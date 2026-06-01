@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "firebase": {
-      "command": "node",
-      "args": ["-e", "require('firebase-tools/lib/bin/firebase').default(['mcp'], false)"],
+      "command": "npx",
+      "args": ["-y", "firebase-tools", "mcp"],
       "env": {
         "GOOGLE_APPLICATION_CREDENTIALS": ""
       }

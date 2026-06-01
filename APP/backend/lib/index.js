@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.productionOperate = exports.sendAdminMessage = exports.resolveDeviceConfig = exports.deviceHeartbeat = exports.adminOperate = exports.userPushReport = exports.leadTimeDataset = exports.leadTimeReporting = exports.pickupQueueOperate = exports.notifyLongDisconnection = exports.notifyConnectionDisconnect = exports.notifyCarretilleroRequest = exports.notifySpecialLocationOccupancy = exports.notifyPickupQueueCreated = exports.checkStaleItems = exports.updateReproceso = exports.cartOperate = exports.shelfOperate = exports.onShelfLocationWrite = exports.onAssignmentWrite = exports.inventoryOperate = void 0;
+exports.chatSendMessage = exports.productionOperate = exports.sendAdminMessage = exports.resolveDeviceConfig = exports.deviceHeartbeat = exports.adminOperate = exports.userPushReport = exports.leadTimeDataset = exports.leadTimeReporting = exports.pickupQueueOperate = exports.notifyLongDisconnection = exports.notifyConnectionDisconnect = exports.notifyCarretilleroRequest = exports.notifySpecialLocationOccupancy = exports.notifyPickupQueueCreated = exports.checkStaleItems = exports.updateReproceso = exports.cartOperate = exports.shelfOperate = exports.onShelfLocationWrite = exports.onAssignmentWrite = exports.inventoryOperate = void 0;
 var inventory_1 = require("./inventory");
 Object.defineProperty(exports, "inventoryOperate", { enumerable: true, get: function () { return inventory_1.inventoryOperate; } });
 Object.defineProperty(exports, "onAssignmentWrite", { enumerable: true, get: function () { return inventory_1.onAssignmentWrite; } });
@@ -27,4 +27,6 @@ Object.defineProperty(exports, "resolveDeviceConfig", { enumerable: true, get: f
 Object.defineProperty(exports, "sendAdminMessage", { enumerable: true, get: function () { return admin_1.sendAdminMessage; } });
 var production_1 = require("./production");
 Object.defineProperty(exports, "productionOperate", { enumerable: true, get: function () { return production_1.productionOperate; } });
+var chat_1 = require("./chat");
+Object.defineProperty(exports, "chatSendMessage", { enumerable: true, get: function () { return chat_1.chatSendMessage; } });
 //# sourceMappingURL=index.js.map

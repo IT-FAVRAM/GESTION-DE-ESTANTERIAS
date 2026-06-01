@@ -37,3 +37,8 @@ export {
 export {
   chatSendMessage,
 } from './chat';
+
+export {
+  setPinnedUrgency,
+  removePinnedUrgency,
+} from './urgency';

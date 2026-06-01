@@ -4,14 +4,17 @@ import { useAuth } from '../../hooks/useAuth';
 import { useFormFactor } from '../../hooks/useFormFactor';
 import { LogoIcon, LoadingIcon, ErrorIcon, UserIcon } from '../icons/Icons';
 import type { UserRole, WarehouseSection } from '../../lib/firestoreSchema';
+import CarretilleroLogin from './CarretilleroLogin';
 
 const UnifiedLogin: React.FC = () => {
   const { loginWithEmail, loginAsGuest, loading, error: authError } = useAuth();
   const formFactor = useFormFactor();
   const [showEmailLogin, setShowEmailLogin] = useState(false);
+  const [showCarretilleroLogin, setShowCarretilleroLogin] = useState(false);
   const [emailLoginHint, setEmailLoginHint] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [localLoading, setLocalLoading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -19,7 +22,7 @@ const UnifiedLogin: React.FC = () => {
     e.preventDefault();
     setLocalLoading(true);
     setLocalError(null);
-    const success = await loginWithEmail(email, password);
+    const success = await loginWithEmail(email, password, rememberMe);
     if (!success) {
       setLocalError("Credenciales incorrectas o error de conexión.");
     }
@@ -38,11 +41,22 @@ const UnifiedLogin: React.FC = () => {
     setLocalLoading(false);
   };
 
+  if (showCarretilleroLogin) {
+    return (
+      <CarretilleroLogin
+        onSuccess={() => {
+          setShowCarretilleroLogin(false);
+        }}
+        onBack={() => setShowCarretilleroLogin(false)}
+      />
+    );
+  }
+
   if (showEmailLogin) {
     return (
       <div className="min-h-dvh flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 animate-fade-in">
         <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-200 dark:border-slate-800 p-8 flex flex-col gap-6">
-          <button 
+          <button
             onClick={() => {
               setShowEmailLogin(false);
               setEmailLoginHint(null);
@@ -51,7 +65,7 @@ const UnifiedLogin: React.FC = () => {
           >
             ← Volver a selección
           </button>
-          
+
           <div className="text-center space-y-2">
             <h2 className="text-2xl font-black text-slate-900 dark:text-white">Acceso con cuenta</h2>
             <p className="text-slate-500 dark:text-slate-400 text-sm">Introduce tus credenciales autorizadas</p>
@@ -82,6 +96,23 @@ const UnifiedLogin: React.FC = () => {
                 className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-cyan-500 outline-none text-slate-900 dark:text-white transition-all font-medium"
                 placeholder="••••••••"
               />
+            </div>
+
+            {/* Recordar sesión */}
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="rememberMe"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 text-cyan-500 focus:ring-cyan-500"
+              />
+              <label
+                htmlFor="rememberMe"
+                className="text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer"
+              >
+                Recordar sesión en este dispositivo
+              </label>
             </div>
 
             {(localError || authError) && (
@@ -179,20 +210,36 @@ const UnifiedLogin: React.FC = () => {
               <span>{localError || authError}</span>
             </div>
           )}
-          <button
-            onClick={() => {
-              setEmailLoginHint(null);
-              setShowEmailLogin(true);
-            }}
-            className="group flex items-center gap-2 sm:gap-3 px-5 py-2.5 sm:px-6 sm:py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full shadow-sm hover:shadow-md transition-all active:scale-95"
-          >
-            <div className="p-1 sm:p-1.5 bg-slate-100 dark:bg-slate-800 rounded-full group-hover:bg-cyan-50 dark:group-hover:bg-cyan-900/30 transition-colors">
-              <UserIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-500 group-hover:text-cyan-600 dark:group-hover:text-cyan-400" />
-            </div>
-            <span className="text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-              Entrar con cuenta autorizada
-            </span>
-          </button>
+
+          {/* Botones de acceso */}
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
+            <button
+              onClick={() => {
+                setEmailLoginHint(null);
+                setShowEmailLogin(true);
+              }}
+              className="group flex items-center gap-2 sm:gap-3 px-5 py-2.5 sm:px-6 sm:py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full shadow-sm hover:shadow-md transition-all active:scale-95"
+            >
+              <div className="p-1 sm:p-1.5 bg-slate-100 dark:bg-slate-800 rounded-full group-hover:bg-cyan-50 dark:group-hover:bg-cyan-900/30 transition-colors">
+                <UserIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-500 group-hover:text-cyan-600 dark:group-hover:text-cyan-400" />
+              </div>
+              <span className="text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                Entrar con cuenta
+              </span>
+            </button>
+
+            <button
+              onClick={() => setShowCarretilleroLogin(true)}
+              className="group flex items-center gap-2 sm:gap-3 px-5 py-2.5 sm:px-6 sm:py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full shadow-sm hover:shadow-md transition-all active:scale-95"
+            >
+              <div className="p-1 sm:p-1.5 bg-slate-100 dark:bg-slate-800 rounded-full group-hover:bg-amber-50 dark:group-hover:bg-amber-900/30 transition-colors">
+                <span className="text-lg">🚜</span>
+              </div>
+              <span className="text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                Soy carretillero
+              </span>
+            </button>
+          </div>
 
           <p className="text-[10px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">
             WMS v3.1 • Advanced Warehouse System

@@ -1,6 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { AlertCircle } from 'lucide-react';
 import type { ChatMessage } from '../../lib/firestoreSchema';
 import type { UserRole } from '../../lib/firestoreSchema';
+import { usePinnedUrgencies } from '../../hooks/usePinnedUrgencies';
+import { PinnedUrgenciesBar } from './PinnedUrgenciesBar';
+import { SetUrgencyModal } from './SetUrgencyModal';
 
 interface ChatPanelProps {
   open: boolean;
@@ -44,8 +48,20 @@ const initialOf = (name: string) => (name || '?').trim().charAt(0).toUpperCase()
 const ChatPanel: React.FC<ChatPanelProps> = ({ open, onClose, messages, loading, currentUid, onSend }) => {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [showUrgencyModal, setShowUrgencyModal] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const { urgencies } = usePinnedUrgencies();
+
+  const AUTHORIZED_UIDS = [
+    'Ll6yHQJhRHhFaEjIaxHEJjmIm3v2', // Dani
+    'SDACLBwzI7azGHr6rHvT6QRsC4Q2', // Luis Asensio
+    '6Shfl3VCKSNM4mJoibQCkh4xS5f2', // Alberto Barrientos
+    'vpLAHVgUybXsVSRXXkhwmfDokJI3', // Jorge Diaz
+    'lyWm2ALpu7S9BemL0bQARXFYqkJ3', // Juanma Gomez
+  ];
+
+  const isAuthorized = currentUid && AUTHORIZED_UIDS.includes(currentUid);
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -93,6 +109,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ open, onClose, messages, loading,
 
       {/* Drawer */}
       <div className="relative w-full sm:max-w-md h-dvh bg-slate-50 dark:bg-slate-950 shadow-2xl flex flex-col animate-slide-in-right">
+        {/* Pinned Urgencies Bar */}
+        <PinnedUrgenciesBar urgencies={urgencies} currentUid={currentUid} />
+
         {/* Header */}
         <header className="flex items-center justify-between gap-3 px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-3">
@@ -104,13 +123,26 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ open, onClose, messages, loading,
               <p className="text-xs text-slate-400">Equipo del almacén</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Cerrar chat"
-            className="h-9 w-9 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            {isAuthorized && (
+              <button
+                onClick={() => setShowUrgencyModal(true)}
+                aria-label="Establecer urgencia"
+                className="h-9 px-3 rounded-full flex items-center justify-center gap-2 text-sm font-bold bg-red-600 text-white hover:bg-red-700 transition-colors"
+                title="Establecer urgencia"
+              >
+                <AlertCircle className="h-4 w-4" />
+                <span className="hidden sm:inline">Urgencia</span>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              aria-label="Cerrar chat"
+              className="h-9 w-9 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            >
+              ✕
+            </button>
+          </div>
         </header>
 
         {/* Mensajes */}
@@ -188,6 +220,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ open, onClose, messages, loading,
             </button>
           </div>
         </div>
+
+        {/* Set Urgency Modal */}
+        <SetUrgencyModal
+          isOpen={showUrgencyModal}
+          onClose={() => setShowUrgencyModal(false)}
+          onSuccess={() => {
+            // El hook usePinnedUrgencies escuchará el cambio automáticamente
+          }}
+        />
       </div>
     </div>
   );

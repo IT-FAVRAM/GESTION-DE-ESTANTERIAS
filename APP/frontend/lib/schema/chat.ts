@@ -20,3 +20,21 @@ export interface ChatMessage {
   timestamp: Timestamp | null;
   readBy: string[];       // uids que han leído el mensaje
 }
+
+/**
+ * Aviso fijado (urgencia) — `chat/general/pinned/{pinnedId}`.
+ * Solo los 5 usuarios autorizados pueden crear/editar/eliminar.
+ * Máximo uno por combinación (articleCode + orderId).
+ */
+export interface PinnedUrgency {
+  id?: string;
+  text: string;
+  articleCode: string;    // código del artículo
+  articleName?: string;   // nombre completo del artículo (opcional, para referencia)
+  orderId: string;        // ID/número de la orden de fabricación
+  orderNumber?: string;   // número legible de la OF (opcional)
+  pinnedBy: string;       // uid del usuario que lo creó/modificó
+  pinnedByName: string;   // displayName del usuario
+  pinnedAt: Timestamp | null;
+  updatedAt: Timestamp | null;
+}

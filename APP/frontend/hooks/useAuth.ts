@@ -4,6 +4,9 @@ import {
   signInAnonymously,
   signInWithEmailAndPassword,
   signOut,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
   type User,
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
@@ -427,10 +430,17 @@ export const useAuth = () => {
     }
   }, [state.kioskId]);
 
-  const loginWithEmail = useCallback(async (email: string, password: string) => {
+  const loginWithEmail = useCallback(async (email: string, password: string, rememberMe: boolean = false) => {
     setState((prev) => ({ ...prev, loading: true }));
     try {
       clearAllSessionData();
+
+      // Establecer persistencia según rememberMe
+      await setPersistence(
+        auth,
+        rememberMe ? browserLocalPersistence : browserSessionPersistence
+      );
+
       await signInWithEmailAndPassword(auth, email, password);
       // onAuthStateChanged will fire and set authMethod: 'email'
       return true;

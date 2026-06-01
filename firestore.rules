@@ -196,6 +196,13 @@ service cloud.firestore {
                       && request.resource.data.readBy.hasOnly(resource.data.readBy.concat([request.auth.uid]));
         allow delete: if false; // limpieza vía Cloud Function
       }
+
+      match /pinned/{pinnedId} {
+        // Lectura: todos los participantes del chat pueden ver los avisos fijados
+        allow read:   if isChatParticipant();
+        // Escritura/eliminación: solo vía Cloud Functions (setPinnedUrgency / removePinnedUrgency)
+        allow create, update, delete: if false;
+      }
     }
 
     // ── DEVELOPMENT MODE: Allow all access ──────────────────────────────────
