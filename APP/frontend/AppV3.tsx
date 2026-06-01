@@ -23,6 +23,8 @@ import { useConnectionMonitor } from './hooks/useConnectionMonitor';
 import AppLoadingScreen from './components/app/AppLoadingScreen';
 import PushToast from './components/app/PushToast';
 import ChatButton from './components/app/ChatButton';
+import { PinnedUrgenciesBar } from './components/app/PinnedUrgenciesBar';
+import { usePinnedUrgencies } from './hooks/usePinnedUrgencies';
 
 // ── Lazy-loaded views — cada rol sólo descarga su código ──────────────────────
 const UnifiedLogin      = lazy(() => import('./components/auth/UnifiedLogin'));
@@ -73,6 +75,10 @@ const AppV3: React.FC = () => {
   const [showOperativeMode, setShowOperativeMode] = useState(false);
   const [adminPanelTab, setAdminPanelTab] = useState<AdminTab>('reports');
   const [pushNotif, setPushNotif] = useState<{ title: string; body: string } | null>(null);
+  const { urgencies } = usePinnedUrgencies();
+  const urgencyBar = isAuthenticated && urgencies.length > 0
+    ? <PinnedUrgenciesBar urgencies={urgencies} currentUid={firebaseUser?.uid ?? null} currentRole={role} />
+    : null;
 
   const openAdminPanel = useCallback((tab: AdminTab = 'reports') => {
     setAdminPanelTab(tab);
@@ -114,7 +120,7 @@ const AppV3: React.FC = () => {
     authMethod === 'email' &&
     !!role &&
     ['ADMIN', 'SUPERADMIN', 'JEFE_SECCION', 'CARRETILLERO'].includes(role);
-  const chatFab = chatEnabled ? <ChatButton currentUid={firebaseUser?.uid ?? null} /> : null;
+  const chatFab = chatEnabled ? <ChatButton currentUid={firebaseUser?.uid ?? null} currentRole={role} /> : null;
 
   // ─── Loading ───
   if (loading) return <AppLoadingScreen />;
@@ -134,6 +140,7 @@ const AppV3: React.FC = () => {
     return (
       <Suspense fallback={<AppLoadingScreen />}>
         <>
+          {urgencyBar}
           <OfflineIndicator />
           <OfflineDebugPanel />
           <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
@@ -147,6 +154,7 @@ const AppV3: React.FC = () => {
     return (
       <Suspense fallback={<AppLoadingScreen />}>
         <>
+          {urgencyBar}
           <OfflineIndicator />
           <OfflineDebugPanel />
           <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
@@ -160,6 +168,7 @@ const AppV3: React.FC = () => {
   if (role === 'JEFE_SECCION') {
     return (
       <Suspense fallback={<AppLoadingScreen />}>
+        {urgencyBar}
         {showOperativeMode ? (
           <>
             <OfflineIndicator />
@@ -194,6 +203,7 @@ const AppV3: React.FC = () => {
   if (role === 'ADMIN' || role === 'SUPERADMIN') {
     return (
       <Suspense fallback={<AppLoadingScreen />}>
+        {urgencyBar}
         {chatFab}
         {showOperativeMode ? (
           <CarretilleroView onBack={() => setShowOperativeMode(false)} />

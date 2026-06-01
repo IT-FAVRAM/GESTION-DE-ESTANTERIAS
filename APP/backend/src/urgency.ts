@@ -1,14 +1,17 @@
 import * as functions from 'firebase-functions';
-import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 
-// 5 usuarios autorizados para fijar/desfijar avisos
-const AUTHORIZED_UIDS = [
-  'Ll6yHQJhRHhFaEjIaxHEJjmIm3v2', // Dani
-  'SDACLBwzI7azGHr6rHvT6QRsC4Q2', // Luis Asensio
-  '6Shfl3VCKSNM4mJoibQCkh4xS5f2', // Alberto Barrientos
-  'vpLAHVgUybXsVSRXXkhwmfDokJI3', // Jorge Diaz
-  'lyWm2ALpu7S9BemL0bQARXFYqkJ3', // Juanma Gomez
-];
+const URGENCY_ALLOWED_ROLES = new Set(['ADMIN', 'SUPERADMIN']);
+
+const assertUrgencyAuth = async (uid: string): Promise<string> => {
+  const db = getFirestore();
+  const userDoc = await db.collection('usuarios').doc(uid).get();
+  const role = String(userDoc.data()?.role || '').toUpperCase();
+  if (!URGENCY_ALLOWED_ROLES.has(role)) {
+    throw new functions.https.HttpsError('permission-denied', 'Solo ADMIN y SUPERADMIN pueden gestionar urgencias.');
+  }
+  return userDoc.data()?.displayName || 'Unknown';
+};
 
 interface SetPinnedUrgencyRequest {
   text: string;
@@ -26,7 +29,6 @@ interface SetPinnedUrgencyRequest {
  */
 export const setPinnedUrgency = functions.https.onCall(
   async (data: SetPinnedUrgencyRequest, context) => {
-    // Validar autenticación
     if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
     }
@@ -34,31 +36,10 @@ export const setPinnedUrgency = functions.https.onCall(
     const uid = context.auth.uid;
     const db = getFirestore();
 
-    // Validar autorización
-    if (!AUTHORIZED_UIDS.includes(uid)) {
-      throw new functions.https.HttpsError(
-        'permission-denied',
-        'You are not authorized to set urgencies'
-      );
-    }
+    const displayName = await assertUrgencyAuth(uid);
 
-    // Validar campos obligatorios
     if (!data.text || !data.articleCode || !data.orderId) {
-      throw new functions.https.HttpsError(
-        'invalid-argument',
-        'text, articleCode, and orderId are required'
-      );
-    }
-
-    // Obtener displayName del usuario
-    let displayName = 'Unknown';
-    try {
-      const userDoc = await db.collection('usuarios').doc(uid).get();
-      if (userDoc.exists) {
-        displayName = userDoc.data()?.displayName || 'Unknown';
-      }
-    } catch (e) {
-      console.warn('Could not fetch user displayName:', e);
+      throw new functions.https.HttpsError('invalid-argument', 'text, articleCode y orderId son obligatorios');
     }
 
     // Buscar si ya existe un aviso para esta combinación (articleCode + orderId)
@@ -119,7 +100,6 @@ interface RemovePinnedUrgencyRequest {
  */
 export const removePinnedUrgency = functions.https.onCall(
   async (data: RemovePinnedUrgencyRequest, context) => {
-    // Validar autenticación
     if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
     }
@@ -127,20 +107,10 @@ export const removePinnedUrgency = functions.https.onCall(
     const uid = context.auth.uid;
     const db = getFirestore();
 
-    // Validar autorización
-    if (!AUTHORIZED_UIDS.includes(uid)) {
-      throw new functions.https.HttpsError(
-        'permission-denied',
-        'You are not authorized to remove urgencies'
-      );
-    }
+    await assertUrgencyAuth(uid);
 
-    // Validar pinnedId
     if (!data.pinnedId) {
-      throw new functions.https.HttpsError(
-        'invalid-argument',
-        'pinnedId is required'
-      );
+      throw new functions.https.HttpsError('invalid-argument', 'pinnedId is required');
     }
 
     // Obtener el documento

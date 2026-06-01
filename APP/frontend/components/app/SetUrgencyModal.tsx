@@ -148,7 +148,7 @@ export const SetUrgencyModal: React.FC<SetUrgencyModalProps> = ({
           {/* Descripción */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-1">
-              Descripción / Notas
+              Descripción / Notas <span className="text-red-500">*</span>
             </label>
             <textarea
               value={text}
@@ -157,6 +157,7 @@ export const SetUrgencyModal: React.FC<SetUrgencyModalProps> = ({
               rows={3}
               className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 disabled:opacity-50 resize-none"
               disabled={loading}
+              required
             />
           </div>
 
@@ -172,7 +173,7 @@ export const SetUrgencyModal: React.FC<SetUrgencyModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={loading || !articleCode.trim() || !orderId.trim()}
+              disabled={loading || !articleCode.trim() || !orderId.trim() || !text.trim()}
               className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-md text-white font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loading ? (

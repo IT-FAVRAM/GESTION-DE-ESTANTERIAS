@@ -71,7 +71,7 @@ function getSlotMinH(_rowCount: number): number {
 
 interface RackSlotProps {
   position: string;
-  posNum: number;
+  posNum: number | string;
   location?: ShelfLocationState;
   shelfCode: string;
   isUrgent: boolean;
@@ -99,7 +99,7 @@ const RackSlot: React.FC<RackSlotProps> = ({
 }) => {
   const items = location?.items ?? [];
   const isEmpty = items.length === 0;
-  const isReproces = isReprocesosLocation(shelfCode, posNum);
+  const isReproces = typeof posNum === 'number' && isReprocesosLocation(shelfCode, posNum);
   const isDraggable = !isEmpty && !!onCellDragStart;
 
   const handleClick = () => {
@@ -426,7 +426,8 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
                   );
                 }
 
-                const pos = posNum.toString().padStart(3, '0');
+                const pos = typeof posNum === 'string' ? posNum : posNum.toString().padStart(3, '0');
+                const isStringSlot = typeof posNum === 'string';
                 return (
                   <RackSlot
                     key={pos}
@@ -434,9 +435,9 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
                     posNum={posNum}
                     location={locationMap.get(pos)}
                     shelfCode={shelfCode}
-                    isUrgent={isUrgentLocation(shelfCode, posNum)}
-                    isTechReview={isTechReviewLocation(shelfCode, posNum)}
-                    isAluminio={isAluminioLocation(shelfCode, posNum)}
+                    isUrgent={isStringSlot || isUrgentLocation(shelfCode, posNum as number)}
+                    isTechReview={!isStringSlot && isTechReviewLocation(shelfCode, posNum as number)}
+                    isAluminio={!isStringSlot && isAluminioLocation(shelfCode, posNum as number)}
                     isSelected={selectedPositions.includes(pos)}
                     isHighlighted={highlightedPositions.includes(pos)}
                     isDragOver={dragOverPosition === pos}

@@ -12,6 +12,7 @@ interface ChatPanelProps {
   messages: ChatMessage[];
   loading: boolean;
   currentUid: string | null;
+  currentRole: string | null;
   onSend: (text: string) => Promise<void>;
 }
 
@@ -45,7 +46,7 @@ const formatTime = (msg: ChatMessage): string => {
 
 const initialOf = (name: string) => (name || '?').trim().charAt(0).toUpperCase();
 
-const ChatPanel: React.FC<ChatPanelProps> = ({ open, onClose, messages, loading, currentUid, onSend }) => {
+const ChatPanel: React.FC<ChatPanelProps> = ({ open, onClose, messages, loading, currentUid, currentRole, onSend }) => {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [showUrgencyModal, setShowUrgencyModal] = useState(false);
@@ -53,15 +54,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ open, onClose, messages, loading,
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const { urgencies } = usePinnedUrgencies();
 
-  const AUTHORIZED_UIDS = [
-    'Ll6yHQJhRHhFaEjIaxHEJjmIm3v2', // Dani
-    'SDACLBwzI7azGHr6rHvT6QRsC4Q2', // Luis Asensio
-    '6Shfl3VCKSNM4mJoibQCkh4xS5f2', // Alberto Barrientos
-    'vpLAHVgUybXsVSRXXkhwmfDokJI3', // Jorge Diaz
-    'lyWm2ALpu7S9BemL0bQARXFYqkJ3', // Juanma Gomez
-  ];
-
-  const isAuthorized = currentUid && AUTHORIZED_UIDS.includes(currentUid);
+  const isAuthorized = currentRole === 'ADMIN' || currentRole === 'SUPERADMIN';
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });

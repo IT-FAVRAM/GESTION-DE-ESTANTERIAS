@@ -4,13 +4,14 @@ import ChatPanel from './ChatPanel';
 
 interface ChatButtonProps {
   currentUid: string | null;
+  currentRole?: string | null;
 }
 
 /**
  * Botón flotante de chat con badge de no leídos. Visible solo para los roles
  * autorizados (el gating lo decide AppV3). Abre el ChatPanel estilo Telegram.
  */
-const ChatButton: React.FC<ChatButtonProps> = ({ currentUid }) => {
+const ChatButton: React.FC<ChatButtonProps> = ({ currentUid, currentRole }) => {
   const { messages, loading, sendMessage, unreadCount, markAllRead } = useChat();
   const [open, setOpen] = useState(false);
 
@@ -49,6 +50,7 @@ const ChatButton: React.FC<ChatButtonProps> = ({ currentUid }) => {
         messages={messages}
         loading={loading}
         currentUid={currentUid}
+        currentRole={currentRole ?? null}
         onSend={sendMessage}
       />
     </>

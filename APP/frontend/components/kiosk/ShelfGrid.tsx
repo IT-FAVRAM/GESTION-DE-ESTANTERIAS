@@ -184,7 +184,7 @@ interface BlockProps {
     subtitle?: string;
     zoneName?: string;
     fullWidth?: boolean;
-    rows: Array<Array<number | null>>;
+    rows: Array<Array<number | string | null>>;
   };
   shelfDef: Shelf;
   locationMap: Map<string, ShelfLocationState>;
@@ -222,13 +222,14 @@ const Block = React.memo(({
   const isTechReview = zone?.isTechReview ?? false;
   const isAluminio = zone?.name === 'ALUMINIO';
 
-  const allPos = block.rows.flat().filter((p): p is number => p !== null);
+  const allPos = block.rows.flat().filter((p): p is (number | string) => p !== null);
+  const toPos = (p: number | string) => typeof p === 'string' ? p : p.toString().padStart(3, '0');
   const occupiedCount = allPos.filter((p) => {
-    const loc = locationMap.get(p.toString().padStart(3, '0'));
+    const loc = locationMap.get(toPos(p));
     return loc && !loc.isEmpty;
   }).length;
-  const totalArticles = allPos.reduce((sum, p) => {
-    const loc = locationMap.get(p.toString().padStart(3, '0'));
+  const totalArticles: number = allPos.reduce<number>((sum, p) => {
+    const loc = locationMap.get(toPos(p));
     return sum + (loc?.items.length ?? 0);
   }, 0);
 
@@ -322,7 +323,7 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
       ? 'grid-cols-1 md:grid-cols-2'
       : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3';
 
-  const colsForBlock = useCallback((rows: Array<Array<number | null>>): string => {
+  const colsForBlock = useCallback((rows: Array<Array<number | string | null>>): string => {
     const maxCols = Math.max(...rows.map((row) => row.length), 1);
     const colMap: Record<number, string> = {
       1: 'grid-cols-1',
@@ -349,7 +350,8 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
                   <div key={rowIndex} className={`grid gap-1.5 ${colsForBlock(block.rows)}`}>
                     {row.map((posNum, colIndex) => {
                       if (posNum === null) return <div key={colIndex} className="w-10 h-10 opacity-0" />;
-                      const pos = posNum.toString().padStart(3, '0');
+                      const pos = typeof posNum === 'string' ? posNum : posNum.toString().padStart(3, '0');
+                      const isStr = typeof posNum === 'string';
                       const loc = locationMap.get(pos);
                       return (
                         <ShelfGridCell
@@ -357,9 +359,9 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
                           position={pos}
                           location={loc}
                           shelfCode={shelfDef?.code}
-                          isUrgent={isUrgentLocation(shelfDef?.code || '', posNum)}
-                          isTechReview={isTechReviewLocation(shelfDef?.code || '', posNum)}
-                          isAluminio={isAluminioLocation(shelfDef?.code || '', posNum)}
+                          isUrgent={isStr || isUrgentLocation(shelfDef?.code || '', posNum as number)}
+                          isTechReview={!isStr && isTechReviewLocation(shelfDef?.code || '', posNum as number)}
+                          isAluminio={!isStr && isAluminioLocation(shelfDef?.code || '', posNum as number)}
                           isSelected={selectedPositions.includes(pos)}
                           isHighlighted={highlightedPositions.includes(pos)}
                           compact

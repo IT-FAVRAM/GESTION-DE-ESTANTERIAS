@@ -136,115 +136,53 @@ const UnifiedLogin: React.FC = () => {
   }
 
   return (
-    <div className="h-dvh flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 py-4 sm:p-6 animate-fade-in overflow-hidden">
-      <div className="w-full max-w-4xl flex flex-col gap-3 sm:gap-8">
+    <div className="h-dvh flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 px-6 animate-fade-in">
+      <div className="w-full max-w-sm flex flex-col items-center gap-8 sm:gap-10">
 
-        {/* Header — compacto en móvil */}
-        <div className="flex flex-col items-center gap-2 sm:gap-6 text-center">
-          <div className="p-3 sm:p-6 bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2rem] shadow-xl border border-slate-100 dark:border-slate-800">
-            <LogoIcon className="h-10 w-10 sm:h-16 sm:w-16 text-cyan-500 dark:text-cyan-400" />
+        {/* Logo + título */}
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800">
+            <LogoIcon className="h-14 w-14 text-cyan-500 dark:text-cyan-400" />
           </div>
-          <div className="space-y-0.5 sm:space-y-2">
-            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
+          <div className="space-y-1">
+            <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
               WMS <span className="text-cyan-500">CONTROL</span>
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-lg font-medium">Selección de Perfil</p>
+            <p className="text-slate-400 dark:text-slate-500 text-sm font-medium">Sistema de Gestión de Almacén</p>
           </div>
         </div>
 
-        {/* Role Selection Grid — 2×2 en móvil, 4 cols en desktop */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-          <RoleCard
-            icon={<div className="text-2xl sm:text-4xl">🏭</div>}
-            title="KIOSKO"
-            description="Operario · MEC"
-            color="blue"
-            onClick={() => handleQuickAccess('OPERARIO', 'MECANIZADO')}
+        {/* Botones principales */}
+        <div className="w-full flex flex-col gap-3">
+          <button
+            onClick={() => { setEmailLoginHint(null); setShowEmailLogin(true); }}
             disabled={localLoading || loading}
-          />
-          <RoleCard
-            icon={<div className="text-2xl sm:text-4xl">🚜</div>}
-            title="CARRETILLA"
-            description="Logística"
-            color="amber"
-            onClick={() => handleQuickAccess('CARRETILLERO')}
+            className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black text-base rounded-2xl shadow-xl hover:bg-slate-800 dark:hover:bg-slate-100 active:scale-95 transition-all disabled:opacity-50"
+          >
+            <UserIcon className="h-5 w-5" />
+            Acceder con cuenta
+          </button>
+
+          <button
+            onClick={() => setShowCarretilleroLogin(true)}
             disabled={localLoading || loading}
-          />
-          <RoleCard
-            icon={<div className="text-2xl sm:text-4xl">🛡️</div>}
-            title="ADMIN"
-            description={formFactor === 'desktop' ? 'Acceso rápido' : 'Con cuenta'}
-            color="slate"
-            onClick={() => {
-              if (formFactor === 'desktop') {
-                handleQuickAccess('ADMIN');
-              } else {
-                setEmailLoginHint('Para operar manualmente y navegar estanterias como ADMIN o SUPERADMIN entra con cuenta autorizada.');
-                setShowEmailLogin(true);
-              }
-            }}
-            disabled={localLoading || loading}
-          />
-          <RoleCard
-            icon={<div className="text-2xl sm:text-4xl">🔍</div>}
-            title="CALIDAD"
-            description={formFactor === 'desktop' ? 'Acceso rápido' : 'Con cuenta'}
-            color="emerald"
-            onClick={() => {
-              if (formFactor === 'desktop') {
-                handleQuickAccess('CALIDAD');
-              } else {
-                setEmailLoginHint('Para editar reprocesos, cantidades e importes entra con correo y contraseña de CALIDAD.');
-                setShowEmailLogin(true);
-              }
-            }}
-            disabled={localLoading || loading}
-          />
+            className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-amber-500 text-white font-black text-base rounded-2xl shadow-xl hover:bg-amber-400 active:scale-95 transition-all disabled:opacity-50"
+          >
+            <span className="text-xl">🚜</span>
+            Soy carretillero
+          </button>
         </div>
 
-        {/* Footer */}
-        <div className="flex flex-col items-center gap-2 sm:gap-6">
-          {(localError || authError) && (
-            <div className="w-full max-w-xl rounded-2xl border border-red-900/50 bg-red-950/35 px-4 py-3 text-sm font-bold text-red-200 flex items-center gap-3">
-              <ErrorIcon className="h-5 w-5" />
-              <span>{localError || authError}</span>
-            </div>
-          )}
-
-          {/* Botones de acceso */}
-          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
-            <button
-              onClick={() => {
-                setEmailLoginHint(null);
-                setShowEmailLogin(true);
-              }}
-              className="group flex items-center gap-2 sm:gap-3 px-5 py-2.5 sm:px-6 sm:py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full shadow-sm hover:shadow-md transition-all active:scale-95"
-            >
-              <div className="p-1 sm:p-1.5 bg-slate-100 dark:bg-slate-800 rounded-full group-hover:bg-cyan-50 dark:group-hover:bg-cyan-900/30 transition-colors">
-                <UserIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-500 group-hover:text-cyan-600 dark:group-hover:text-cyan-400" />
-              </div>
-              <span className="text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-                Entrar con cuenta
-              </span>
-            </button>
-
-            <button
-              onClick={() => setShowCarretilleroLogin(true)}
-              className="group flex items-center gap-2 sm:gap-3 px-5 py-2.5 sm:px-6 sm:py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full shadow-sm hover:shadow-md transition-all active:scale-95"
-            >
-              <div className="p-1 sm:p-1.5 bg-slate-100 dark:bg-slate-800 rounded-full group-hover:bg-amber-50 dark:group-hover:bg-amber-900/30 transition-colors">
-                <span className="text-lg">🚜</span>
-              </div>
-              <span className="text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-                Soy carretillero
-              </span>
-            </button>
+        {(localError || authError) && (
+          <div className="w-full rounded-2xl border border-red-900/50 bg-red-950/35 px-4 py-3 text-sm font-bold text-red-200 flex items-center gap-3">
+            <ErrorIcon className="h-5 w-5 shrink-0" />
+            <span>{localError || authError}</span>
           </div>
+        )}
 
-          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">
-            WMS v3.1 • Advanced Warehouse System
-          </p>
-        </div>
+        <p className="text-[10px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">
+          WMS v3.1 • Advanced Warehouse System
+        </p>
 
       </div>
     </div>

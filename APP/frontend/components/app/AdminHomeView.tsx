@@ -125,7 +125,7 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
           </div>
         </header>
 
-        <main className="flex-1 p-4 max-w-6xl mx-auto w-full">
+        <main className="p-4 max-w-6xl mx-auto w-full">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
             {/* Operaciones — acceso unificado a Estanterías y Carros */}
             <div className="bg-cyan-950/20 rounded-2xl border border-cyan-500/40 p-5 flex flex-col gap-4">

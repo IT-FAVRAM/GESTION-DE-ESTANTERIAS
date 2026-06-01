@@ -6,6 +6,7 @@ import type { PinnedUrgency } from '../../lib/schema/chat';
 interface PinnedUrgenciesBarProps {
   urgencies: PinnedUrgency[];
   currentUid: string | null;
+  currentRole?: string | null;
   onRefresh?: () => void;
 }
 
@@ -17,19 +18,12 @@ interface PinnedUrgenciesBarProps {
 export const PinnedUrgenciesBar: React.FC<PinnedUrgenciesBarProps> = ({
   urgencies,
   currentUid,
+  currentRole,
   onRefresh,
 }) => {
   const [removing, setRemoving] = useState<string | null>(null);
 
-  const AUTHORIZED_UIDS = [
-    'Ll6yHQJhRHhFaEjIaxHEJjmIm3v2', // Dani
-    'SDACLBwzI7azGHr6rHvT6QRsC4Q2', // Luis Asensio
-    '6Shfl3VCKSNM4mJoibQCkh4xS5f2', // Alberto Barrientos
-    'vpLAHVgUybXsVSRXXkhwmfDokJI3', // Jorge Diaz
-    'lyWm2ALpu7S9BemL0bQARXFYqkJ3', // Juanma Gomez
-  ];
-
-  const isAuthorized = currentUid && AUTHORIZED_UIDS.includes(currentUid);
+  const isAuthorized = currentRole === 'ADMIN' || currentRole === 'SUPERADMIN';
 
   const handleRemove = async (pinnedId: string) => {
     if (!isAuthorized) return;

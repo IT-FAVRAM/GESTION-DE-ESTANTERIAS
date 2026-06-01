@@ -161,7 +161,27 @@
       "Bash(rm -rf \"APP/backend/_audit_tmp\")",
       "Bash(ls \"APP/backend/_audit_tmp\")",
       "mcp__firebase__firebase_validate_security_rules",
-      "Bash(xargs grep -l \"luis\\\\|asensio\\\\|alberto\\\\|jorge\\\\|juanma\" -i)"
+      "Bash(xargs grep -l \"luis\\\\|asensio\\\\|alberto\\\\|jorge\\\\|juanma\" -i)",
+      "mcp__ruflo__memory_search_unified",
+      "mcp__plugin_firebase_firebase__functions_list_functions",
+      "mcp__plugin_firebase_firebase__firestore_list_documents",
+      "mcp__plugin_firebase_firebase__firestore_list_collections",
+      "mcp__plugin_firebase_firebase__functions_get_logs",
+      "mcp__plugin_firebase_firebase__auth_update_user",
+      "mcp__plugin_firebase_firebase__firestore_delete_document",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_firebase_firebase__firebase_deploy",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_type",
+      "PowerShell($word = New-Object -ComObject Word.Application; $word.Visible = $false; Write-Host \"Word disponible: $\\($word.Version\\)\"; $word.Quit\\(\\))",
+      "Bash(powershell -NonInteractive -Command ' *)",
+      "mcp__plugin_firebase_firebase__firestore_update_document",
+      "mcp__plugin_firebase_firebase__firestore_add_document",
+      "mcp__plugin_playwright_playwright__browser_evaluate",
+      "mcp__plugin_firebase_firebase__firestore_get_document",
+      "mcp__plugin_firebase_firebase__firestore_query_collection"
     ]
   },
   "enabledMcpjsonServers": [

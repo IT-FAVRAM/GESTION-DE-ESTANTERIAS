@@ -25,7 +25,7 @@ export interface ShelfZone {
   isTechReview?: boolean;
 }
 
-export type SlotDef = number | null;
+export type SlotDef = number | string | null;
 
 export interface ShelfPhysicalBlock {
   id: string;
@@ -44,9 +44,12 @@ export const SHELF_DEFINITIONS: Shelf[] = [
     name: 'Prensas',
     section: 'PRENSAS',
     type: 'shelf',
-    locationCount: 9,
+    locationCount: 13,
     layout: {
-      zones: [{ name: 'ESTANTERIA PRINCIPAL', range: [1, 9], color: '#3b82f6' }],
+      zones: [
+        { name: 'ESTANTERIA PRINCIPAL', range: [1, 9], color: '#3b82f6' },
+        { name: 'URG MEC-PRE', range: [0, 0], color: '#ef4444', isUrgent: true },
+      ],
       physicalBlocks: [
         {
           id: 'pre-main',
@@ -54,6 +57,18 @@ export const SHELF_DEFINITIONS: Shelf[] = [
           subtitle: '3 filas x 3 columnas',
           zoneName: 'ESTANTERIA PRINCIPAL',
           rows: [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
+        },
+        {
+          id: 'pre-urg-shared',
+          title: 'URG MEC-PRE',
+          subtitle: 'Compartidas con Mecanizado · 4 ubicaciones',
+          zoneName: 'URG MEC-PRE',
+          rows: [
+            ['URG MEC-PRE 001'],
+            ['URG MEC-PRE 002'],
+            ['URG MEC-PRE 003'],
+            ['URG MEC-PRE 004'],
+          ],
         },
       ],
     },
@@ -66,22 +81,34 @@ export const SHELF_DEFINITIONS: Shelf[] = [
     locationCount: 34,
     layout: {
       zones: [
-        { name: 'URGENTE', range: [1, 4], color: '#ef4444', isUrgent: true },
-        { name: 'PRINCIPAL', range: [5, 34], color: '#f97316' },
+        { name: 'URG MEC-PRE', range: [0, 0], color: '#ef4444', isUrgent: true },
+        { name: 'PRINCIPAL', range: [1, 30], color: '#f97316' },
       ],
       physicalBlocks: [
         {
+          id: 'mec-urg-shared',
+          title: 'URG MEC-PRE',
+          subtitle: 'Compartidas con Prensas · 4 ubicaciones',
+          zoneName: 'URG MEC-PRE',
+          rows: [
+            ['URG MEC-PRE 001'],
+            ['URG MEC-PRE 002'],
+            ['URG MEC-PRE 003'],
+            ['URG MEC-PRE 004'],
+          ],
+        },
+        {
           id: 'mec-main',
           title: 'Mecanizado',
-          subtitle: '4 filas · 10 columnas (col. 1 urgente)',
+          subtitle: '4 filas · 9 columnas (30 ubicaciones)',
           zoneName: 'PRINCIPAL',
-          // Col 0 = urgentes (001-004). Cols 1-3 = cuerpo1 (005-016).
-          // Cols 4-6 = cuerpo2 (017-025, solo filas 1-3). Cols 7-9 = cuerpo3 (026-034, solo filas 1-3).
+          // Cols 0-2 = cuerpo1 (001-012). Cols 3-5 = cuerpo2 (013-021, filas 2-4).
+          // Cols 6-8 = cuerpo3 (022-030, filas 2-4).
           rows: [
-            [1,  5,  6,  7,    null, null, null, null, null, null],
-            [2,  8,  9,  10,   17,   18,   19,   26,   27,   28 ],
-            [3,  11, 12, 13,   20,   21,   22,   29,   30,   31 ],
-            [4,  14, 15, 16,   23,   24,   25,   32,   33,   34 ],
+            [1,  2,  3,    null, null, null, null, null, null],
+            [4,  5,  6,    13,   14,   15,   22,   23,   24 ],
+            [7,  8,  9,    16,   17,   18,   25,   26,   27 ],
+            [10, 11, 12,   19,   20,   21,   28,   29,   30 ],
           ],
         },
       ],
@@ -635,8 +662,23 @@ export const isReprocesosLocation = (
 export const getShelfDefinition = (code: string): Shelf | undefined =>
   ALL_SHELVES.find((s) => s.code === code);
 
-/** Genera todos los numeros de posicion para una estanteria */
+/** Genera todos los IDs de posicion para una estanteria, incluyendo string slots */
 export const generatePositions = (shelf: Shelf): string[] => {
+  const blocks = shelf.layout.physicalBlocks;
+  if (blocks && blocks.length > 0) {
+    const positions: string[] = [];
+    const seen = new Set<string>();
+    for (const block of blocks) {
+      for (const row of block.rows) {
+        for (const slot of row) {
+          if (slot === null) continue;
+          const pos = typeof slot === 'string' ? slot : slot.toString().padStart(3, '0');
+          if (!seen.has(pos)) { positions.push(pos); seen.add(pos); }
+        }
+      }
+    }
+    return positions;
+  }
   const positions: string[] = [];
   for (let i = 1; i <= shelf.locationCount; i++) {
     positions.push(i.toString().padStart(3, '0'));
