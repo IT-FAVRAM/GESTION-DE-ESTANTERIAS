@@ -1,0 +1,59 @@
+[
+  {
+    "id": "app",
+    "data": {
+      "chiefMapping": {
+        "LASER": [
+          "d.fernandez@favram.com"
+        ],
+        "MECANIZADO": [
+          "h.juvera@favram.com"
+        ],
+        "PINTURA": [
+          "s.raboso@favram.com"
+        ],
+        "PLEGADORA": [
+          "v.torbellino@favram.com"
+        ],
+        "PRENSAS": [
+          "h.juvera@favram.com"
+        ],
+        "REPASADO": [
+          "jc.rodriguez@favram.com"
+        ],
+        "SOLDADURA": [
+          "a.aguado@favram.com"
+        ]
+      },
+      "operarioRefreshInterval": 300000,
+      "qualityEmails": [
+        "r.mendieta@favram.com",
+        "l.gil@favram.com"
+      ],
+      "techReviewLocations": [
+        "CAL-029",
+        "CAL-032"
+      ],
+      "urgentLocations": [
+        "CAL-031",
+        "CAL-034",
+        "MEC-001",
+        "MEC-002",
+        "MEC-003",
+        "MEC-004",
+        "PLE-001",
+        "PLE-002",
+        "PLE-003",
+        "PLE-004",
+        "PLE-005",
+        "PLE-006",
+        "REP-001",
+        "REP-002",
+        "REP-003",
+        "REP-004",
+        "SOL-008"
+      ],
+      "valueTrackingEnabled": true
+    }
+  }
+]

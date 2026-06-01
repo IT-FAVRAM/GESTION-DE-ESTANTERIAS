@@ -22,6 +22,7 @@ import { initPushNotifications, listenForegroundMessages } from './lib/pushServi
 import { useConnectionMonitor } from './hooks/useConnectionMonitor';
 import AppLoadingScreen from './components/app/AppLoadingScreen';
 import PushToast from './components/app/PushToast';
+import ChatButton from './components/app/ChatButton';
 
 // ── Lazy-loaded views — cada rol sólo descarga su código ──────────────────────
 const UnifiedLogin      = lazy(() => import('./components/auth/UnifiedLogin'));
@@ -108,6 +109,13 @@ const AppV3: React.FC = () => {
     };
   }, [isAuthenticated, role, authMethod]);
 
+  // ─── Chat interno (solo roles autorizados con cuenta real) ───
+  const chatEnabled =
+    authMethod === 'email' &&
+    !!role &&
+    ['ADMIN', 'SUPERADMIN', 'JEFE_SECCION', 'CARRETILLERO'].includes(role);
+  const chatFab = chatEnabled ? <ChatButton currentUid={firebaseUser?.uid ?? null} /> : null;
+
   // ─── Loading ───
   if (loading) return <AppLoadingScreen />;
 
@@ -143,6 +151,7 @@ const AppV3: React.FC = () => {
           <OfflineDebugPanel />
           <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
           <CarretilleroView />
+          {chatFab}
         </>
       </Suspense>
     );
@@ -157,9 +166,13 @@ const AppV3: React.FC = () => {
             <OfflineDebugPanel />
             <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
             <KioskView />
+            {chatFab}
           </>
         ) : (
-          <ManagerInfoView role={role} displayName={displayName} section={section} notification={pushNotif} onCloseNotification={() => setPushNotif(null)} onOpenOperativeMode={() => setShowOperativeMode(true)} onLogout={logout} />
+          <>
+            <ManagerInfoView role={role} displayName={displayName} section={section} notification={pushNotif} onCloseNotification={() => setPushNotif(null)} onOpenOperativeMode={() => setShowOperativeMode(true)} onLogout={logout} />
+            {chatFab}
+          </>
         )}
       </Suspense>
     );
@@ -181,6 +194,7 @@ const AppV3: React.FC = () => {
   if (role === 'ADMIN' || role === 'SUPERADMIN') {
     return (
       <Suspense fallback={<AppLoadingScreen />}>
+        {chatFab}
         {showOperativeMode ? (
           <CarretilleroView onBack={() => setShowOperativeMode(false)} />
         ) : showShelfBrowser ? (

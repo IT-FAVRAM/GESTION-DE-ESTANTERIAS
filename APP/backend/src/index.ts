@@ -33,3 +33,7 @@ export {
 export {
   productionOperate,
 } from './production';
+
+export {
+  chatSendMessage,
+} from './chat';

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "kiosko-mecanizado",
+    "data": {
+      "createdAt": "2026-05-15T12:29:02.717Z",
+      "id": "kiosko-mecanizado",
+      "isActive": true,
+      "location": "Zona Mecanizado y Prensas",
+      "name": "Mecanizado-Prensas",
+      "shelves": [
+        "MEC",
+        "PRE"
+      ],
+      "updatedAt": "2026-05-15T13:02:00.000Z"
+    }
+  }
+]

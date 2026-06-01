@@ -147,8 +147,17 @@ export const notifySpecialLocationOccupancy = functions.firestore
 
     if (isUrgent) {
       const chiefEmails = Array.isArray(chiefMapping[section]) ? chiefMapping[section] : [];
+      // Destinatarios adicionales de avisos URGENTES por sección (configurable en config/app).
+      // Por defecto, Jorge (j.diaz) recibe los urgentes de REPASADO además del jefe de sección.
+      const urgentExtraBySection = (config.urgentExtraEmails && typeof config.urgentExtraEmails === 'object')
+        ? config.urgentExtraEmails as Record<string, string[]>
+        : {};
+      const extraUrgentEmails = Array.isArray(urgentExtraBySection[section])
+        ? urgentExtraBySection[section]
+        : (section === 'REPASADO' ? ['j.diaz@favram.com'] : []);
+      const urgentChiefEmails = [...chiefEmails, ...extraUrgentEmails];
       await Promise.all([
-        notifyUsersByEmails(chiefEmails, {
+        notifyUsersByEmails(urgentChiefEmails, {
           title: 'Articulo urgente ubicado',
           body: `${articleCode} ${orderFab} ha sido ubicado en ${locationId}.`.trim(),
           data: { type: 'URGENT_LOCATION', shelfCode, locationId, articleCode, orderFab },

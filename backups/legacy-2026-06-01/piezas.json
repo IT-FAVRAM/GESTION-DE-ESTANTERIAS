@@ -1,0 +1,36 @@
+[
+  {
+    "id": "NCBsaYN2TYS4rodCK0iN",
+    "data": {
+      "active": false,
+      "aggregateKey": "DANI__OF-2630",
+      "articleCode": "DANI",
+      "locatedAt": "2026-04-30T07:59:59.166Z",
+      "locatedBy": "Ll6yHQJhRHhFaEjIaxHEJjmIm3v2",
+      "locatedByName": "Daniel Soler",
+      "locationIds": [],
+      "orderFab": "OF-2630",
+      "presenceId": "NCBsaYN2TYS4rodCK0iN",
+      "removedAt": "2026-04-30T08:00:20.877Z",
+      "removedBy": "Ll6yHQJhRHhFaEjIaxHEJjmIm3v2",
+      "shelfCode": "PRE"
+    }
+  },
+  {
+    "id": "feLiVF87VCPzvQQstL1E",
+    "data": {
+      "active": false,
+      "aggregateKey": "DANI__OF-26",
+      "articleCode": "DANI",
+      "locatedAt": "2026-04-30T09:18:08.005Z",
+      "locatedBy": "Ll6yHQJhRHhFaEjIaxHEJjmIm3v2",
+      "locatedByName": "Daniel Soler",
+      "locationIds": [],
+      "orderFab": "OF-26",
+      "presenceId": "feLiVF87VCPzvQQstL1E",
+      "removedAt": "2026-04-30T09:18:19.474Z",
+      "removedBy": "Ll6yHQJhRHhFaEjIaxHEJjmIm3v2",
+      "shelfCode": "PRE"
+    }
+  }
+]

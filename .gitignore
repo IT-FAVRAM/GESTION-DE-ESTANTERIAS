@@ -29,6 +29,10 @@ scratch_pdf/
 **/.firebase/*.cache
 .vite/
 
+# Credenciales admin (NUNCA subir)
+serviceAccount.json
+**/serviceAccount.json
+
 # Credentials — never commit these
 .env.keys.json
 *.keys.json

@@ -1,0 +1,470 @@
+[
+  {
+    "id": "CAL",
+    "data": {
+      "code": "CAL",
+      "layout": {
+        "zones": [
+          {
+            "color": "#3b82f6",
+            "name": "RECHAZOS",
+            "range": [
+              1,
+              22
+            ]
+          },
+          {
+            "color": "#8b5cf6",
+            "name": "GENERAL",
+            "range": [
+              23,
+              28
+            ]
+          },
+          {
+            "color": "#f59e0b",
+            "isTechReview": true,
+            "name": "REVISIÓN TÉCNICA",
+            "range": [
+              29,
+              29
+            ]
+          },
+          {
+            "color": "#8b5cf6",
+            "name": "GENERAL",
+            "range": [
+              30,
+              30
+            ]
+          },
+          {
+            "color": "#ef4444",
+            "isUrgent": true,
+            "name": "URGENTE",
+            "range": [
+              31,
+              31
+            ]
+          },
+          {
+            "color": "#f59e0b",
+            "isTechReview": true,
+            "name": "REVISIÓN TÉCNICA",
+            "range": [
+              32,
+              32
+            ]
+          },
+          {
+            "color": "#8b5cf6",
+            "name": "GENERAL",
+            "range": [
+              33,
+              33
+            ]
+          },
+          {
+            "color": "#ef4444",
+            "isUrgent": true,
+            "name": "URGENTE",
+            "range": [
+              34,
+              34
+            ]
+          }
+        ]
+      },
+      "locationCount": 34,
+      "name": "Calidad",
+      "section": "CALIDAD",
+      "type": "shelf"
+    }
+  },
+  {
+    "id": "COM",
+    "data": {
+      "code": "COM",
+      "layout": {
+        "zones": [
+          {
+            "color": "#3b82f6",
+            "name": "GENERAL",
+            "range": [
+              1,
+              18
+            ]
+          }
+        ]
+      },
+      "locationCount": 18,
+      "name": "Comodín",
+      "section": "OTROS",
+      "type": "shelf"
+    }
+  },
+  {
+    "id": "MEC",
+    "data": {
+      "code": "MEC",
+      "layout": {
+        "zones": [
+          {
+            "color": "#ef4444",
+            "isUrgent": true,
+            "name": "URGENTE",
+            "range": [
+              1,
+              4
+            ]
+          },
+          {
+            "color": "#f97316",
+            "name": "PRINCIPAL",
+            "range": [
+              5,
+              34
+            ]
+          }
+        ]
+      },
+      "locationCount": 34,
+      "name": "Mecanizado",
+      "section": "MECANIZADO",
+      "type": "shelf"
+    }
+  },
+  {
+    "id": "PIN",
+    "data": {
+      "code": "PIN",
+      "layout": {
+        "zones": [
+          {
+            "color": "#3b82f6",
+            "name": "DENTRO",
+            "range": [
+              1,
+              15
+            ]
+          },
+          {
+            "color": "#f97316",
+            "name": "FUERA",
+            "range": [
+              16,
+              24
+            ]
+          }
+        ]
+      },
+      "locationCount": 24,
+      "name": "Pintura",
+      "section": "PINTURA",
+      "type": "shelf"
+    }
+  },
+  {
+    "id": "PLE",
+    "data": {
+      "code": "PLE",
+      "layout": {
+        "zones": [
+          {
+            "color": "#ef4444",
+            "isUrgent": true,
+            "name": "URGENTE",
+            "range": [
+              1,
+              6
+            ]
+          },
+          {
+            "color": "#3b82f6",
+            "name": "ESTANTERIA 1",
+            "range": [
+              7,
+              32
+            ]
+          },
+          {
+            "color": "#f59e0b",
+            "name": "PUNZONADORA",
+            "range": [
+              33,
+              65
+            ]
+          }
+        ]
+      },
+      "locationCount": 65,
+      "name": "Plegado",
+      "section": "PLEGADORA",
+      "type": "shelf"
+    }
+  },
+  {
+    "id": "PLE-C1",
+    "data": {
+      "code": "PLE-C1",
+      "layout": {
+        "zones": [
+          {
+            "color": "#10b981",
+            "name": "CARRO",
+            "range": [
+              1,
+              4
+            ]
+          }
+        ]
+      },
+      "locationCount": 4,
+      "name": "Carro Plegado 1",
+      "section": "PLEGADORA",
+      "type": "cart"
+    }
+  },
+  {
+    "id": "PLE-C2",
+    "data": {
+      "code": "PLE-C2",
+      "layout": {
+        "zones": [
+          {
+            "color": "#10b981",
+            "name": "CARRO",
+            "range": [
+              1,
+              4
+            ]
+          }
+        ]
+      },
+      "locationCount": 4,
+      "name": "Carro Plegado 2",
+      "section": "PLEGADORA",
+      "type": "cart"
+    }
+  },
+  {
+    "id": "PRE",
+    "data": {
+      "code": "PRE",
+      "layout": {
+        "zones": [
+          {
+            "color": "#3b82f6",
+            "name": "GENERAL",
+            "range": [
+              1,
+              9
+            ]
+          }
+        ]
+      },
+      "locationCount": 9,
+      "name": "Prensas",
+      "section": "MECANIZADO",
+      "type": "shelf"
+    }
+  },
+  {
+    "id": "REP",
+    "data": {
+      "code": "REP",
+      "layout": {
+        "zones": [
+          {
+            "color": "#ef4444",
+            "isUrgent": true,
+            "name": "URGENTE",
+            "range": [
+              1,
+              4
+            ]
+          },
+          {
+            "color": "#eab308",
+            "name": "ALUMINIO",
+            "range": [
+              5,
+              14
+            ]
+          },
+          {
+            "color": "#3b82f6",
+            "name": "GENERAL",
+            "range": [
+              15,
+              24
+            ]
+          },
+          {
+            "color": "#8b5cf6",
+            "name": "MODULAR",
+            "range": [
+              25,
+              39
+            ]
+          }
+        ]
+      },
+      "locationCount": 39,
+      "name": "Repasado",
+      "section": "REPASADO",
+      "type": "shelf"
+    }
+  },
+  {
+    "id": "RPL",
+    "data": {
+      "code": "RPL",
+      "layout": {
+        "zones": [
+          {
+            "color": "#f97316",
+            "name": "GENERAL",
+            "range": [
+              1,
+              21
+            ]
+          },
+          {
+            "color": "#f97316",
+            "name": "AUTOPLEGADO",
+            "range": [
+              22,
+              35
+            ]
+          }
+        ]
+      },
+      "locationCount": 35,
+      "name": "Autoplegadora",
+      "section": "AUTOPLEGADORA",
+      "type": "shelf"
+    }
+  },
+  {
+    "id": "RSO",
+    "data": {
+      "code": "RSO",
+      "layout": {
+        "zones": [
+          {
+            "color": "#3b82f6",
+            "name": "GENERAL",
+            "range": [
+              1,
+              8
+            ]
+          }
+        ]
+      },
+      "locationCount": 8,
+      "name": "Robot Soldadura",
+      "section": "SOLDADURA",
+      "type": "shelf"
+    }
+  },
+  {
+    "id": "SOL",
+    "data": {
+      "code": "SOL",
+      "layout": {
+        "zones": [
+          {
+            "color": "#3b82f6",
+            "name": "PRINCIPAL",
+            "range": [
+              1,
+              7
+            ]
+          },
+          {
+            "color": "#ef4444",
+            "isUrgent": true,
+            "name": "URGENTE",
+            "range": [
+              8,
+              8
+            ]
+          },
+          {
+            "color": "#0ea5e9",
+            "name": "PRINCIPAL 2",
+            "range": [
+              9,
+              21
+            ]
+          },
+          {
+            "color": "#14b8a6",
+            "name": "ESTANTERIA 3",
+            "range": [
+              22,
+              36
+            ]
+          },
+          {
+            "color": "#f59e0b",
+            "name": "ESTANTERIA 4",
+            "range": [
+              37,
+              54
+            ]
+          }
+        ]
+      },
+      "locationCount": 54,
+      "name": "Soldadura",
+      "section": "SOLDADURA",
+      "type": "shelf"
+    }
+  },
+  {
+    "id": "SXP",
+    "data": {
+      "code": "SXP",
+      "layout": {
+        "zones": [
+          {
+            "color": "#3b82f6",
+            "name": "GENERAL",
+            "range": [
+              1,
+              10
+            ]
+          }
+        ]
+      },
+      "locationCount": 10,
+      "name": "Soldadura Puntos",
+      "section": "SOLDADURA",
+      "type": "shelf"
+    }
+  },
+  {
+    "id": "ZIN",
+    "data": {
+      "code": "ZIN",
+      "layout": {
+        "zones": [
+          {
+            "color": "#3b82f6",
+            "name": "BALDAS",
+            "range": [
+              1,
+              5
+            ]
+          }
+        ]
+      },
+      "locationCount": 5,
+      "name": "Zincado",
+      "section": "REPASADO",
+      "type": "shelf"
+    }
+  }
+]

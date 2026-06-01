@@ -15,5 +15,6 @@ export * from './schema/users';
 export * from './schema/devices';
 export * from './schema/kiosks';
 export * from './schema/documents';
+export * from './schema/chat';
 
 

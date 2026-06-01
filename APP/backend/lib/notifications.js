@@ -145,8 +145,17 @@ exports.notifySpecialLocationOccupancy = functions.firestore
     }
     if (isUrgent) {
         const chiefEmails = Array.isArray(chiefMapping[section]) ? chiefMapping[section] : [];
+        // Destinatarios adicionales de avisos URGENTES por sección (configurable en config/app).
+        // Por defecto, Jorge (j.diaz) recibe los urgentes de REPASADO además del jefe de sección.
+        const urgentExtraBySection = (config.urgentExtraEmails && typeof config.urgentExtraEmails === 'object')
+            ? config.urgentExtraEmails
+            : {};
+        const extraUrgentEmails = Array.isArray(urgentExtraBySection[section])
+            ? urgentExtraBySection[section]
+            : (section === 'REPASADO' ? ['j.diaz@favram.com'] : []);
+        const urgentChiefEmails = [...chiefEmails, ...extraUrgentEmails];
         await Promise.all([
-            (0, push_1.notifyUsersByEmails)(chiefEmails, {
+            (0, push_1.notifyUsersByEmails)(urgentChiefEmails, {
                 title: 'Articulo urgente ubicado',
                 body: `${articleCode} ${orderFab} ha sido ubicado en ${locationId}.`.trim(),
                 data: { type: 'URGENT_LOCATION', shelfCode, locationId, articleCode, orderFab },
@@ -317,10 +326,8 @@ exports.pickupQueueOperate = functions.https.onCall(async (data, context) => {
         if (!shelfCode || !operarioId) {
             throw new functions.https.HttpsError('invalid-argument', 'Datos incompletos para crear recogida.');
         }
-        // Solo verificar autorización de estantería para recogidas (no para solicitudes de traslado)
-        if (requestType !== 'TRAER') {
-            (0, authz_1.assertActorMayOperateShelf)(actor, shelfCode);
-        }
+        // Validar autorización de estantería para ambos tipos
+        (0, authz_1.assertActorMayOperateShelf)(actor, shelfCode);
         const createdAt = new Date().toISOString();
         const docData = {
             operarioId,

@@ -44,6 +44,10 @@ service cloud.firestore {
       return userRole() in ['JEFE_SECCION', 'CALIDAD', 'ADMIN', 'SUPERADMIN'];
     }
 
+    function isChatParticipant() {
+      return userRole() in ['ADMIN', 'SUPERADMIN', 'JEFE_SECCION', 'CARRETILLERO'];
+    }
+
     function isSuperAdmin() {
       return userRole() == 'SUPERADMIN';
     }
@@ -94,11 +98,6 @@ service cloud.firestore {
 
     // ── COLLECTION RULES ─────────────────────────────────────────────────────
 
-    match /configuracion/{document=**} {
-      allow read: if canReadWarehouseState();
-      allow write: if isSuperAdmin();
-    }
-
     match /usuarios/{userId} {
       allow get:    if isAdminLike() || (isRegisteredUser() && request.auth.uid == userId);
       allow list:   if isAdminLike();
@@ -114,26 +113,6 @@ service cloud.firestore {
     match /kiosks/{kioskId} {
       allow read:  if isAdminLike() || isValidatedDevice();
       allow write: if isSuperAdmin();
-    }
-
-    match /estanterias/{document=**} {
-      allow read:  if canReadWarehouseState();
-      allow write: if false;
-    }
-
-    match /ubicaciones/{document=**} {
-      allow read:  if canReadWarehouseState();
-      allow write: if false;
-    }
-
-    match /piezas/{document=**} {
-      allow read:  if canReadWarehouseState();
-      allow write: if false;
-    }
-
-    match /resumen_piezas/{document=**} {
-      allow read:  if canReadWarehouseState();
-      allow write: if false;
     }
 
     // ── ENGLISH COLLECTIONS (new system, matches backend + frontend) ─────
@@ -173,16 +152,6 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    match /cola_recogida/{document=**} {
-      allow read:  if isValidatedDevice() || isOperationalUser();
-      allow write: if false;
-    }
-
-    match /historial/{document=**} {
-      allow read:  if canReadHistory();
-      allow write: if false;
-    }
-
     // ── CONNECTION MONITORING ────────────────────────────────────────────────
     // Cada dispositivo escribe su propio doc (keyed por auth.uid).
     // Solo ADMIN/SUPERADMIN pueden leer la coleccion completa.
@@ -206,6 +175,27 @@ service cloud.firestore {
                     && (!('deviceName' in request.resource.data) || request.resource.data.deviceName is string)
                     && (!('deviceType' in request.resource.data) || request.resource.data.deviceType in ['KIOSK', 'CARRETILLERO', 'ADMIN', 'UNKNOWN']);
       allow update, delete: if false;
+    }
+
+    // ── CHAT INTERNO ─────────────────────────────────────────────────────────
+    // Acceso para ADMIN, SUPERADMIN, JEFE_SECCION y CARRETILLERO (OPERARIO/CALIDAD fuera).
+    // Los mensajes se crean vía Cloud Function `chatSendMessage`; las reglas permiten
+    // además crear con senderId propio y actualizar EXCLUSIVAMENTE el propio readBy.
+
+    match /chat/{roomId} {
+      allow read:  if isChatParticipant();
+      allow write: if false; // la sala la gestiona el backend
+
+      match /messages/{messageId} {
+        allow read:   if isChatParticipant();
+        allow create: if isChatParticipant()
+                      && request.resource.data.senderId == request.auth.uid;
+        allow update: if isChatParticipant()
+                      && request.resource.data.diff(resource.data).changedKeys().hasOnly(['readBy'])
+                      && request.resource.data.readBy.hasAll(resource.data.readBy)
+                      && request.resource.data.readBy.hasOnly(resource.data.readBy.concat([request.auth.uid]));
+        allow delete: if false; // limpieza vía Cloud Function
+      }
     }
 
     // ── DEVELOPMENT MODE: Allow all access ──────────────────────────────────

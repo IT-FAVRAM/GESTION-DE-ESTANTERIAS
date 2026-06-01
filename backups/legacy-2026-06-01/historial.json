@@ -1,0 +1,78 @@
+[
+  {
+    "id": "OoGDMHbEm3dHHGxTCxns",
+    "data": {
+      "action": "UBICAR",
+      "articleCode": "DANI",
+      "fromLocation": null,
+      "id": "OoGDMHbEm3dHHGxTCxns",
+      "operarioId": "Ll6yHQJhRHhFaEjIaxHEJjmIm3v2",
+      "operarioName": "Daniel Soler",
+      "orderFab": "OF-2630",
+      "role": "SUPERADMIN",
+      "shelfCode": "PRE",
+      "source": "shelfOperate",
+      "timestamp": "2026-04-30T07:59:59.166Z",
+      "toLocation": "PRE-001",
+      "uid": "Ll6yHQJhRHhFaEjIaxHEJjmIm3v2",
+      "user": "Daniel Soler"
+    }
+  },
+  {
+    "id": "kOTJ9BLkMN5StJksETdO",
+    "data": {
+      "action": "UBICAR",
+      "articleCode": "DANI",
+      "fromLocation": null,
+      "id": "kOTJ9BLkMN5StJksETdO",
+      "operarioId": "Ll6yHQJhRHhFaEjIaxHEJjmIm3v2",
+      "operarioName": "Daniel Soler",
+      "orderFab": "OF-26",
+      "role": "SUPERADMIN",
+      "shelfCode": "PRE",
+      "source": "shelfOperate",
+      "timestamp": "2026-04-30T09:18:08.005Z",
+      "toLocation": "PRE-005",
+      "uid": "Ll6yHQJhRHhFaEjIaxHEJjmIm3v2",
+      "user": "Daniel Soler"
+    }
+  },
+  {
+    "id": "v5oqoceqSuQ7u57chdIs",
+    "data": {
+      "action": "RETIRAR",
+      "articleCode": "DANI",
+      "fromLocation": "PRE-005",
+      "id": "v5oqoceqSuQ7u57chdIs",
+      "operarioId": "Ll6yHQJhRHhFaEjIaxHEJjmIm3v2",
+      "operarioName": "Daniel Soler",
+      "orderFab": "OF-26",
+      "role": "SUPERADMIN",
+      "shelfCode": "PRE",
+      "source": "shelfOperate",
+      "timestamp": "2026-04-30T09:18:19.474Z",
+      "toLocation": null,
+      "uid": "Ll6yHQJhRHhFaEjIaxHEJjmIm3v2",
+      "user": "Daniel Soler"
+    }
+  },
+  {
+    "id": "v8HT5wv1K57pMM8zeA6C",
+    "data": {
+      "action": "RETIRAR",
+      "articleCode": "DANI",
+      "fromLocation": "PRE-001",
+      "id": "v8HT5wv1K57pMM8zeA6C",
+      "operarioId": "Ll6yHQJhRHhFaEjIaxHEJjmIm3v2",
+      "operarioName": "Daniel Soler",
+      "orderFab": "OF-2630",
+      "role": "SUPERADMIN",
+      "shelfCode": "PRE",
+      "source": "shelfOperate",
+      "timestamp": "2026-04-30T08:00:20.877Z",
+      "toLocation": null,
+      "uid": "Ll6yHQJhRHhFaEjIaxHEJjmIm3v2",
+      "user": "Daniel Soler"
+    }
+  }
+]
