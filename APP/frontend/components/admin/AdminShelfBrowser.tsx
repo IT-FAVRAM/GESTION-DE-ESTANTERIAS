@@ -624,44 +624,6 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
     });
   }, [selectedShelf, shelfDef, emptyShelf, effectiveOperarioId, displayName, showFeedback]);
 
-  const handleExportExcel = useCallback(async () => {
-    try {
-      const { utils, writeFile } = await import('xlsx');
-      const shelfName = shelfDef?.name || selectedShelf;
-      const rows: Record<string, string | number>[] = [];
-      for (const loc of locations) {
-        if (loc.isEmpty || loc.items.length === 0) continue;
-        for (const item of loc.items) {
-          rows.push({
-            Estantería: shelfName,
-            Posición: parseInt(loc.position, 10),
-            Artículo: item.articleCode,
-            OF: item.orderFab,
-            Operario: item.locatedByName || item.locatedBy || '',
-            'Fecha ubicación': item.locatedAt
-              ? new Date(item.locatedAt).toLocaleString('es-ES')
-              : '',
-            Cantidad: item.quantity ?? '',
-            'Coste (€)': item.unitCost ?? '',
-          });
-        }
-      }
-      if (rows.length === 0) {
-        showFeedback('info', `La estantería ${shelfName} está vacía — no hay datos que exportar`);
-        return;
-      }
-      const ws = utils.json_to_sheet(rows);
-      const wb = utils.book_new();
-      utils.book_append_sheet(wb, ws, shelfName.substring(0, 31));
-      const date = new Date().toISOString().slice(0, 10);
-      writeFile(wb, `Estanteria_${shelfName}_${date}.xlsx`);
-      showFeedback('success', `✅ Excel exportado — ${rows.length} artículo(s)`);
-    } catch (err) {
-      console.error('[AdminShelfBrowser] exportExcel error:', err);
-      showFeedback('error', 'Error al exportar Excel');
-    }
-  }, [locations, shelfDef, selectedShelf, showFeedback]);
-
   const foundPositions = (action !== 'idle' && articleInput.trim() && ofInput.trim())
     ? findArticle(articleInput.trim(), ofInput.trim()).map((l) => l.position)
     : [];
@@ -725,10 +687,6 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
               <button onClick={handleEmptyShelf} disabled={action !== 'idle' || processing} title={`Vaciar estantería ${selectedShelf}`}
                 className="px-2 py-1 bg-red-50 text-red-600 border border-red-200 rounded-lg font-bold hover:bg-red-100 disabled:opacity-40 transition-colors whitespace-nowrap">
                 🗑️ Vaciar
-              </button>
-              <button onClick={handleExportExcel} disabled={processing || locations.length === 0} title={`Exportar ${shelfDef?.name || selectedShelf} a Excel`}
-                className="px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg font-bold hover:bg-emerald-100 disabled:opacity-40 transition-colors whitespace-nowrap">
-                📊 Excel
               </button>
             </div>
           </>
