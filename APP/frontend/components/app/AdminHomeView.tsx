@@ -127,32 +127,20 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
 
         <main className="flex-1 p-4 max-w-6xl mx-auto w-full overflow-y-auto overscroll-contain pb-20">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
-            {/* Operaciones — Estanterías + Carros (tarjeta primaria) */}
-            <div className="sm:col-span-2 lg:col-span-1 bg-gradient-to-br from-cyan-950/40 to-slate-900 rounded-2xl border border-cyan-500/40 p-5 flex flex-col gap-4 shadow-lg shadow-cyan-950/20">
+            {/* Operaciones — Carros */}
+            <button
+              type="button"
+              onClick={onOpenOperativeMode}
+              className="bg-gradient-to-br from-emerald-950/40 to-slate-900 rounded-2xl border border-emerald-500/40 p-5 flex flex-col gap-2 hover:border-emerald-400/50 active:scale-[0.98] transition-all cursor-pointer touch-manipulation shadow-lg shadow-emerald-950/20"
+            >
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-2xl shrink-0">🏭</div>
-                <div>
+                <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-2xl shrink-0">🛒</div>
+                <div className="text-left">
                   <h3 className="font-black text-white text-base">Operar</h3>
-                  <p className="text-xs text-cyan-300/70">Gestión de estanterías y carros</p>
+                  <p className="text-xs text-emerald-300/70">Gestión de carros</p>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={onOpenShelfBrowser}
-                  className="flex-1 min-h-[48px] bg-slate-800 hover:bg-slate-700 active:scale-[0.97] text-white text-sm font-bold py-3 px-3 rounded-xl transition-all touch-manipulation shadow-sm"
-                >
-                  🏭 Estanterías
-                </button>
-                <button
-                  type="button"
-                  onClick={onOpenOperativeMode}
-                  className="flex-1 min-h-[48px] bg-emerald-900/70 hover:bg-emerald-800 active:scale-[0.97] border border-emerald-600/40 text-emerald-200 text-sm font-bold py-3 px-3 rounded-xl transition-all touch-manipulation shadow-sm"
-                >
-                  🛒 Carros
-                </button>
-              </div>
-            </div>
+            </button>
 
             {/* Historial */}
             <button

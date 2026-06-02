@@ -11,13 +11,37 @@ import React, { useState } from 'react';
 import ShelfNavigator from './ShelfNavigator';
 import { CART_DEFINITIONS } from '../../lib/firestoreSchema';
 
-const CarrosView: React.FC = () => {
+interface CarrosViewProps {
+  onBack?: () => void;
+}
+
+const CarrosView: React.FC<CarrosViewProps> = ({ onBack }) => {
   const [selectedCart, setSelectedCart] = useState<string>(CART_DEFINITIONS[0]?.code ?? '');
 
   const cartDef = CART_DEFINITIONS.find((c) => c.code === selectedCart);
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-sky-50">
+      {/* Header cuando viene de Admin */}
+      {onBack && (
+        <header className="flex-shrink-0 bg-white border-b border-slate-200 px-4 py-3 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🛒</span>
+              <div>
+                <h1 className="text-lg font-black text-slate-900 tracking-tight">GESTIÓN DE CARROS</h1>
+                <p className="text-xs text-slate-500">Operaciones en carros</p>
+              </div>
+            </div>
+            <button
+              onClick={onBack}
+              className="px-4 py-2 text-sm font-bold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-all"
+            >
+              ← Volver
+            </button>
+          </div>
+        </header>
+      )}
       {/* Selector de carro */}
       <div className="flex-shrink-0 bg-white border-b border-slate-200 px-3 py-2">
         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">

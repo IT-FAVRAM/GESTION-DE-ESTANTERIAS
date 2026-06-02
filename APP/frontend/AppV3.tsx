@@ -30,6 +30,7 @@ import { usePinnedUrgencies } from './hooks/usePinnedUrgencies';
 const UnifiedLogin      = lazy(() => import('./components/auth/UnifiedLogin'));
 const KioskView         = lazy(() => import('./components/kiosk/KioskView'));
 const CarretilleroView  = lazy(() => import('./components/carretillero/CarretilleroView'));
+const CarrosView        = lazy(() => import('./components/carretillero/CarrosView'));
 const SuperAdminPanel   = lazy(() => import('./components/admin/SuperAdminPanel'));
 const AdminShelfBrowser = lazy(() => import('./components/admin/AdminShelfBrowser'));
 const ArticleTimeline   = lazy(() => import('./components/admin/ArticleTimeline'));
@@ -74,6 +75,7 @@ const AppV3: React.FC = () => {
   const [showTimeline, setShowTimeline] = useState(false);
   const [showOperativeMode, setShowOperativeMode] = useState(false);
   const [operativeInitialTab, setOperativeInitialTab] = useState<'shelves' | 'pickups' | 'carts'>('shelves');
+  const [showCarrosAdminMode, setShowCarrosAdminMode] = useState(false);
   const [adminPanelTab, setAdminPanelTab] = useState<AdminTab>('reports');
   const [pushNotif, setPushNotif] = useState<{ title: string; body: string } | null>(null);
   const { urgencies } = usePinnedUrgencies();
@@ -206,7 +208,9 @@ const AppV3: React.FC = () => {
       <Suspense fallback={<AppLoadingScreen />}>
         {urgencyBar}
         {chatFab}
-        {showOperativeMode ? (
+        {showCarrosAdminMode ? (
+          <CarrosView onBack={() => setShowCarrosAdminMode(false)} />
+        ) : showOperativeMode ? (
           <CarretilleroView onBack={() => { setShowOperativeMode(false); setOperativeInitialTab('shelves'); }} initialTab={operativeInitialTab} />
         ) : showShelfBrowser ? (
           <AdminShelfBrowser onBack={() => setShowShelfBrowser(false)} />
@@ -215,7 +219,7 @@ const AppV3: React.FC = () => {
         ) : showAdminPanel ? (
           <SuperAdminPanel onClose={() => setShowAdminPanel(false)} role={role} initialTab={adminPanelTab} currentDeviceId={deviceId} isolatedTab />
         ) : (
-          <AdminHomeView role={role} displayName={displayName} notification={pushNotif} onCloseNotification={() => setPushNotif(null)} onOpenPanel={openAdminPanel} onOpenShelfBrowser={() => setShowShelfBrowser(true)} onOpenTimeline={() => setShowTimeline(true)} onOpenOperativeMode={() => { setOperativeInitialTab('carts'); setShowOperativeMode(true); }} onLogout={logout} />
+          <AdminHomeView role={role} displayName={displayName} notification={pushNotif} onCloseNotification={() => setPushNotif(null)} onOpenPanel={openAdminPanel} onOpenShelfBrowser={() => setShowShelfBrowser(true)} onOpenTimeline={() => setShowTimeline(true)} onOpenOperativeMode={() => setShowCarrosAdminMode(true)} onLogout={logout} />
         )}
       </Suspense>
     );
