@@ -92,7 +92,7 @@ const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, se
           {feedback.msg}
         </div>
       )}
-      <div className="min-h-dvh bg-slate-950 flex flex-col">
+      <div className="h-dvh bg-slate-950 flex flex-col overflow-hidden">
         <header className="bg-slate-900 border-b border-slate-800 px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -111,7 +111,7 @@ const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, se
           </div>
         </header>
 
-        <main className="flex-1 p-6">
+        <main className="flex-1 overflow-y-auto overscroll-contain p-6 pb-20">
           <div className="max-w-2xl mx-auto space-y-6">
             <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
               <h2 className="text-xl font-black text-white mb-1">🎯 Tu Rol: {role === 'CALIDAD' ? 'Control de Calidad' : 'Jefe de Sección'}</h2>

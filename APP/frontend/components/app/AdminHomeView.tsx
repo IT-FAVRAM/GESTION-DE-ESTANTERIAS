@@ -109,7 +109,7 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
           {feedback.msg}
         </div>
       )}
-      <div className="min-h-dvh bg-slate-950 flex flex-col">
+      <div className="h-dvh bg-slate-950 flex flex-col overflow-hidden">
         <header className="bg-slate-950/90 border-b border-slate-800/50 backdrop-blur-xl px-4 py-3 shadow-[0_4px_12px_rgba(15,23,42,0.15)]">
           <div className="flex items-center justify-between max-w-6xl mx-auto">
             <div className="flex items-center gap-3">
