@@ -68,6 +68,9 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf 
   const [showRetirarCellModal, setShowRetirarCellModal] = useState(false);
   const [pendingRetirarQueue, setPendingRetirarQueue] = useState<Array<{ position: string; items: LocationItem[] }>>([]);
   const [showMoverArticleList, setShowMoverArticleList] = useState(false);
+  // Batch mode — múltiples artículos en la misma ubicación
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchArticles, setBatchArticles] = useState<Array<{ articleCode: string; orderFab: string }>>([]);
 
   const resetOperative = () => {
     setAction('idle');
@@ -76,6 +79,8 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf 
     setScannerActive(false);
     setPendingRetirarQueue([]);
     setShowMoverArticleList(false);
+    setBatchMode(false);
+    setBatchArticles([]);
   };
 
   const showToast = (type: 'success' | 'error' | 'info', msg: string, ms = 2500) => {
@@ -100,6 +105,17 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf 
     if (method === 'manual') setScannerActive(true);
     else if (method === 'barcode') setShowCameraQR(true);
     else setShowCameraOCR(true);
+  };
+
+  const beginBatchMode = () => {
+    setScanMethodPickerOpen(false);
+    if (!pendingAction) return;
+    setAction(pendingAction);
+    setBatchMode(true);
+    setBatchArticles([]);
+    setSelectedPositions([]);
+    setPendingAction(null);
+    setScannerActive(true);
   };
 
   const startAction = (act: NavAction) => {
@@ -133,6 +149,24 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf 
     setScanMethodPickerOpen(true);
   };
 
+  const handleUbicarBatchConfirm = async () => {
+    if (selectedPositions.length === 0 || batchArticles.length === 0) return;
+    setProcessing(true);
+    let successCount = 0;
+    for (const article of batchArticles) {
+      const ok = selectedPositions.length === 1
+        ? await ubicar(article.articleCode, article.orderFab, selectedPositions[0], effectiveOperarioId, displayName)
+        : await ubicarMulti(article.articleCode, article.orderFab, selectedPositions, effectiveOperarioId, displayName);
+      if (ok) successCount++;
+    }
+    setProcessing(false);
+    if (successCount === batchArticles.length) {
+      finishAction('success', `✅ ${batchArticles.length} artículo${batchArticles.length > 1 ? 's' : ''} ubicado${batchArticles.length > 1 ? 's' : ''} en ${selectedPositions.length} posición${selectedPositions.length > 1 ? 'es' : ''}`);
+    } else {
+      finishAction('error', `Parcial: ${successCount}/${batchArticles.length} artículos ubicados`);
+    }
+  };
+
   const handleScan = async (result: ScanParseResult) => {
     if (!result.success) {
       showToast('error', 'error' in result ? result.error : 'Error de escaneo');
@@ -140,6 +174,21 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf 
       return;
     }
     const { articleCode, orderFab } = result.data;
+
+    // Batch mode: add article to list
+    if (action === 'ubicar' && batchMode) {
+      const duplicate = batchArticles.some(a => a.articleCode === articleCode && a.orderFab === orderFab);
+      if (duplicate) {
+        showToast('error', `${articleCode} ya está en el lote`);
+        setScannerActive(true);
+        return;
+      }
+      setBatchArticles(prev => [...prev, { articleCode, orderFab }]);
+      showToast('success', `✅ ${articleCode} añadido al lote`);
+      setScannerActive(true);
+      return;
+    }
+
     setScanData({ articleCode, orderFab });
     setScannerActive(false);
 
@@ -246,6 +295,17 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf 
         setRetirarCellItems(loc.items);
         setShowRetirarCellModal(true);
       }
+      return;
+    }
+    // Batch mode: accumulate positions
+    if (action === 'ubicar' && batchMode && batchArticles.length > 0) {
+      if (!loc.isEmpty && loc.items.length > 0 && !selectedPositions.includes(loc.position)) {
+        showToast('info', `⚠️ Pos. ${parseInt(loc.position, 10)} ocupada — se añadirá igualmente`);
+      }
+      setSelectedPositions(prev => {
+        if (prev.includes(loc.position)) return prev.filter(p => p !== loc.position);
+        return [...prev, loc.position];
+      });
       return;
     }
     if (action === 'ubicar' && scanData) {
@@ -394,6 +454,51 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf 
         )}
       </div>
 
+      {/* Batch UI — múltiples artículos en una/varias ubicaciones */}
+      {batchMode && action === 'ubicar' && (
+        <div className="flex-shrink-0 bg-white border-b border-slate-200 px-4 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-black text-slate-900">📦 Batch</span>
+              <span className="bg-cyan-600 text-white px-2 py-0.5 rounded-full text-xs font-bold">{batchArticles.length} art.</span>
+              {selectedPositions.length > 0 && (
+                <span className="bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full text-xs font-bold">
+                  pos. {selectedPositions.map(p => parseInt(p, 10)).join(', ')}
+                </span>
+              )}
+            </div>
+            <button onClick={resetOperative} className="text-xs text-slate-400 hover:text-red-500 transition-colors">✕ Cancelar</button>
+          </div>
+          {batchArticles.length > 0 && (
+            <div className="max-h-14 overflow-y-auto bg-slate-50 rounded-lg p-2 mb-2">
+              {batchArticles.map((a, i) => (
+                <div key={i} className="text-xs text-slate-600 font-mono truncate">
+                  {i + 1}. {a.articleCode} · {a.orderFab}
+                </div>
+              ))}
+            </div>
+          )}
+          {selectedPositions.length === 0 && batchArticles.length > 0 && (
+            <p className="text-xs text-slate-500 mb-2">👇 Toca celda(s) en el grid para seleccionar ubicación</p>
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setScannerActive(true)}
+              className="flex-1 min-h-[40px] rounded-xl bg-slate-100 text-slate-700 text-xs font-bold active:scale-95 transition-all touch-manipulation"
+            >
+              + Escanear más
+            </button>
+            <button
+              onClick={handleUbicarBatchConfirm}
+              disabled={selectedPositions.length === 0 || batchArticles.length === 0 || processing}
+              className="flex-[2] min-h-[40px] rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold disabled:opacity-40 active:scale-95 transition-all touch-manipulation"
+            >
+              {processing ? '⏳' : '✓'} Ubicar {batchArticles.length} artículo{batchArticles.length !== 1 ? 's' : ''}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Feedback */}
       <div className="flex-shrink-0">
         {feedback && (
@@ -418,7 +523,10 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf 
             shelfDef={shelfDef}
             onCellPress={handleCellPress}
             selectedPositions={selectedPositions}
-            highlightedPositions={[...highlightedSearch, ...(scanData ? findArticle(scanData.articleCode, scanData.orderFab).map(l => l.position) : [])]}
+            highlightedPositions={[
+              ...highlightedSearch,
+              ...(scanData ? findArticle(scanData.articleCode, scanData.orderFab).map(l => l.position) : []),
+            ]}
             compact={false}
             fullscreenMode={true}
           />
@@ -460,6 +568,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf 
           pendingAction === 'almacen' ? 'Enviar a almacén' : 'Seleccionar'
         }
         onSelect={applyScanMethod}
+        onBatch={pendingAction === 'ubicar' ? beginBatchMode : undefined}
         onClose={() => { setScanMethodPickerOpen(false); setPendingAction(null); }}
       />
 
