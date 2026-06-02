@@ -12,7 +12,7 @@ import { useAuth } from '../../hooks/useAuth';
 import ShelfGrid from '../kiosk/ShelfGrid';
 import KioskSearchBar from '../kiosk/KioskSearchBar';
 import ConfirmationModal from '../common/ConfirmationModal';
-import { SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
+import { SHELF_DEFINITIONS, ALL_SHELVES, CART_DEFINITIONS } from '../../lib/firestoreSchema';
 import { formatArticleDisplay, parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import type { CellDragData } from '../kiosk/ShelfGridCell';
@@ -32,7 +32,7 @@ interface AdminShelfBrowserProps {
 }
 
 const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
-  const [selectedShelf, setSelectedShelf] = useState(SHELF_DEFINITIONS[0]?.code || 'MEC');
+  const [selectedShelf, setSelectedShelf] = useState(ALL_SHELVES[0]?.code || 'MEC');
   const [highlightedPositions, setHighlightedPositions] = useState<string[]>([]);
   const [action, setAction] = useState<AdminAction>('idle');
   const [articleInput, setArticleInput] = useState('');
@@ -130,8 +130,10 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
     const article = articleInput.trim();
     const of = ofInput.trim();
 
+    // Nueva lógica: si no hay artículo/OF, pedir escaneo o texto primero
     if (!article || !of) {
-      showFeedback('error', 'Introduce código de artículo y OF antes de seleccionar la acción');
+      setScanPickerOpen(true);
+      setAction(act);
       return;
     }
 
@@ -262,7 +264,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
     const article = articleInput.trim();
     const of = ofInput.trim();
     const destPos = parseInt(moverSeccionTargetPos, 10).toString().padStart(3, '0');
-    const destShelfName = SHELF_DEFINITIONS.find((s) => s.code === moverSeccionTargetShelf)?.name || moverSeccionTargetShelf;
+    const destShelfName = ALL_SHELVES.find((s) => s.code === moverSeccionTargetShelf)?.name || moverSeccionTargetShelf;
 
     setConfirmModal({
       open: true,
@@ -456,23 +458,45 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
     const article = articleInput.trim();
     const of = ofInput.trim();
     if (!article || !of || selectedPositions.length === 0) return;
-    setProcessing(true);
 
-    let success: boolean;
-    if (selectedPositions.length === 1) {
-      success = await ubicar(article, of, selectedPositions[0], effectiveOperarioId, displayName);
-    } else {
-      success = await ubicarMulti(article, of, selectedPositions, effectiveOperarioId, displayName);
+    const doUbicar = async () => {
+      setProcessing(true);
+      let success: boolean;
+      if (selectedPositions.length === 1) {
+        success = await ubicar(article, of, selectedPositions[0], effectiveOperarioId, displayName);
+      } else {
+        success = await ubicarMulti(article, of, selectedPositions, effectiveOperarioId, displayName);
+      }
+      setProcessing(false);
+      if (success) {
+        showFeedback('success', `✅ ${article} ubicado en ${selectedPositions.length} posición(es)`);
+      } else {
+        showFeedback('error', `Error al ubicar ${article}`);
+      }
+      resetAction();
+    };
+
+    const occupiedPositions = selectedPositions.filter((pos) => {
+      const loc = locations.find((l) => l.position === pos);
+      return loc && !loc.isEmpty && loc.items.length > 0;
+    });
+
+    if (occupiedPositions.length > 0) {
+      const names = occupiedPositions.map((p) => parseInt(p, 10)).join(', ');
+      setConfirmModal({
+        open: true,
+        title: '⚠️ Posiciones ocupadas',
+        message: `La${occupiedPositions.length > 1 ? 's' : ''} posición${occupiedPositions.length > 1 ? 'es' : ''} ${names} ya tienen artículos.\n¿Añadir ${formatArticleDisplay(article, of)} igualmente?`,
+        icon: '⚠️',
+        variant: 'warning',
+        onConfirm: () => { setConfirmModal((p) => ({ ...p, open: false })); doUbicar(); },
+        extraButton: { text: 'Elegir otras', onClick: () => setConfirmModal((p) => ({ ...p, open: false })) },
+      });
+      return;
     }
 
-    setProcessing(false);
-    if (success) {
-      showFeedback('success', `✅ ${article} ubicado en ${selectedPositions.length} posición(es)`);
-    } else {
-      showFeedback('error', `Error al ubicar ${article}`);
-    }
-    resetAction();
-  }, [articleInput, ofInput, selectedPositions, ubicar, ubicarMulti, effectiveOperarioId, displayName, showFeedback, resetAction]);
+    await doUbicar();
+  }, [articleInput, ofInput, selectedPositions, locations, ubicar, ubicarMulti, effectiveOperarioId, displayName, showFeedback, resetAction]);
 
   const handleRetirarBatchNext = useCallback(async () => {
     const processNext = async (index: number) => {
@@ -630,59 +654,66 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [action, articleInput, ofInput, locations]);
 
+  // Grid focus mode: active when action requires cell selection
+  const gridFocused = action !== 'idle' && action !== 'moverSeccion' && articleInput.trim() !== '' && ofInput.trim() !== '';
+
   return (
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-4 py-2 shadow-sm w-full">
-        {/* Row 1: navigation + title */}
-        <div className="flex items-center gap-3 mb-1.5">
-          <button
-            onClick={onBack}
-            className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center hover:bg-slate-200 shrink-0"
-          >
-            ←
-          </button>
-          <div className="min-w-0">
-            <h1 className="text-lg font-black text-slate-900 leading-tight">🏭 Estanterías</h1>
-            <p className="text-xs text-slate-500 truncate">
-              {action === 'idle' ? 'Operativa manual' : `Acción activa: ${action.toUpperCase()}`}
-            </p>
+      {/* Header — compact in grid-focus mode */}
+      <header className={`bg-white border-b border-slate-200 shadow-sm w-full transition-all ${gridFocused ? 'px-3 py-2' : 'px-4 py-2'}`}>
+        {gridFocused ? (
+          /* Compact bar: action type + article + cancel */
+          <div className="flex items-center gap-2">
+            <button onClick={onBack} className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">←</button>
+            <span className={`text-xs font-black px-2 py-1 rounded-lg shrink-0
+              ${action === 'ubicar' ? 'bg-emerald-100 text-emerald-700' :
+                action === 'retirar' ? 'bg-red-100 text-red-700' :
+                action === 'mover' ? 'bg-blue-100 text-blue-700' :
+                'bg-amber-100 text-amber-700'}`}>
+              {action.toUpperCase()}
+            </span>
+            <span className="text-sm font-bold text-slate-800 truncate flex-1 font-mono">
+              {articleInput.trim()} <span className="text-slate-400 font-normal">· OF {ofInput.trim()}</span>
+            </span>
+            <span className="text-xs text-slate-400 hidden sm:block">{shelfDef?.name || selectedShelf}</span>
+            <button onClick={resetAction} className="px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg hover:bg-red-100 hover:text-red-600 transition-colors shrink-0">
+              ✕ Cancelar
+            </button>
           </div>
-        </div>
-        {/* Row 2: stats + action buttons — always fully visible */}
-        <div className="flex items-center gap-1.5 flex-wrap text-xs">
-          <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-lg font-bold whitespace-nowrap">
-            {totalOccupied} ocup.
-          </span>
-          <span className="bg-slate-100 text-slate-600 border border-slate-200 px-2 py-1 rounded-lg font-bold whitespace-nowrap">
-            {totalEmpty} vacías
-          </span>
-          <span className="bg-sky-50 text-sky-700 border border-sky-200 px-2 py-1 rounded-lg font-bold whitespace-nowrap">
-            {totalArticles} art.
-          </span>
-          <button
-            onClick={handleEmptyShelf}
-            disabled={action !== 'idle' || processing}
-            title={`Vaciar estantería ${selectedShelf}`}
-            className="px-2 py-1 bg-red-50 text-red-600 border border-red-200 rounded-lg font-bold hover:bg-red-100 disabled:opacity-40 transition-colors whitespace-nowrap"
-          >
-            🗑️ Vaciar
-          </button>
-          <button
-            onClick={handleExportExcel}
-            disabled={processing || locations.length === 0}
-            title={`Exportar ${shelfDef?.name || selectedShelf} a Excel`}
-            className="px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg font-bold hover:bg-emerald-100 disabled:opacity-40 transition-colors whitespace-nowrap"
-          >
-            📊 Excel
-          </button>
-        </div>
+        ) : (
+          <>
+            {/* Row 1: navigation + title */}
+            <div className="flex items-center gap-3 mb-1.5">
+              <button onClick={onBack} className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center hover:bg-slate-200 shrink-0">←</button>
+              <div className="min-w-0">
+                <h1 className="text-lg font-black text-slate-900 leading-tight">🏭 Estanterías</h1>
+                <p className="text-xs text-slate-500 truncate">
+                  {action === 'idle' ? 'Operativa manual' : `Acción activa: ${action.toUpperCase()}`}
+                </p>
+              </div>
+            </div>
+            {/* Row 2: stats + action buttons */}
+            <div className="flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-lg font-bold whitespace-nowrap">{totalOccupied} ocup.</span>
+              <span className="bg-slate-100 text-slate-600 border border-slate-200 px-2 py-1 rounded-lg font-bold whitespace-nowrap">{totalEmpty} vacías</span>
+              <span className="bg-sky-50 text-sky-700 border border-sky-200 px-2 py-1 rounded-lg font-bold whitespace-nowrap">{totalArticles} art.</span>
+              <button onClick={handleEmptyShelf} disabled={action !== 'idle' || processing} title={`Vaciar estantería ${selectedShelf}`}
+                className="px-2 py-1 bg-red-50 text-red-600 border border-red-200 rounded-lg font-bold hover:bg-red-100 disabled:opacity-40 transition-colors whitespace-nowrap">
+                🗑️ Vaciar
+              </button>
+              <button onClick={handleExportExcel} disabled={processing || locations.length === 0} title={`Exportar ${shelfDef?.name || selectedShelf} a Excel`}
+                className="px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg font-bold hover:bg-emerald-100 disabled:opacity-40 transition-colors whitespace-nowrap">
+                📊 Excel
+              </button>
+            </div>
+          </>
+        )}
       </header>
 
        {/* Shelf tabs */}
        <div className="flex-shrink-0 overflow-x-auto bg-sky-50 border-b border-slate-200 px-2">
           <div className="flex gap-1 p-1">
-            {SHELF_DEFINITIONS.map((shelf) => (
+            {ALL_SHELVES.map((shelf) => (
               <button
                 key={shelf.code}
                 onClick={() => {
@@ -701,65 +732,38 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
           </div>
         </div>
 
-       {/* Manual operations panel */}
-      <div className="px-4 pt-3 pb-2">
+      {/* Manual operations panel — hidden in grid focus mode */}
+      <div className={`px-4 pt-3 pb-2 ${gridFocused ? 'hidden' : ''}`}>
         <div className="bg-white border border-slate-200 rounded-2xl p-3 space-y-2.5 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-            Operativa manual — {displayName}
+            Operativa — {displayName}
           </p>
-          <div className="flex gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setScanPickerOpen(true)}
-              disabled={action !== 'idle'}
-              title="Escanear artículo y OF"
-              className="px-3 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 text-white rounded-lg font-bold text-sm shrink-0 transition-colors"
-            >
-              Escanear
-            </button>
-            <input
-              type="text"
-              value={articleInput}
-              onChange={(e) => setArticleInput(e.target.value)}
-              placeholder="Código artículo"
-              disabled={action !== 'idle'}
-              className="flex-1 min-w-0 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-            <input
-              type="text"
-              value={ofInput}
-              onChange={(e) => setOfInput(e.target.value)}
-              placeholder="OF"
-              disabled={action !== 'idle'}
-              className="w-28 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-          </div>
 
           {action === 'idle' ? (
             <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => startAction('ubicar')}
-                className="flex-1 h-10 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm active:scale-95 transition-all"
+                className="flex-1 h-14 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm active:scale-95 transition-all flex flex-col items-center justify-center"
               >
-                📦 UBICAR
+                <span>📦</span> UBICAR
               </button>
               <button
                 onClick={() => startAction('retirar')}
-                className="flex-1 h-10 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm active:scale-95 transition-all"
+                className="flex-1 h-14 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm active:scale-95 transition-all flex flex-col items-center justify-center"
               >
-                📤 RETIRAR
+                <span>📤</span> RETIRAR
               </button>
               <button
                 onClick={() => startAction('reubicar')}
-                className="flex-1 h-10 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm active:scale-95 transition-all"
+                className="flex-1 h-14 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm active:scale-95 transition-all flex flex-col items-center justify-center"
               >
-                🔁 REUBICAR
+                <span>🔁</span> REUBICAR
               </button>
               <button
                 onClick={startMoverSeccion}
-                className="flex-1 h-10 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs active:scale-95 transition-all"
+                className="flex-1 h-14 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs active:scale-95 transition-all flex flex-col items-center justify-center"
               >
-                🚀 MOVER SECCIÓN
+                <span>🚀</span> MOVER SECC.
               </button>
             </div>
           ) : action === 'moverSeccion' ? (
@@ -774,7 +778,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
                 <>
                   <p className="text-xs text-slate-500">Selecciona sección destino:</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {SHELF_DEFINITIONS.filter((s) => s.code !== selectedShelf).map((s) => (
+                    {ALL_SHELVES.filter((s) => s.code !== selectedShelf).map((s) => (
                       <button
                         key={s.code}
                         onClick={() => setMoverSeccionTargetShelf(s.code)}
@@ -966,59 +970,67 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
              'bg-blue-500/20 text-blue-400'}`}>
            {feedback.msg}
          </div>
-       )}
+         )}
 
-       {/* Search bar */}
-       <KioskSearchBar 
-         locations={locations} 
-         onHighlight={setHighlightedPositions} 
-         global={true}
-         currentShelfCode={selectedShelf}
-         canNavigateToShelf={true}
-         onShelfNavigate={setSelectedShelf}
-         onOutOfShelfResult={(result) => {
-           // Mostrar aviso de que el resultado está en otra estantería
-           showFeedback('info', `El artículo ${result.articleCode} ${result.orderFab} está en la estantería ${result.shelfCode} (posición(es): ${result.positions.join(', ')})`);
-         }}
-       />
-
-      {/* Occupancy bar */}
-      <div className="px-4 py-1">
-        <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full transition-all duration-500"
-            style={{ width: `${occupancyPct}%` }}
-          />
+         {/* Occupancy bar — hidden in grid focus mode */}
+      {!gridFocused && (
+        <div className="px-4 py-1">
+          <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full transition-all duration-500"
+              style={{ width: `${occupancyPct}%` }}
+            />
+          </div>
+          <p className="text-[10px] text-slate-500 mt-0.5 text-right">{occupancyPct}% ocupado</p>
         </div>
-        <p className="text-[10px] text-slate-500 mt-0.5 text-right">{occupancyPct}% ocupado</p>
-      </div>
+      )}
 
       {/* Banner de selección de celda */}
       {action !== 'idle' && action !== 'moverSeccion' && (
-        <div className={`mx-4 mb-2 px-4 py-3 rounded-2xl flex items-center gap-3 animate-pulse
-          ${action === 'ubicar' ? 'bg-emerald-500/20 border border-emerald-500/50' :
-            action === 'retirar' ? 'bg-red-500/20 border border-red-500/50' :
-            action === 'mover' ? 'bg-blue-500/20 border border-blue-500/50' :
-            'bg-amber-500/20 border border-amber-500/50'}`}>
-          <span className="text-2xl shrink-0">
-            {action === 'ubicar' ? '👇' :
-             action === 'retirar' ? '👇' :
-             action === 'mover' ? '👇' : '👇'}
+        <div className={`mx-3 mb-2 px-4 rounded-2xl flex items-center gap-3 transition-all
+          ${gridFocused ? 'py-4 border-2 shadow-lg' : 'py-3 border animate-pulse'}
+          ${action === 'ubicar' ? 'bg-emerald-500/20 border-emerald-500/60' :
+            action === 'retirar' ? 'bg-red-500/20 border-red-500/60' :
+            action === 'mover' ? 'bg-blue-500/20 border-blue-500/60' :
+            'bg-amber-500/20 border-amber-500/60'}`}>
+          <span className={`shrink-0 ${gridFocused ? 'text-3xl' : 'text-2xl'}`}>
+            {action === 'ubicar' ? '📦' :
+             action === 'retirar' ? '📤' :
+             action === 'mover' ? '🔄' : '🔁'}
           </span>
           <div className="flex-1 min-w-0">
-            <p className={`text-sm font-black
-              ${action === 'ubicar' ? 'text-emerald-300' :
-                action === 'retirar' ? 'text-red-300' :
-                action === 'mover' ? 'text-blue-300' :
-                'text-amber-300'}`}>
-              {action === 'ubicar' && selectedPositions.length === 0 && 'Toca una celda del grid para seleccionar dónde ubicar'}
-              {action === 'ubicar' && selectedPositions.length > 0 && `${selectedPositions.length} celda${selectedPositions.length > 1 ? 's' : ''} seleccionada${selectedPositions.length > 1 ? 's' : ''} — confirma o añade más`}
-              {action === 'retirar' && 'Toca la celda del grid de donde quieres retirar'}
-              {action === 'mover' && selectedPositions.length < moverNeeded && `Selecciona ${moverNeeded - selectedPositions.length} celda${moverNeeded - selectedPositions.length > 1 ? 's' : ''} de destino (${selectedPositions.length}/${moverNeeded})`}
-              {action === 'mover' && selectedPositions.length === moverNeeded && 'Celdas de destino seleccionadas — confirma el movimiento'}
-              {action === 'reubicar' && !reubicarSource && 'Toca la celda con el artículo que quieres reubicar'}
-              {action === 'reubicar' && reubicarSource && 'Ahora toca la celda vacía de destino'}
+            <p className={`font-black leading-tight
+              ${gridFocused ? 'text-base' : 'text-sm'}
+              ${action === 'ubicar' ? 'text-emerald-700' :
+                action === 'retirar' ? 'text-red-700' :
+                action === 'mover' ? 'text-blue-700' :
+                'text-amber-700'}`}>
+              {action === 'ubicar' && selectedPositions.length === 0 && '👇 Toca una celda para seleccionar dónde ubicar'}
+              {action === 'ubicar' && selectedPositions.length > 0 && `✅ ${selectedPositions.length} celda${selectedPositions.length > 1 ? 's' : ''} seleccionada${selectedPositions.length > 1 ? 's' : ''} — confirma arriba o añade más`}
+              {action === 'retirar' && '👇 Toca la celda de donde quieres retirar'}
+              {action === 'mover' && selectedPositions.length < moverNeeded && `👇 Selecciona ${moverNeeded - selectedPositions.length} celda${moverNeeded - selectedPositions.length > 1 ? 's' : ''} de destino (${selectedPositions.length}/${moverNeeded})`}
+              {action === 'mover' && selectedPositions.length === moverNeeded && '✅ Celdas de destino listas — confirma arriba'}
+              {action === 'reubicar' && !reubicarSource && '👇 Toca la celda con el artículo a reubicar'}
+              {action === 'reubicar' && reubicarSource && '👇 Ahora toca la celda de destino'}
             </p>
+            {gridFocused && action === 'ubicar' && selectedPositions.length > 0 && (
+              <button
+                onClick={handleUbicarMultiPositionConfirm}
+                disabled={processing}
+                className="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl disabled:opacity-50 transition-colors active:scale-95"
+              >
+                ✓ Confirmar en {selectedPositions.map((p) => parseInt(p, 10)).join(', ')}
+              </button>
+            )}
+            {gridFocused && action === 'mover' && selectedPositions.length === moverNeeded && (
+              <button
+                onClick={handleMoverConfirm}
+                disabled={processing}
+                className="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-xl disabled:opacity-50 transition-colors active:scale-95"
+              >
+                🔄 Confirmar mover → {selectedPositions.map((p) => parseInt(p, 10)).join(', ')}
+              </button>
+            )}
           </div>
         </div>
       )}

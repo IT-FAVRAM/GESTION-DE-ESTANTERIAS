@@ -57,21 +57,23 @@ const ShelfNavigatorStatus: React.FC<ShelfNavigatorStatusProps> = ({
         </div>
       )}
       {scanArticle && (
-        <div className="mx-4 mt-2 p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-400 text-center animate-pulse">
-          <p className="text-base font-black text-emerald-700">👇 Toca una celda del grid para ubicar <strong>{scanArticle}</strong></p>
+        <div className="mx-3 mt-2 p-5 rounded-2xl bg-emerald-50 border-2 border-emerald-500 shadow-lg shadow-emerald-100">
+          <p className="text-lg font-black text-emerald-700 text-center">📦 {scanArticle}</p>
+          <p className="text-sm font-bold text-emerald-600 text-center mt-1">👇 Toca una celda para ubicar</p>
         </div>
       )}
       {showMoverProgress && !moverComplete && moverSelected === 0 && (
-        <div className="mx-4 mt-2 p-4 rounded-2xl bg-blue-50 border-2 border-blue-400 text-center animate-pulse">
-          <p className="text-base font-black text-blue-700">
-            👇 Toca {moverNeeded} celda{moverNeeded !== 1 ? 's' : ''} de destino en el grid
+        <div className="mx-3 mt-2 p-5 rounded-2xl bg-blue-50 border-2 border-blue-500 shadow-lg shadow-blue-100">
+          <p className="text-lg font-black text-blue-700 text-center">🔄 Mover</p>
+          <p className="text-sm font-bold text-blue-600 text-center mt-1">
+            👇 Toca {moverNeeded} celda{moverNeeded !== 1 ? 's' : ''} de destino
           </p>
         </div>
       )}
       {showMoverProgress && !moverComplete && (moverSelected ?? 0) > 0 && (
-        <div className="mx-4 mt-2 p-3 rounded-xl bg-amber-50 border border-amber-400 text-center">
+        <div className="mx-3 mt-2 p-4 rounded-2xl bg-amber-50 border-2 border-amber-400 text-center">
           <p className="text-sm font-bold text-amber-700">
-            {moverSelected}/{moverNeeded} celdas seleccionadas — toca {(moverNeeded ?? 0) - (moverSelected ?? 0)} más
+            {moverSelected}/{moverNeeded} celdas — toca {(moverNeeded ?? 0) - (moverSelected ?? 0)} más
           </p>
         </div>
       )}

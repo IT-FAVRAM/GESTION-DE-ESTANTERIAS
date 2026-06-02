@@ -5,7 +5,7 @@ import ConfirmationModal from '../common/ConfirmationModal';
 import TraerArticuloModal from '../kiosk/TraerArticuloModal';
 import { useAuth } from '../../hooks/useAuth';
 import { usePickupQueue } from '../../hooks/usePickupQueue';
-import { SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
+import { SHELF_DEFINITIONS, ALL_SHELVES } from '../../lib/firestoreSchema';
 import type { AdminTab } from '../admin/adminShared';
 
 interface AdminHomeViewProps {
@@ -36,7 +36,7 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
   const { createPickupRequest, createDeliveryRequest } = usePickupQueue();
   const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? '';
 
-  const shelves = useMemo(() => SHELF_DEFINITIONS.filter((s) => s.code !== 'COM'), []);
+  const shelves = useMemo(() => ALL_SHELVES.filter((s) => s.code !== 'COM'), []);
 
   const showFeedback = useCallback((type: 'success' | 'error', msg: string) => {
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
@@ -64,7 +64,7 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
 
   const handleAvisarConfirm = async () => {
     if (!selectedShelfCode) return;
-    const shelfDef = SHELF_DEFINITIONS.find((s) => s.code === selectedShelfCode);
+    const shelfDef = ALL_SHELVES.find((s) => s.code === selectedShelfCode);
     if (!shelfDef) return;
 
     setProcessing(true);
@@ -83,7 +83,7 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
     positions: string[],
   ) => {
     if (!selectedShelfCode) return;
-    const shelfDef = SHELF_DEFINITIONS.find((s) => s.code === selectedShelfCode);
+    const shelfDef = ALL_SHELVES.find((s) => s.code === selectedShelfCode);
     if (!shelfDef) return;
 
     setProcessing(true);
@@ -125,66 +125,124 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
           </div>
         </header>
 
-        <main className="p-4 max-w-6xl mx-auto w-full flex flex-col overflow-hidden">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4 overflow-y-auto pr-2">
-            {/* Operaciones — acceso unificado a Estanterías y Carros */}
-            <div className="bg-cyan-950/20 rounded-2xl border border-cyan-500/40 p-5 flex flex-col gap-4 hover:border-cyan-400/50 transition-colors cursor-pointer" onClick={onOpenShelfBrowser}>
+        <main className="flex-1 p-4 max-w-6xl mx-auto w-full overflow-y-auto overscroll-contain pb-20">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
+            {/* Operaciones — Estanterías + Carros (tarjeta primaria) */}
+            <div className="sm:col-span-2 lg:col-span-1 bg-gradient-to-br from-cyan-950/40 to-slate-900 rounded-2xl border border-cyan-500/40 p-5 flex flex-col gap-4 shadow-lg shadow-cyan-950/20">
               <div className="flex items-center gap-3">
-                <span className="text-4xl">🏭</span>
+                <div className="w-12 h-12 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-2xl shrink-0">🏭</div>
                 <div>
-                  <h3 className="font-bold text-white">Operar</h3>
-                  <p className="text-xs text-cyan-200">Gestión de estanterías y carros</p>
+                  <h3 className="font-black text-white text-base">Operar</h3>
+                  <p className="text-xs text-cyan-300/70">Gestión de estanterías y carros</p>
                 </div>
               </div>
-              <button
-                type="button"
-                className="bg-slate-800/80 hover:bg-slate-700 text-white text-sm font-bold py-2.5 px-3 rounded-xl transition-colors text-center w-full"
-              >
-                ▶️ Operar
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={onOpenShelfBrowser}
+                  className="flex-1 min-h-[48px] bg-slate-800 hover:bg-slate-700 active:scale-[0.97] text-white text-sm font-bold py-3 px-3 rounded-xl transition-all touch-manipulation shadow-sm"
+                >
+                  🏭 Estanterías
+                </button>
+                <button
+                  type="button"
+                  onClick={onOpenOperativeMode}
+                  className="flex-1 min-h-[48px] bg-emerald-900/70 hover:bg-emerald-800 active:scale-[0.97] border border-emerald-600/40 text-emerald-200 text-sm font-bold py-3 px-3 rounded-xl transition-all touch-manipulation shadow-sm"
+                >
+                  🛒 Carros
+                </button>
+              </div>
             </div>
-            {/* Monitor de conexiones — disponible para ADMIN y SUPERADMIN */}
-            <div className="bg-slate-900 rounded-2xl border border-cyan-500/20 p-6 flex flex-col items-center gap-3 hover:border-cyan-400/50 transition-colors cursor-pointer" onClick={() => onOpenPanel('connections')}>
-              <span className="text-4xl">📡</span>
-              <h3 className="font-bold text-white">Conexiones</h3>
-              <p className="text-xs text-slate-500 text-center">Monitor wifi en tiempo real de todos los kioskos</p>
-            </div>
-            {/* Historial — trazabilidad de artículos */}
-            <div className="bg-slate-900 rounded-2xl border border-cyan-500/20 p-6 flex flex-col items-center gap-3 hover:border-cyan-500/50 transition-colors cursor-pointer" onClick={onOpenTimeline}>
-              <span className="text-4xl">📋</span>
-              <h3 className="font-bold text-white">Historial</h3>
-              <p className="text-xs text-slate-500 text-center">Trazabilidad y recorrido de artículos</p>
-            </div>
-            {/* 🚚 Avisar Carretillero */}
-            <div className="bg-slate-900 rounded-2xl border border-amber-500/20 p-6 flex flex-col items-center gap-3 hover:border-amber-400/50 transition-colors cursor-pointer" onClick={() => openShelfPicker('avisar')}>
-              <span className="text-4xl">🚚</span>
-              <h3 className="font-bold text-white">Avisar Carretillero</h3>
-              <p className="text-xs text-slate-500 text-center">Solicitar recogida en una estantería</p>
-            </div>
-            {/* 📦 Solicitar Artículo */}
-            <div className="bg-slate-900 rounded-2xl border border-emerald-500/20 p-6 flex flex-col items-center gap-3 hover:border-emerald-400/50 transition-colors cursor-pointer" onClick={() => openShelfPicker('traer')}>
-              <span className="text-4xl">📦</span>
-              <h3 className="font-bold text-white">Solicitar Artículo</h3>
-              <p className="text-xs text-slate-500 text-center">Pedir que traigan un artículo a una estantería</p>
-            </div>
-            <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 flex flex-col items-center gap-3 hover:border-emerald-500/30 transition-colors cursor-pointer" onClick={() => onOpenPanel('reports')}>
-              <span className="text-4xl">📊</span>
-              <h3 className="font-bold text-white">Informes</h3>
-              <p className="text-xs text-slate-500 text-center">Exportar inventario y consultar metricas</p>
-            </div>
+
+            {/* Historial */}
+            <button
+              type="button"
+              onClick={onOpenTimeline}
+              className="bg-slate-900 rounded-2xl border border-slate-700/50 p-5 flex flex-col items-start gap-2 hover:border-cyan-500/40 active:scale-[0.98] transition-all cursor-pointer text-left touch-manipulation shadow-sm"
+            >
+              <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl">📋</div>
+              <div>
+                <h3 className="font-bold text-white text-sm">Historial</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Trazabilidad y recorrido de artículos</p>
+              </div>
+            </button>
+
+            {/* Conexiones */}
+            <button
+              type="button"
+              onClick={() => onOpenPanel('connections')}
+              className="bg-slate-900 rounded-2xl border border-slate-700/50 p-5 flex flex-col items-start gap-2 hover:border-cyan-400/40 active:scale-[0.98] transition-all cursor-pointer text-left touch-manipulation shadow-sm"
+            >
+              <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl">📡</div>
+              <div>
+                <h3 className="font-bold text-white text-sm">Conexiones</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Monitor wifi de todos los kioskos</p>
+              </div>
+            </button>
+
+            {/* Avisar Carretillero */}
+            <button
+              type="button"
+              onClick={() => openShelfPicker('avisar')}
+              className="bg-slate-900 rounded-2xl border border-amber-500/20 p-5 flex flex-col items-start gap-2 hover:border-amber-400/40 active:scale-[0.98] transition-all cursor-pointer text-left touch-manipulation shadow-sm"
+            >
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-xl">🚚</div>
+              <div>
+                <h3 className="font-bold text-white text-sm">Avisar Carretillero</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Solicitar recogida en una estantería</p>
+              </div>
+            </button>
+
+            {/* Solicitar Artículo */}
+            <button
+              type="button"
+              onClick={() => openShelfPicker('traer')}
+              className="bg-slate-900 rounded-2xl border border-emerald-500/20 p-5 flex flex-col items-start gap-2 hover:border-emerald-400/40 active:scale-[0.98] transition-all cursor-pointer text-left touch-manipulation shadow-sm"
+            >
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-xl">📦</div>
+              <div>
+                <h3 className="font-bold text-white text-sm">Solicitar Artículo</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Que traigan un artículo a tu sección</p>
+              </div>
+            </button>
+
+            {/* Informes */}
+            <button
+              type="button"
+              onClick={() => onOpenPanel('reports')}
+              className="bg-slate-900 rounded-2xl border border-slate-700/50 p-5 flex flex-col items-start gap-2 hover:border-emerald-500/30 active:scale-[0.98] transition-all cursor-pointer text-left touch-manipulation shadow-sm"
+            >
+              <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl">📊</div>
+              <div>
+                <h3 className="font-bold text-white text-sm">Informes</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Inventario, exportar Excel y métricas</p>
+              </div>
+            </button>
 
             {role === 'SUPERADMIN' && (
               <>
-                <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 flex flex-col items-center gap-3 hover:border-cyan-500/30 transition-colors cursor-pointer" onClick={() => onOpenPanel('team')}>
-                  <span className="text-4xl">👥</span>
-                  <h3 className="font-bold text-white">Usuarios y Dispositivos</h3>
-                  <p className="text-xs text-slate-500 text-center">Gestionar roles, permisos y kioskos</p>
-                </div>
-                <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 flex flex-col items-center gap-3 hover:border-amber-500/30 transition-colors cursor-pointer" onClick={() => onOpenPanel('special')}>
-                  <span className="text-4xl">🚨</span>
-                  <h3 className="font-bold text-white">Ubicaciones Especiales</h3>
-                  <p className="text-xs text-slate-500 text-center">Urgentes y revision tecnica</p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => onOpenPanel('team')}
+                  className="bg-slate-900 rounded-2xl border border-slate-700/50 p-5 flex flex-col items-start gap-2 hover:border-cyan-500/30 active:scale-[0.98] transition-all cursor-pointer text-left touch-manipulation shadow-sm"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl">👥</div>
+                  <div>
+                    <h3 className="font-bold text-white text-sm">Usuarios y Dispositivos</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">Roles, permisos y kioskos</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenPanel('special')}
+                  className="bg-slate-900 rounded-2xl border border-amber-500/20 p-5 flex flex-col items-start gap-2 hover:border-amber-500/30 active:scale-[0.98] transition-all cursor-pointer text-left touch-manipulation shadow-sm"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-xl">🚨</div>
+                  <div>
+                    <h3 className="font-bold text-white text-sm">Ubicaciones Especiales</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">Urgentes y revisión técnica</p>
+                  </div>
+                </button>
               </>
             )}
           </div>
@@ -235,7 +293,7 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
         title="🚚 Avisar Carretillero"
         message={
           selectedShelfCode
-            ? `¿Solicitar recogida para ${SHELF_DEFINITIONS.find((s) => s.code === selectedShelfCode)?.name || selectedShelfCode}? El carretillero recibirá un aviso.`
+            ? `¿Solicitar recogida para ${ALL_SHELVES.find((s) => s.code === selectedShelfCode)?.name || selectedShelfCode}? El carretillero recibirá un aviso.`
             : 'Selecciona una estantería primero.'
         }
         icon="🚚"

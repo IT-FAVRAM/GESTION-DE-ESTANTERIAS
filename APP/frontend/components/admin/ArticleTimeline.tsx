@@ -344,9 +344,9 @@ const ArticleTimeline: React.FC<ArticleTimelineProps> = ({ onBack }) => {
   const displayEntries = entries;
 
   return (
-    <div className="min-h-dvh bg-slate-950 flex flex-col">
+    <div className="h-dvh bg-slate-950 flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="bg-slate-900 border-b border-slate-800 px-4 py-3">
+      <header className="flex-shrink-0 bg-slate-900 border-b border-slate-800 px-4 py-3">
         <div className="flex items-center gap-3 max-w-3xl mx-auto">
           <button
             onClick={onBack}
@@ -370,7 +370,7 @@ const ArticleTimeline: React.FC<ArticleTimelineProps> = ({ onBack }) => {
       </header>
 
       {/* Search */}
-      <div className="p-4 max-w-3xl mx-auto w-full space-y-2">
+      <div className="flex-shrink-0 p-4 max-w-3xl mx-auto w-full space-y-2">
         <div className="flex gap-2">
           <input
             type="text"

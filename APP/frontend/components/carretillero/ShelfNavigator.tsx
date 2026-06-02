@@ -123,15 +123,12 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf 
       });
       return;
     }
-    if (act === 'retirar') {
-      setAction('retirar');
-      return;
-    }
     if (act === 'mover') {
       setAction('mover');
       setShowMoverArticleList(true);
       return;
     }
+    
     setPendingAction(act);
     setScanMethodPickerOpen(true);
   };
@@ -372,34 +369,20 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf 
         />
       </div>
 
-       {/* Search */}
-       <div className="flex-shrink-0">
-         <KioskSearchBar
-           locations={locations}
-           onHighlight={setHighlightedSearch}
-           global={true}
-           currentShelfCode={selectedShelf}
-           canNavigateToShelf={true}
-           onShelfNavigate={setSelectedShelf}
-           onOutOfShelfResult={(result) => {
-             // Mostrar aviso de que el resultado está en otra estantería
-             showToast('info', `En ${result.shelfCode} (pos. ${result.positions.join(', ')})`);
-           }}
-         />
-       </div>
-
       {/* Feedback */}
       <div className="flex-shrink-0">
         {feedback && (
           <div className={`mx-4 mt-2 p-3 rounded-xl text-center font-bold text-sm
-            ${feedback.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+            ${feedback.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' :
+              feedback.type === 'info' ? 'bg-blue-500/20 text-blue-400' :
+              'bg-red-500/20 text-red-400'}`}>
             {feedback.msg}
           </div>
         )}
       </div>
 
       {/* Grid — scroll vertical aquí; cada bloque de estantería gestiona su propio scroll horizontal */}
-      <div className="flex-1 min-h-0 min-w-0 w-full overflow-y-auto overscroll-contain p-2 sm:p-4 [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
+      <div className="smooth-scroll flex-1 min-h-0 min-w-0 w-full overflow-y-auto overscroll-contain p-2 sm:p-4 [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
         {loading ? (
           <div className="flex items-center justify-center h-40">
             <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
@@ -419,24 +402,23 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf 
 
       {/* Action buttons */}
       {action === 'idle' && (
-        <div className="flex-shrink-0 bg-white border-t border-slate-200 p-3">
+        <div className="flex-shrink-0 bg-white border-t border-slate-200 px-3 pt-3" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           <div className={`grid gap-2 max-w-2xl mx-auto ${shelfDef?.type === 'cart' ? 'grid-cols-3' : 'grid-cols-4'}`}>
             <button onClick={() => startAction('ubicar')}
-              className="h-14 rounded-xl bg-emerald-600 text-white font-bold text-sm flex flex-col items-center justify-center active:scale-95 transition-all">
+              className="h-14 rounded-xl bg-emerald-600 text-white font-bold text-sm flex flex-col items-center justify-center active:scale-95 transition-all touch-manipulation">
               <span>📦</span> UBICAR
             </button>
             <button onClick={() => startAction('retirar')}
-              className="h-14 rounded-xl bg-red-600 text-white font-bold text-sm flex flex-col items-center justify-center active:scale-95 transition-all">
+              className="h-14 rounded-xl bg-red-600 text-white font-bold text-sm flex flex-col items-center justify-center active:scale-95 transition-all touch-manipulation">
               <span>📤</span> RETIRAR
             </button>
             <button onClick={() => startAction('mover')}
-              className="h-14 rounded-xl bg-blue-600 text-white font-bold text-sm flex flex-col items-center justify-center active:scale-95 transition-all">
+              className="h-14 rounded-xl bg-blue-600 text-white font-bold text-sm flex flex-col items-center justify-center active:scale-95 transition-all touch-manipulation">
               <span>🔄</span> MOVER
             </button>
-            {/* ALMACÉN sólo para estanterías, no para carros */}
             {shelfDef?.type !== 'cart' && (
               <button onClick={() => startAction('almacen')}
-                className="h-14 rounded-xl bg-purple-600 text-white font-bold text-xs flex flex-col items-center justify-center active:scale-95 transition-all">
+                className="h-14 rounded-xl bg-purple-600 text-white font-bold text-xs flex flex-col items-center justify-center active:scale-95 transition-all touch-manipulation">
                 <span>🏭</span> ALMACÉN
               </button>
             )}
@@ -450,7 +432,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf 
           pendingAction === 'ubicar' ? 'Ubicar artículo' :
           pendingAction === 'retirar' ? 'Retirar artículo' :
           pendingAction === 'mover' ? 'Mover artículo' :
-          pendingAction === 'almacen' ? 'Enviar a almacén' : 'Escanear'
+          pendingAction === 'almacen' ? 'Enviar a almacén' : 'Seleccionar'
         }
         onSelect={applyScanMethod}
         onClose={() => { setScanMethodPickerOpen(false); setPendingAction(null); }}

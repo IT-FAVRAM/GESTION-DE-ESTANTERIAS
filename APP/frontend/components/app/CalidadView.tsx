@@ -236,13 +236,14 @@ const CalidadView: React.FC = () => {
 
     if (action === 'retirar') {
       const found = findArticle(articleCode, orderFab);
-      if (found.length === 0) { showToast('error', 'Artículo no encontrado'); setScannerActive(true); return; }
+      if (found.length === 0) { showToast('error', 'Artículo no encontrado en CAL'); setScannerActive(true); return; }
 
-      if (found.length === 1) {
+      if (found.length === 1 && found[0].items.length > 0) {
+        const posNum = parseInt(found[0].position, 10);
         setConfirmModal({
           open: true,
           title: 'Confirmar retirada',
-          message: `¿Retirar ${formatArticleDisplay(articleCode, orderFab)} de posición ${parseInt(found[0].position, 10)}?`,
+          message: `¿Retirar ${formatArticleDisplay(articleCode, orderFab)} de posición ${posNum}?`,
           icon: '📤',
           variant: 'danger',
           onConfirm: async () => {
@@ -255,29 +256,9 @@ const CalidadView: React.FC = () => {
           },
         });
       } else {
-        setFoundLocationsForRetirar(found);
-        setRetirarPosition(null);
-        setConfirmModal({
-          open: true,
-          title: 'Selecciona de dónde retirar',
-          message: `${formatArticleDisplay(articleCode, orderFab)} está en ${found.length} ubicaciones`,
-          icon: '📤',
-          variant: 'warning',
-          onConfirm: async () => {
-            if (!retirarPosition) return;
-            setProcessing(true);
-            setConfirmModal((p) => ({ ...p, open: false }));
-            const r =
-              retirarPosition === 'TODAS'
-                ? await retirar(articleCode, orderFab, effectiveOperarioId, displayName)
-                : await retirarDeUbicacion(articleCode, orderFab, retirarPosition, effectiveOperarioId, displayName);
-            setProcessing(false);
-            setFoundLocationsForRetirar([]);
-            setRetirarPosition(null);
-            if (r.success) finishAction('success', '✅ Retirado');
-            else finishAction('error', r.error || 'Error al retirar');
-          },
-        });
+        // Multi-ubicación: deja scanData activo para resaltar celdas, redirige al flujo de celda
+        const positions = found.map((l) => parseInt(l.position, 10)).join(', ');
+        showToast('success', `📍 En pos. ${positions} — toca la celda para retirar`);
       }
     }
   };
@@ -435,13 +416,14 @@ const CalidadView: React.FC = () => {
 
     if (action === 'ubicar' && !batchMode && scanData) {
       const position = loc.position;
-      // Check if it's a reprocesos position
       if (isReprocesosLocation(SHELF, parseInt(position, 10)) && scanData) {
-        // Show reprocesos modal for single article
         setShowReprocesosUbicacionModal(true);
-        // Clear selected positions and set this one
         setSelectedPositions([position]);
         return;
+      }
+      // Warn about occupied cells (non-reprocesos)
+      if (!loc.isEmpty && loc.items.length > 0 && !selectedPositions.includes(position)) {
+        showToast('success', `⚠️ Pos. ${parseInt(position, 10)} ya tiene ${loc.items.length} artículo(s) — se añadirá igualmente`);
       }
       setSelectedPositions((current) => {
         if (current.includes(position)) return current.filter((value) => value !== position);
@@ -553,7 +535,15 @@ const CalidadView: React.FC = () => {
               <span className="text-xs text-slate-800 font-bold">{scanData.articleCode} ({scanData.orderFab})</span>
             )}
             {action === 'retirar' && !scanData && (
-              <span className="text-xs text-red-600 font-bold">Toca una celda ocupada para retirar artículos</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-red-600 font-bold">👇 Toca celda ocupada para retirar</span>
+                <button
+                  onClick={() => { setPendingAction('retirar'); setScanMethodPickerOpen(true); }}
+                  className="px-3 py-1.5 min-h-[36px] bg-red-50 border border-red-200 text-red-600 text-xs font-bold rounded-lg active:scale-95 transition-all touch-manipulation"
+                >
+                  📡 Escanear
+                </button>
+              </div>
             )}
             {action === 'ubicar' && !scanData && !batchMode && scannerActive && (
               <span className="text-xs text-slate-500">Escanea o escribe el código abajo</span>
@@ -625,29 +615,29 @@ const CalidadView: React.FC = () => {
 
       {/* Action buttons */}
       {action === 'idle' && (
-        <div className="flex-shrink-0 bg-white border-t border-slate-200 p-3 w-full">
+        <div className="flex-shrink-0 bg-white border-t border-slate-200 px-3 pt-3 w-full" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           <div className="grid grid-cols-4 gap-2 w-full max-w-4xl mx-auto">
             <button
               onClick={() => startAction('ubicar')}
-              className="h-16 rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-700 text-white font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 hover:from-emerald-400 hover:to-emerald-600 shadow-lg shadow-emerald-900/25 transition-all"
+              className="h-16 rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-700 text-white font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 hover:from-emerald-400 hover:to-emerald-600 shadow-lg shadow-emerald-900/25 transition-all touch-manipulation"
             >
               <span className="text-xl">📦</span> UBICAR
             </button>
             <button
               onClick={() => startAction('retirar')}
-              className="h-16 rounded-2xl bg-gradient-to-b from-red-500 to-red-700 text-white font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 hover:from-red-400 hover:to-red-600 shadow-lg shadow-red-900/25 transition-all"
+              className="h-16 rounded-2xl bg-gradient-to-b from-red-500 to-red-700 text-white font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 hover:from-red-400 hover:to-red-600 shadow-lg shadow-red-900/25 transition-all touch-manipulation"
             >
               <span className="text-xl">📤</span> RETIRAR
             </button>
             <button
               onClick={() => startAction('mover')}
-              className="h-16 rounded-2xl bg-gradient-to-b from-blue-500 to-blue-700 text-white font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 hover:from-blue-400 hover:to-blue-600 shadow-lg shadow-blue-900/25 transition-all"
+              className="h-16 rounded-2xl bg-gradient-to-b from-blue-500 to-blue-700 text-white font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 hover:from-blue-400 hover:to-blue-600 shadow-lg shadow-blue-900/25 transition-all touch-manipulation"
             >
               <span className="text-xl">🔄</span> MOVER
             </button>
             <button
               onClick={() => startAction('avisar')}
-              className="h-16 rounded-2xl bg-gradient-to-b from-amber-500 to-amber-700 text-white font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 hover:from-amber-400 hover:to-amber-600 shadow-lg shadow-amber-900/25 transition-all"
+              className="h-16 rounded-2xl bg-gradient-to-b from-amber-500 to-amber-700 text-white font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 hover:from-amber-400 hover:to-amber-600 shadow-lg shadow-amber-900/25 transition-all touch-manipulation"
             >
               <span className="text-xl">🚚</span> AVISAR
             </button>

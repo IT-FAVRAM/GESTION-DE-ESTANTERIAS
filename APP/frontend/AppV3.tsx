@@ -73,6 +73,7 @@ const AppV3: React.FC = () => {
   const [showShelfBrowser, setShowShelfBrowser] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
   const [showOperativeMode, setShowOperativeMode] = useState(false);
+  const [operativeInitialTab, setOperativeInitialTab] = useState<'shelves' | 'pickups' | 'carts'>('shelves');
   const [adminPanelTab, setAdminPanelTab] = useState<AdminTab>('reports');
   const [pushNotif, setPushNotif] = useState<{ title: string; body: string } | null>(null);
   const { urgencies } = usePinnedUrgencies();
@@ -206,7 +207,7 @@ const AppV3: React.FC = () => {
         {urgencyBar}
         {chatFab}
         {showOperativeMode ? (
-          <CarretilleroView onBack={() => setShowOperativeMode(false)} />
+          <CarretilleroView onBack={() => { setShowOperativeMode(false); setOperativeInitialTab('shelves'); }} initialTab={operativeInitialTab} />
         ) : showShelfBrowser ? (
           <AdminShelfBrowser onBack={() => setShowShelfBrowser(false)} />
         ) : showTimeline ? (
@@ -214,7 +215,7 @@ const AppV3: React.FC = () => {
         ) : showAdminPanel ? (
           <SuperAdminPanel onClose={() => setShowAdminPanel(false)} role={role} initialTab={adminPanelTab} currentDeviceId={deviceId} isolatedTab />
         ) : (
-          <AdminHomeView role={role} displayName={displayName} notification={pushNotif} onCloseNotification={() => setPushNotif(null)} onOpenPanel={openAdminPanel} onOpenShelfBrowser={() => setShowShelfBrowser(true)} onOpenTimeline={() => setShowTimeline(true)} onOpenOperativeMode={() => setShowOperativeMode(true)} onLogout={logout} />
+          <AdminHomeView role={role} displayName={displayName} notification={pushNotif} onCloseNotification={() => setPushNotif(null)} onOpenPanel={openAdminPanel} onOpenShelfBrowser={() => setShowShelfBrowser(true)} onOpenTimeline={() => setShowTimeline(true)} onOpenOperativeMode={() => { setOperativeInitialTab('carts'); setShowOperativeMode(true); }} onLogout={logout} />
         )}
       </Suspense>
     );

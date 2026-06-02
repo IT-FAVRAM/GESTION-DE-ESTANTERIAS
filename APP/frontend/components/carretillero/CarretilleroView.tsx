@@ -16,12 +16,13 @@ type CarretilleroTab = 'shelves' | 'pickups' | 'carts';
 
 interface CarretilleroViewProps {
   onBack?: () => void;
+  initialTab?: CarretilleroTab;
 }
 
-const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack }) => {
+const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab = 'shelves' }) => {
   const { displayName, operarioId, logout } = useAuth();
   const { pendingCount } = usePickupQueue();
-  const [activeTab, setActiveTab] = useState<CarretilleroTab>('shelves');
+  const [activeTab, setActiveTab] = useState<CarretilleroTab>(initialTab);
   return (
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
        {/* Header */}
@@ -46,11 +47,11 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack }) => {
        </header>
 
        {/* Tab bar */}
-       <div className="flex-shrink-0 bg-white border-b border-slate-200 px-2">
-         <div className="flex gap-1">
+       <div className="flex-shrink-0 bg-white border-b border-slate-200 px-1">
+         <div className="flex gap-0.5">
            <button
              onClick={() => setActiveTab('shelves')}
-             className={`flex-1 py-3 text-sm font-semibold transition-colors relative
+             className={`flex-1 min-h-[48px] py-3 text-sm font-semibold transition-colors relative touch-manipulation
                ${activeTab === 'shelves' ? 'text-sky-700' : 'text-slate-500 hover:text-slate-700'}`}
            >
              🏭 ESTANTERÍAS
@@ -60,7 +61,7 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack }) => {
            </button>
            <button
              onClick={() => setActiveTab('pickups')}
-             className={`flex-1 py-3 text-sm font-semibold transition-colors relative
+             className={`flex-1 min-h-[48px] py-3 text-sm font-semibold transition-colors relative touch-manipulation
                ${activeTab === 'pickups' ? 'text-orange-600' : 'text-slate-500 hover:text-slate-700'}`}
            >
              📦 RECOGIDAS
@@ -76,7 +77,7 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack }) => {
            </button>
            <button
              onClick={() => setActiveTab('carts')}
-             className={`flex-1 py-3 text-sm font-semibold transition-colors relative
+             className={`flex-1 min-h-[48px] py-3 text-sm font-semibold transition-colors relative touch-manipulation
                ${activeTab === 'carts' ? 'text-emerald-700' : 'text-slate-500 hover:text-slate-700'}`}
            >
              🛒 CARROS
