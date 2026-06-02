@@ -213,13 +213,13 @@ const AppV3: React.FC = () => {
         ) : showOperativeMode ? (
           <CarretilleroView onBack={() => { setShowOperativeMode(false); setOperativeInitialTab('shelves'); }} initialTab={operativeInitialTab} />
         ) : showShelfBrowser ? (
-          <AdminShelfBrowser onBack={() => setShowShelfBrowser(false)} />
+          <AdminShelfBrowser onBack={() => setShowShelfBrowser(false)} onOpenCarros={() => { setShowShelfBrowser(false); setShowCarrosAdminMode(true); }} />
         ) : showTimeline ? (
           <ArticleTimeline onBack={() => setShowTimeline(false)} />
         ) : showAdminPanel ? (
           <SuperAdminPanel onClose={() => setShowAdminPanel(false)} role={role} initialTab={adminPanelTab} currentDeviceId={deviceId} isolatedTab />
         ) : (
-          <AdminHomeView role={role} displayName={displayName} notification={pushNotif} onCloseNotification={() => setPushNotif(null)} onOpenPanel={openAdminPanel} onOpenShelfBrowser={() => setShowShelfBrowser(true)} onOpenTimeline={() => setShowTimeline(true)} onOpenOperativeMode={() => setShowCarrosAdminMode(true)} onLogout={logout} />
+          <AdminHomeView role={role} displayName={displayName} notification={pushNotif} onCloseNotification={() => setPushNotif(null)} onOpenPanel={openAdminPanel} onOpenShelfBrowser={() => setShowShelfBrowser(true)} onOpenTimeline={() => setShowTimeline(true)} onOpenOperativeMode={() => setShowShelfBrowser(true)} onLogout={logout} />
         )}
       </Suspense>
     );

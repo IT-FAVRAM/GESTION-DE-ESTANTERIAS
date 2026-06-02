@@ -127,17 +127,17 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
 
         <main className="flex-1 p-4 max-w-6xl mx-auto w-full overflow-y-auto overscroll-contain pb-20">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
-            {/* Operaciones — Carros */}
+            {/* Operar — Estanterías + Carros */}
             <button
               type="button"
               onClick={onOpenOperativeMode}
-              className="bg-gradient-to-br from-emerald-950/40 to-slate-900 rounded-2xl border border-emerald-500/40 p-5 flex flex-col gap-2 hover:border-emerald-400/50 active:scale-[0.98] transition-all cursor-pointer touch-manipulation shadow-lg shadow-emerald-950/20"
+              className="bg-gradient-to-br from-cyan-950/40 to-slate-900 rounded-2xl border border-cyan-500/40 p-5 flex flex-col gap-2 hover:border-cyan-400/50 active:scale-[0.98] transition-all cursor-pointer touch-manipulation shadow-lg shadow-cyan-950/20"
             >
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-2xl shrink-0">🛒</div>
+                <div className="w-12 h-12 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-2xl shrink-0">🏭</div>
                 <div className="text-left">
                   <h3 className="font-black text-white text-base">Operar</h3>
-                  <p className="text-xs text-emerald-300/70">Gestión de carros</p>
+                  <p className="text-xs text-cyan-300/70">Estanterías y carros</p>
                 </div>
               </div>
             </button>

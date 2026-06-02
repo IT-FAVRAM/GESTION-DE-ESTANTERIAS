@@ -29,9 +29,10 @@ type AdminAction = 'idle' | 'ubicar' | 'retirar' | 'mover' | 'reubicar' | 'mover
 
 interface AdminShelfBrowserProps {
   onBack: () => void;
+  onOpenCarros?: () => void;
 }
 
-const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
+const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCarros }) => {
   const [selectedShelf, setSelectedShelf] = useState(ALL_SHELVES[0]?.code || 'MEC');
   const [highlightedPositions, setHighlightedPositions] = useState<string[]>([]);
   const [action, setAction] = useState<AdminAction>('idle');
@@ -715,6 +716,12 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
               <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-lg font-bold whitespace-nowrap">{totalOccupied} ocup.</span>
               <span className="bg-slate-100 text-slate-600 border border-slate-200 px-2 py-1 rounded-lg font-bold whitespace-nowrap">{totalEmpty} vacías</span>
               <span className="bg-sky-50 text-sky-700 border border-sky-200 px-2 py-1 rounded-lg font-bold whitespace-nowrap">{totalArticles} art.</span>
+              {onOpenCarros && (
+                <button onClick={onOpenCarros} title="Ir a Carros"
+                  className="px-2 py-1 bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-lg font-bold hover:bg-emerald-200 transition-colors whitespace-nowrap">
+                  🛒 Carros
+                </button>
+              )}
               <button onClick={handleEmptyShelf} disabled={action !== 'idle' || processing} title={`Vaciar estantería ${selectedShelf}`}
                 className="px-2 py-1 bg-red-50 text-red-600 border border-red-200 rounded-lg font-bold hover:bg-red-100 disabled:opacity-40 transition-colors whitespace-nowrap">
                 🗑️ Vaciar
