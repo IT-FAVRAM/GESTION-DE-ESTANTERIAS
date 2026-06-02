@@ -18,20 +18,35 @@ export interface OcrVariant {
 
 // ─── Upscaling ────────────────────────────────────────────────────────────────
 
-function upscaleCanvas(source: HTMLCanvasElement, targetLongSide = 1800): HTMLCanvasElement {
+function upscaleCanvas(source: HTMLCanvasElement, targetLongSide = 2400): HTMLCanvasElement {
   const sw = source.width;
   const sh = source.height;
-  const scale = Math.min(2.5, targetLongSide / Math.max(sw, sh));
+  const scale = Math.min(3.0, targetLongSide / Math.max(sw, sh));
   const w = Math.round(sw * scale);
   const h = Math.round(sh * scale);
   const out = document.createElement('canvas');
   out.width = w;
   out.height = h;
   const ctx = out.getContext('2d')!;
-  // Suavizado desactivado para preservar bordes del texto al escalar
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
+  // Nearest-neighbor preserva bordes nítidos del texto — mejor para Tesseract OCR
+  ctx.imageSmoothingEnabled = false;
   ctx.drawImage(source, 0, 0, w, h);
+  return out;
+}
+
+// Recorta la mitad superior o inferior del canvas con 15% de solapamiento.
+// Usado para OCR de región: artículo (top) y OF (bottom) por separado.
+export function cropHalfCanvas(source: HTMLCanvasElement, region: 'top' | 'bottom'): HTMLCanvasElement {
+  const w = source.width;
+  const h = source.height;
+  const halfH = Math.round(h * 0.6); // 60% desde cada extremo con solapamiento
+  const sy = region === 'top' ? 0 : h - halfH;
+  const out = document.createElement('canvas');
+  out.width = w;
+  out.height = halfH;
+  const ctx = out.getContext('2d')!;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(source, 0, sy, w, halfH, 0, 0, w, halfH);
   return out;
 }
 
@@ -166,33 +181,63 @@ function preprocessAdaptive(source: HTMLCanvasElement): string {
 // Para etiquetas de bajo contraste donde la binarización destruye detalles.
 
 function preprocessHighContrast(source: HTMLCanvasElement): string {
-  const up = upscaleCanvas(source, 1600);
+  const up = upscaleCanvas(source, 2000);
   const w = up.width;
   const h = up.height;
   const tmp = document.createElement('canvas');
   tmp.width = w; tmp.height = h;
   const ctx = tmp.getContext('2d')!;
-  ctx.filter = 'grayscale(1) contrast(2.5) brightness(1.15) sharpen(1)';
+  ctx.filter = 'grayscale(1) contrast(2.5) brightness(1.15)';
   ctx.drawImage(up, 0, 0);
   ctx.filter = 'none';
+  return tmp.toDataURL('image/png');
+}
+
+// ─── Strategy E: Single-line optimized ───────────────────────────────────────
+// Máximo contraste para una sola línea (ej. zona OF en la mitad inferior).
+// Aplica binarización Otsu + contraste muy alto para texto impreso claro.
+
+export function preprocessSingleLine(source: HTMLCanvasElement): string {
+  const up = upscaleCanvas(source, 2400);
+  const w = up.width;
+  const h = up.height;
+  const tmp = document.createElement('canvas');
+  tmp.width = w; tmp.height = h;
+  const tmpCtx = tmp.getContext('2d')!;
+  tmpCtx.filter = 'grayscale(1) contrast(3.0) brightness(1.1)';
+  tmpCtx.drawImage(up, 0, 0);
+  tmpCtx.filter = 'none';
+
+  const imageData = tmpCtx.getImageData(0, 0, w, h);
+  const d = imageData.data;
+  const gray = toGrayArray(d);
+  const threshold = computeOtsuThreshold(gray, w * h);
+
+  for (let i = 0; i < gray.length; i++) {
+    const v = gray[i] > threshold ? 255 : 0;
+    d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = v;
+  }
+  tmpCtx.putImageData(imageData, 0, 0);
   return tmp.toDataURL('image/png');
 }
 
 // ─── Main export: generate all variants ──────────────────────────────────────
 
 /**
- * Genera hasta 4 variantes de preprocesado del mismo frame.
+ * Genera 5 variantes de preprocesado del mismo frame.
  * El caller ejecuta OCR en el orden dado y para al superar el umbral de confianza.
+ * Índices: 0=adaptive, 1=otsu, 2=inverted, 3=contrast, 4=singleLine
  */
 export function generateOcrVariants(source: HTMLCanvasElement): OcrVariant[] {
   if (source.width < 1 || source.height < 1) {
     throw new Error('Imagen no válida (sin dimensiones). Espera y vuelve a capturar.');
   }
   return [
-    { label: 'adaptive',  dataUrl: preprocessAdaptive(source) },
-    { label: 'otsu',      dataUrl: preprocessOtsu(source, false) },
-    { label: 'inverted',  dataUrl: preprocessOtsu(source, true) },
-    { label: 'contrast',  dataUrl: preprocessHighContrast(source) },
+    { label: 'adaptive',   dataUrl: preprocessAdaptive(source) },
+    { label: 'otsu',       dataUrl: preprocessOtsu(source, false) },
+    { label: 'inverted',   dataUrl: preprocessOtsu(source, true) },
+    { label: 'contrast',   dataUrl: preprocessHighContrast(source) },
+    { label: 'singleLine', dataUrl: preprocessSingleLine(source) },
   ];
 }
 

@@ -12,7 +12,8 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { createWorker } from 'tesseract.js';
-import { generateOcrVariants, measureSharpnessLive, waitForVideoReady } from '../../lib/ocrPreprocess';
+import { generateOcrVariants, cropHalfCanvas, preprocessSingleLine, measureSharpnessLive, waitForVideoReady } from '../../lib/ocrPreprocess';
+import { parseScanInputLenient } from '../../lib/qrParser';
 
 interface CameraOCRScannerProps {
   onResult: (text: string) => void;
@@ -66,7 +67,7 @@ const CONFIDENCE_THRESHOLD = 72;
 async function runOcrPass(
   worker: import('tesseract.js').Worker,
   dataUrl: string,
-  psm: '6' | '7',
+  psm: '3' | '4' | '6' | '7' | '8' | '11',
 ): Promise<{ text: string; confidence: number }> {
   await worker.setParameters({ tessedit_pageseg_mode: psm } as Record<string, string>);
   const result = await worker.recognize(dataUrl);
@@ -221,12 +222,14 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
       const worker = await ensureOcrWorker();
       if (closedRef.current) return;
 
-      // ── Estrategia de OCR: para al superar umbral de confianza ───────────
-      // Orden: adaptive (PSM 6) → otsu (PSM 6) → adaptive (PSM 7) → inverted (PSM 6)
-      const strategies: Array<{ variantIdx: number; psm: '6' | '7'; label: string }> = [
-        { variantIdx: 0, psm: '6', label: 'adaptive PSM 6' },
+      // ── Estrategia de OCR: PSM 4 (columna única) primero — ideal para etiquetas 2 líneas
+      // Orden: PSM 4 (single column) → PSM 3 (auto) → PSM 6 (uniform block) → PSM 7 (single line)
+      const strategies: Array<{ variantIdx: number; psm: '3' | '4' | '6' | '7'; label: string }> = [
+        { variantIdx: 0, psm: '4', label: 'adaptive PSM 4' },
+        { variantIdx: 1, psm: '4', label: 'Otsu PSM 4' },
+        { variantIdx: 0, psm: '3', label: 'adaptive PSM 3' },
         { variantIdx: 1, psm: '6', label: 'Otsu PSM 6' },
-        { variantIdx: 0, psm: '7', label: 'adaptive PSM 7' },
+        { variantIdx: 0, psm: '6', label: 'adaptive PSM 6' },
         { variantIdx: 2, psm: '6', label: 'invertido PSM 6' },
         { variantIdx: 3, psm: '6', label: 'contraste PSM 6' },
         { variantIdx: 1, psm: '7', label: 'Otsu PSM 7' },
@@ -234,11 +237,13 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
 
       let bestText = '';
       let bestConfidence = 0;
-      const progressPerStep = Math.round(75 / strategies.length);
 
-      // Timeout global 22s para todas las estrategias combinadas
+      // Timeout global 28s: 8 estrategias principales + posibles pases regionales
       let timedOut = false;
-      ocrTimeoutRef.current = setTimeout(() => { timedOut = true; }, 22000);
+      ocrTimeoutRef.current = setTimeout(() => { timedOut = true; }, 28000);
+
+      const mainProgressSlice = 65; // 65% del progreso para las estrategias principales
+      const progressPerStep = Math.round(mainProgressSlice / strategies.length);
 
       for (let s = 0; s < strategies.length; s++) {
         if (closedRef.current || timedOut) break;
@@ -256,8 +261,61 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
           bestText = text;
         }
 
-        // Early exit si la confianza es suficientemente alta
         if (bestConfidence >= CONFIDENCE_THRESHOLD) break;
+      }
+
+      // ── Pase dedicado de región inferior para OF ──────────────────────────
+      // Si tras todas las estrategias no se detectó un patrón OF, intentamos
+      // hacer OCR sólo sobre la mitad inferior de la imagen (donde siempre está la OF).
+      const hasOF = /OF\s*\d{2}\s*[-–—]?\s*\d{3,}/i.test(bestText);
+      if (!hasOF && !closedRef.current && !timedOut) {
+        setProgressLabel('Buscando OF en zona inferior...');
+        setProgress(80);
+
+        try {
+          const cropBottom = cropHalfCanvas(crop, 'bottom');
+          const cropTop = cropHalfCanvas(crop, 'top');
+
+          // Zona inferior: variantes optimizadas para línea única (la OF)
+          const bottomVariants = [
+            preprocessSingleLine(cropBottom),
+            preprocessSingleLine(cropTop), // artículo en zona superior
+          ];
+
+          // Pase 1: zona inferior con PSM 7 (single line) — máxima precisión para OF
+          if (!closedRef.current && !timedOut) {
+            _ocr.progressFn = (p) => setProgress(80 + Math.round(p * 8 / 100));
+            const { text: ofText, confidence: ofConf } = await runOcrPass(worker, bottomVariants[0], '7');
+            if (ofText && /OF\s*\d/i.test(ofText)) {
+              // Encontramos OF en zona inferior — combinar con mejor artículo actual
+              const parseResult = parseScanInputLenient(bestText + ' ' + ofText);
+              if (parseResult.success) {
+                bestText = `${parseResult.data.articleCode} // ${parseResult.data.orderFab}`;
+                bestConfidence = Math.max(bestConfidence, ofConf);
+              } else if (ofConf > bestConfidence) {
+                bestText = ofText;
+                bestConfidence = ofConf;
+              }
+            }
+          }
+
+          // Pase 2: zona superior con PSM 7 para artículo (si OF ya encontrada o como refuerzo)
+          if (!closedRef.current && !timedOut) {
+            _ocr.progressFn = (p) => setProgress(88 + Math.round(p * 7 / 100));
+            const { text: artText, confidence: artConf } = await runOcrPass(worker, bottomVariants[1], '7');
+            if (artText && artConf > 20) {
+              // Intentar combinar zona superior (artículo) + zona inferior (OF ya en bestText)
+              const combined = artText + ' ' + bestText;
+              const parseResult = parseScanInputLenient(combined);
+              if (parseResult.success) {
+                bestText = `${parseResult.data.articleCode} // ${parseResult.data.orderFab}`;
+                bestConfidence = Math.max(bestConfidence, artConf);
+              }
+            }
+          }
+        } catch {
+          // pases regionales opcionales — ignorar fallos
+        }
       }
 
       if (ocrTimeoutRef.current) clearTimeout(ocrTimeoutRef.current);
@@ -267,8 +325,14 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
         throw new Error('timeout');
       }
 
+      // Intentar parsear y formatear el texto reconocido antes de mostrarlo al usuario
+      const parseResult = parseScanInputLenient(bestText);
+      const displayText = parseResult.success
+        ? `${parseResult.data.articleCode} // ${parseResult.data.orderFab}`
+        : bestText;
+
       setProgress(100);
-      setOcrText(bestText);
+      setOcrText(displayText);
       setOcrConfidence(Math.round(bestConfidence));
       setPhase('review');
 

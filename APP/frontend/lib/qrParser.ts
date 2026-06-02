@@ -142,19 +142,27 @@ export const parseScanInputLenient = (rawInput: string): ScanParseResult => {
     .replace(/[\r\n\t]+/g, ' ')
     .replace(/\s+/g, ' ')
     .toUpperCase()
-    // Correcciones OCR para "OF" mal reconocido (aplicar ANTES de otros reemplazos)
-    .replace(/\b0F(\d{2}[-\s]\d+)/g, 'OF$1')        // 0F25-07221 → OF25-07221
-    .replace(/\bOF\s+(\d{2})\s+(\d{3,})/g, 'OF$1-$2') // OF 25 07221 → OF25-07221
-    .replace(/\bOF\s+(\d{2})-(\d{3,})/g, 'OF$1-$2') // OF 25-07221 → OF25-07221
-    .replace(/\b0F\s*(\d{2,3})[-\s](\d{3,})/g, 'OF$1-$2') // 0F 25 07221 → OF25-07221
-    .replace(/\bO(\d{2}-\d{3,})/g, 'OF$1')          // O25-07221 → OF25-07221
-    // Correcciones de caracteres individuales
-    .replace(/[|!¡]/g, 'I')                           // | ! ¡ → I
-    .replace(/©/g, 'C')                               // © → C
-    .replace(/®/g, 'R')                               // ® → R
-    // Guiones y separadores confundidos
+    // Guiones y separadores confundidos (aplicar antes de las correcciones OF)
     .replace(/[–—―]/g, '-')
-    .replace(/\s*\/\/?\s*/g, ' // ')                  // / simple → // con espacios
+    // Correcciones OCR para "OF" mal reconocido — orden de más específico a más general
+    .replace(/\b([0O])F\s*(\d)\s*(\d)\s*[-]?\s*(\d{3,})/g, 'OF$2$3-$4') // 0F 2 5-07221 / OF25 07221
+    .replace(/\b0F(\d{2}-\d{3,})/g, 'OF$1')             // 0F25-07221 → OF25-07221 (cero → O)
+    .replace(/\b0F\s*(\d{2,3})[-\s](\d{3,})/g, 'OF$1-$2') // 0F 25 07221 → OF25-07221
+    .replace(/\bOF\s+(\d{2})\s+(\d{3,})/g, 'OF$1-$2')  // OF 25 07221 → OF25-07221
+    .replace(/\bOF\s+(\d{2})-(\d{3,})/g, 'OF$1-$2')    // OF 25-07221 → OF25-07221
+    .replace(/\bOF(\d{2})\s+(\d{3,})/g, 'OF$1-$2')     // OF25 07221 → OF25-07221 (guion faltante)
+    .replace(/\bO(\d{2}-\d{3,})/g, 'OF$1')              // O25-07221 → OF25-07221 (F faltante)
+    // Confusión O↔0 dentro del número de OF: OF25-O7221 → OF25-07221
+    .replace(/\bOF(\d{2})-([0O])(\d{4,})/g, (_, yr, z, rest) => `OF${yr}-0${rest}`)
+    // Dígitos separados en el año de OF: OF 2 5-07221 → OF25-07221
+    .replace(/\bOF\s*(\d)\s*(\d)\s*[-]\s*(\d{3,})/g, 'OF$1$2-$3')
+    // Correcciones de caracteres individuales
+    .replace(/[|!¡]/g, 'I')                             // | ! ¡ → I
+    .replace(/©/g, 'C')                                 // © → C
+    .replace(/®/g, 'R')                                 // ® → R
+    .replace(/\$/g, 'S')                                // $ → S (confusión OCR)
+    .replace(/\b0([A-Z])/g, 'O$1')                     // 0B → OB (0 inicial confundido con O)
+    .replace(/\s*\/\/?\s*/g, ' // ')                    // / simple → // con espacios
     // Colapsar espacios múltiples
     .replace(/\s+/g, ' ')
     .trim();
@@ -198,9 +206,13 @@ export const parseScanInputLenient = (rawInput: string): ScanParseResult => {
 
   // Toma el token más prometedor como código de artículo
   const tokens = cleanedNoLabels.split(/\s+/).filter(Boolean);
-  // Preferir tokens alfanuméricos (letra+número) de longitud razonable
-  let articleCode = tokens.find((t) => /[A-Z].*\d|\d.*[A-Z]/.test(t) && t.length >= 4);
-  if (!articleCode) articleCode = tokens.find((t) => t.length >= 4);
+  // 1º: token alfanumérico (letra+número) más largo — artículos industriales típicos
+  let articleCode = tokens
+    .filter((t) => /[A-Z].*\d|\d.*[A-Z]/.test(t) && t.length >= 4)
+    .sort((a, b) => b.length - a.length)[0];
+  // 2º: token más largo de al menos 4 chars
+  if (!articleCode) articleCode = tokens.filter((t) => t.length >= 4).sort((a, b) => b.length - a.length)[0];
+  // 3º: primer token disponible
   if (!articleCode) articleCode = tokens[0];
 
   if (!articleCode) {

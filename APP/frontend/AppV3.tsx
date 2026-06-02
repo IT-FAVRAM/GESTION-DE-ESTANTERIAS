@@ -18,7 +18,7 @@ import { useInitializeCriticalData } from './hooks/useInitializeCriticalData';
 import type { AdminTab } from './components/admin/adminShared';
 import OfflineIndicator from './components/common/OfflineIndicator';
 import OfflineDebugPanel from './components/common/OfflineDebugPanel';
-import { initPushNotifications, listenForegroundMessages } from './lib/pushService';
+import { initPushNotifications, listenForegroundMessages, refreshTokenOnFocus } from './lib/pushService';
 import { useConnectionMonitor } from './hooks/useConnectionMonitor';
 import AppLoadingScreen from './components/app/AppLoadingScreen';
 import PushToast from './components/app/PushToast';
@@ -94,9 +94,11 @@ const AppV3: React.FC = () => {
     if (!['JEFE_SECCION', 'CALIDAD', 'CARRETILLERO', 'ADMIN', 'SUPERADMIN'].includes(role)) return;
 
     let mounted = true;
-    let cleanup: (() => void) | null = null;
+    let cleanupForeground: (() => void) | null = null;
 
     initPushNotifications().catch(console.warn);
+
+    const cleanupFocus = refreshTokenOnFocus();
 
     listenForegroundMessages((msg) => {
       if (!mounted) return;
@@ -106,7 +108,7 @@ const AppV3: React.FC = () => {
       }
     }).then((unsub) => {
       if (mounted) {
-        cleanup = unsub;
+        cleanupForeground = unsub;
       } else {
         unsub?.();
       }
@@ -114,7 +116,8 @@ const AppV3: React.FC = () => {
 
     return () => {
       mounted = false;
-      cleanup?.();
+      cleanupForeground?.();
+      cleanupFocus();
     };
   }, [isAuthenticated, role, authMethod]);
 

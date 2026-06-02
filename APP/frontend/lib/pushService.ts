@@ -1,9 +1,20 @@
 import { getToken, onMessage, type Messaging } from 'firebase/messaging';
-import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, setDoc, arrayUnion } from 'firebase/firestore';
 import { db, auth, getMessagingInstance } from './firebase';
 import { COLLECTIONS } from './firestoreSchema';
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+
+// Espera a que el service worker esté activo antes de pedir el token FCM.
+// Evita race conditions en navegadores que tardan en registrar el SW.
+async function waitForServiceWorker(): Promise<ServiceWorkerRegistration | undefined> {
+  if (!('serviceWorker' in navigator)) return undefined;
+  try {
+    return await navigator.serviceWorker.ready;
+  } catch {
+    return undefined;
+  }
+}
 
 export const initPushNotifications = async (): Promise<string | null> => {
   try {
@@ -23,7 +34,11 @@ export const initPushNotifications = async (): Promise<string | null> => {
       return null;
     }
 
-    const token = await getToken(messaging, { vapidKey: VAPID_KEY });
+    const swReg = await waitForServiceWorker();
+    const token = await getToken(messaging, {
+      vapidKey: VAPID_KEY,
+      ...(swReg ? { serviceWorkerRegistration: swReg } : {}),
+    });
 
     if (token) {
       console.log('[Push] FCM Token obtained');
@@ -47,12 +62,8 @@ const saveTokenToUser = async (token: string): Promise<void> => {
 
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      await updateDoc(userRef, {
-        fcmTokens: arrayRemove(token),
-      });
-      await updateDoc(userRef, {
-        fcmTokens: arrayUnion(token),
-      });
+      // setDoc con merge crea el doc si no existe y añade el token sin duplicados
+      await setDoc(userRef, { fcmTokens: arrayUnion(token) }, { merge: true });
       return;
     } catch (err) {
       const wait = Math.pow(2, attempt) * 1000;
@@ -64,6 +75,30 @@ const saveTokenToUser = async (token: string): Promise<void> => {
       }
     }
   }
+};
+
+// Refresca el token FCM cuando el usuario vuelve a la app (visibilitychange).
+// Retorna una función de cleanup para cancelar el listener.
+export const refreshTokenOnFocus = (): (() => void) => {
+  const handler = async () => {
+    if (document.visibilityState !== 'visible') return;
+    try {
+      const messaging = await getMessagingInstance();
+      if (!messaging || !VAPID_KEY) return;
+      if (Notification.permission !== 'granted') return;
+      const swReg = await waitForServiceWorker();
+      const token = await getToken(messaging, {
+        vapidKey: VAPID_KEY,
+        ...(swReg ? { serviceWorkerRegistration: swReg } : {}),
+      });
+      if (token) await saveTokenToUser(token);
+    } catch {
+      // refresco silencioso — no crítico
+    }
+  };
+
+  document.addEventListener('visibilitychange', handler);
+  return () => document.removeEventListener('visibilitychange', handler);
 };
 
 export const listenForegroundMessages = async (

@@ -6,7 +6,7 @@
  * Al seleccionar una, muestra su grid.
  */
 
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useShelf } from '../../hooks/useShelf';
 import { useAuth } from '../../hooks/useAuth';
 import ShelfGrid from '../kiosk/ShelfGrid';
@@ -30,14 +30,17 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../lib/firebase';
 import type { LocationItem } from '../../lib/schema/locations';
 
-type NavAction = 'idle' | 'ubicar' | 'retirar' | 'mover' | 'avisar' | 'almacen';
+export type NavAction = 'idle' | 'ubicar' | 'retirar' | 'mover' | 'avisar' | 'almacen';
 
 interface ShelfNavigatorProps {
   /** Si se pasa, bloquea el navegador a ese shelf/carro y oculta el selector de pestañas */
   shelfCode?: string;
+  onActionChange?: (action: NavAction) => void;
+  externalActionTrigger?: NavAction | null;
+  onExternalActionConsumed?: () => void;
 }
 
-const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf }) => {
+const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf, onActionChange, externalActionTrigger, onExternalActionConsumed }) => {
   const [selectedShelf, setSelectedShelf] = useState(lockedShelf ?? SHELF_DEFINITIONS[0]?.code ?? 'MEC');
   const [highlightedSearch, setHighlightedSearch] = useState<string[]>([]);
   const { locations, loading, shelfDef, ubicar, ubicarMulti, retirar, retirarDeUbicacion, mover, findArticle, totalOccupied, totalEmpty, totalArticles } = useShelf(selectedShelf);
@@ -71,6 +74,19 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf 
   // Batch mode — múltiples artículos en la misma ubicación
   const [batchMode, setBatchMode] = useState(false);
   const [batchArticles, setBatchArticles] = useState<Array<{ articleCode: string; orderFab: string }>>([]);
+
+  // Notificar cambios de acción al padre
+  useEffect(() => {
+    onActionChange?.(action);
+  }, [action, onActionChange]);
+
+  // Consumir el trigger externo del padre
+  useEffect(() => {
+    if (externalActionTrigger && externalActionTrigger !== 'idle') {
+      startAction(externalActionTrigger);
+      onExternalActionConsumed?.();
+    }
+  }, [externalActionTrigger, onExternalActionConsumed]);
 
   const resetOperative = () => {
     setAction('idle');
@@ -532,32 +548,6 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf 
           />
         )}
       </div>
-
-      {/* Action buttons */}
-      {action === 'idle' && (
-        <div className="flex-shrink-0 bg-white border-t border-slate-200 px-3 pt-3" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          <div className={`grid gap-2 max-w-2xl mx-auto ${shelfDef?.type === 'cart' ? 'grid-cols-3' : 'grid-cols-4'}`}>
-            <button onClick={() => startAction('ubicar')}
-              className="h-14 rounded-xl bg-emerald-600 text-white font-bold text-sm flex flex-col items-center justify-center active:scale-95 transition-all touch-manipulation">
-              <span>📦</span> UBICAR
-            </button>
-            <button onClick={() => startAction('retirar')}
-              className="h-14 rounded-xl bg-red-600 text-white font-bold text-sm flex flex-col items-center justify-center active:scale-95 transition-all touch-manipulation">
-              <span>📤</span> RETIRAR
-            </button>
-            <button onClick={() => startAction('mover')}
-              className="h-14 rounded-xl bg-blue-600 text-white font-bold text-sm flex flex-col items-center justify-center active:scale-95 transition-all touch-manipulation">
-              <span>🔄</span> MOVER
-            </button>
-            {shelfDef?.type !== 'cart' && (
-              <button onClick={() => startAction('almacen')}
-                className="h-14 rounded-xl bg-purple-600 text-white font-bold text-xs flex flex-col items-center justify-center active:scale-95 transition-all touch-manipulation">
-                <span>🏭</span> ALMACÉN
-              </button>
-            )}
-          </div>
-        </div>
-      )}
 
       <ScanMethodPicker
         open={scanMethodPickerOpen}
