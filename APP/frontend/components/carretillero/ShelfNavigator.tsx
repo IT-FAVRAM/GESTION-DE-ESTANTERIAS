@@ -40,7 +40,7 @@ interface ShelfNavigatorProps {
 const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf }) => {
   const [selectedShelf, setSelectedShelf] = useState(lockedShelf ?? SHELF_DEFINITIONS[0]?.code ?? 'MEC');
   const [highlightedSearch, setHighlightedSearch] = useState<string[]>([]);
-  const { locations, loading, shelfDef, ubicar, retirar, retirarDeUbicacion, mover, findArticle, totalOccupied, totalEmpty, totalArticles } = useShelf(selectedShelf);
+  const { locations, loading, shelfDef, ubicar, ubicarMulti, retirar, retirarDeUbicacion, mover, findArticle, totalOccupied, totalEmpty, totalArticles } = useShelf(selectedShelf);
   const { operarioId, firebaseUser, displayName } = useAuth();
   const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? '';
   const { createPickupRequest } = usePickupQueue();
@@ -228,6 +228,17 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf 
     }
   };
 
+  const handleUbicarMultiConfirm = async () => {
+    if (!scanData || selectedPositions.length === 0) return;
+    setProcessing(true);
+    const ok = selectedPositions.length === 1
+      ? await ubicar(scanData.articleCode, scanData.orderFab, selectedPositions[0], effectiveOperarioId, displayName)
+      : await ubicarMulti(scanData.articleCode, scanData.orderFab, selectedPositions, effectiveOperarioId, displayName);
+    setProcessing(false);
+    if (ok) finishAction('success', `✅ ${scanData.articleCode} ubicado en ${selectedPositions.length} posición(es)`);
+    else finishAction('error', 'Error al ubicar');
+  };
+
   const handleCellPress = (loc: ShelfLocationState) => {
     if (action === 'retirar') {
       if (!loc.isEmpty && loc.items.length > 0) {
@@ -238,20 +249,14 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf 
       return;
     }
     if (action === 'ubicar' && scanData) {
-      setConfirmModal({
-        open: true, title: loc.isEmpty ? 'Confirmar Ubicación' : 'Celda Ocupada',
-        message: loc.isEmpty
-          ? `¿Ubicar ${scanData.articleCode} en posición ${parseInt(loc.position, 10)}?`
-          : `Esta celda tiene ${loc.items.length} artículo(s). ¿Añadir igualmente?`,
-        icon: loc.isEmpty ? '📦' : '⚠️', variant: loc.isEmpty ? 'success' : 'warning',
-        onConfirm: async () => {
-          setProcessing(true); setConfirmModal(p => ({ ...p, open: false }));
-          const ok = await ubicar(scanData.articleCode, scanData.orderFab, loc.position, effectiveOperarioId, displayName);
-          setProcessing(false);
-          if (ok) finishAction('success', '✅ Ubicado');
-          else finishAction('error', 'Error al ubicar');
-        },
-        extraButton: !loc.isEmpty ? { text: 'Elegir otra', onClick: () => setConfirmModal(p => ({ ...p, open: false })) } : undefined,
+      // Warn if occupied but allow selection
+      if (!loc.isEmpty && loc.items.length > 0 && !selectedPositions.includes(loc.position)) {
+        showToast('info', `⚠️ Pos. ${parseInt(loc.position, 10)} ya tiene ${loc.items.length} artículo(s) — se añadirá igualmente`);
+      }
+      // Accumulate positions (tap again to deselect)
+      setSelectedPositions(prev => {
+        if (prev.includes(loc.position)) return prev.filter(p => p !== loc.position);
+        return [...prev, loc.position];
       });
     } else if (action === 'mover' && scanData) {
       const found = findArticle(scanData.articleCode, scanData.orderFab);
@@ -363,10 +368,30 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf 
           moverNeeded={action === 'mover' && !!scanData ? moverNeeded : undefined}
           moverSelected={action === 'mover' ? selectedPositions.length : undefined}
           scannerActive={scannerActive}
-          scanArticle={scanData && action === 'ubicar' ? scanData.articleCode : undefined}
+          scanArticle={scanData && action === 'ubicar' && selectedPositions.length === 0 ? scanData.articleCode : undefined}
           onConfirmMove={handleMoverConfirm}
           onCancel={() => { setAction('idle'); setScanData(null); setSelectedPositions([]); setScannerActive(false); }}
         />
+        {/* Confirm ubicar when positions selected */}
+        {action === 'ubicar' && scanData && selectedPositions.length > 0 && (
+          <div className="mx-3 mt-2 mb-1 px-4 py-3 rounded-2xl bg-emerald-50 border-2 border-emerald-500 flex items-center justify-between gap-3 shadow-md shadow-emerald-100">
+            <div className="min-w-0">
+              <p className="text-sm font-black text-emerald-700 truncate">📦 {scanData.articleCode}</p>
+              <p className="text-xs text-emerald-600 mt-0.5">
+                {selectedPositions.length} posición{selectedPositions.length > 1 ? 'es' : ''}: {selectedPositions.map(p => parseInt(p, 10)).join(', ')}
+                {' · '}
+                <span className="text-slate-400">toca para deseleccionar</span>
+              </p>
+            </div>
+            <button
+              onClick={handleUbicarMultiConfirm}
+              disabled={processing}
+              className="shrink-0 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-sm font-bold rounded-xl disabled:opacity-50 transition-all touch-manipulation"
+            >
+              {processing ? '⏳' : '✓'} Ubicar
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Feedback */}

@@ -471,6 +471,9 @@ const KioskView: React.FC = () => {
 
     if (action === 'ubicar' && scanData && !batchMode) {
       const position = location.position;
+      if (!location.isEmpty && location.items.length > 0 && !selectedPositions.includes(position)) {
+        showToast('info', `⚠️ Pos. ${parseInt(position, 10)} ya tiene ${location.items.length} artículo(s) — se añadirá igualmente`);
+      }
       setSelectedPositions((current) => {
         if (current.includes(position)) return current.filter((value) => value !== position);
         return [...current, position];

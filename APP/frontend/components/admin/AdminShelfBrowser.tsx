@@ -52,6 +52,10 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
   const [showCameraQR, setShowCameraQR] = useState(false);
   const [showCameraOCR, setShowCameraOCR] = useState(false);
   const [scanPickerOpen, setScanPickerOpen] = useState(false);
+  // Manual entry modal (for non-batch mode when 'manual' is selected)
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualArticle, setManualArticle] = useState('');
+  const [manualOf, setManualOf] = useState('');
 
   // Reubicar: clic-clic o arrastrar dentro de la misma estantería
   const [reubicarSource, setReubicarSource] = useState<{ articleCode: string; orderFab: string; position: string } | null>(null);
@@ -102,11 +106,25 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
   const applyScanMethod = (method: ScanMethod) => {
     setScanPickerOpen(false);
     if (method === 'manual') {
-      showFeedback('info', 'Escribe artículo y OF en los campos');
+      setManualArticle('');
+      setManualOf('');
+      setShowManualEntry(true);
       return;
     }
     if (method === 'barcode') setShowCameraQR(true);
     else setShowCameraOCR(true);
+  };
+
+  const confirmManualEntry = () => {
+    const art = manualArticle.trim().toUpperCase();
+    const of = manualOf.trim().toUpperCase();
+    if (!art || !of) return;
+    setArticleInput(art);
+    setOfInput(of);
+    setShowManualEntry(false);
+    setManualArticle('');
+    setManualOf('');
+    showFeedback('success', `✅ ${art} · ${of}`);
   };
 
   const resetAction = useCallback(() => {
@@ -1098,6 +1116,49 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack }) => {
           onResult={(text) => { setShowCameraOCR(false); handleCameraScan(text, true); }}
           onClose={() => setShowCameraOCR(false)}
         />
+      )}
+
+      {/* Manual entry modal */}
+      {showManualEntry && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl p-6 w-full max-w-sm shadow-2xl">
+            <h3 className="text-lg font-black text-slate-900 mb-1">Introducir manualmente</h3>
+            <p className="text-xs text-slate-500 mb-4">Escribe el código de artículo y la OF</p>
+            <input
+              autoFocus
+              type="text"
+              value={manualArticle}
+              onChange={(e) => setManualArticle(e.target.value.toUpperCase())}
+              onKeyDown={(e) => { if (e.key === 'Enter') (document.querySelector('#manual-of-input') as HTMLInputElement)?.focus(); }}
+              placeholder="Código artículo (ej: 12345)"
+              className="w-full border-2 border-slate-200 focus:border-sky-400 rounded-xl px-4 py-3 mb-3 text-slate-900 font-mono text-sm outline-none transition-colors"
+            />
+            <input
+              id="manual-of-input"
+              type="text"
+              value={manualOf}
+              onChange={(e) => setManualOf(e.target.value.toUpperCase())}
+              onKeyDown={(e) => { if (e.key === 'Enter') confirmManualEntry(); }}
+              placeholder="OF (ej: OF26-00657)"
+              className="w-full border-2 border-slate-200 focus:border-sky-400 rounded-xl px-4 py-3 mb-5 text-slate-900 font-mono text-sm outline-none transition-colors"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowManualEntry(false); setManualArticle(''); setManualOf(''); }}
+                className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmManualEntry}
+                disabled={!manualArticle.trim() || !manualOf.trim()}
+                className="flex-[2] py-3 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl disabled:opacity-40 transition-colors active:scale-[0.98]"
+              >
+                ✓ Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
