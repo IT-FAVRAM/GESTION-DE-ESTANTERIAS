@@ -313,7 +313,25 @@ const KioskView: React.FC = () => {
     }
     setProcessing(false);
     if (success) {
-      finishAction('success', `✅ ${scanData.articleCode} ubicado en ${selectedPositions.length} posición(es)`);
+      const { articleCode } = scanData;
+      const posText = selectedPositions.map(p => parseInt(p, 10)).join(', ');
+      setConfirmModal({
+        open: true,
+        title: '✅ Artículo ubicado',
+        message: `${articleCode} ubicado en pos. ${posText}.\n¿Ubicar otro artículo en las mismas posiciones?`,
+        icon: '📦',
+        variant: 'success',
+        confirmText: 'SÍ, ubicar otro',
+        onConfirm: () => {
+          setConfirmModal(p => ({ ...p, open: false }));
+          setScanData(null);
+          setScannerActive(true);
+        },
+        extraButton: {
+          text: 'NO, finalizar',
+          onClick: () => finishAction('success', `✅ ${articleCode} ubicado correctamente`),
+        },
+      });
     } else {
       finishAction('error', `Error al ubicar ${scanData.articleCode}`);
     }
@@ -532,7 +550,26 @@ const KioskView: React.FC = () => {
 
   return (
     <div className="h-dvh w-full bg-sky-50 flex flex-col relative overflow-hidden">
-      <KioskHeader shelfName={shelfDef?.name || ''} shelfCode={shelfCode} totalOccupied={totalOccupied} totalEmpty={totalEmpty} totalArticles={totalArticles} displayName={displayName} operarioId={operarioId} deviceId={deviceId} onLogout={logout} onInfo={() => setShowDeviceInfo(true)} />
+      <KioskHeader
+        shelfName={shelfDef?.name || ''}
+        shelfCode={shelfCode}
+        totalOccupied={totalOccupied}
+        totalEmpty={totalEmpty}
+        totalArticles={totalArticles}
+        displayName={displayName}
+        operarioId={operarioId}
+        deviceId={deviceId}
+        onLogout={logout}
+        onInfo={() => setShowDeviceInfo(true)}
+        actionButtons={showShelf && action === 'idle' ? (
+          <>
+            <button onClick={() => startAction('ubicar')} className="px-1.5 py-1 rounded-lg bg-emerald-600 text-white text-[10px] font-bold active:scale-95 transition-all touch-manipulation whitespace-nowrap">📦 UBICAR</button>
+            <button onClick={() => startAction('retirar')} className="px-1.5 py-1 rounded-lg bg-red-600 text-white text-[10px] font-bold active:scale-95 transition-all touch-manipulation whitespace-nowrap">📤 RETIRAR</button>
+            <button onClick={() => startAction('mover')} className="px-1.5 py-1 rounded-lg bg-blue-600 text-white text-[10px] font-bold active:scale-95 transition-all touch-manipulation whitespace-nowrap">🔄 MOVER</button>
+            <button onClick={() => startAction('avisar')} className="px-1.5 py-1 rounded-lg bg-amber-600 text-white text-[10px] font-bold active:scale-95 transition-all touch-manipulation whitespace-nowrap hidden sm:block">🚚 CARR.</button>
+          </>
+        ) : undefined}
+      />
       {kiosk && shelves.length > 1 && (
         <div className="bg-sky-50 border-b border-slate-200 px-4 py-2 flex justify-center">
           <ShelfSelector shelves={shelves} currentShelf={currentShelf} onSelectShelf={(s) => { if (action !== 'idle') cancelAction(); setCurrentShelf(s); }} />
@@ -639,7 +676,7 @@ const KioskView: React.FC = () => {
            </main>
 
           <KioskCellDetailDrawer selectedCell={selectedCell} onClose={() => setSelectedCell(null)} />
-          <KioskActionButtons action={action} onStartAction={startAction} showShelf={showShelf} />
+          {!showShelf && <KioskActionButtons action={action} onStartAction={startAction} showShelf={false} />}
         </>
       )}
 

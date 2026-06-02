@@ -23,6 +23,7 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../lib/firebase';
 import { findArticleGlobal } from '../../lib/findArticleGlobal';
 import RetirarCellModal from '../kiosk/RetirarCellModal';
+import RetirarArticleList, { type RetirarItem } from '../kiosk/RetirarArticleList';
 import type { LocationItem } from '../../lib/schema/locations';
 
 type AdminAction = 'idle' | 'ubicar' | 'retirar' | 'mover' | 'reubicar' | 'moverSeccion';
@@ -41,6 +42,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
   const [processing, setProcessing] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'info'; msg: string } | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
   const [confirmModal, setConfirmModal] = useState<{
     open: boolean; title: string; message: string; icon: string;
     variant: 'success' | 'danger' | 'warning' | 'info';
@@ -78,6 +80,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
   const [retirarCellItems, setRetirarCellItems] = useState<LocationItem[]>([]);
   const [showRetirarCellModal, setShowRetirarCellModal] = useState(false);
   const [pendingRetirarQueue, setPendingRetirarQueue] = useState<Array<{ position: string; items: LocationItem[] }>>([]);
+  const [showRetirarArticleList, setShowRetirarArticleList] = useState(false);
 
   const { locations, loading, shelfDef, ubicar, ubicarMulti, retirar, retirarDeUbicacion, mover, findArticle, emptyShelf, totalOccupied, totalEmpty, totalArticles } = useShelf(selectedShelf);
   const { operarioId, firebaseUser, displayName } = useAuth();
@@ -143,7 +146,24 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
     setDraggedArticle(null);
     setDragOverPosition(null);
     setPendingRetirarQueue([]);
+    setShowRetirarArticleList(false);
   }, []);
+
+  const handleRetirarArticleListConfirm = useCallback(async (selectedItems: RetirarItem[]) => {
+    setShowRetirarArticleList(false);
+    setProcessing(true);
+    let successCount = 0;
+    for (const item of selectedItems) {
+      const result = await retirarDeUbicacion(item.articleCode, item.orderFab, item.position, effectiveOperarioId, displayName);
+      if (result.success) successCount++;
+    }
+    setProcessing(false);
+    if (successCount === selectedItems.length)
+      showFeedback('success', `✅ ${selectedItems.length} artículo${selectedItems.length !== 1 ? 's' : ''} retirado${selectedItems.length !== 1 ? 's' : ''} de ${selectedShelf}`);
+    else
+      showFeedback('error', `Parcial: ${successCount}/${selectedItems.length} retirados`);
+    resetAction();
+  }, [retirarDeUbicacion, effectiveOperarioId, displayName, showFeedback, selectedShelf, resetAction]);
 
   const startAction = useCallback(async (act: AdminAction) => {
     const article = articleInput.trim();
@@ -192,6 +212,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
       setAction('retirar');
       setFeedback(null);
       setSelectedPositions([]);
+      setShowRetirarArticleList(true);
       return;
     }
 
@@ -488,11 +509,30 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
       }
       setProcessing(false);
       if (success) {
-        showFeedback('success', `✅ ${article} ubicado en ${selectedPositions.length} posición(es)`);
+        const posText = selectedPositions.map(p => parseInt(p, 10)).join(', ');
+        setConfirmModal({
+          open: true,
+          title: '✅ Artículo ubicado',
+          message: `${article} ubicado en pos. ${posText}.\n¿Ubicar otro artículo en las mismas posiciones?`,
+          icon: '📦',
+          variant: 'success',
+          confirmText: 'SÍ, ubicar otro',
+          onConfirm: () => {
+            setConfirmModal(p => ({ ...p, open: false }));
+            setArticleInput('');
+            setOfInput('');
+          },
+          extraButton: {
+            text: 'NO, finalizar',
+            onClick: () => {
+              showFeedback('success', `✅ ${article} ubicado correctamente`);
+              resetAction();
+            },
+          },
+        });
       } else {
         showFeedback('error', `Error al ubicar ${article}`);
       }
-      resetAction();
     };
 
     const occupiedPositions = selectedPositions.filter((pos) => {
@@ -688,68 +728,62 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
                 className="px-2 py-1 bg-red-50 text-red-600 border border-red-200 rounded-lg font-bold hover:bg-red-100 disabled:opacity-40 transition-colors whitespace-nowrap">
                 🗑️ Vaciar
               </button>
+              {action === 'idle' && (
+                <>
+                  <button onClick={() => startAction('ubicar')} className="px-2 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-500 transition-colors whitespace-nowrap">📦 Ubicar</button>
+                  <button onClick={() => startAction('retirar')} className="px-2 py-1 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-500 transition-colors whitespace-nowrap">📤 Retirar</button>
+                  <button onClick={() => startAction('reubicar')} className="px-2 py-1 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-500 transition-colors whitespace-nowrap">🔁 Reubic.</button>
+                  <button onClick={startMoverSeccion} className="px-2 py-1 bg-violet-600 text-white rounded-lg text-xs font-bold hover:bg-violet-500 transition-colors whitespace-nowrap hidden sm:flex">🚀 Mover§</button>
+                </>
+              )}
             </div>
           </>
         )}
       </header>
 
-       {/* Shelf tabs */}
-       <div className="flex-shrink-0 overflow-x-auto bg-sky-50 border-b border-slate-200 px-2">
-          <div className="flex gap-1 p-1">
-            {ALL_SHELVES.map((shelf) => (
-              <button
-                key={shelf.code}
-                onClick={() => {
-                  setSelectedShelf(shelf.code);
-                  setHighlightedPositions([]);
-                  resetAction();
-                }}
-                className={`px-3 py-2 text-sm font-semibold transition-colors rounded-lg
-                  ${selectedShelf === shelf.code
-                    ? 'bg-sky-500 text-white shadow-sm'
-                    : 'text-slate-600 hover:bg-white hover:text-slate-800'}
-                `}>
-                {shelf.name}
-              </button>
-            ))}
-          </div>
-        </div>
+      {/* Row-level wrapper: sidebar + main content */}
+      <div className="flex flex-row flex-1 min-h-0 overflow-hidden">
+        {/* SIDEBAR */}
+        {!gridFocused && (
+          <aside className={`flex-shrink-0 bg-white border-r border-slate-200 flex flex-col overflow-hidden transition-all duration-200 ${sidebarOpen ? 'w-44 sm:w-48' : 'w-10'}`}>
+            {/* Toggle button */}
+            <button onClick={() => setSidebarOpen(o => !o)}
+              className="flex-shrink-0 h-10 w-full flex items-center justify-center border-b border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors text-slate-500 font-bold text-lg">
+              {sidebarOpen ? '‹' : '›'}
+            </button>
 
-      {/* Manual operations panel — hidden in grid focus mode */}
+            {/* Shelf list — only when open */}
+            {sidebarOpen && (
+              <div className="flex-1 overflow-y-auto [scrollbar-width:thin]">
+                <p className="px-3 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">Estanterías</p>
+                {SHELF_DEFINITIONS.map(shelf => (
+                  <button key={shelf.code} onClick={() => { setSelectedShelf(shelf.code); setHighlightedPositions([]); resetAction(); }}
+                    className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors truncate ${selectedShelf === shelf.code ? 'bg-sky-500 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+                    {shelf.name}
+                  </button>
+                ))}
+                <p className="px-3 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">Carros</p>
+                {CART_DEFINITIONS.map(shelf => (
+                  <button key={shelf.code} onClick={() => { setSelectedShelf(shelf.code); setHighlightedPositions([]); resetAction(); }}
+                    className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors truncate ${selectedShelf === shelf.code ? 'bg-emerald-500 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+                    🛒 {shelf.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </aside>
+        )}
+
+        {/* MAIN CONTENT AREA */}
+        <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+          {/* Manual operations panel — hidden in grid focus mode */}
       <div className={`px-4 pt-3 pb-2 ${gridFocused ? 'hidden' : ''}`}>
         <div className="bg-white border border-slate-200 rounded-2xl p-3 space-y-2.5 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
             Operativa — {displayName}
           </p>
 
-          {action === 'idle' ? (
-            <div className="flex gap-2 flex-wrap">
-              <button
-                onClick={() => startAction('ubicar')}
-                className="flex-1 h-14 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm active:scale-95 transition-all flex flex-col items-center justify-center"
-              >
-                <span>📦</span> UBICAR
-              </button>
-              <button
-                onClick={() => startAction('retirar')}
-                className="flex-1 h-14 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm active:scale-95 transition-all flex flex-col items-center justify-center"
-              >
-                <span>📤</span> RETIRAR
-              </button>
-              <button
-                onClick={() => startAction('reubicar')}
-                className="flex-1 h-14 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm active:scale-95 transition-all flex flex-col items-center justify-center"
-              >
-                <span>🔁</span> REUBICAR
-              </button>
-              <button
-                onClick={startMoverSeccion}
-                className="flex-1 h-14 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs active:scale-95 transition-all flex flex-col items-center justify-center"
-              >
-                <span>🚀</span> MOVER SECC.
-              </button>
-            </div>
-          ) : action === 'moverSeccion' ? (
+          {action === 'moverSeccion' ? (
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold px-2 py-1 rounded-lg bg-violet-500/20 text-violet-300">
@@ -1018,28 +1052,30 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
         </div>
       )}
 
-      {/* Grid — scroll vertical; cada bloque gestiona su scroll horizontal */}
-      <div className="flex-1 min-h-0 min-w-0 w-full overflow-y-auto overscroll-contain p-2 sm:p-4 pt-0 [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
-        {loading ? (
-          <div className="flex items-center justify-center h-40">
-            <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+          {/* Grid — scroll vertical; cada bloque gestiona su scroll horizontal */}
+          <div className="flex-1 min-h-0 min-w-0 w-full overflow-y-auto overscroll-contain p-2 sm:p-4 pt-0 [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
+            {loading ? (
+              <div className="flex items-center justify-center h-40">
+                <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <ShelfGrid
+                locations={locations}
+                shelfDef={shelfDef}
+                onCellPress={action !== 'idle' && action !== 'moverSeccion' ? handleCellPress : undefined}
+                selectedPositions={selectedPositions}
+                highlightedPositions={[...highlightedPositions, ...foundPositions]}
+                dragOverPosition={dragOverPosition}
+                compact={false}
+                fullscreenMode={true}
+                onCellDragStart={handleDragStart}
+                onCellDragEnter={handleDragEnter}
+                onCellDragLeave={handleDragLeave}
+                onCellDrop={handleDrop}
+              />
+            )}
           </div>
-        ) : (
-          <ShelfGrid
-            locations={locations}
-            shelfDef={shelfDef}
-            onCellPress={action !== 'idle' && action !== 'moverSeccion' ? handleCellPress : undefined}
-            selectedPositions={selectedPositions}
-            highlightedPositions={[...highlightedPositions, ...foundPositions]}
-            dragOverPosition={dragOverPosition}
-            compact={false}
-            fullscreenMode={true}
-            onCellDragStart={handleDragStart}
-            onCellDragEnter={handleDragEnter}
-            onCellDragLeave={handleDragLeave}
-            onCellDrop={handleDrop}
-          />
-        )}
+        </div>
       </div>
 
       <ConfirmationModal
@@ -1062,6 +1098,15 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
         onClose={() => setShowRetirarCellModal(false)}
         loading={processing}
       />
+
+      {showRetirarArticleList && (
+        <RetirarArticleList
+          locations={locations}
+          shelfCode={selectedShelf}
+          onConfirm={handleRetirarArticleListConfirm}
+          onClose={() => { setShowRetirarArticleList(false); resetAction(); }}
+        />
+      )}
 
       <ScanMethodPicker
         open={scanPickerOpen}

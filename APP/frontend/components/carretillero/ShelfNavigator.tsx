@@ -25,6 +25,7 @@ import { usePickupQueue } from '../../hooks/usePickupQueue';
 import ShelfNavigatorTabs from './ShelfNavigatorTabs';
 import ShelfNavigatorStatus from './ShelfNavigatorStatus';
 import RetirarCellModal from '../kiosk/RetirarCellModal';
+import RetirarArticleList, { type RetirarItem } from '../kiosk/RetirarArticleList';
 import MoverArticleList from '../kiosk/MoverArticleList';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../lib/firebase';
@@ -71,9 +72,15 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
   const [showRetirarCellModal, setShowRetirarCellModal] = useState(false);
   const [pendingRetirarQueue, setPendingRetirarQueue] = useState<Array<{ position: string; items: LocationItem[] }>>([]);
   const [showMoverArticleList, setShowMoverArticleList] = useState(false);
+  const [showRetirarArticleList, setShowRetirarArticleList] = useState(false);
   // Batch mode — múltiples artículos en la misma ubicación
   const [batchMode, setBatchMode] = useState(false);
   const [batchArticles, setBatchArticles] = useState<Array<{ articleCode: string; orderFab: string }>>([]);
+  // Multi-estantería — mismo artículo en varias secciones
+  const [additionalShelfPositions, setAdditionalShelfPositions] = useState<Array<{ shelfCode: string; shelfName: string; positions: string[] }>>([]);
+  const [showAddShelfModal, setShowAddShelfModal] = useState(false);
+  const [addShelfCode, setAddShelfCode] = useState('');
+  const [addShelfPositionText, setAddShelfPositionText] = useState('');
 
   // Notificar cambios de acción al padre
   useEffect(() => {
@@ -95,8 +102,11 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
     setScannerActive(false);
     setPendingRetirarQueue([]);
     setShowMoverArticleList(false);
+    setShowRetirarArticleList(false);
     setBatchMode(false);
     setBatchArticles([]);
+    setAdditionalShelfPositions([]);
+    setShowAddShelfModal(false);
   };
 
   const showToast = (type: 'success' | 'error' | 'info', msg: string, ms = 2500) => {
@@ -155,15 +165,35 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
       });
       return;
     }
+    if (act === 'retirar') {
+      setAction('retirar');
+      setShowRetirarArticleList(true);
+      return;
+    }
     if (act === 'mover') {
       setAction('mover');
       setShowMoverArticleList(true);
       return;
     }
-    
+
     setPendingAction(act);
     setScanMethodPickerOpen(true);
   };
+
+  const handleRetirarArticleListConfirm = useCallback(async (selectedItems: RetirarItem[]) => {
+    setShowRetirarArticleList(false);
+    setProcessing(true);
+    let successCount = 0;
+    for (const item of selectedItems) {
+      const result = await retirarDeUbicacion(item.articleCode, item.orderFab, item.position, effectiveOperarioId, displayName);
+      if (result.success) successCount++;
+    }
+    setProcessing(false);
+    if (successCount === selectedItems.length)
+      finishAction('success', `✅ ${selectedItems.length} artículo${selectedItems.length !== 1 ? 's' : ''} retirado${selectedItems.length !== 1 ? 's' : ''}`);
+    else
+      finishAction('error', `Parcial: ${successCount}/${selectedItems.length} retirados`);
+  }, [retirarDeUbicacion, effectiveOperarioId, displayName, finishAction]);
 
   const handleUbicarBatchConfirm = async () => {
     if (selectedPositions.length === 0 || batchArticles.length === 0) return;
@@ -296,12 +326,60 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
   const handleUbicarMultiConfirm = async () => {
     if (!scanData || selectedPositions.length === 0) return;
     setProcessing(true);
+    setShowAddShelfModal(false);
+    const { articleCode, orderFab } = scanData;
+
+    // Ubicar en la estantería actual
     const ok = selectedPositions.length === 1
-      ? await ubicar(scanData.articleCode, scanData.orderFab, selectedPositions[0], effectiveOperarioId, displayName)
-      : await ubicarMulti(scanData.articleCode, scanData.orderFab, selectedPositions, effectiveOperarioId, displayName);
+      ? await ubicar(articleCode, orderFab, selectedPositions[0], effectiveOperarioId, displayName)
+      : await ubicarMulti(articleCode, orderFab, selectedPositions, effectiveOperarioId, displayName);
+
+    // Ubicar en estanterías adicionales (artículo grande multi-sección)
+    if (ok && additionalShelfPositions.length > 0) {
+      const fn = httpsCallable(functions, 'shelfOperate');
+      for (const extra of additionalShelfPositions) {
+        try {
+          await fn({
+            op: extra.positions.length === 1 ? 'ubicar' : 'ubicarMulti',
+            payload: {
+              articleCode, orderFab,
+              shelfCode: extra.shelfCode,
+              position: extra.positions[0],
+              positions: extra.positions,
+            },
+            session: { operarioId: effectiveOperarioId, operarioName: displayName },
+          });
+        } catch { /* error individual por sección — continúa */ }
+      }
+    }
+
     setProcessing(false);
-    if (ok) finishAction('success', `✅ ${scanData.articleCode} ubicado en ${selectedPositions.length} posición(es)`);
-    else finishAction('error', 'Error al ubicar');
+    if (ok) {
+      const allShelves = [
+        `${selectedShelf}: pos. ${selectedPositions.map(p => parseInt(p, 10)).join(', ')}`,
+        ...additionalShelfPositions.map(e => `${e.shelfName}: pos. ${e.positions.map(p => parseInt(p, 10)).join(', ')}`),
+      ].join(' · ');
+      setAdditionalShelfPositions([]);
+      setConfirmModal({
+        open: true,
+        title: '✅ Artículo ubicado',
+        message: `${articleCode} ubicado en ${allShelves}.\n¿Ubicar otro artículo en las mismas posiciones?`,
+        icon: '📦',
+        variant: 'success',
+        confirmText: 'SÍ, ubicar otro',
+        onConfirm: () => {
+          setConfirmModal(p => ({ ...p, open: false }));
+          setScanData(null);
+          setScannerActive(true);
+        },
+        extraButton: {
+          text: 'NO, finalizar',
+          onClick: () => finishAction('success', `✅ ${articleCode} ubicado correctamente`),
+        },
+      });
+    } else {
+      finishAction('error', 'Error al ubicar');
+    }
   };
 
   const handleCellPress = (loc: ShelfLocationState) => {
@@ -450,22 +528,93 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
         />
         {/* Confirm ubicar when positions selected */}
         {action === 'ubicar' && scanData && selectedPositions.length > 0 && (
-          <div className="mx-3 mt-2 mb-1 px-4 py-3 rounded-2xl bg-emerald-50 border-2 border-emerald-500 flex items-center justify-between gap-3 shadow-md shadow-emerald-100">
-            <div className="min-w-0">
-              <p className="text-sm font-black text-emerald-700 truncate">📦 {scanData.articleCode}</p>
-              <p className="text-xs text-emerald-600 mt-0.5">
-                {selectedPositions.length} posición{selectedPositions.length > 1 ? 'es' : ''}: {selectedPositions.map(p => parseInt(p, 10)).join(', ')}
-                {' · '}
-                <span className="text-slate-400">toca para deseleccionar</span>
-              </p>
+          <div className="mx-3 mt-2 mb-1 px-4 py-3 rounded-2xl bg-emerald-50 border-2 border-emerald-500 shadow-md shadow-emerald-100">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-black text-emerald-700 truncate">📦 {scanData.articleCode}</p>
+                <p className="text-xs text-emerald-600 mt-0.5">
+                  {selectedShelf}: pos. {selectedPositions.map(p => parseInt(p, 10)).join(', ')}
+                  {additionalShelfPositions.map(e => (
+                    <span key={e.shelfCode} className="ml-1 text-blue-600">· {e.shelfName}: pos. {e.positions.map(p => parseInt(p, 10)).join(', ')}</span>
+                  ))}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => { setAddShelfCode(''); setAddShelfPositionText(''); setShowAddShelfModal(true); }}
+                  disabled={processing}
+                  className="px-3 py-2 bg-blue-100 hover:bg-blue-200 active:scale-95 text-blue-700 text-xs font-bold rounded-xl disabled:opacity-50 transition-all touch-manipulation"
+                >
+                  ➕ Otra sección
+                </button>
+                <button
+                  onClick={handleUbicarMultiConfirm}
+                  disabled={processing}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-sm font-bold rounded-xl disabled:opacity-50 transition-all touch-manipulation"
+                >
+                  {processing ? '⏳' : '✓'} Ubicar
+                </button>
+              </div>
             </div>
-            <button
-              onClick={handleUbicarMultiConfirm}
-              disabled={processing}
-              className="shrink-0 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-sm font-bold rounded-xl disabled:opacity-50 transition-all touch-manipulation"
-            >
-              {processing ? '⏳' : '✓'} Ubicar
-            </button>
+          </div>
+        )}
+
+        {/* Modal: añadir posición en otra estantería */}
+        {showAddShelfModal && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowAddShelfModal(false)}>
+            <div className="w-full max-w-md bg-white rounded-t-3xl p-6 space-y-4" onClick={e => e.stopPropagation()}>
+              <h3 className="text-lg font-black text-slate-900">➕ Añadir posición en otra sección</h3>
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Sección</label>
+                <select
+                  value={addShelfCode}
+                  onChange={e => setAddShelfCode(e.target.value)}
+                  className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-medium bg-white"
+                >
+                  <option value="">— Selecciona sección —</option>
+                  {ALL_SHELVES.filter(s => s.code !== selectedShelf).map(s => (
+                    <option key={s.code} value={s.code}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Posiciones (ej: 5 o 3,4,5)</label>
+                <input
+                  type="text"
+                  value={addShelfPositionText}
+                  onChange={e => setAddShelfPositionText(e.target.value)}
+                  placeholder="3 ó 3,4,5"
+                  className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-mono bg-white"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setShowAddShelfModal(false)} className="flex-1 py-3 rounded-2xl bg-slate-100 text-slate-700 font-bold text-sm">Cancelar</button>
+                <button
+                  onClick={() => {
+                    if (!addShelfCode || !addShelfPositionText.trim()) return;
+                    const parsedPositions = addShelfPositionText.split(',')
+                      .map(p => parseInt(p.trim(), 10))
+                      .filter(n => !isNaN(n) && n > 0)
+                      .map(n => String(n).padStart(3, '0'));
+                    if (parsedPositions.length === 0) return;
+                    const shelfName = ALL_SHELVES.find(s => s.code === addShelfCode)?.name ?? addShelfCode;
+                    setAdditionalShelfPositions(prev => {
+                      const existing = prev.findIndex(e => e.shelfCode === addShelfCode);
+                      if (existing >= 0) {
+                        const next = [...prev];
+                        next[existing] = { shelfCode: addShelfCode, shelfName, positions: parsedPositions };
+                        return next;
+                      }
+                      return [...prev, { shelfCode: addShelfCode, shelfName, positions: parsedPositions }];
+                    });
+                    setShowAddShelfModal(false);
+                  }}
+                  className="flex-1 py-3 rounded-2xl bg-blue-600 text-white font-bold text-sm active:scale-95"
+                >
+                  ✓ Añadir
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -589,6 +738,15 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
           shelfCode={selectedShelf}
           onSelect={handleMoverSelectArticle}
           onClose={() => { setShowMoverArticleList(false); resetOperative(); }}
+        />
+      )}
+
+      {showRetirarArticleList && (
+        <RetirarArticleList
+          locations={locations}
+          shelfCode={selectedShelf}
+          onConfirm={handleRetirarArticleListConfirm}
+          onClose={() => { setShowRetirarArticleList(false); resetOperative(); }}
         />
       )}
 
