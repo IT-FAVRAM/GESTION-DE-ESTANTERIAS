@@ -21,7 +21,7 @@ const CARRETILLEROS = [
 const CarretilleroLogin: React.FC<CarretilleroLoginProps> = ({ onSuccess, onBack }) => {
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

@@ -35,7 +35,27 @@ export const writeGuestSession = (session: unknown): void => {
   notifyAuthSessionChanged();
 };
 
+// IDs de dispositivos kiosko fijos (registrados en Firebase/dispositivos).
+// Si el URL contiene ?kiosko=prensas, se restaura este ID aunque el localStorage
+// se haya limpiado. El marcador del ordenador kiosko debe incluir este parámetro.
+const KIOSK_URL_TO_DEVICE_ID: Record<string, string> = {
+  prensas:    'device_178031040273_3vj0pn',
+  mecanizado: 'device_1780310509115_ow9t6y',
+};
+
 export const getOrCreateDeviceId = (): string => {
+  // Si la URL incluye ?kiosko=XXX, restaurar el ID fijo en localStorage.
+  if (typeof window !== 'undefined') {
+    const kiosko = new URLSearchParams(window.location.search).get('kiosko');
+    if (kiosko) {
+      const fixedId = KIOSK_URL_TO_DEVICE_ID[kiosko.toLowerCase()];
+      if (fixedId) {
+        localStorage.setItem(AUTH_STORAGE_KEYS.DEVICE_ID, fixedId);
+        return fixedId;
+      }
+    }
+  }
+
   let id = localStorage.getItem(AUTH_STORAGE_KEYS.DEVICE_ID);
   if (!id) {
     id = `device_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
