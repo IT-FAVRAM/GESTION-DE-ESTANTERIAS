@@ -154,6 +154,15 @@ const PickupQueue: React.FC = () => {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
 
+  // Derivar dos arrays filtrados: Recogidas (RECOGER) y Traídas (TRAER)
+  const recogidasPending = groupedPending
+    .map(g => ({ ...g, requests: g.requests.filter(r => r.requestType === 'RECOGER') }))
+    .filter(g => g.requests.length > 0);
+
+  const trairadasPending = groupedPending
+    .map(g => ({ ...g, requests: g.requests.filter(r => r.requestType === 'TRAER') }))
+    .filter(g => g.requests.length > 0);
+
   const handleComplete = async (requestId: string) => {
     if (processingId || !firebaseUser) return;
     setProcessingId(requestId);
@@ -171,25 +180,69 @@ const PickupQueue: React.FC = () => {
 
   return (
     <div className="p-4 pb-20 space-y-6">
-      {/* Pending */}
+      {/* Sub-sección: RECOGIDAS */}
       <div>
         <h2 className="text-lg font-black text-white flex items-center gap-2 mb-4">
-          📦 Solicitudes Pendientes
-          {pendingCount > 0 && (
-            <span className="px-2 py-0.5 bg-red-500 text-white text-sm font-bold rounded-full">
-              {pendingCount}
+          🔔 Recogidas
+          {recogidasPending.reduce((n, g) => n + g.requests.length, 0) > 0 && (
+            <span className="px-2 py-0.5 bg-orange-500 text-white text-sm font-bold rounded-full">
+              {recogidasPending.reduce((n, g) => n + g.requests.length, 0)}
             </span>
           )}
         </h2>
 
-        {groupedPending.length === 0 ? (
+        {recogidasPending.length === 0 ? (
           <div className="text-center py-12 bg-slate-900/50 rounded-2xl border border-slate-800">
-            <span className="text-4xl mb-3 block">👍</span>
-            <p className="text-slate-400 font-medium">No hay solicitudes pendientes</p>
+            <span className="text-4xl mb-3 block">✅</span>
+            <p className="text-slate-400 font-medium">Sin recogidas pendientes</p>
           </div>
         ) : (
           <div className="space-y-6">
-            {groupedPending.map((group) => (
+            {recogidasPending.map((group) => (
+              <div key={group.section}>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="h-px flex-1 bg-slate-800" />
+                  <span className="text-xs font-black text-slate-400 uppercase tracking-wider">
+                    {group.sectionName}
+                  </span>
+                  <span className="text-xs text-slate-600">({group.requests.length})</span>
+                  <div className="h-px flex-1 bg-slate-800" />
+                </div>
+                <div className="space-y-2">
+                  {group.requests.map((req) => (
+                    <RequestCard
+                      key={req.id}
+                      req={req}
+                      onComplete={handleComplete}
+                      processingId={processingId}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Sub-sección: TRAÍDAS */}
+      <div className="border-t border-slate-700 pt-6">
+        <h2 className="text-lg font-black text-white flex items-center gap-2 mb-4">
+          📦 Traídas
+          {trairadasPending.reduce((n, g) => n + g.requests.length, 0) > 0 && (
+            <span className="px-2 py-0.5 bg-blue-500 text-white text-sm font-bold rounded-full">
+              {trairadasPending.reduce((n, g) => n + g.requests.length, 0)}
+            </span>
+          )}
+        </h2>
+
+        {trairadasPending.length === 0 ? (
+          <div className="text-center py-12 bg-slate-900/50 rounded-2xl border border-slate-800">
+            <span className="text-4xl mb-3 block">✅</span>
+            <p className="text-slate-400 font-medium">Sin solicitudes de traída pendientes</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {trairadasPending.map((group) => (
               <div key={group.section}>
                 <div className="flex items-center gap-2 mb-3">
                   <div className="h-px flex-1 bg-slate-800" />

@@ -715,12 +715,12 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
             </div>
             {/* Row 2: stats + action buttons */}
             <div className="flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-lg font-bold whitespace-nowrap">{totalOccupied} ocup.</span>
-              <span className="bg-slate-100 text-slate-600 border border-slate-200 px-2 py-1 rounded-lg font-bold whitespace-nowrap">{totalEmpty} vacías</span>
-              <span className="bg-sky-50 text-sky-700 border border-sky-200 px-2 py-1 rounded-lg font-bold whitespace-nowrap">{totalArticles} art.</span>
+              <span className="hidden sm:inline-flex bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-lg font-bold whitespace-nowrap">{totalOccupied} ocup.</span>
+              <span className="hidden sm:inline-flex bg-slate-100 text-slate-600 border border-slate-200 px-2 py-1 rounded-lg font-bold whitespace-nowrap">{totalEmpty} vacías</span>
+              <span className="hidden sm:inline-flex bg-sky-50 text-sky-700 border border-sky-200 px-2 py-1 rounded-lg font-bold whitespace-nowrap">{totalArticles} art.</span>
               {onOpenCarros && (
                 <button onClick={onOpenCarros} title="Ir a Carros"
-                  className="px-2 py-1 bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-lg font-bold hover:bg-emerald-200 transition-colors whitespace-nowrap">
+                  className="hidden sm:inline-flex px-2 py-1 bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-lg font-bold hover:bg-emerald-200 transition-colors whitespace-nowrap">
                   🛒 Carros
                 </button>
               )}
@@ -745,10 +745,10 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
       <div className="flex flex-row flex-1 min-h-0 overflow-hidden">
         {/* SIDEBAR */}
         {!gridFocused && (
-          <aside className={`flex-shrink-0 bg-white border-r border-slate-200 flex flex-col overflow-hidden transition-all duration-200 ${sidebarOpen ? 'w-44 sm:w-48' : 'w-10'}`}>
+          <aside className={`flex-shrink-0 bg-slate-100 border-r border-slate-200 flex flex-col overflow-hidden transition-all duration-200 ${sidebarOpen ? 'w-44 sm:w-48' : 'w-10'}`}>
             {/* Toggle button */}
             <button onClick={() => setSidebarOpen(o => !o)}
-              className="flex-shrink-0 h-10 w-full flex items-center justify-center border-b border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors text-slate-500 font-bold text-lg">
+              className="flex-shrink-0 h-10 w-full flex items-center justify-center border-b border-slate-200 bg-slate-100 hover:bg-slate-200 transition-colors text-slate-500 font-bold text-lg">
               {sidebarOpen ? '‹' : '›'}
             </button>
 
@@ -777,7 +777,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
         {/* MAIN CONTENT AREA */}
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
           {/* Manual operations panel — hidden in grid focus mode */}
-      <div className={`px-4 pt-3 pb-2 ${gridFocused ? 'hidden' : ''}`}>
+      <div className={`px-4 pt-3 pb-2 ${gridFocused ? 'hidden' : ''} ${action === 'idle' ? 'hidden sm:block' : ''}`}>
         <div className="bg-white border border-slate-200 rounded-2xl p-3 space-y-2.5 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
             Operativa — {displayName}

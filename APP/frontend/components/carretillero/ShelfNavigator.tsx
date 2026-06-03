@@ -39,9 +39,11 @@ interface ShelfNavigatorProps {
   onActionChange?: (action: NavAction) => void;
   externalActionTrigger?: NavAction | null;
   onExternalActionConsumed?: () => void;
+  externalShelfTrigger?: string | null;
+  onExternalShelfConsumed?: () => void;
 }
 
-const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf, onActionChange, externalActionTrigger, onExternalActionConsumed }) => {
+const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf, onActionChange, externalActionTrigger, onExternalActionConsumed, externalShelfTrigger, onExternalShelfConsumed }) => {
   const [selectedShelf, setSelectedShelf] = useState(lockedShelf ?? SHELF_DEFINITIONS[0]?.code ?? 'MEC');
   const [highlightedSearch, setHighlightedSearch] = useState<string[]>([]);
   const { locations, loading, shelfDef, ubicar, ubicarMulti, retirar, retirarDeUbicacion, mover, findArticle, totalOccupied, totalEmpty, totalArticles } = useShelf(selectedShelf);
@@ -94,6 +96,15 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
       onExternalActionConsumed?.();
     }
   }, [externalActionTrigger, onExternalActionConsumed]);
+
+  // Consumir cambio externo de estantería desde sidebar
+  useEffect(() => {
+    if (externalShelfTrigger) {
+      setSelectedShelf(externalShelfTrigger);
+      resetOperative();
+      onExternalShelfConsumed?.();
+    }
+  }, [externalShelfTrigger, onExternalShelfConsumed]);
 
   const resetOperative = () => {
     setAction('idle');
