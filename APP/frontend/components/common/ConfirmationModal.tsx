@@ -147,8 +147,9 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="w-full h-12 rounded-xl text-base font-bold text-slate-400 
-              hover:text-slate-600 hover:bg-slate-100 transition-all disabled:opacity-50"
+            className="w-full h-12 rounded-xl text-base font-bold text-slate-600 hover:text-slate-800
+              bg-slate-100 hover:bg-slate-200 border border-slate-200 hover:border-slate-300
+              transition-all active:scale-[0.98] disabled:opacity-50"
           >
             {cancelText}
           </button>

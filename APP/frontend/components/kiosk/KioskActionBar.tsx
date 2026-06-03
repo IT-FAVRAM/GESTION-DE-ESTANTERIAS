@@ -61,7 +61,7 @@ const KioskActionBar: React.FC<KioskActionBarProps> = ({ action, scanData, scann
               Necesitas {neededPositions} posiciones
             </span>
           )}
-          <button onClick={onCancel} className="px-4 py-2 bg-slate-700 text-slate-300 text-sm font-bold rounded-xl active:scale-95">✕ Cancelar</button>
+          <button onClick={onCancel} className="px-4 py-2 bg-slate-600 hover:bg-slate-500 text-slate-200 hover:text-white text-sm font-bold rounded-xl border border-slate-500 active:scale-95 transition-all">✕ Cancelar</button>
         </div>
       </div>
     </div>

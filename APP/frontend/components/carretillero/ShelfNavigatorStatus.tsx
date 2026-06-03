@@ -44,7 +44,7 @@ const ShelfNavigatorStatus: React.FC<ShelfNavigatorStatusProps> = ({
                   CONFIRMAR
                 </button>
               )}
-              <button onClick={onCancel} className="px-3 py-1.5 bg-slate-200 text-slate-700 text-xs font-bold rounded-lg active:scale-95">
+              <button onClick={onCancel} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 hover:text-slate-900 text-xs font-bold rounded-lg border border-slate-300 hover:border-slate-400 active:scale-95 transition-all">
                 ✕ Cancelar
               </button>
             </div>
