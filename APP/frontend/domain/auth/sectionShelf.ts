@@ -5,6 +5,7 @@ export const SECTION_TO_SHELF: Partial<Record<WarehouseSection, string>> = {
   MECANIZADO: 'MEC',
   PRENSAS: 'PRE',
   PLEGADORA: 'PLE',
+  PUNZONADO: 'PLE',  // la punzonadora está en la sección de Plegado
   SOLDADURA: 'SOL',
   AUTOPLEGADORA: 'RPL',
   REPASADO: 'REP',

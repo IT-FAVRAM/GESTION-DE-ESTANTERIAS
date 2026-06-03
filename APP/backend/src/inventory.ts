@@ -571,6 +571,93 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
     return { ok: true };
   }
 
+  if (op === 'reubicar') {
+    // Reubicar = mover ENTRE secciones (espejo cross-estantería de `mover`).
+    // Solo ADMIN / SUPERADMIN.
+    if (!['ADMIN', 'SUPERADMIN'].includes(actor.role)) {
+      throw new functions.https.HttpsError('permission-denied', 'Solo admin puede reubicar entre secciones.');
+    }
+    const fromShelfCode = normalize(payload?.fromShelfCode || shelfCode);
+    const toShelfCode = normalize(payload?.toShelfCode);
+    const rawPositions = Array.isArray(payload?.newPositions) ? payload.newPositions : [];
+    const newPositions = rawPositions.map((value: unknown) => String(value).trim()).filter(Boolean);
+    if (!articleCode || !orderFab || !fromShelfCode || !toShelfCode || newPositions.length === 0) {
+      throw new functions.https.HttpsError('invalid-argument', 'Datos incompletos para reubicar.');
+    }
+    if (fromShelfCode === toShelfCode) {
+      throw new functions.https.HttpsError('invalid-argument', 'Origen y destino son la misma sección; usa mover.');
+    }
+    assertActorMayOperateShelf(actor, fromShelfCode);
+    assertActorMayOperateShelf(actor, toShelfCode);
+
+    const aggregateKey = `${normalize(articleCode)}__${normalize(orderFab)}`;
+    const aggregateRef = db.collection('itemAggregates').doc(aggregateKey);
+    const presenceSnapshot = await db.collection('items')
+      .where('aggregateKey', '==', aggregateKey)
+      .where('active', '==', true)
+      .where('shelfCode', '==', fromShelfCode)
+      .get();
+    const activePresences = presenceSnapshot.docs.map((snap) => ({ ref: snap.ref, data: snap.data() as any }));
+    if (activePresences.length === 0 || activePresences.length !== newPositions.length) {
+      throw new functions.https.HttpsError('failed-precondition', 'Las presencias activas en la sección origen no coinciden con los destinos.');
+    }
+
+    await db.runTransaction(async (tx) => {
+      const oldLocData = activePresences.map((presence) => {
+        const locationId = String(presence.data.locationIds?.[0] || '');
+        const position = locationId.split('-').slice(1).join('-');
+        const locRef = db.collection('shelves').doc(fromShelfCode).collection('locations').doc(position);
+        return { presence, locationId, position, locRef };
+      });
+      const newLocData = newPositions.map((position: string, index: number) => ({
+        position,
+        locationId: `${toShelfCode}-${position}`,
+        locRef: db.collection('shelves').doc(toShelfCode).collection('locations').doc(position),
+        presence: activePresences[index],
+      }));
+
+      const refByPath = new Map<string, any>();
+      refByPath.set(aggregateRef.path, aggregateRef);
+      for (const d of oldLocData) refByPath.set(d.locRef.path, d.locRef);
+      for (const d of newLocData) refByPath.set(d.locRef.path, d.locRef);
+      const refEntries = [...refByPath.entries()];
+      const allSnaps = await Promise.all(refEntries.map(([, ref]) => tx.get(ref)));
+      const snapByPath = new Map<string, any>();
+      for (let i = 0; i < refEntries.length; i++) snapByPath.set(refEntries[i][0], allSnaps[i]);
+
+      const aggregateSnap = snapByPath.get(aggregateRef.path);
+      const oldLocationIds: string[] = [];
+      const newLocationIds: string[] = [];
+
+      // Quitar de las posiciones de origen
+      for (const { presence, locationId, position, locRef } of oldLocData) {
+        oldLocationIds.push(locationId);
+        const locSnap = snapByPath.get(locRef.path);
+        if (locSnap?.exists) {
+          const locData = locSnap.data() as any;
+          const updatedItems = (locData.items || []).filter((item: any) => !samePresence(item, presence.data.presenceId, articleCode, orderFab));
+          tx.set(locRef, { position, items: updatedItems, isEmpty: updatedItems.length === 0 }, { merge: true });
+        }
+      }
+
+      // Añadir en las posiciones de destino (otra sección) + reasignar presencia
+      for (const { position, locationId, locRef, presence } of newLocData) {
+        newLocationIds.push(locationId);
+        const locSnap = snapByPath.get(locRef.path);
+        const currentItems = locSnap?.exists ? ((locSnap.data()?.items || []) as any[]) : [];
+        tx.set(locRef, { position, items: [...currentItems, { presenceId: presence.data.presenceId, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now }], isEmpty: false }, { merge: true });
+        tx.update(presence.ref, { locationIds: [locationId], shelfCode: toShelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now });
+      }
+
+      if (aggregateSnap?.exists) {
+        tx.set(aggregateRef, { updatedAt: now }, { merge: true });
+      }
+      writeHistory(tx, { action: 'REUBICAR', articleCode, orderFab, fromLocation: oldLocationIds.join(', '), toLocation: newLocationIds.join(', '), shelfCode: `${fromShelfCode}→${toShelfCode}`, operarioId, operarioName });
+    });
+    console.log(`[shelfOperate] reubicar SUCCESS: ${articleCode} ${orderFab} ${fromShelfCode} → ${toShelfCode} ${newPositions.join(', ')}`);
+    return { ok: true };
+  }
+
   if (op === 'enviarAlmacen') {
     // Solo CARRETILLERO, ADMIN, SUPERADMIN o la seccion PINTURA
     const actorSection = String(actor.section || '').toUpperCase();
@@ -582,14 +669,31 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
     }
 
     const aggregateKey = `${normalize(articleCode)}__${normalize(orderFab)}`;
+    // Búsqueda GLOBAL en toda la nave (no se filtra por estantería): el artículo
+    // que sube a almacén puede estar ubicado en cualquier sección, o ya haber sido
+    // retirado. En ambos casos hay que reflejar que sale de la rueda.
     const presenceSnapshot = await db.collection('items')
       .where('aggregateKey', '==', aggregateKey)
       .where('active', '==', true)
-      .where('shelfCode', '==', shelfCode)
       .get();
 
+    // Caso: no está ubicado en ninguna parte → igualmente se registra la subida
+    // a almacén (queda traza en el historial), sin error.
     if (presenceSnapshot.empty) {
-      throw new functions.https.HttpsError('not-found', 'Articulo no encontrado en esta estanteria.');
+      await db.runTransaction(async (tx) => {
+        writeHistory(tx, {
+          action: 'ENVIAR_ALMACEN',
+          articleCode,
+          orderFab,
+          fromLocation: null,
+          toLocation: 'ALMACEN',
+          shelfCode: 'GLOBAL',
+          notLocated: true,
+          operarioId,
+          operarioName,
+        });
+      });
+      return { ok: true, removedFrom: 0, locations: [], wasLocated: false };
     }
 
     const removedFromLocations: string[] = [];
@@ -651,7 +755,7 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
       });
     });
 
-    return { ok: true, removedFrom: presenceSnapshot.size, locations: removedFromLocations };
+    return { ok: true, removedFrom: presenceSnapshot.size, locations: removedFromLocations, wasLocated: true };
   }
 
   if (op === 'emptyShelf') {

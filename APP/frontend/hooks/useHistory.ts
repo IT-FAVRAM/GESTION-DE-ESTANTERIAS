@@ -35,8 +35,10 @@ export const useHistory = () => {
           const data = docSnap.data();
           items.push({
             id: docSnap.id,
-            barcode: data.barcode,
-            orderId: data.orderId,
+            // Las entradas V3 (UBICAR/RETIRAR/ENVIAR_ALMACEN…) guardan
+            // articleCode/orderFab; las legacy, barcode/orderId.
+            barcode: data.barcode ?? data.articleCode,
+            orderId: data.orderId ?? data.orderFab,
             action: data.action,
             fromLocation: data.fromLocation,
             toLocation: data.toLocation,

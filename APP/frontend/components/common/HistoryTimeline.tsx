@@ -21,6 +21,8 @@ const actionConfig: Record<ActionType, { label: string; color: string; icon: Rea
     process_finished: { label: 'Proceso Terminado (Almacén)', color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800', icon: CheckIcon },
     admin_cleared: { label: 'Vaciado por Admin', color: 'text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800', icon: RemovedIcon },
     moved_to_working: { label: 'En Producción', color: 'text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800', icon: BellIcon },
+    ENVIAR_ALMACEN: { label: 'Subido a Almacén', color: 'text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800', icon: CheckIcon },
+    REUBICAR: { label: 'Reubicado (cambio sección)', color: 'text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800', icon: RelocatedIcon },
 };
 
 const formatTime = (isoString: string) => {

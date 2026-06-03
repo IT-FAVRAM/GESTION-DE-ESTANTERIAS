@@ -19,6 +19,7 @@ const SECTION_LABEL: Record<WarehouseSection, string> = {
   PINTURA: 'Pintura',
   LASER: 'Láser',
   CALIDAD: 'Calidad',
+  PUNZONADO: 'Punzonado',
   OTROS: 'Otros',
 };
 

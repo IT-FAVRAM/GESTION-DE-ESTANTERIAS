@@ -8,6 +8,7 @@ export type WarehouseSection =
   | 'PINTURA'
   | 'LASER'
   | 'CALIDAD'
+  | 'PUNZONADO'
   | 'OTROS';
 
 /** Mapa de codigo de estanteria → seccion */

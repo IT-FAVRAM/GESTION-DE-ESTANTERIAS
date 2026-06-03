@@ -216,7 +216,7 @@ const AppV3: React.FC = () => {
         ) : showAdminPanel ? (
           <SuperAdminPanel onClose={() => setShowAdminPanel(false)} role={role} initialTab={adminPanelTab} currentDeviceId={deviceId} isolatedTab />
         ) : (
-          <AdminHomeView role={role} displayName={displayName} notification={pushNotif} onCloseNotification={() => setPushNotif(null)} onOpenPanel={openAdminPanel} onOpenShelfBrowser={() => setShowShelfBrowser(true)} onOpenTimeline={() => setShowTimeline(true)} onOpenOperativeMode={() => setShowShelfBrowser(true)} onLogout={logout} />
+          <AdminHomeView role={role} displayName={displayName} notification={pushNotif} onCloseNotification={() => setPushNotif(null)} onOpenPanel={openAdminPanel} onOpenShelfBrowser={() => setShowShelfBrowser(true)} onOpenTimeline={() => setShowTimeline(true)} onOpenOperativeMode={() => setShowOperativeMode(true)} onLogout={logout} />
         )}
       </Suspense>
     );

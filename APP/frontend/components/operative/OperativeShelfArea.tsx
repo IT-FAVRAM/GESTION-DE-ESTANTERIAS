@@ -1,0 +1,425 @@
+/**
+ * OperativeShelfArea — Cuerpo presentacional del motor operativo único.
+ *
+ * Renderiza, debajo del header de cada rol: barra de estado de acción, barra de
+ * lote, buscador, grid y TODOS los modales del flujo. Consume el `engine`
+ * (useOperativeShelf) que le pasa la vista del rol.
+ *
+ * Todo el comportamiento vive en el hook; aquí solo hay JSX. Así KIOSKO,
+ * CARRETILLERO, JEFE_SECCIÓN, CALIDAD y ADMIN comparten exactamente la misma UI
+ * de flujo y es imposible que diverjan.
+ */
+
+import React from 'react';
+import ShelfGrid from '../kiosk/ShelfGrid';
+import KioskSearchBar from '../kiosk/KioskSearchBar';
+import ScannerInput from '../kiosk/ScannerInput';
+import ScanMethodPicker from '../common/ScanMethodPicker';
+import ConfirmationModal from '../common/ConfirmationModal';
+import CameraQRScanner from '../common/CameraQRScanner';
+import CameraOCRScanner from '../common/CameraOCRScanner';
+import RetirarArticleList from '../kiosk/RetirarArticleList';
+import RetirarCellModal from '../kiosk/RetirarCellModal';
+import MoverArticleList from '../kiosk/MoverArticleList';
+import ReprocesosUbicacionModal from '../kiosk/ReprocesosUbicacionModal';
+import ReprocesosEditor from '../kiosk/ReprocesosEditor';
+import RecogidaModal from '../kiosk/RecogidaModal';
+import TraerArticuloModal from '../kiosk/TraerArticuloModal';
+import AddShelfPositionModal from './AddShelfPositionModal';
+import { SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
+import { parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
+import type { RoleOperativeConfig } from '../../lib/operative/operativeConfig';
+import type { UseOperativeShelfReturn } from '../../hooks/useOperativeShelf';
+
+interface OperativeShelfAreaProps {
+  engine: UseOperativeShelfReturn;
+  config: RoleOperativeConfig;
+  /** El chrome puede cambiar de sección (scope='all'). */
+  setShelfCode?: (code: string) => void;
+  /** Grid a pantalla completa (kiosko / carretillero). */
+  fullscreenGrid?: boolean;
+}
+
+const padPos = (p: string) => parseInt(p, 10);
+
+const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config, setShelfCode, fullscreenGrid = true }) => {
+  const {
+    action, scanData, selectedPositions, scannerActive, processing, feedback,
+    shelfCode, shelfDef, locations, loading,
+    confirmModal, setConfirmModal,
+    scanMethodPickerOpen, pendingAction,
+    showCameraQR, setShowCameraQR, showCameraOCR, setShowCameraOCR,
+    batchMode, batchArticles,
+    additionalShelfPositions, showAddShelfModal, setShowAddShelfModal,
+    showRetirarArticleList, showRetirarCellModal, retirarCellPosition, retirarCellItems,
+    showMoverArticleList,
+    showReprocesosUbicacionModal, reprocesosCell, setReprocesosCell,
+    sectionPicker, reubicarCtx, reubicarNeeded,
+    showRecogidaModal, setShowRecogidaModal, showTraerModal, setShowTraerModal,
+    moverNeeded, highlightedPositions,
+    setScannerActive, setHighlightedSearch,
+    cancelAction, applyScanMethod, beginBatchMode, showToast,
+    handleScan, handleCellPress,
+    handleUbicarConfirm, handleUbicarBatchConfirm,
+    handleReprocesosUbicacionConfirm, handleReprocesosUbicacionSkip,
+    handleRetirarArticleListConfirm, handleRetirarCellItemsConfirm,
+    handleMoverSelectArticle, handleMoverConfirm, handleReubicarConfirm,
+    handleSectionPicked, handleRecogidaConfirm, handleTraerConfirm,
+    addAdditionalShelf,
+    setShowRetirarArticleList, setShowMoverArticleList, setSectionPicker,
+  } = engine;
+
+  const reprocesosCosts = !!config.reprocesos?.showCosts;
+  const canMultiSection = config.ubicar.allowMultiSection;
+
+  const actionLabel =
+    pendingAction === 'ubicar' ? 'Ubicar artículo' :
+    pendingAction === 'retirar' ? 'Retirar artículo' :
+    pendingAction === 'mover' ? 'Mover artículo' :
+    pendingAction === 'almacen' ? 'Enviar a almacén' :
+    pendingAction === 'reubicar' ? 'Reubicar artículo' : 'Escanear';
+
+  return (
+    <div className="flex flex-col h-full w-full min-w-0 overflow-hidden">
+      {/* ── Barra de estado de acción ── */}
+      {action !== 'idle' && !batchMode && (
+        <div className="flex-shrink-0 px-3 py-2 bg-white border-b border-slate-200 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            {scannerActive && !scanData && (
+              <span className="text-xs text-sky-600 animate-pulse font-bold">📡 Esperando escáner…</span>
+            )}
+            {scanData && (
+              <span className="text-xs text-slate-800 font-bold truncate">{scanData.articleCode} · {scanData.orderFab}</span>
+            )}
+            {action === 'retirar' && (
+              <span className="text-xs text-red-600 font-bold">👇 Toca una celda ocupada para retirar</span>
+            )}
+            {action === 'ubicar' && scanData && (
+              <span className="text-xs text-emerald-700 font-bold">
+                {selectedPositions.length === 0
+                  ? '👇 Toca las celdas donde ubicar'
+                  : `${shelfCode}: pos. ${selectedPositions.map(padPos).join(', ')}`}
+                {additionalShelfPositions.map((e) => (
+                  <span key={e.shelfCode} className="ml-1 text-blue-600">· {e.shelfName}: pos. {e.positions.map(padPos).join(', ')}</span>
+                ))}
+              </span>
+            )}
+            {action === 'ubicar' && scanData && selectedPositions.length > 0 && canMultiSection && (
+              <button
+                onClick={() => setShowAddShelfModal(true)}
+                disabled={processing}
+                className="px-3 py-2 bg-blue-100 hover:bg-blue-200 active:scale-95 text-blue-700 text-xs font-bold rounded-xl disabled:opacity-50 transition-all touch-manipulation"
+              >
+                ➕ Otra sección
+              </button>
+            )}
+            {action === 'ubicar' && scanData && selectedPositions.length > 0 && (
+              <button
+                onClick={() => handleUbicarConfirm()}
+                disabled={processing}
+                className="px-4 py-2 min-h-[40px] bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold rounded-xl disabled:opacity-50 transition-all touch-manipulation"
+              >
+                {processing ? '⏳' : '✓'} Ubicar
+              </button>
+            )}
+            {action === 'mover' && scanData && (
+              <span className="text-xs font-bold px-3 py-2 rounded-xl bg-blue-100 text-blue-700 border border-blue-200">
+                {selectedPositions.length}/{moverNeeded} destinos
+              </span>
+            )}
+            {action === 'mover' && scanData && selectedPositions.length === moverNeeded && (
+              <button
+                onClick={handleMoverConfirm}
+                disabled={processing}
+                className="px-4 py-2 min-h-[40px] bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold rounded-xl disabled:opacity-50 transition-all touch-manipulation"
+              >
+                {processing ? '⏳' : '🔄'} Confirmar mover
+              </button>
+            )}
+            {action === 'reubicar' && scanData && reubicarCtx && (
+              <span className="text-xs font-bold px-3 py-2 rounded-xl bg-indigo-100 text-indigo-700 border border-indigo-200">
+                {scanData.articleCode} → {shelfDef?.name || shelfCode}: {selectedPositions.length}/{reubicarNeeded} destinos
+              </span>
+            )}
+            {action === 'reubicar' && scanData && reubicarCtx && selectedPositions.length === reubicarNeeded && (
+              <button
+                onClick={handleReubicarConfirm}
+                disabled={processing}
+                className="px-4 py-2 min-h-[40px] bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-bold rounded-xl disabled:opacity-50 transition-all touch-manipulation"
+              >
+                {processing ? '⏳' : '🔀'} Confirmar reubicar
+              </button>
+            )}
+          </div>
+          <button onClick={cancelAction} className="text-xs text-slate-400 hover:text-red-500 font-bold flex-shrink-0">Cancelar</button>
+        </div>
+      )}
+
+      {/* ── Barra de lote (ubicar varios artículos) ── */}
+      {batchMode && action === 'ubicar' && (
+        <div className="flex-shrink-0 bg-white border-b border-slate-200 px-4 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-black text-slate-900">📦 Lote</span>
+              <span className="bg-cyan-600 text-white px-2 py-0.5 rounded-full text-xs font-bold">{batchArticles.length} art.</span>
+              {selectedPositions.length > 0 && (
+                <span className="bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full text-xs font-bold">
+                  pos. {selectedPositions.map(padPos).join(', ')}
+                </span>
+              )}
+            </div>
+            <button onClick={cancelAction} className="text-xs text-slate-400 hover:text-red-500 transition-colors">✕ Cancelar</button>
+          </div>
+          {batchArticles.length > 0 && (
+            <div className="max-h-14 overflow-y-auto bg-slate-50 rounded-lg p-2 mb-2">
+              {batchArticles.map((a, i) => (
+                <div key={i} className="text-xs text-slate-600 font-mono truncate">{i + 1}. {a.articleCode} · {a.orderFab}</div>
+              ))}
+            </div>
+          )}
+          {selectedPositions.length === 0 && batchArticles.length > 0 && (
+            <p className="text-xs text-slate-500 mb-2">👇 Toca celda(s) en el grid para seleccionar ubicación</p>
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setScannerActive(true)}
+              className="flex-1 min-h-[40px] rounded-xl bg-slate-100 text-slate-700 text-xs font-bold active:scale-95 transition-all touch-manipulation"
+            >
+              + Escanear más
+            </button>
+            <button
+              onClick={() => {
+                if (selectedPositions.length === 0) { showToast('error', 'Selecciona al menos una posición'); return; }
+                handleUbicarBatchConfirm();
+              }}
+              disabled={selectedPositions.length === 0 || batchArticles.length === 0 || processing}
+              className="flex-[2] min-h-[40px] rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold disabled:opacity-40 active:scale-95 transition-all touch-manipulation"
+            >
+              {processing ? '⏳' : '✓'} Ubicar {batchArticles.length} artículo{batchArticles.length !== 1 ? 's' : ''}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Feedback ── */}
+      {feedback && (
+        <div className={`flex-shrink-0 mx-4 mt-2 p-3 rounded-xl text-center font-bold text-sm
+          ${feedback.type === 'success' ? 'bg-emerald-500/20 text-emerald-700' :
+            feedback.type === 'info' ? 'bg-blue-500/20 text-blue-700' :
+            'bg-red-500/20 text-red-700'}`}>
+          {feedback.message}
+        </div>
+      )}
+
+      {/* ── Buscador (idle) ── */}
+      {action === 'idle' && (
+        <div className="flex-shrink-0">
+          <KioskSearchBar
+            locations={locations}
+            onHighlight={setHighlightedSearch}
+            global
+            currentShelfCode={shelfCode}
+            canNavigateToShelf={config.shelfScope === 'all' && !!setShelfCode}
+            onShelfNavigate={setShelfCode}
+            onOutOfShelfResult={(result) => {
+              if (config.shelfScope !== 'all') {
+                showToast('info', `Está en ${result.shelfCode} (pos. ${result.positions.map((p) => padPos(p)).join(', ')})`);
+              }
+            }}
+          />
+        </div>
+      )}
+
+      {/* ── Grid ── */}
+      <div className="flex-1 min-h-0 min-w-0 w-full overflow-y-auto overscroll-contain p-2 sm:p-4 [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
+        {loading ? (
+          <div className="flex items-center justify-center h-40">
+            <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : (
+          <ShelfGrid
+            locations={locations}
+            shelfDef={shelfDef}
+            onCellPress={handleCellPress}
+            selectedPositions={selectedPositions}
+            highlightedPositions={highlightedPositions}
+            showReprocessCosts={reprocesosCosts}
+            fullscreenMode={fullscreenGrid}
+          />
+        )}
+      </div>
+
+      {/* ── Escáner (pistola/teclado) ── */}
+      <ScannerInput
+        onScan={handleScan}
+        active={scannerActive}
+        disabled={processing}
+        showCameraButtons={false}
+        dualField
+      />
+
+      {/* ── Modales ── */}
+      <ScanMethodPicker
+        open={scanMethodPickerOpen}
+        actionLabel={actionLabel}
+        onSelect={applyScanMethod}
+        onBatch={pendingAction === 'ubicar' ? beginBatchMode : undefined}
+        onClose={() => engine.setScanMethodPickerOpen(false)}
+      />
+
+      {showCameraQR && (
+        <CameraQRScanner
+          onScan={(text) => { setShowCameraQR(false); handleScan(parseScanInput(text)); }}
+          onClose={() => { setShowCameraQR(false); setScannerActive(true); }}
+        />
+      )}
+      {showCameraOCR && (
+        <CameraOCRScanner
+          onResult={(text) => { setShowCameraOCR(false); handleScan(parseScanInputLenient(text)); }}
+          onClose={() => { setShowCameraOCR(false); setScannerActive(true); }}
+        />
+      )}
+
+      {showRetirarArticleList && (
+        <RetirarArticleList
+          locations={locations}
+          shelfCode={shelfCode}
+          onConfirm={handleRetirarArticleListConfirm}
+          onClose={() => { setShowRetirarArticleList(false); cancelAction(); }}
+        />
+      )}
+
+      <RetirarCellModal
+        open={showRetirarCellModal}
+        position={retirarCellPosition}
+        items={retirarCellItems}
+        onConfirm={handleRetirarCellItemsConfirm}
+        onClose={() => engine.setShowRetirarCellModal(false)}
+        loading={processing}
+      />
+
+      {showMoverArticleList && (
+        <MoverArticleList
+          locations={locations}
+          shelfCode={shelfCode}
+          onSelect={handleMoverSelectArticle}
+          onClose={() => { setShowMoverArticleList(false); cancelAction(); }}
+        />
+      )}
+
+      {/* Selector de sección (retirar por sección / reubicar) */}
+      {sectionPicker.open && (
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {sectionPicker.purpose === 'reubicar-origen' ? 'Reubicar — origen' :
+                 sectionPicker.purpose === 'reubicar-destino' ? 'Reubicar — destino' : 'Retirar'}
+              </p>
+              <h3 className="text-lg font-black text-slate-900">
+                {sectionPicker.purpose === 'reubicar-origen' ? '¿De qué sección retiras el artículo?' :
+                 sectionPicker.purpose === 'reubicar-destino' ? '¿A qué sección lo llevas?' :
+                 '¿De qué sección?'}
+              </h3>
+            </div>
+            <div className="p-3 max-h-[60vh] overflow-y-auto space-y-1.5">
+              {sectionPicker.purpose !== 'reubicar-destino' && (
+                <button
+                  onClick={() => handleSectionPicked(shelfCode)}
+                  className="w-full text-left rounded-xl border-2 border-sky-300 bg-sky-50 px-4 py-3 text-sm font-bold text-sky-900"
+                >
+                  📍 Sección actual — {shelfDef?.name || shelfCode}
+                </button>
+              )}
+              {SHELF_DEFINITIONS.filter((s) => s.code !== (sectionPicker.purpose === 'reubicar-destino' ? reubicarCtx?.fromShelf : shelfCode) && s.code !== 'COM').map((s) => (
+                <button
+                  key={s.code}
+                  onClick={() => handleSectionPicked(s.code)}
+                  className="w-full text-left rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800"
+                >
+                  {s.name} <span className="text-xs text-slate-400 font-mono">({s.code})</span>
+                </button>
+              ))}
+            </div>
+            <div className="px-4 py-3 border-t border-slate-100">
+              <button
+                onClick={() => { setSectionPicker((p) => ({ ...p, open: false })); cancelAction(); }}
+                className="w-full rounded-xl bg-slate-100 text-slate-700 py-3 text-sm font-bold"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Multi-sección (ubicar artículo grande) */}
+      <AddShelfPositionModal
+        open={showAddShelfModal}
+        currentShelfCode={shelfCode}
+        onAdd={addAdditionalShelf}
+        onClose={() => setShowAddShelfModal(false)}
+      />
+
+      {/* Reprocesos: importe/cantidad al ubicar (calidad) */}
+      <ReprocesosUbicacionModal
+        open={showReprocesosUbicacionModal}
+        articleCode={scanData?.articleCode || ''}
+        orderFab={scanData?.orderFab || ''}
+        position={selectedPositions[0] || ''}
+        onConfirm={handleReprocesosUbicacionConfirm}
+        onSkip={handleReprocesosUbicacionSkip}
+        onClose={() => { engine.setShowReprocesosUbicacionModal(false); cancelAction(); }}
+      />
+
+      {/* Reprocesos: editor en celda idle (calidad) */}
+      {reprocesosCell && (
+        <ReprocesosEditor
+          position={reprocesosCell.position}
+          items={(reprocesosCell.items || []) as never}
+          onClose={() => setReprocesosCell(null)}
+          onUpdated={() => {
+            const updated = locations.find((l) => l.position === reprocesosCell.position);
+            if (updated) setReprocesosCell(updated);
+          }}
+        />
+      )}
+
+      {/* Avisar: recogida */}
+      <RecogidaModal
+        open={showRecogidaModal}
+        currentShelfCode={shelfCode}
+        processing={processing}
+        onConfirm={handleRecogidaConfirm}
+        onClose={() => { setShowRecogidaModal(false); cancelAction(); }}
+      />
+
+      {/* Avisar: traer */}
+      {showTraerModal && (
+        <TraerArticuloModal
+          open={showTraerModal}
+          currentShelfCode={shelfCode}
+          onClose={() => { setShowTraerModal(false); cancelAction(); }}
+          onConfirm={handleTraerConfirm}
+          loading={processing}
+        />
+      )}
+
+      {/* Confirmaciones (incluye ghost, bucles, almacén, avisar) */}
+      <ConfirmationModal
+        open={confirmModal.open}
+        onClose={() => setConfirmModal((p) => ({ ...p, open: false }))}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        icon={confirmModal.icon}
+        variant={confirmModal.variant}
+        confirmText={confirmModal.confirmText}
+        onConfirm={confirmModal.onConfirm}
+        extraButton={confirmModal.extraButton}
+        loading={processing}
+      />
+    </div>
+  );
+};
+
+export default OperativeShelfArea;
