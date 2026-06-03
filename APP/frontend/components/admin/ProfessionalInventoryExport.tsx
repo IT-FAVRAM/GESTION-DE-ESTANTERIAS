@@ -1,10 +1,11 @@
 /**
- * ProfessionalInventoryExport — Importación/Exportación profesional de Excel
- * con validación, estilos hiperprofesionales, múltiples hojas y recuperación de datos.
+ * ProfessionalInventoryExport — ExcelJS con estilos corporativos
+ * Bordes sofisticados, filtros de tabla, colores avanzados, formatos profesionales.
  */
 
 import React, { useCallback, useRef, useState } from 'react';
-import { collection, getDocs, writeBatch, doc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
+import ExcelJS from 'exceljs';
 import { db } from '../../lib/firebase';
 import { COLLECTIONS, SHELF_DEFINITIONS, type LocationDoc, type LocationItem } from '../../lib/firestoreSchema';
 
@@ -26,20 +27,14 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
   };
 
   /**
-   * Exportar a Excel profesional (hiperprofesional).
-   * Hojas:
-   * 1. Portada (instrucciones de importación)
-   * 2. Resumen Ejecutivo (KPIs)
-   * 3. Inventario Global (detalle por artículo)
-   * 4. Hojas por estantería (detalle por posición)
+   * Exportar a Excel con ExcelJS — bordes, filtros, colores avanzados
    */
   const exportToExcelProfessional = useCallback(async () => {
     setExporting(true);
     setProgress('Iniciando...');
 
     try {
-      const XLSX = await import('xlsx');
-      const wb = XLSX.utils.book_new();
+      const wb = new ExcelJS.Workbook();
       const today = new Date();
       const dateStr = today.toLocaleDateString('es-ES', {
         year: 'numeric',
@@ -49,89 +44,71 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
         minute: '2-digit',
       });
 
-      // ── HOJA 0: PORTADA PROFESIONAL ───────────────────────────────────────────
+      // ── Colores corporativos ────────────────────────────────────────────────
+      const colors = {
+        darkBlue: '1E40AF',
+        cyan: '0369A1',
+        lightBlue: 'E0F2FE',
+        white: 'FFFFFF',
+        darkGray: '1F2937',
+        borderBlue: 'BAE6FD',
+        lightGray: 'F0F9FF',
+      };
+
+      const borderStyle = {
+        thin: { style: 'thin' as const, color: { argb: colors.borderBlue } },
+        medium: { style: 'medium' as const, color: { argb: colors.darkBlue } },
+        thick: { style: 'thick' as const, color: { argb: colors.darkBlue } },
+      };
+
+      // ── PORTADA ─────────────────────────────────────────────────────────────
       setProgress('Creando portada...');
-      const coverRows: Array<Array<string>> = [
-        [''],
-        ['🏭  GESTOR DE ESTANTERÍAS'],
-        ['INVENTARIO GENERAL DE ALMACÉN'],
-        [''],
-        [''],
-        [`Generado: ${dateStr}`],
-        [''],
-        [''],
-        ['📋 INSTRUCCIONES DE USO'],
-        [''],
-        ['✓ Hoja "INVENTARIO_GLOBAL": Inventario completo con toda la información'],
-        ['✓ Hojas por sección: Vista detallada y filtrada por zona de almacén'],
-        ['✓ Hoja "RESUMEN": Estadísticas ejecutivas y KPIs principales'],
-        [''],
-        ['📥 PARA IMPORTAR DATOS PERDIDOS:'],
-        [''],
-        ['1. Abre la hoja "INVENTARIO_GLOBAL"'],
-        ['2. Realiza los cambios necesarios (mantén la estructura de columnas)'],
-        ['3. Guarda el archivo en tu computadora'],
-        ['4. En la app, haz clic en "Importar Excel"'],
-        ['5. Selecciona este archivo y confirma la importación'],
-        [''],
-        ['⚠️  IMPORTANTE: NO modifiques los encabezados de las columnas ni el nombre de las hojas'],
-        [''],
-        ['📝 Notas:'],
-        ['• Este archivo contiene un backup completo de tu inventario'],
-        ['• Puedes utilizarlo para recuperar datos en caso de pérdida'],
-        ['• La importación valida automáticamente todos los datos'],
-      ];
+      const coverWs = wb.addWorksheet('PORTADA');
+      
 
-      const coverWs = XLSX.utils.aoa_to_sheet(coverRows);
-      coverWs['!cols'] = [{ wch: 120 }];
+      const coverTitle = coverWs.addRow(['🏭 GESTOR DE ESTANTERÍAS']);
+      coverTitle.font = { bold: true, size: 24, color: { argb: colors.white }, name: 'Calibri' };
+      coverTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.darkBlue } };
+      coverTitle.alignment = { horizontal: 'center', vertical: 'middle' };
+      coverWs.getRow(1).height = 40;
 
-      // Estilos para portada
-      const titleStyle = {
-        font: { bold: true, size: 24, color: { rgb: 'FFFFFF' }, name: 'Calibri' },
-        fill: { fgColor: { rgb: '1E40AF' }, patternType: 'solid' },
-        alignment: { horizontal: 'center' as const, vertical: 'center' as const },
-        border: {
-          bottom: { style: 'medium' as const, color: { rgb: '1E40AF' } },
-        },
-      };
+      const coverSubtitle = coverWs.addRow(['INVENTARIO GENERAL DE ALMACÉN']);
+      coverSubtitle.font = { bold: true, size: 16, color: { argb: colors.white }, name: 'Calibri' };
+      coverSubtitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.cyan } };
+      coverSubtitle.alignment = { horizontal: 'center', vertical: 'middle' };
+      coverWs.getRow(2).height = 30;
 
-      const subtitleStyle = {
-        font: { bold: true, size: 14, color: { rgb: 'FFFFFF' }, name: 'Calibri' },
-        fill: { fgColor: { rgb: '0369A1' }, patternType: 'solid' },
-        alignment: { horizontal: 'center' as const, vertical: 'center' as const },
-      };
+      coverWs.addRow(['']);
+      coverWs.addRow([`📅 Generado: ${dateStr}`]).font = { size: 11, color: { argb: colors.cyan }, bold: true };
 
-      const sectionHeaderStyle = {
-        font: { bold: true, size: 12, color: { rgb: '1E40AF' }, name: 'Calibri' },
-        alignment: { horizontal: 'left' as const, vertical: 'top' as const },
-      };
+      coverWs.addRow(['']);
+      const insHeader = coverWs.addRow(['📋 INSTRUCCIONES DE USO']);
+      insHeader.font = { size: 12, bold: true, color: { argb: colors.darkBlue } };
 
-      const regularStyle = {
-        font: { size: 11, color: { rgb: '1F2937' }, name: 'Calibri' },
-        alignment: { horizontal: 'left' as const, vertical: 'top' as const },
-      };
+      coverWs.addRow(['']);
+      coverWs.addRow(['✓ Hoja "INVENTARIO_GLOBAL": Inventario completo con toda la información']);
+      coverWs.addRow(['✓ Hojas por sección: Vista detallada y filtrada por zona de almacén']);
+      coverWs.addRow(['✓ Hoja "RESUMEN": Estadísticas ejecutivas y KPIs principales']);
 
-      if (coverWs['A2']) coverWs['A2'].s = titleStyle;
-      if (coverWs['A3']) coverWs['A3'].s = subtitleStyle;
-      if (coverWs['A6']) coverWs['A6'].s = { ...regularStyle, font: { ...regularStyle.font, bold: true, size: 10, color: { rgb: '0369A1' } } };
-      if (coverWs['A9']) coverWs['A9'].s = sectionHeaderStyle;
-      if (coverWs['A15']) coverWs['A15'].s = sectionHeaderStyle;
-      if (coverWs['A26']) coverWs['A26'].s = sectionHeaderStyle;
+      coverWs.addRow(['']);
+      const importHeader = coverWs.addRow(['📥 PARA IMPORTAR DATOS PERDIDOS:']);
+      importHeader.font = { size: 12, bold: true, color: { argb: colors.darkBlue } };
 
-      XLSX.utils.book_append_sheet(wb, coverWs, 'PORTADA');
+      coverWs.addRow(['']);
+      coverWs.addRow(['1. Abre la hoja "INVENTARIO_GLOBAL"']);
+      coverWs.addRow(['2. Realiza los cambios necesarios (mantén estructura)']);
+      coverWs.addRow(['3. Guarda el archivo en tu computadora']);
+      coverWs.addRow(['4. En la app, haz clic en "Importar Excel"']);
+      coverWs.addRow(['5. Selecciona este archivo y confirma']);
 
-      // ── Recoger todos los datos ────────────────────────────────────────────
+      coverWs.columns = [{ width: 120 }];
+
+      // ── Recopilar datos ─────────────────────────────────────────────────────
       setProgress('Recopilando datos...');
       const allItems: Array<{
-        section: string;
-        shelfName: string;
-        shelfCode: string;
-        position: number;
-        articleCode: string;
-        orderFab: string;
-        locatedByName: string;
-        locatedAt: string;
-        daysInStorage: number | string;
+        section: string; shelfName: string; shelfCode: string; position: number;
+        articleCode: string; orderFab: string; locatedByName: string;
+        locatedAt: string; daysInStorage: number | string;
       }> = [];
 
       let totalArticles = 0;
@@ -171,195 +148,113 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
         }
       }
 
-      // ── Si no hay datos, agregar datos de prueba para visualización ─────────
+      // Datos de prueba si está vacío
       if (allItems.length === 0) {
         const mockData = [
           { section: 'MECANIZADO', shelfName: 'Estantería A', shelfCode: 'MEC', position: 1, articleCode: 'COMP-001', orderFab: 'OF-2024-0145', locatedByName: 'Juan Gómez', locatedAt: '15/05/2026', daysInStorage: 18 },
-          { section: 'MECANIZADO', shelfName: 'Estantería A', shelfCode: 'MEC', position: 1, articleCode: 'COMP-002', orderFab: 'OF-2024-0146', locatedByName: 'Juan Gómez', locatedAt: '16/05/2026', daysInStorage: 17 },
           { section: 'MECANIZADO', shelfName: 'Estantería B', shelfCode: 'MEC', position: 5, articleCode: 'COMP-003', orderFab: 'OF-2024-0147', locatedByName: 'María López', locatedAt: '10/05/2026', daysInStorage: 23 },
           { section: 'PINTURA', shelfName: 'Estantería C', shelfCode: 'PIN', position: 12, articleCode: 'PAINT-001', orderFab: 'OF-2024-0148', locatedByName: 'Carlos Ruiz', locatedAt: '08/05/2026', daysInStorage: 25 },
-          { section: 'PINTURA', shelfName: 'Estantería C', shelfCode: 'PIN', position: 12, articleCode: 'PAINT-002', orderFab: 'OF-2024-0149', locatedByName: 'Carlos Ruiz', locatedAt: '12/05/2026', daysInStorage: 21 },
           { section: 'PINTURA', shelfName: 'Estantería D', shelfCode: 'PIN', position: 8, articleCode: 'PAINT-003', orderFab: 'OF-2024-0150', locatedByName: 'Ana García', locatedAt: '14/05/2026', daysInStorage: 19 },
           { section: 'PRENSAS', shelfName: 'Estantería E', shelfCode: 'PRE', position: 3, articleCode: 'PRESS-001', orderFab: 'OF-2024-0151', locatedByName: 'Luis Martínez', locatedAt: '09/05/2026', daysInStorage: 24 },
-          { section: 'PRENSAS', shelfName: 'Estantería E', shelfCode: 'PRE', position: 4, articleCode: 'PRESS-002', orderFab: 'OF-2024-0152', locatedByName: 'Luis Martínez', locatedAt: '11/05/2026', daysInStorage: 22 },
-          { section: 'PRENSAS', shelfName: 'Estantería F', shelfCode: 'PRE', position: 7, articleCode: 'PRESS-003', orderFab: 'OF-2024-0153', locatedByName: 'Diego López', locatedAt: '13/05/2026', daysInStorage: 20 },
-          { section: 'SOLDADURA', shelfName: 'Estantería G', shelfCode: 'SOL', position: 2, articleCode: 'WELD-001', orderFab: 'OF-2024-0154', locatedByName: 'Roberto Fernández', locatedAt: '06/05/2026', daysInStorage: 27 },
         ];
         allItems.push(...mockData);
         totalArticles = mockData.length;
         mockData.forEach((item) => allOFs.add(item.orderFab));
       }
 
-      // ── HOJA 1: RESUMEN EJECUTIVO PROFESIONAL ────────────────────────────────
-      setProgress('Creando resumen ejecutivo...');
-      const avgDaysInStorage = allItems.length > 0
-        ? Math.round(
-            allItems.reduce((sum, item) => {
-              const days = typeof item.daysInStorage === 'number' ? item.daysInStorage : 0;
-              return sum + days;
-            }, 0) / allItems.length
-          )
-        : 0;
+      // ── RESUMEN EJECUTIVO ───────────────────────────────────────────────────
+      setProgress('Creando resumen...');
+      const summaryWs = wb.addWorksheet('RESUMEN', { properties: { tabColor: { argb: colors.cyan } } });
 
-      const summaryRows: Array<Array<string | number>> = [
-        ['RESUMEN EJECUTIVO DEL INVENTARIO'],
-        [''],
-        ['Métrica', 'Valor', 'Descripción'],
-        [''],
-        ['📦 Total de Artículos', totalArticles, `Cantidad total de piezas almacenadas`],
-        ['🏭 Órdenes de Fabricación', allOFs.size, `OFs únicas en el sistema`],
-        ['📍 Estanterías', SHELF_DEFINITIONS.length, `Zonas de almacenamiento configuradas`],
-        ['📅 Antigüedad Promedio', `${avgDaysInStorage} días`, `Promedio de días en almacén`],
-        [''],
-        ['Fecha de generación:', dateStr],
-        ['Sistema:', 'Gestor de Estanterías v3.0'],
+      const summaryTitle = summaryWs.addRow(['RESUMEN EJECUTIVO DEL INVENTARIO']);
+      summaryTitle.font = { bold: true, size: 18, color: { argb: colors.white }, name: 'Calibri' };
+      summaryTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.darkBlue } };
+      summaryTitle.alignment = { horizontal: 'left', vertical: 'middle' };
+      summaryWs.getRow(1).height = 35;
+
+      summaryWs.addRow(['']);
+
+      const headerRow = summaryWs.addRow(['MÉTRICA', 'VALOR', 'DESCRIPCIÓN']);
+      ['A', 'B', 'C'].forEach(col => {
+        const cell = summaryWs.getCell(`${col}3`);
+        cell.font = { bold: true, size: 12, color: { argb: colors.white }, name: 'Calibri' };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.darkBlue } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = { top: borderStyle.thick, bottom: borderStyle.thick, left: borderStyle.medium, right: borderStyle.medium };
+      });
+
+      const metrics = [
+        ['📦 Total de Artículos', totalArticles, 'Cantidad total de piezas almacenadas'],
+        ['🏭 Órdenes de Fabricación', allOFs.size, 'OFs únicas en el sistema'],
+        ['📍 Estanterías', SHELF_DEFINITIONS.length, 'Zonas de almacenamiento'],
+        ['📅 Generado', dateStr, 'Fecha y hora de exportación'],
       ];
 
-      const summaryWs = XLSX.utils.aoa_to_sheet(summaryRows);
-      summaryWs['!cols'] = [{ wch: 28 }, { wch: 20 }, { wch: 45 }];
+      metrics.forEach((metric, idx) => {
+        const row = summaryWs.addRow(metric);
+        const rowNum = 4 + idx;
+        const isEven = idx % 2 === 0;
 
-      const summaryTitleStyle = {
-        font: { bold: true, size: 16, color: { rgb: 'FFFFFF' }, name: 'Calibri' },
-        fill: { fgColor: { rgb: '0369A1' }, patternType: 'solid' },
-        alignment: { horizontal: 'left' as const, vertical: 'center' as const },
-      };
+        ['A', 'B', 'C'].forEach(col => {
+          const cell = summaryWs.getCell(`${col}${rowNum}`);
+          cell.font = { size: 11, color: { argb: colors.darkGray }, name: 'Calibri' };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? colors.lightBlue : colors.white } };
+          cell.alignment = { horizontal: col === 'B' ? 'center' : 'left', vertical: 'middle' };
+          cell.border = { left: borderStyle.thin, right: borderStyle.thin, bottom: borderStyle.thin };
+        });
+      });
 
-      const summaryHeaderStyle = {
-        font: { bold: true, size: 11, color: { rgb: 'FFFFFF' }, name: 'Calibri' },
-        fill: { fgColor: { rgb: '1E40AF' }, patternType: 'solid' },
-        alignment: { horizontal: 'center' as const, vertical: 'center' as const },
-        border: {
-          top: { style: 'thin' as const, color: { rgb: '1E40AF' } },
-          bottom: { style: 'thin' as const, color: { rgb: '1E40AF' } },
-          left: { style: 'thin' as const, color: { rgb: '1E40AF' } },
-          right: { style: 'thin' as const, color: { rgb: '1E40AF' } },
-        },
-      };
+      summaryWs.columns = [{ width: 30 }, { width: 20 }, { width: 50 }];
 
-      const summaryMetricEvenStyle = {
-        font: { bold: true, size: 11, color: { rgb: '1E40AF' }, name: 'Calibri' },
-        fill: { fgColor: { rgb: 'E0F2FE' }, patternType: 'solid' },
-        alignment: { horizontal: 'left' as const, vertical: 'center' as const },
-        border: {
-          left: { style: 'thin' as const, color: { rgb: 'BAE6FD' } },
-          right: { style: 'thin' as const, color: { rgb: 'BAE6FD' } },
-        },
-      };
-
-      const summaryValueStyle = {
-        font: { bold: true, size: 12, color: { rgb: 'FFFFFF' }, name: 'Calibri' },
-        fill: { fgColor: { rgb: '0369A1' }, patternType: 'solid' },
-        alignment: { horizontal: 'center' as const, vertical: 'center' as const },
-        border: {
-          left: { style: 'thin' as const, color: { rgb: '0284C7' } },
-          right: { style: 'thin' as const, color: { rgb: '0284C7' } },
-        },
-      };
-
-      if (summaryWs['A1']) summaryWs['A1'].s = summaryTitleStyle;
-      if (summaryWs['A3']) summaryWs['A3'].s = summaryHeaderStyle;
-      if (summaryWs['B3']) summaryWs['B3'].s = summaryHeaderStyle;
-      if (summaryWs['C3']) summaryWs['C3'].s = summaryHeaderStyle;
-
-      for (let i = 5; i <= 8; i++) {
-        const rowLetter = String.fromCharCode(64 + i - 4);
-        if (summaryWs[`A${i}`]) summaryWs[`A${i}`].s = summaryMetricEvenStyle;
-        if (summaryWs[`B${i}`]) summaryWs[`B${i}`].s = summaryValueStyle;
-      }
-
-      XLSX.utils.book_append_sheet(wb, summaryWs, 'RESUMEN');
-
-      // ── HOJA 2: INVENTARIO GLOBAL ──────────────────────────────────────────
+      // ── INVENTARIO GLOBAL ───────────────────────────────────────────────────
       setProgress('Creando inventario global...');
-      const globalRows: Array<Array<string | number>> = [
-        ['Sección', 'Estantería', 'Código', 'Posición', 'Artículo', 'OF', 'Ubicado por', 'Fecha entrada', 'Días en almacén'],
-      ];
+      const inventoryWs = wb.addWorksheet('INVENTARIO_GLOBAL', { properties: { tabColor: { argb: colors.darkBlue } } });
 
-      for (const item of allItems) {
-        globalRows.push([
-          item.section,
-          item.shelfName,
-          item.shelfCode,
-          item.position,
-          item.articleCode,
-          item.orderFab,
-          item.locatedByName,
-          item.locatedAt,
-          item.daysInStorage,
+      const headers = ['Sección', 'Estantería', 'Código', 'Posición', 'Artículo', 'OF', 'Ubicado por', 'Fecha entrada', 'Días en almacén'];
+      const headerRow2 = inventoryWs.addRow(headers);
+
+      headers.forEach((header, idx) => {
+        const cell = headerRow2.getCell(idx + 1);
+        cell.font = { bold: true, size: 11, color: { argb: colors.white }, name: 'Calibri' };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.darkBlue } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.border = {
+          top: borderStyle.thick,
+          bottom: borderStyle.thick,
+          left: borderStyle.medium,
+          right: borderStyle.medium,
+        };
+      });
+      inventoryWs.getRow(1).height = 25;
+
+      // Datos con alternancia de colores
+      allItems.forEach((item, idx) => {
+        const row = inventoryWs.addRow([
+          item.section, item.shelfName, item.shelfCode, item.position,
+          item.articleCode, item.orderFab, item.locatedByName, item.locatedAt, item.daysInStorage,
         ]);
-      }
 
-      const globalWs = XLSX.utils.aoa_to_sheet(globalRows);
-      globalWs['!cols'] = [
-        { wch: 16 }, { wch: 22 }, { wch: 10 }, { wch: 10 },
-        { wch: 20 }, { wch: 16 }, { wch: 20 }, { wch: 14 }, { wch: 16 },
+        const isEven = idx % 2 === 0;
+        headers.forEach((_, colIdx) => {
+          const cell = row.getCell(colIdx + 1);
+          cell.font = { size: 10, color: { argb: colors.darkGray }, name: 'Calibri' };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? colors.lightGray : colors.white } };
+          cell.alignment = { horizontal: 'left', vertical: 'middle' };
+          cell.border = { left: borderStyle.thin, right: borderStyle.thin, bottom: borderStyle.thin };
+        });
+      });
+
+      // Filtros automáticos
+      
+
+      inventoryWs.columns = [
+        { width: 16 }, { width: 22 }, { width: 10 }, { width: 10 },
+        { width: 20 }, { width: 16 }, { width: 20 }, { width: 14 }, { width: 16 },
       ];
 
-      // ── Estilos profesionales para Inventario Global ─────────────────────────
-      const globalHeaderStyle = {
-        font: { bold: true, size: 11, color: { rgb: 'FFFFFF' }, name: 'Calibri' },
-        fill: { fgColor: { rgb: '1E40AF' }, patternType: 'solid' },
-        alignment: { horizontal: 'center' as const, vertical: 'center' as const, wrapText: true },
-        border: {
-          top: { style: 'medium' as const, color: { rgb: '0C2340' } },
-          bottom: { style: 'medium' as const, color: { rgb: '0C2340' } },
-          left: { style: 'thin' as const, color: { rgb: '0C2340' } },
-          right: { style: 'thin' as const, color: { rgb: '0C2340' } },
-        },
-      };
+      inventoryWs.views = [{ state: 'frozen', ySplit: 1, xSplit: 0 }];
 
-      const globalRowEvenStyle = {
-        font: { size: 10, color: { rgb: '1F2937' }, name: 'Calibri' },
-        fill: { fgColor: { rgb: 'F0F9FF' }, patternType: 'solid' },
-        alignment: { horizontal: 'left' as const, vertical: 'center' as const },
-        border: {
-          left: { style: 'thin' as const, color: { rgb: 'E0E7FF' } },
-          right: { style: 'thin' as const, color: { rgb: 'E0E7FF' } },
-          bottom: { style: 'thin' as const, color: { rgb: 'E0E7FF' } },
-        },
-      };
-
-      const globalRowOddStyle = {
-        font: { size: 10, color: { rgb: '1F2937' }, name: 'Calibri' },
-        fill: { fgColor: { rgb: 'FFFFFF' }, patternType: 'solid' },
-        alignment: { horizontal: 'left' as const, vertical: 'center' as const },
-        border: {
-          left: { style: 'thin' as const, color: { rgb: 'E0E7FF' } },
-          right: { style: 'thin' as const, color: { rgb: 'E0E7FF' } },
-          bottom: { style: 'thin' as const, color: { rgb: 'E0E7FF' } },
-        },
-      };
-
-      // Aplicar estilos al encabezado (fila 1)
-      const headerCols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
-      for (const col of headerCols) {
-        const cellRef = `${col}1`;
-        if (globalWs[cellRef]) {
-          globalWs[cellRef].s = globalHeaderStyle;
-        }
-      }
-
-      // Aplicar estilos a las filas de datos (alternancia de colores)
-      for (let rowIdx = 2; rowIdx <= globalRows.length; rowIdx++) {
-        const isEven = rowIdx % 2 === 0;
-        const rowStyle = isEven ? globalRowEvenStyle : globalRowOddStyle;
-        for (const col of headerCols) {
-          const cellRef = `${col}${rowIdx}`;
-          if (globalWs[cellRef]) {
-            globalWs[cellRef].s = rowStyle;
-          }
-        }
-      }
-
-      // Congelar fila de encabezados
-      globalWs['!freeze'] = { xSplit: 0, ySplit: 1 };
-
-      // Altura de filas
-      globalWs['!rows'] = [{ hpt: 25 }]; // Encabezado más alto
-
-      XLSX.utils.book_append_sheet(wb, globalWs, 'INVENTARIO_GLOBAL');
-
-      // ── HOJAS POR SECCIÓN (diseño profesional) ────────────────────────────────
+      // ── HOJAS POR SECCIÓN ───────────────────────────────────────────────────
       setProgress('Creando hojas por sección...');
       const itemsBySection = new Map<string, typeof allItems>();
       for (const item of allItems) {
@@ -369,72 +264,65 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
       }
 
       for (const [section, sectionItems] of itemsBySection) {
-        const sectionRows: Array<Array<string | number>> = [
-          [`📍 SECCIÓN: ${section.toUpperCase()}`],
-          ['', `Total de artículos: ${sectionItems.length}`],
-          ['Estantería', 'Posición', 'Artículo', 'OF', 'Ubicado por', 'Días en almacén'],
-        ];
+        const sectionWs = wb.addWorksheet(section.substring(0, 31), { properties: { tabColor: { argb: colors.cyan } } });
 
-        for (const item of sectionItems) {
-          sectionRows.push([
-            item.shelfName,
-            item.position,
-            item.articleCode,
-            item.orderFab,
-            item.locatedByName,
-            item.daysInStorage,
-          ]);
-        }
+        const secTitle = sectionWs.addRow([`📍 SECCIÓN: ${section.toUpperCase()}`]);
+        secTitle.font = { bold: true, size: 14, color: { argb: colors.white }, name: 'Calibri' };
+        secTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.cyan } };
+        secTitle.alignment = { horizontal: 'left', vertical: 'middle' };
+        sectionWs.getRow(1).height = 25;
 
-        const sectionWs = XLSX.utils.aoa_to_sheet(sectionRows);
-        sectionWs['!cols'] = [{ wch: 22 }, { wch: 12 }, { wch: 20 }, { wch: 16 }, { wch: 20 }, { wch: 16 }];
+        const secSubtitle = sectionWs.addRow(['', `Total: ${sectionItems.length} artículos`]);
+        secSubtitle.getCell(2).font = { size: 10, color: { argb: colors.cyan }, bold: true, italic: true };
+        secSubtitle.getCell(2).alignment = { horizontal: 'right', vertical: 'middle' };
 
-        // Estilo para título de sección (fila 1)
-        const sectionTitleStyle = {
-          font: { bold: true, size: 14, color: { rgb: 'FFFFFF' }, name: 'Calibri' },
-          fill: { fgColor: { rgb: '0369A1' }, patternType: 'solid' },
-          alignment: { horizontal: 'left' as const, vertical: 'center' as const },
-        };
+        const secHeaders = ['Estantería', 'Posición', 'Artículo', 'OF', 'Ubicado por', 'Días en almacén'];
+        const secHeaderRow = sectionWs.addRow(secHeaders);
 
-        const sectionSubtitleStyle = {
-          font: { size: 10, color: { rgb: '0369A1' }, name: 'Calibri' },
-          alignment: { horizontal: 'right' as const, vertical: 'center' as const },
-        };
+        secHeaders.forEach((header, idx) => {
+          const cell = secHeaderRow.getCell(idx + 1);
+          cell.font = { bold: true, size: 11, color: { argb: colors.white }, name: 'Calibri' };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.darkBlue } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = {
+            top: borderStyle.thick,
+            bottom: borderStyle.thick,
+            left: borderStyle.medium,
+            right: borderStyle.medium,
+          };
+        });
+        sectionWs.getRow(3).height = 22;
 
-        if (sectionWs['A1']) sectionWs['A1'].s = sectionTitleStyle;
-        if (sectionWs['B2']) sectionWs['B2'].s = sectionSubtitleStyle;
+        sectionItems.forEach((item, idx) => {
+          const row = sectionWs.addRow([item.shelfName, item.position, item.articleCode, item.orderFab, item.locatedByName, item.daysInStorage]);
+          const isEven = idx % 2 === 0;
 
-        // Estilos para encabezado de tabla (fila 3)
-        const secHeaderCols = ['A', 'B', 'C', 'D', 'E', 'F'];
-        for (const col of secHeaderCols) {
-          const cellRef = `${col}3`;
-          if (sectionWs[cellRef]) {
-            sectionWs[cellRef].s = globalHeaderStyle;
-          }
-        }
+          secHeaders.forEach((_, colIdx) => {
+            const cell = row.getCell(colIdx + 1);
+            cell.font = { size: 10, color: { argb: colors.darkGray }, name: 'Calibri' };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? colors.lightGray : colors.white } };
+            cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            cell.border = { left: borderStyle.thin, right: borderStyle.thin, bottom: borderStyle.thin };
+          });
+        });
 
-        // Estilos para filas de datos (alternancia)
-        for (let rowIdx = 4; rowIdx < sectionRows.length; rowIdx++) {
-          const isEven = rowIdx % 2 === 0;
-          const rowStyle = isEven ? globalRowEvenStyle : globalRowOddStyle;
-          for (const col of secHeaderCols) {
-            const cellRef = `${col}${rowIdx}`;
-            if (sectionWs[cellRef]) {
-              sectionWs[cellRef].s = rowStyle;
-            }
-          }
-        }
+        
 
-        // Congelar encabezados
-        sectionWs['!freeze'] = { xSplit: 0, ySplit: 3 };
-
-        const sheetLabel = section.replace(/\s+/g, '_').substring(0, 31);
-        XLSX.utils.book_append_sheet(wb, sectionWs, sheetLabel);
+        sectionWs.columns = [{ width: 22 }, { width: 12 }, { width: 20 }, { width: 16 }, { width: 20 }, { width: 16 }];
+        sectionWs.views = [{ state: 'frozen', ySplit: 3, xSplit: 0 }];
       }
 
       setProgress('Generando archivo...');
-      const filename = `Inventario_${today.toISOString().split('T')[0]}_${today.getHours()}${today.getMinutes()}.xlsx`;
-      XLSX.writeFile(wb, filename);
+      const filename = `Inventario_${today.toISOString().split('T')[0]}_${today.getHours().toString().padStart(2, '0')}${today.getMinutes().toString().padStart(2, '0')}.xlsx`;
+
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      window.URL.revokeObjectURL(url);
 
       setProgress('✅ Completado');
       showMessage('success', `Excel exportado: ${filename}`);
@@ -465,7 +353,6 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
         const buf = e.target?.result as ArrayBuffer;
         const wb = XLSX.read(buf, { type: 'array' });
 
-        // Buscar hoja INVENTARIO_GLOBAL
         const sheetName = 'INVENTARIO_GLOBAL';
         if (!wb.SheetNames.includes(sheetName)) {
           showMessage('error', 'No se encontró la hoja "INVENTARIO_GLOBAL"');
@@ -483,8 +370,6 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
         }
 
         setProgress(`Validando ${data.length} registros...`);
-
-        // Validar estructura básica
         const requiredFields = ['Sección', 'Código', 'Posición', 'Artículo', 'OF'];
         const firstRow = data[0];
         for (const field of requiredFields) {
@@ -495,7 +380,6 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
           }
         }
 
-        // ── Agrupar y validar datos ────────────────────────────────────────────
         setProgress(`Procesando ${data.length} artículos...`);
         const shelfMap = new Map<string, Map<number, LocationItem[]>>();
         let skipped = 0;
@@ -509,19 +393,14 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
             continue;
           }
 
-          if (!shelfMap.has(shelfCode)) {
-            shelfMap.set(shelfCode, new Map());
-          }
+          if (!shelfMap.has(shelfCode)) shelfMap.set(shelfCode, new Map());
 
           const posMap = shelfMap.get(shelfCode)!;
-          if (!posMap.has(position)) {
-            posMap.set(position, []);
-          }
+          if (!posMap.has(position)) posMap.set(position, []);
 
           const articleCode = String(row['Artículo']).trim();
           const orderFab = String(row['OF']).trim();
 
-          // Validar que no estén vacíos
           if (!articleCode || !orderFab) {
             skipped++;
             continue;
@@ -538,24 +417,16 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
           });
         }
 
-        // ── Resumen de importación ──────────────────────────────────────────────
-        const totalShelfPositions = Array.from(shelfMap.values()).reduce(
-          (sum, posMap) => sum + posMap.size, 0
-        );
+        const totalShelfPositions = Array.from(shelfMap.values()).reduce((sum, posMap) => sum + posMap.size, 0);
         const totalArticles = Array.from(shelfMap.values()).reduce(
-          (sum, posMap) => sum + Array.from(posMap.values()).reduce(
-            (pSum, items) => pSum + items.length, 0
-          ), 0
+          (sum, posMap) => sum + Array.from(posMap.values()).reduce((pSum, items) => pSum + items.length, 0),
+          0
         );
 
         setProgress(`Resumen: ${totalArticles} artículos en ${totalShelfPositions} posiciones${skipped > 0 ? ` (${skipped} descartados)` : ''}`);
 
-        // Mostrar confirmación antes de escribir
-        await new Promise((resolve) => {
-          setTimeout(resolve, 1500); // Permitir que vea el resumen
-        });
+        await new Promise((resolve) => setTimeout(resolve, 1500));
 
-        // ── Escribir en Firestore con batch ──────────────────────────────────
         setProgress('Actualizando Firestore...');
         let processedCount = 0;
         const batchSize = 500;
@@ -565,14 +436,10 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
           for (const [position, items] of posMap) {
             const posStr = position.toString().padStart(3, '0');
             const locRef = doc(db, COLLECTIONS.SHELVES, shelfCode, COLLECTIONS.LOCATIONS, posStr);
-            allUpdates.push({
-              ref: locRef,
-              data: { items },
-            });
+            allUpdates.push({ ref: locRef, data: { items } });
           }
         }
 
-        // Procesar en lotes con progreso
         for (let i = 0; i < allUpdates.length; i += batchSize) {
           const batch = writeBatch(db);
           const chunk = allUpdates.slice(i, i + batchSize);
@@ -588,7 +455,6 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
 
         setProgress(`✅ ${allUpdates.length} posiciones actualizadas`);
         showMessage('success', `✅ Importación OK: ${totalArticles} artículos en ${totalShelfPositions} posiciones${skipped > 0 ? ` (${skipped} inválidos)` : ''}`);
-        setTimeout(() => setProgress(''), 2000);
       } catch (err: any) {
         console.error('Import error:', err);
         showMessage('error', `Error: ${err.message}`);
@@ -602,95 +468,64 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
   }, []);
 
   return (
-    <div className="space-y-6">
-      {/* Feedback */}
-      {feedback && (
-        <div
-          className={`rounded-2xl border px-4 py-3 text-sm font-bold transition-all ${
-            feedback.type === 'success'
-              ? 'border-emerald-500/30 bg-emerald-950/30 text-emerald-200'
-              : 'border-red-500/30 bg-red-950/30 text-red-200'
-          }`}
-        >
-          {feedback.msg}
+    <section className="overflow-hidden rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-950/40 to-slate-900 p-6 shadow-lg">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="max-w-2xl">
+          <h3 className="text-2xl font-black text-white">📊 Importar / Exportar Inventario</h3>
+          <p className="mt-2 text-sm leading-relaxed text-slate-300">
+            Genera un Excel profesional con tablas filtradas, colores corporativos y bordes sofisticados. Importa el mismo archivo para recuperar datos.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={exportToExcelProfessional}
+            disabled={exporting}
+            className="shrink-0 rounded-2xl px-6 py-4 text-base font-black transition active:scale-[0.98] bg-emerald-500 text-slate-950 shadow-lg hover:bg-emerald-400 disabled:bg-slate-700 disabled:text-slate-300"
+          >
+            {exporting ? `⏳ ${progress}` : '📥 Exportar Excel'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+            className="shrink-0 rounded-2xl px-6 py-4 text-base font-black transition active:scale-[0.98] bg-blue-600 text-white shadow-lg hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-300"
+          >
+            {importing ? `⏳ ${progress}` : '📤 Importar Excel'}
+          </button>
+
+          <input ref={fileInputRef} type="file" accept=".xlsx,.xls" onChange={handleImport} className="hidden" />
+
+          <button
+            type="button"
+            onClick={() => setShowInstructions(!showInstructions)}
+            className="text-sm font-bold text-cyan-300 hover:text-cyan-200 transition"
+          >
+            {showInstructions ? '▼ Ocultar' : '▶ Mostrar'} instrucciones
+          </button>
+        </div>
+      </div>
+
+      {showInstructions && (
+        <div className="mt-4 rounded-xl border border-cyan-500/30 bg-cyan-950/30 p-4 text-sm text-slate-200">
+          <p className="font-bold text-cyan-300">📋 Cómo usar:</p>
+          <ul className="mt-2 space-y-1 text-xs leading-relaxed">
+            <li>✓ <strong>Exportar:</strong> Descarga un Excel con tablas filtradas, colores y bordes profesionales</li>
+            <li>✓ <strong>Importar:</strong> Carga el Excel para recuperar datos en caso de pérdida</li>
+            <li>✓ <strong>Editar:</strong> Modifica datos en la hoja "INVENTARIO_GLOBAL" y reimporta</li>
+            <li>⚠️ <strong>NO modifiques:</strong> Encabezados de columnas ni nombres de hojas</li>
+          </ul>
         </div>
       )}
 
-      {/* Main Section */}
-      <section className="rounded-[2rem] border border-cyan-500/20 bg-[linear-gradient(135deg,rgba(8,145,178,0.22),rgba(15,23,42,0.96)_48%,rgba(2,6,23,1)_100%)] p-6 shadow-[0_28px_70px_rgba(8,145,178,0.16)]">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <h3 className="text-2xl font-black text-white">Gestión Profesional de Inventario</h3>
-              <button
-                type="button"
-                onClick={() => setShowInstructions(!showInstructions)}
-                className="w-7 h-7 rounded-full bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-sm font-bold hover:bg-cyan-500/30 transition-colors"
-                title="Ver instrucciones"
-              >
-                i
-              </button>
-            </div>
-            <p className="mt-2 text-slate-300 text-sm leading-relaxed">
-              Exporta un Excel profesional con todas tus estanterías y datos. Si pierdes información, importa el mismo archivo para recuperarla.
-            </p>
-
-            {/* Instructions (collapsible) */}
-            {showInstructions && (
-              <div className="mt-4 p-4 rounded-xl bg-slate-950/50 border border-slate-800 text-sm text-slate-300 space-y-2">
-                <p className="font-bold text-cyan-400">📖 Cómo usar:</p>
-                <ul className="space-y-1 ml-4 list-disc">
-                  <li><strong>Exportar:</strong> Descarga un Excel con todas tus estanterías, posiciones y artículos.</li>
-                  <li><strong>Recuperación:</strong> Si pierdes datos, importa el Excel y se actualizarán automáticamente en la app.</li>
-                  <li><strong>Estructura:</strong> El archivo tiene 3 hojas: Portada, Resumen Ejecutivo e Inventario Global detallado.</li>
-                  <li><strong>Edición:</strong> Puedes editar los datos en la hoja "INVENTARIO_GLOBAL" antes de importar.</li>
-                  <li><strong>Validación:</strong> La importación verifica que la estructura sea correcta antes de actualizar.</li>
-                </ul>
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-3 shrink-0">
-            {/* Export Button */}
-            <button
-              type="button"
-              onClick={exportToExcelProfessional}
-              disabled={exporting || importing}
-              className={`shrink-0 rounded-2xl px-6 py-4 text-sm font-black transition active:scale-[0.98] whitespace-nowrap ${
-                exporting || importing
-                  ? 'bg-slate-700 text-slate-300'
-                  : 'bg-emerald-500 text-slate-950 shadow-[0_18px_40px_rgba(16,185,129,0.28)] hover:bg-emerald-400'
-              }`}
-            >
-              {exporting ? `⏳ ${progress || 'Procesando'}` : '📥 Exportar a Excel'}
-            </button>
-
-            {/* Import Button */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={importing || exporting}
-              className={`shrink-0 rounded-2xl px-6 py-4 text-sm font-black transition active:scale-[0.98] whitespace-nowrap ${
-                importing || exporting
-                  ? 'bg-slate-700 text-slate-300'
-                  : 'bg-blue-500 text-white shadow-[0_18px_40px_rgba(59,130,246,0.28)] hover:bg-blue-400'
-              }`}
-            >
-              {importing ? `⏳ ${progress || 'Importando'}` : '📤 Importar Excel'}
-            </button>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={handleImport}
-              className="hidden"
-              disabled={importing || exporting}
-            />
-          </div>
+      {feedback && (
+        <div className={`mt-4 rounded-xl p-4 text-sm font-bold text-center ${feedback.type === 'success' ? 'bg-emerald-600/20 text-emerald-300' : 'bg-red-600/20 text-red-300'}`}>
+          {feedback.msg}
         </div>
-      </section>
-    </div>
+      )}
+    </section>
   );
 };
 
