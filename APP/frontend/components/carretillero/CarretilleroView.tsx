@@ -57,36 +57,41 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
 
   return (
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
-      {/* Header */}
-      <header className="flex-shrink-0 bg-white border-b border-slate-200 px-3 py-2 shadow-sm">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
-            <span className="text-xl">🚚</span>
+      {/* Header — responsive: una línea en escritorio, dos en móvil */}
+      <header className="flex-shrink-0 bg-white border-b border-slate-200 px-2 sm:px-3 py-1 sm:py-2 shadow-sm">
+        {/* Línea 1: Título + Info */}
+        <div className="flex items-center justify-between gap-1 sm:gap-2 min-h-10">
+          <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-shrink-0">
+            <span className="text-lg sm:text-xl flex-shrink-0">🚚</span>
             <div className="min-w-0">
-              <h1 className="text-base font-black text-slate-900 tracking-tight leading-none">{titleByRole}</h1>
-              <p className="text-[10px] text-slate-500 truncate leading-none mt-0.5">{displayName} · {operarioId}</p>
+              <h1 className="text-sm sm:text-base font-black text-slate-900 tracking-tight leading-none">{titleByRole}</h1>
+              <p className="text-[8px] sm:text-[10px] text-slate-500 truncate leading-none mt-0.5">{displayName} · {operarioId}</p>
             </div>
           </div>
 
-          {activeTab === 'shelves' && (
-            <OperativeActionButtons engine={engine} config={config} />
-          )}
-
-          <div className="flex gap-1 flex-shrink-0">
+          {/* Botones derechos (RECOGIDAS + Salir) */}
+          <div className="flex gap-0.5 sm:gap-1 flex-shrink-0">
             {effectiveRole === 'CARRETILLERO' && (
               <button onClick={() => setActiveTab(activeTab === 'pickups' ? 'shelves' : 'pickups')}
-                className={`px-2 py-1 text-[11px] font-bold rounded-lg transition-all whitespace-nowrap ${
+                className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all whitespace-nowrap ${
                   activeTab === 'pickups' ? 'bg-orange-500 text-white shadow-md' : 'bg-orange-100 text-orange-700'
                 }`}>
-                📦 RECOGIDAS{pendingCount > 0 && <span className="ml-1 font-black">({pendingCount})</span>}
+                📦 REC{pendingCount > 0 && <span className="ml-0.5 font-black">({pendingCount})</span>}
               </button>
             )}
             <button onClick={onBack ? onBack : logout}
-              className="px-2 py-1 text-[11px] font-bold bg-slate-100 text-slate-700 rounded-lg whitespace-nowrap">
-              {onBack ? 'Volver' : 'Salir'}
+              className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-[9px] sm:text-[11px] font-bold bg-slate-100 text-slate-700 rounded-lg whitespace-nowrap">
+              {onBack ? '‹' : '⏚'}
             </button>
           </div>
         </div>
+
+        {/* Línea 2: Botones de acciones (solo desktop o cuando activo) */}
+        {activeTab === 'shelves' && (
+          <div className="hidden sm:flex items-center justify-center pt-1 mt-1 border-t border-slate-100">
+            <OperativeActionButtons engine={engine} config={config} size="compact" />
+          </div>
+        )}
       </header>
 
       {/* Contenido */}
