@@ -193,7 +193,15 @@
       "Bash(sed -n '1,45p' APP/frontend/components/kiosk/TraerArticuloModal.tsx)",
       "Bash(ls APP/backend/src)",
       "Bash(grep -nE \"\\\\\"main\\\\\"|\\\\\"build\\\\\"|typescript|tsc\" APP/backend/package.json)",
-      "Bash(ls APP/backend/*.json)"
+      "Bash(ls APP/backend/*.json)",
+      "mcp__plugin_firebase_firebase__auth_get_users",
+      "Bash(ls *.json)",
+      "Bash(ls serviceAccount*)",
+      "Bash(ls credentials*)",
+      "Bash(gcloud services *)",
+      "Bash(gcloud config *)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(firebase functions:log --only ocrImage --limit 20)"
     ]
   },
   "enabledMcpjsonServers": [

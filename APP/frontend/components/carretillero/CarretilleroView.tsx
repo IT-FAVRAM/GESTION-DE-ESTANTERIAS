@@ -86,9 +86,9 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
           </div>
         </div>
 
-        {/* Línea 2: Botones de acciones (solo desktop o cuando activo) */}
+        {/* Línea 2: Botones de acciones */}
         {activeTab === 'shelves' && (
-          <div className="hidden sm:flex items-center justify-center pt-1 mt-1 border-t border-slate-100">
+          <div className="flex items-center justify-center pt-1 mt-0.5 border-t border-slate-100 flex-wrap gap-0.5">
             <OperativeActionButtons engine={engine} config={config} size="compact" />
           </div>
         )}
