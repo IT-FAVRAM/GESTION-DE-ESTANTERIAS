@@ -191,6 +191,55 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
 
       XLSX.utils.book_append_sheet(wb, globalWs, 'INVENTARIO_GLOBAL');
 
+      // ── HOJAS POR SECCIÓN (con subtotales) ─────────────────────────────────
+      setProgress('Creando hojas por sección...');
+      const itemsBySection = new Map<string, typeof allItems>();
+      for (const item of allItems) {
+        const sec = item.section || 'OTROS';
+        if (!itemsBySection.has(sec)) itemsBySection.set(sec, []);
+        itemsBySection.get(sec)!.push(item);
+      }
+
+      for (const [section, sectionItems] of itemsBySection) {
+        const sectionRows: Array<Array<string | number>> = [
+          [`SECCIÓN: ${section}`],
+          [],
+          ['Estantería', 'Posición', 'Artículo', 'OF', 'Ubicado por', 'Días en almacén'],
+        ];
+
+        for (const item of sectionItems) {
+          sectionRows.push([
+            item.shelfName,
+            item.position,
+            item.articleCode,
+            item.orderFab,
+            item.locatedByName,
+            item.daysInStorage,
+          ]);
+        }
+
+        sectionRows.push([]);
+        sectionRows.push([`Total: ${sectionItems.length} artículos`]);
+
+        const sectionWs = XLSX.utils.aoa_to_sheet(sectionRows);
+        sectionWs['!cols'] = [{ wch: 22 }, { wch: 10 }, { wch: 20 }, { wch: 16 }, { wch: 20 }, { wch: 16 }];
+
+        // Estilos para encabezado de sección (fila 3)
+        const secHeaderCols = ['A', 'B', 'C', 'D', 'E', 'F'];
+        for (const col of secHeaderCols) {
+          const cellRef = `${col}3`;
+          if (sectionWs[cellRef]) {
+            sectionWs[cellRef].s = headerStyle;
+          }
+        }
+
+        // Congelar
+        sectionWs['!freeze'] = { xSplit: 0, ySplit: 3 };
+
+        const sheetLabel = section.replace(/\s+/g, '_').substring(0, 31);
+        XLSX.utils.book_append_sheet(wb, sectionWs, sheetLabel);
+      }
+
       setProgress('Generando archivo...');
       const filename = `Inventario_${today.toISOString().split('T')[0]}_${today.getHours()}${today.getMinutes()}.xlsx`;
       XLSX.writeFile(wb, filename);
