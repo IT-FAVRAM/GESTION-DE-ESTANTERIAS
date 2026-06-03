@@ -9,6 +9,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { useShelf } from '../../hooks/useShelf';
 import { useAuth } from '../../hooks/useAuth';
+import { usePickupQueue } from '../../hooks/usePickupQueue';
 import ShelfGrid from '../kiosk/ShelfGrid';
 import KioskSearchBar from '../kiosk/KioskSearchBar';
 import ConfirmationModal from '../common/ConfirmationModal';
@@ -26,7 +27,7 @@ import RetirarCellModal from '../kiosk/RetirarCellModal';
 import RetirarArticleList, { type RetirarItem } from '../kiosk/RetirarArticleList';
 import type { LocationItem } from '../../lib/schema/locations';
 
-type AdminAction = 'idle' | 'ubicar' | 'retirar' | 'mover' | 'reubicar' | 'moverSeccion';
+type AdminAction = 'idle' | 'ubicar' | 'retirar' | 'mover' | 'reubicar' | 'moverSeccion' | 'almacen' | 'avisar';
 
 interface AdminShelfBrowserProps {
   onBack: () => void;
@@ -90,6 +91,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
     : 0;
 
   const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? '';
+  const { createPickupRequest } = usePickupQueue();
 
    const showFeedback = useCallback((type: 'success' | 'error' | 'info', msg: string) => {
      setFeedback({ type, msg });
@@ -148,6 +150,20 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
     setPendingRetirarQueue([]);
     setShowRetirarArticleList(false);
   }, []);
+
+  const handleAvisar = useCallback(async () => {
+    setConfirmModal({
+      open: true, title: 'Avisar al Carretillero', icon: '🚚', variant: 'warning',
+      message: `Se enviará una solicitud de recogida en ${SHELF_DEFINITIONS.find(s => s.code === selectedShelf)?.name || selectedShelf}`,
+      onConfirm: async () => {
+        setConfirmModal(p => ({ ...p, open: false }));
+        setProcessing(true);
+        const ok = await createPickupRequest(effectiveOperarioId, displayName, selectedShelf);
+        setProcessing(false);
+        showFeedback(ok ? 'success' : 'error', ok ? '✅ Aviso enviado al carretillero' : 'Error al enviar el aviso');
+      },
+    });
+  }, [selectedShelf, effectiveOperarioId, displayName, createPickupRequest, showFeedback]);
 
   const handleRetirarArticleListConfirm = useCallback(async (selectedItems: RetirarItem[]) => {
     setShowRetirarArticleList(false);
@@ -224,12 +240,31 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
       return;
     }
 
+    if (act === 'almacen') {
+      const articleCode = article;
+      const orderFab = of;
+      setConfirmModal({
+        open: true, title: 'Enviar a Almacén', icon: '🏭', variant: 'warning',
+        message: `¿Enviar ${formatArticleDisplay(articleCode, orderFab)} a almacén?\nSe retirará de TODAS las estanterías donde esté ubicado.`,
+        onConfirm: async () => {
+          setProcessing(true); setConfirmModal(p => ({ ...p, open: false }));
+          try {
+            const fn = httpsCallable(functions, 'shelfOperate');
+            await fn({ op: 'enviarAlmacen', payload: { articleCode, orderFab, shelfCode: selectedShelf }, session: { operarioId: effectiveOperarioId, operarioName: displayName } });
+            showFeedback('success', '✅ Enviado a almacén');
+          } catch { showFeedback('error', 'Error al enviar a almacén'); }
+          setProcessing(false); resetAction();
+        },
+      });
+      return;
+    }
+
     if (act === 'reubicar' || act === 'mover') {
       setAction(act);
       setSelectedPositions([]);
       setFeedback(null);
     }
-  }, [articleInput, ofInput, findArticle, retirar, effectiveOperarioId, displayName, showFeedback, resetAction]);
+  }, [articleInput, ofInput, findArticle, retirar, effectiveOperarioId, displayName, showFeedback, resetAction, selectedShelf]);
 
   // Función para reubicar: mover de origen a destino directamente
   const doReubicar = useCallback(async (source: { articleCode: string; orderFab: string; position: string }, newPosition: string) => {
@@ -734,6 +769,8 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
                   <button onClick={() => startAction('retirar')} className="px-2 py-1 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-500 transition-colors whitespace-nowrap">📤 Retirar</button>
                   <button onClick={() => startAction('reubicar')} className="px-2 py-1 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-500 transition-colors whitespace-nowrap">🔁 Reubic.</button>
                   <button onClick={startMoverSeccion} className="px-2 py-1 bg-violet-600 text-white rounded-lg text-xs font-bold hover:bg-violet-500 transition-colors whitespace-nowrap hidden sm:flex">🚀 Mover§</button>
+                  <button onClick={() => startAction('almacen')} className="px-2 py-1 bg-purple-600 text-white rounded-lg text-xs font-bold hover:bg-purple-500 transition-colors whitespace-nowrap">🏭 Almacén</button>
+                  <button onClick={handleAvisar} className="px-2 py-1 bg-orange-500 text-white rounded-lg text-xs font-bold hover:bg-orange-400 transition-colors whitespace-nowrap">🔔 Avisar</button>
                 </>
               )}
             </div>

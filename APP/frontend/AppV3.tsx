@@ -35,6 +35,7 @@ const SuperAdminPanel   = lazy(() => import('./components/admin/SuperAdminPanel'
 const AdminShelfBrowser = lazy(() => import('./components/admin/AdminShelfBrowser'));
 const ArticleTimeline   = lazy(() => import('./components/admin/ArticleTimeline'));
 const ManagerInfoView   = lazy(() => import('./components/app/ManagerInfoView'));
+const JefeSeccionView   = lazy(() => import('./components/app/JefeSeccionView'));
 const AdminHomeView     = lazy(() => import('./components/app/AdminHomeView'));
 const CalidadView       = lazy(() => import('./components/app/CalidadView'));
 
@@ -174,21 +175,14 @@ const AppV3: React.FC = () => {
   if (role === 'JEFE_SECCION') {
     return (
       <Suspense fallback={<AppLoadingScreen />}>
-        {urgencyBar}
-        {showOperativeMode ? (
-          <>
-            <OfflineIndicator />
-            <OfflineDebugPanel />
-            <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
-            <KioskView />
-            {chatFab}
-          </>
-        ) : (
-          <>
-            <ManagerInfoView role={role} displayName={displayName} section={section} notification={pushNotif} onCloseNotification={() => setPushNotif(null)} onOpenOperativeMode={() => setShowOperativeMode(true)} onLogout={logout} />
-            {chatFab}
-          </>
-        )}
+        <>
+          {urgencyBar}
+          <OfflineIndicator />
+          <OfflineDebugPanel />
+          <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
+          <JefeSeccionView />
+          {chatFab}
+        </>
       </Suspense>
     );
   }
