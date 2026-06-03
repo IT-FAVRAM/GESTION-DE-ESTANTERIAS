@@ -67,7 +67,7 @@ self.addEventListener('notificationclick', function (event) {
 });
 
 // ── App Shell Cache (Offline-First) ──────────────────────────────────────────
-const CACHE_VERSION = 'wms-app-v3-fix-modulepreload';
+const CACHE_VERSION = 'wms-app-v4';
 
 const SKIP_HOSTNAMES = [
     'firestore.googleapis.com',
