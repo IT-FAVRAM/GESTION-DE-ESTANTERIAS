@@ -62,6 +62,17 @@ service cloud.firestore {
       return isOperationalUser() || isMonitoringUser();
     }
 
+    // Valida los campos opcionales de un documento de estado de conexión.
+    // Previene inyección de campos arbitrarios en conexion_estado.
+    function isValidConnectionStatusWrite() {
+      let d = request.resource.data;
+      return (!('deviceType' in d)  || d.deviceType in ['KIOSK', 'CARRETILLERO', 'ADMIN', 'UNKNOWN'])
+          && (!('isOnline' in d)    || d.isOnline is bool)
+          && (!('deviceId' in d)    || (d.deviceId is string   && d.deviceId.size() <= 200))
+          && (!('deviceName' in d)  || (d.deviceName is string && d.deviceName.size() <= 200))
+          && (!('sessionId' in d)   || (d.sessionId is string  && d.sessionId.size() <= 100));
+    }
+
     // ── USER SELF-UPDATE VALIDATION ───────────────────────────────────────────
 
     function validTokenList() {
@@ -160,7 +171,8 @@ service cloud.firestore {
       allow read: if isAdminLike();
       allow write: if isAuthenticated()
                    && request.auth.uid == uid
-                   && request.resource.data.authUid == request.auth.uid;
+                   && request.resource.data.authUid == request.auth.uid
+                   && isValidConnectionStatusWrite();
     }
 
     match /conexion_logs/{logId} {
@@ -175,6 +187,74 @@ service cloud.firestore {
                     && (!('deviceName' in request.resource.data) || request.resource.data.deviceName is string)
                     && (!('deviceType' in request.resource.data) || request.resource.data.deviceType in ['KIOSK', 'CARRETILLERO', 'ADMIN', 'UNKNOWN']);
       allow update, delete: if false;
+    }
+
+    // ── PRODUCCIÓN: workingItems / finishedItems / assignments ───────────────
+    // Gestionadas por Cloud Function `productionOperate`. El código legacy del
+    // frontend las leerá en tiempo real; las escrituras quedan bloqueadas para
+    // forzar el uso de Cloud Functions y mantener la consistencia transaccional.
+
+    match /workingItems/{document=**} {
+      allow read:  if isAdminLike() || userRole() in ['JEFE_SECCION', 'CALIDAD'];
+      allow write: if false;  // solo vía Cloud Function productionOperate
+    }
+
+    match /finishedItems/{document=**} {
+      allow read:  if isAdminLike() || userRole() in ['JEFE_SECCION', 'CALIDAD'];
+      allow write: if false;  // solo vía Cloud Function productionOperate
+    }
+
+    match /assignments/{document=**} {
+      allow read:  if isAdminLike() || userRole() in ['JEFE_SECCION', 'CALIDAD'];
+      allow write: if false;  // solo vía Cloud Function productionOperate
+    }
+
+    // ── LEGACY: carts / supplies_soldadura ───────────────────────────────────
+    // El WMS v3 usa `shelves` para carros. Estas colecciones son legacy.
+    // Lectura permitida para compatibilidad; escritura bloqueada (migrar a CF).
+
+    match /carts/{document=**} {
+      allow read:  if isRegisteredUser();
+      allow write: if false;
+    }
+
+    match /supplies_soldadura/{document=**} {
+      allow read:  if isAdminLike() || userRole() == 'JEFE_SECCION';
+      allow write: if false;
+    }
+
+    // ── NOTIFICACIONES (legacy) ──────────────────────────────────────────────
+    // Usadas por vistas legacy del sistema anterior. En v3 las notificaciones
+    // van por FCM/push. Escritura bloqueada; solo Cloud Functions pueden escribir.
+
+    match /notifications/{document=**} {
+      allow read:  if isRegisteredUser() || isValidatedDevice();
+      allow write: if false;
+    }
+
+    // ── LOGS Y AUDITORÍA ADMIN ───────────────────────────────────────────────
+    // Escritura exclusiva de Cloud Functions. Lectura restringida a admins.
+
+    match /adminMessages/{document=**} {
+      allow read:  if isAdminLike();
+      allow write: if false;
+    }
+
+    match /notificationHistory/{document=**} {
+      allow read:  if isAdminLike();
+      allow write: if false;
+    }
+
+    match /inboundOrders/{document=**} {
+      allow read:  if isAdminLike();
+      allow write: if false;
+    }
+
+    // ── COLECCIONES INTERNAS DE BACKEND ─────────────────────────────────────
+    // `_ops`: solo generación de IDs en Cloud Functions. Nunca accesible desde cliente.
+
+    match /_ops/{document=**} {
+      allow read, write: if false;
     }
 
     // ── CONVERSACIONES PRIVADAS ──────────────────────────────────────────────
