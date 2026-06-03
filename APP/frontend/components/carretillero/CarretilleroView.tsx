@@ -73,12 +73,14 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
           )}
 
           <div className="flex gap-1 flex-shrink-0">
-            <button onClick={() => setActiveTab(activeTab === 'pickups' ? 'shelves' : 'pickups')}
-              className={`px-2 py-1 text-[11px] font-bold rounded-lg transition-all whitespace-nowrap ${
-                activeTab === 'pickups' ? 'bg-orange-500 text-white shadow-md' : 'bg-orange-100 text-orange-700'
-              }`}>
-              📦 RECOGIDAS{pendingCount > 0 && <span className="ml-1 font-black">({pendingCount})</span>}
-            </button>
+            {effectiveRole === 'CARRETILLERO' && (
+              <button onClick={() => setActiveTab(activeTab === 'pickups' ? 'shelves' : 'pickups')}
+                className={`px-2 py-1 text-[11px] font-bold rounded-lg transition-all whitespace-nowrap ${
+                  activeTab === 'pickups' ? 'bg-orange-500 text-white shadow-md' : 'bg-orange-100 text-orange-700'
+                }`}>
+                📦 RECOGIDAS{pendingCount > 0 && <span className="ml-1 font-black">({pendingCount})</span>}
+              </button>
+            )}
             <button onClick={onBack ? onBack : logout}
               className="px-2 py-1 text-[11px] font-bold bg-slate-100 text-slate-700 rounded-lg whitespace-nowrap">
               {onBack ? 'Volver' : 'Salir'}

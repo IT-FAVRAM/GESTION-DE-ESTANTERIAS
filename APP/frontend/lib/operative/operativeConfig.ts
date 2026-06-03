@@ -134,7 +134,7 @@ export function buildOperativeConfig(
           mover: true,
           reubicar: false,
           almacen: 'none',
-          avisar: 'recogida',
+          avisar: 'recogida+traer',
         },
         ubicar: { askMultiArticle: true, allowMultiSection: false },
         retirar: { askSectionFirst: false },
