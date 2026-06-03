@@ -8,6 +8,7 @@ import { useAnalytics } from '../../hooks/useAnalytics';
 import { db } from '../../lib/firebase';
 import { COLLECTIONS, SHELF_DEFINITIONS, type LocationDoc } from '../../lib/firestoreSchema';
 import { LeadTimeReport } from '../views/LeadTimeReport';
+import ProfessionalInventoryExport from './ProfessionalInventoryExport';
 
 type ReportTab = 'overview' | 'performance' | 'alerts';
 
@@ -280,26 +281,8 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ onClose }) => {
       {/* Tabs Content */}
       {activeTab === 'overview' && (
         <div className="space-y-6 animate-fade-in">
-          {/* Main Export Card */}
-          <section className="overflow-hidden rounded-[2rem] border border-cyan-500/20 bg-[linear-gradient(135deg,rgba(8,145,178,0.22),rgba(15,23,42,0.96)_48%,rgba(2,6,23,1)_100%)] p-6 shadow-[0_28px_70px_rgba(8,145,178,0.16)]">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-               <div className="max-w-2xl">
-                 <h3 className="text-2xl font-black text-white">Inventario Global</h3>
-                 <p className="mt-2 text-slate-300 text-sm leading-relaxed">
-                    Obtén el estado exacto de todas las estanterías en un archivo Excel.
-                    Incluye detalle por posición, antigüedad de las piezas y órdenes de fabricación activas.
-                 </p>
-               </div>
-               <button
-                  type="button"
-                  onClick={exportToExcel}
-                  disabled={exporting}
-                  className={`shrink-0 rounded-2xl px-6 py-4 text-base font-black transition active:scale-[0.98] ${exporting ? 'bg-slate-700 text-slate-300' : 'bg-emerald-500 text-slate-950 shadow-[0_18px_40px_rgba(16,185,129,0.28)] hover:bg-emerald-400'}`}
-                >
-                  {exporting ? `⏳ ${progress}` : '📥 Exportar a Excel'}
-                </button>
-            </div>
-          </section>
+          {/* Professional Import/Export Component */}
+          <ProfessionalInventoryExport onExportComplete={() => setProgress('')} />
 
           {/* KPIs */}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">

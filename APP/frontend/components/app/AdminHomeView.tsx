@@ -168,32 +168,6 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
               </div>
             </button>
 
-            {/* Avisar Carretillero */}
-            <button
-              type="button"
-              onClick={() => openShelfPicker('avisar')}
-              className="bg-slate-900 rounded-2xl border border-amber-500/20 p-5 flex flex-col items-start gap-2 hover:border-amber-400/40 active:scale-[0.98] transition-all cursor-pointer text-left touch-manipulation shadow-sm"
-            >
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-xl">🚚</div>
-              <div>
-                <h3 className="font-bold text-white text-sm">Avisar Carretillero</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Solicitar recogida en una estantería</p>
-              </div>
-            </button>
-
-            {/* Solicitar Artículo */}
-            <button
-              type="button"
-              onClick={() => openShelfPicker('traer')}
-              className="bg-slate-900 rounded-2xl border border-emerald-500/20 p-5 flex flex-col items-start gap-2 hover:border-emerald-400/40 active:scale-[0.98] transition-all cursor-pointer text-left touch-manipulation shadow-sm"
-            >
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-xl">📦</div>
-              <div>
-                <h3 className="font-bold text-white text-sm">Solicitar Artículo</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Que traigan un artículo a tu sección</p>
-              </div>
-            </button>
-
             {/* Informes */}
             <button
               type="button"
