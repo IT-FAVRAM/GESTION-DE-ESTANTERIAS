@@ -33,66 +33,48 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
        {/* Header */}
        <header className="flex-shrink-0 bg-white border-b border-slate-200 px-4 py-3 shadow-sm">
-         <div className="flex items-center justify-between">
-           <div className="flex items-center gap-3">
+         <div className="flex items-center justify-between gap-2">
+           <div className="flex items-center gap-3 min-w-0">
              <span className="text-2xl">🚚</span>
-             <div>
+             <div className="min-w-0">
                <h1 className="text-lg font-black text-slate-900 tracking-tight">CARRETILLERO</h1>
-               <p className="text-xs text-slate-500">{displayName} · ID: {operarioId}</p>
+               <p className="text-xs text-slate-500 truncate">{displayName} · ID: {operarioId}</p>
              </div>
            </div>
-           <div className="flex gap-2 flex-shrink-0">
+           {activeTab === 'shelves' && currentShelfAction === 'idle' && (
+             <div className="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end">
+               <button onClick={() => setPendingShelfAction('ubicar')}
+                 className="px-2 py-1 rounded-lg bg-emerald-600 text-white text-xs font-bold active:scale-95 transition-all touch-manipulation whitespace-nowrap">
+                 📦 UBICAR
+               </button>
+               <button onClick={() => setPendingShelfAction('retirar')}
+                 className="px-2 py-1 rounded-lg bg-red-600 text-white text-xs font-bold active:scale-95 transition-all touch-manipulation whitespace-nowrap">
+                 📤 RETIRAR
+               </button>
+               <button onClick={() => setPendingShelfAction('mover')}
+                 className="px-2 py-1 rounded-lg bg-blue-600 text-white text-xs font-bold active:scale-95 transition-all touch-manipulation whitespace-nowrap">
+                 🔄 MOVER
+               </button>
+             </div>
+           )}
+           <div className="flex gap-1 flex-shrink-0">
+             <button onClick={() => setActiveTab('pickups')}
+               className={`px-2 py-1 text-xs font-bold rounded-lg transition-all whitespace-nowrap ${
+                 activeTab === 'pickups'
+                   ? 'bg-orange-500 text-white shadow-md'
+                   : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+               }`}>
+               📦 RECOGIDAS{pendingCount > 0 && <span className="ml-1 font-black">({pendingCount})</span>}
+             </button>
              <button
                onClick={onBack ? onBack : logout}
-               className="px-3 py-2 text-xs font-bold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-all duration-200"
-             >
+               className="px-3 py-1 text-xs font-bold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-all duration-200 whitespace-nowrap">
                {onBack ? 'Volver' : 'Salir'}
              </button>
            </div>
          </div>
        </header>
 
-       {/* Tab bar */}
-       <div className="flex-shrink-0 bg-white border-b border-slate-200 px-1">
-         <div className="flex gap-0.5">
-           <button
-             onClick={() => setActiveTab('shelves')}
-             className={`flex-1 min-h-[48px] py-3 text-sm font-semibold transition-colors relative touch-manipulation
-               ${activeTab === 'shelves' ? 'text-sky-700' : 'text-slate-500 hover:text-slate-700'}`}
-           >
-             🏭 ESTANTERÍAS
-             {activeTab === 'shelves' && (
-               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-sky-500" />
-             )}
-           </button>
-           <button
-             onClick={() => setActiveTab('pickups')}
-             className={`flex-1 min-h-[48px] py-3 text-sm font-semibold transition-colors relative touch-manipulation
-               ${activeTab === 'pickups' ? 'text-orange-600' : 'text-slate-500 hover:text-slate-700'}`}
-           >
-             📦 RECOGIDAS
-             {pendingCount > 0 && (
-               <span className="absolute top-1 right-1/4 w-6 h-6 flex items-center justify-center
-                 bg-red-500 text-white text-xs font-black rounded-full animate-pulse">
-                 {pendingCount}
-               </span>
-             )}
-             {activeTab === 'pickups' && (
-               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-500" />
-             )}
-           </button>
-           <button
-             onClick={() => setActiveTab('carts')}
-             className={`flex-1 min-h-[48px] py-3 text-sm font-semibold transition-colors relative touch-manipulation
-               ${activeTab === 'carts' ? 'text-emerald-700' : 'text-slate-500 hover:text-slate-700'}`}
-           >
-             🛒 CARROS
-             {activeTab === 'carts' && (
-               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500" />
-             )}
-           </button>
-         </div>
-       </div>
 
        {/* Content */}
        <main className="flex-1 min-h-0 min-w-0 w-full overflow-hidden flex flex-row">
@@ -105,7 +87,6 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
              </button>
              {sidebarOpen && currentShelfAction === 'idle' && (
                <div className="flex-1 overflow-y-auto [scrollbar-width:thin]">
-                 {/* Estanterías */}
                  <p className="px-3 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">Estanterías</p>
                  {SHELF_DEFINITIONS.map(shelf => (
                    <button key={shelf.code}
@@ -114,24 +95,6 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
                      {shelf.name}
                    </button>
                  ))}
-                 {/* Acciones */}
-                 <p className="px-3 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">Acciones</p>
-                 <button onClick={() => setPendingShelfAction('ubicar')}
-                   className="w-full text-left px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors">
-                   📦 Ubicar
-                 </button>
-                 <button onClick={() => setPendingShelfAction('retirar')}
-                   className="w-full text-left px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 transition-colors">
-                   📤 Retirar
-                 </button>
-                 <button onClick={() => setPendingShelfAction('mover')}
-                   className="w-full text-left px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-50 transition-colors">
-                   🔄 Mover
-                 </button>
-                 <button onClick={() => setPendingShelfAction('almacen')}
-                   className="w-full text-left px-3 py-2 text-xs font-semibold text-purple-700 hover:bg-purple-50 transition-colors">
-                   🏭 Almacén
-                 </button>
                </div>
              )}
            </aside>
