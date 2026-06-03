@@ -407,15 +407,17 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
      <div className="w-full min-w-0">
        {!fullscreenMode && (
          <>
-           <ShelfGridStats
-             emptySlots={Math.max(totalSlots - occupiedSlots, 0)}
-             occupiedSlots={occupiedSlots}
-             totalSlots={totalSlots}
-             occupancy={pct}
-             compact={compact}
-           />
+           <div className="hidden sm:block">
+             <ShelfGridStats
+               emptySlots={Math.max(totalSlots - occupiedSlots, 0)}
+               occupiedSlots={occupiedSlots}
+               totalSlots={totalSlots}
+               occupancy={pct}
+               compact={compact}
+             />
+           </div>
 
-           <div className="mb-5 rounded-2xl border border-slate-700/80 bg-slate-900/90 px-4 py-3 shadow-[0_14px_40px_rgba(15,23,42,0.25)]">
+           <div className="hidden sm:block mb-5 rounded-2xl border border-slate-700/80 bg-slate-900/90 px-4 py-3 shadow-[0_14px_40px_rgba(15,23,42,0.25)]">
              <div className="flex items-center gap-3">
                <div className="flex-1 h-2 bg-slate-950/80 rounded-full overflow-hidden min-w-[80px]">
                  <div

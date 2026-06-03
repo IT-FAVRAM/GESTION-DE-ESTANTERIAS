@@ -35,7 +35,7 @@ const CalidadReprocesosSection: React.FC<CalidadReprocesosSectionProps> = ({
       </div>
     )}
 
-    <div className={`mx-4 mt-3 rounded-2xl border px-4 py-3 ${
+    <div className={`hidden sm:block mx-4 mt-3 rounded-2xl border px-4 py-3 ${
       canEditReprocesses ? 'border-amber-500/20 bg-amber-500/10' : 'border-slate-800 bg-slate-900/70'
     }`}>
       <p className={`text-xs font-black uppercase tracking-[0.18em] ${

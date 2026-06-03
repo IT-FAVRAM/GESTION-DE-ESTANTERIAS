@@ -15,6 +15,7 @@ import { isReprocesosLocation } from '../../lib/firestoreSchema';
 import { calcReprocesosTotal } from '../../lib/api/reprocesosApi';
 import CalidadReprocesosSection from './CalidadReprocesosSection';
 import { formatArticleDisplay, type ScanParseResult, parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
+import { findArticleGlobal } from '../../lib/findArticleGlobal';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import type { LocationItem } from '../../lib/schema/locations';
 import { usePickupQueue } from '../../hooks/usePickupQueue';
@@ -39,6 +40,7 @@ const CalidadView: React.FC = () => {
   const [scanMethodPickerOpen, setScanMethodPickerOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<CalidadAction | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [confirmModal, setConfirmModal] = useState<{
     open: boolean; title: string; message: string; icon: string;
@@ -108,7 +110,8 @@ const CalidadView: React.FC = () => {
 
   const finishAction = useCallback((type: 'success' | 'error', msg: string) => {
     showToast(type, msg, 2800);
-    setTimeout(() => resetAction(), 2800);
+    if (finishTimerRef.current) clearTimeout(finishTimerRef.current);
+    finishTimerRef.current = setTimeout(() => resetAction(), 2800);
   }, [showToast]);
 
   const resetAction = () => {
@@ -191,7 +194,7 @@ const CalidadView: React.FC = () => {
     setScanMethodPickerOpen(true);
   };
 
-  const handleScan = (result: ScanParseResult) => {
+  const handleScan = async (result: ScanParseResult) => {
     if (!result.success) {
       showToast('error', 'error' in result ? result.error : 'Error de escaneo');
       setScannerActive(true);
@@ -233,6 +236,35 @@ const CalidadView: React.FC = () => {
 
     setScanData({ articleCode, orderFab });
     setScannerActive(false);
+
+    // Ghost article check before ubicar
+    if (action === 'ubicar') {
+      setProcessing(true);
+      const globalLocs = await findArticleGlobal(articleCode, orderFab);
+      setProcessing(false);
+      if (globalLocs.length > 0) {
+        const locationText = globalLocs
+          .map((l) => `• ${l.shelfName} — pos. ${parseInt(l.position, 10)}`)
+          .join('\n');
+        setConfirmModal({
+          open: true,
+          title: '⚠️ Artículo ya ubicado',
+          message: `${formatArticleDisplay(articleCode, orderFab)} ya figura en el sistema:\n\n${locationText}\n\n¿Confirmas que ya NO se encuentra ahí?`,
+          icon: '⚠️',
+          variant: 'warning',
+          onConfirm: () => setConfirmModal((prev) => ({ ...prev, open: false })),
+          extraButton: {
+            text: 'Cancelar',
+            onClick: () => {
+              setScanData(null);
+              setScannerActive(true);
+              setConfirmModal((prev) => ({ ...prev, open: false }));
+            },
+          },
+        });
+        return;
+      }
+    }
 
     if (action === 'retirar') {
       const found = findArticle(articleCode, orderFab);
@@ -492,26 +524,42 @@ const CalidadView: React.FC = () => {
 
   return (
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
-       {/* Header */}
-       <header className="bg-white border-b border-slate-200 px-4 py-3 shadow-sm">
-         <div className="flex items-center justify-between">
-           <div className="flex items-center gap-3">
-             <span className="text-xl">🔍</span>
-             <div>
-               <h1 className="text-lg font-black text-slate-900 tracking-tight">Calidad — CAL</h1>
-               <p className="text-xs text-slate-500">{displayName}</p>
-             </div>
-           </div>
-           <div className="flex gap-2">
-             <button
-               onClick={logout}
-               className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all duration-200"
-             >
-               Salir
-             </button>
-           </div>
-         </div>
-       </header>
+      {/* Header */}
+      <header className="flex-shrink-0 bg-white border-b border-slate-200 px-3 py-2 shadow-sm">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
+            <span className="text-xl">🔍</span>
+            <div className="min-w-0">
+              <h1 className="text-base font-black text-slate-900 tracking-tight leading-none">Calidad — CAL</h1>
+              <p className="text-[10px] text-slate-500 truncate leading-none mt-0.5">{displayName}</p>
+            </div>
+          </div>
+          {action === 'idle' && (
+            <div className="flex items-center gap-1 flex-wrap justify-center">
+              <button onClick={() => startAction('ubicar')}
+                className="px-2 py-1 rounded-lg bg-emerald-600 text-white text-[11px] font-bold active:scale-95 transition-all touch-manipulation whitespace-nowrap">
+                📦 UBICAR
+              </button>
+              <button onClick={() => startAction('retirar')}
+                className="px-2 py-1 rounded-lg bg-red-600 text-white text-[11px] font-bold active:scale-95 transition-all touch-manipulation whitespace-nowrap">
+                📤 RETIRAR
+              </button>
+              <button onClick={() => startAction('mover')}
+                className="px-2 py-1 rounded-lg bg-blue-600 text-white text-[11px] font-bold active:scale-95 transition-all touch-manipulation whitespace-nowrap">
+                🔄 MOVER
+              </button>
+              <button onClick={() => startAction('avisar')}
+                className="px-2 py-1 rounded-lg bg-orange-500 text-white text-[11px] font-bold active:scale-95 transition-all touch-manipulation whitespace-nowrap">
+                🔔 AVISAR
+              </button>
+            </div>
+          )}
+          <button onClick={logout}
+            className="px-2 py-1 text-[11px] font-bold bg-slate-100 text-slate-700 rounded-lg whitespace-nowrap flex-shrink-0">
+            Salir
+          </button>
+        </div>
+      </header>
 
       <CalidadReprocesosSection
         canViewReprocessCosts={canViewReprocessCosts}
@@ -612,38 +660,6 @@ const CalidadView: React.FC = () => {
           />
         )}
       </div>
-
-      {/* Action buttons */}
-      {action === 'idle' && (
-        <div className="flex-shrink-0 bg-white border-t border-slate-200 px-3 pt-3 w-full" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          <div className="grid grid-cols-4 gap-2 w-full max-w-4xl mx-auto">
-            <button
-              onClick={() => startAction('ubicar')}
-              className="h-16 rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-700 text-white font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 hover:from-emerald-400 hover:to-emerald-600 shadow-lg shadow-emerald-900/25 transition-all touch-manipulation"
-            >
-              <span className="text-xl">📦</span> UBICAR
-            </button>
-            <button
-              onClick={() => startAction('retirar')}
-              className="h-16 rounded-2xl bg-gradient-to-b from-red-500 to-red-700 text-white font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 hover:from-red-400 hover:to-red-600 shadow-lg shadow-red-900/25 transition-all touch-manipulation"
-            >
-              <span className="text-xl">📤</span> RETIRAR
-            </button>
-            <button
-              onClick={() => startAction('mover')}
-              className="h-16 rounded-2xl bg-gradient-to-b from-blue-500 to-blue-700 text-white font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 hover:from-blue-400 hover:to-blue-600 shadow-lg shadow-blue-900/25 transition-all touch-manipulation"
-            >
-              <span className="text-xl">🔄</span> MOVER
-            </button>
-            <button
-              onClick={() => startAction('avisar')}
-              className="h-16 rounded-2xl bg-gradient-to-b from-amber-500 to-amber-700 text-white font-black text-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 hover:from-amber-400 hover:to-amber-600 shadow-lg shadow-amber-900/25 transition-all touch-manipulation"
-            >
-              <span className="text-xl">🚚</span> AVISAR
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Batch mode bar */}
       {batchMode && (action === 'ubicar' || action === 'retirar') && (
@@ -835,7 +851,7 @@ const CalidadView: React.FC = () => {
       {showCameraScanner && (
         <CameraQRScanner
           onScan={handleQRScan}
-          onClose={() => setShowCameraScanner(false)}
+          onClose={() => { setShowCameraScanner(false); setScannerActive(true); }}
         />
       )}
 
@@ -858,7 +874,7 @@ const CalidadView: React.FC = () => {
       {showOCRScanner && (
         <CameraOCRScanner
           onResult={handleOCRResult}
-          onClose={() => setShowOCRScanner(false)}
+          onClose={() => { setShowOCRScanner(false); setScannerActive(true); }}
         />
       )}
     </div>
