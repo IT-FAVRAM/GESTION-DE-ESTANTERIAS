@@ -303,15 +303,19 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
           }
         }
 
-        // ── Agrupar por estantería/posición para actualizar ─────────────────
+        // ── Agrupar y validar datos ────────────────────────────────────────────
         setProgress(`Procesando ${data.length} artículos...`);
         const shelfMap = new Map<string, Map<number, LocationItem[]>>();
+        let skipped = 0;
 
         for (const row of data) {
           const shelfCode = String(row['Código']).trim().toUpperCase();
           const position = parseInt(String(row['Posición']), 10);
 
-          if (!shelfCode || isNaN(position)) continue;
+          if (!shelfCode || isNaN(position)) {
+            skipped++;
+            continue;
+          }
 
           if (!shelfMap.has(shelfCode)) {
             shelfMap.set(shelfCode, new Map());
@@ -322,9 +326,18 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
             posMap.set(position, []);
           }
 
+          const articleCode = String(row['Artículo']).trim();
+          const orderFab = String(row['OF']).trim();
+
+          // Validar que no estén vacíos
+          if (!articleCode || !orderFab) {
+            skipped++;
+            continue;
+          }
+
           posMap.get(position)!.push({
-            articleCode: String(row['Artículo']).trim(),
-            orderFab: String(row['OF']).trim(),
+            articleCode,
+            orderFab,
             locatedBy: String(row['Ubicado por']).trim() || 'import',
             locatedByName: String(row['Ubicado por']).trim(),
             locatedAt: row['Fecha entrada'] && row['Fecha entrada'] !== '-'
@@ -332,6 +345,23 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
               : new Date().toISOString(),
           });
         }
+
+        // ── Resumen de importación ──────────────────────────────────────────────
+        const totalShelfPositions = Array.from(shelfMap.values()).reduce(
+          (sum, posMap) => sum + posMap.size, 0
+        );
+        const totalArticles = Array.from(shelfMap.values()).reduce(
+          (sum, posMap) => sum + Array.from(posMap.values()).reduce(
+            (pSum, items) => pSum + items.length, 0
+          ), 0
+        );
+
+        setProgress(`Resumen: ${totalArticles} artículos en ${totalShelfPositions} posiciones${skipped > 0 ? ` (${skipped} descartados)` : ''}`);
+
+        // Mostrar confirmación antes de escribir
+        await new Promise((resolve) => {
+          setTimeout(resolve, 1500); // Permitir que vea el resumen
+        });
 
         // ── Escribir en Firestore con batch ──────────────────────────────────
         setProgress('Actualizando Firestore...');
@@ -350,7 +380,7 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
           }
         }
 
-        // Procesar en lotes
+        // Procesar en lotes con progreso
         for (let i = 0; i < allUpdates.length; i += batchSize) {
           const batch = writeBatch(db);
           const chunk = allUpdates.slice(i, i + batchSize);
@@ -365,7 +395,7 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
         }
 
         setProgress(`✅ ${allUpdates.length} posiciones actualizadas`);
-        showMessage('success', `Importación completada: ${allUpdates.length} posiciones restauradas`);
+        showMessage('success', `✅ Importación OK: ${totalArticles} artículos en ${totalShelfPositions} posiciones${skipped > 0 ? ` (${skipped} inválidos)` : ''}`);
         setTimeout(() => setProgress(''), 2000);
       } catch (err: any) {
         console.error('Import error:', err);
