@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.removePinnedUrgency = exports.setPinnedUrgency = exports.chatSendMessage = exports.productionOperate = exports.sendAdminMessage = exports.resolveDeviceConfig = exports.deviceHeartbeat = exports.adminOperate = exports.userPushReport = exports.leadTimeDataset = exports.leadTimeReporting = exports.pickupQueueOperate = exports.notifyLongDisconnection = exports.notifyConnectionDisconnect = exports.notifyCarretilleroRequest = exports.notifySpecialLocationOccupancy = exports.notifyPickupQueueCreated = exports.checkStaleItems = exports.updateReproceso = exports.cartOperate = exports.shelfOperate = exports.onShelfLocationWrite = exports.onAssignmentWrite = exports.inventoryOperate = void 0;
+exports.ocrImage = exports.removePinnedUrgency = exports.setPinnedUrgency = exports.chatSendMessage = exports.productionOperate = exports.sendAdminMessage = exports.resolveDeviceConfig = exports.deviceHeartbeat = exports.adminOperate = exports.userPushReport = exports.leadTimeDataset = exports.leadTimeReporting = exports.pickupQueueOperate = exports.notifyLongDisconnection = exports.notifyConnectionDisconnect = exports.notifyCarretilleroRequest = exports.notifySpecialLocationOccupancy = exports.notifyPickupQueueCreated = exports.checkStaleItems = exports.updateReproceso = exports.cartOperate = exports.shelfOperate = exports.onShelfLocationWrite = exports.onAssignmentWrite = exports.inventoryOperate = void 0;
 var inventory_1 = require("./inventory");
 Object.defineProperty(exports, "inventoryOperate", { enumerable: true, get: function () { return inventory_1.inventoryOperate; } });
 Object.defineProperty(exports, "onAssignmentWrite", { enumerable: true, get: function () { return inventory_1.onAssignmentWrite; } });
@@ -32,4 +32,6 @@ Object.defineProperty(exports, "chatSendMessage", { enumerable: true, get: funct
 var urgency_1 = require("./urgency");
 Object.defineProperty(exports, "setPinnedUrgency", { enumerable: true, get: function () { return urgency_1.setPinnedUrgency; } });
 Object.defineProperty(exports, "removePinnedUrgency", { enumerable: true, get: function () { return urgency_1.removePinnedUrgency; } });
+var ocr_1 = require("./ocr");
+Object.defineProperty(exports, "ocrImage", { enumerable: true, get: function () { return ocr_1.ocrImage; } });
 //# sourceMappingURL=index.js.map

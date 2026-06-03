@@ -42,3 +42,7 @@ export {
   setPinnedUrgency,
   removePinnedUrgency,
 } from './urgency';
+
+export {
+  ocrImage,
+} from './ocr';

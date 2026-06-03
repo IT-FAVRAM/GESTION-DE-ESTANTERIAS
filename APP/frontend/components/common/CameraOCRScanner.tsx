@@ -14,6 +14,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { createWorker } from 'tesseract.js';
 import { generateOcrVariants, cropHalfCanvas, preprocessSingleLine, measureSharpnessLive, waitForVideoReady } from '../../lib/ocrPreprocess';
 import { parseScanInputLenient } from '../../lib/qrParser';
+import { recognizeImage } from '../../lib/api/ocrApi';
 
 interface CameraOCRScannerProps {
   onResult: (text: string) => void;
@@ -75,6 +76,59 @@ async function runOcrPass(
     text: result.data.text.trim(),
     confidence: result.data.confidence,
   };
+}
+
+// ─── Respaldo local (Tesseract) — solo si Cloud Vision no está disponible ─────
+async function runTesseractFallback(
+  crop: HTMLCanvasElement,
+  onProgress: (pct: number, label: string) => void,
+  shouldAbort: () => boolean,
+): Promise<{ text: string; confidence: number }> {
+  const variants = generateOcrVariants(crop);
+  const worker = await ensureOcrWorker();
+
+  const strategies: Array<{ variantIdx: number; psm: '3' | '4' | '6' | '7' }> = [
+    { variantIdx: 0, psm: '4' },
+    { variantIdx: 1, psm: '4' },
+    { variantIdx: 0, psm: '3' },
+    { variantIdx: 1, psm: '6' },
+    { variantIdx: 2, psm: '6' },
+    { variantIdx: 1, psm: '7' },
+  ];
+
+  let bestText = '';
+  let bestConfidence = 0;
+
+  for (let s = 0; s < strategies.length; s++) {
+    if (shouldAbort()) break;
+    const { variantIdx, psm } = strategies[s];
+    onProgress(40 + Math.round((s / strategies.length) * 50), 'OCR local (respaldo)...');
+    const { text, confidence } = await runOcrPass(worker, variants[variantIdx].dataUrl, psm);
+    if (confidence > bestConfidence || (confidence === bestConfidence && text.length > bestText.length)) {
+      bestConfidence = confidence;
+      bestText = text;
+    }
+    if (bestConfidence >= CONFIDENCE_THRESHOLD) break;
+  }
+
+  // Pase dedicado de OF en zona inferior si no se detectó
+  const hasOF = /OF\s*\d{2}\s*[-–—]?\s*\d{3,}/i.test(bestText);
+  if (!hasOF && !shouldAbort()) {
+    try {
+      const cropBottom = cropHalfCanvas(crop, 'bottom');
+      const ofVariant = preprocessSingleLine(cropBottom);
+      const { text: ofText, confidence: ofConf } = await runOcrPass(worker, ofVariant, '7');
+      if (ofText && /OF\s*\d/i.test(ofText)) {
+        const parseResult = parseScanInputLenient(bestText + ' ' + ofText);
+        if (parseResult.success) {
+          bestText = `${parseResult.data.articleCode} // ${parseResult.data.orderFab}`;
+          bestConfidence = Math.max(bestConfidence, ofConf);
+        }
+      }
+    } catch { /* opcional */ }
+  }
+
+  return { text: bestText, confidence: bestConfidence };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -211,111 +265,44 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
       crop.height = cropH;
       const cropCtx = crop.getContext('2d')!;
       cropCtx.drawImage(videoRef.current, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
-      setCapturedDataUrl(crop.toDataURL('image/jpeg', 0.92));
-      setProgress(8);
-
-      // ── Generar todas las variantes de preprocesado ───────────────────────
-      setProgressLabel('Preparando variantes...');
-      const variants = generateOcrVariants(crop);
+      // Calidad alta: Cloud Vision agradece resolución/detalle (impreso y manuscrito).
+      const cropDataUrl = crop.toDataURL('image/jpeg', 0.95);
+      setCapturedDataUrl(cropDataUrl);
       setProgress(15);
-
-      const worker = await ensureOcrWorker();
-      if (closedRef.current) return;
-
-      // ── Estrategia de OCR: PSM 4 (columna única) primero — ideal para etiquetas 2 líneas
-      // Orden: PSM 4 (single column) → PSM 3 (auto) → PSM 6 (uniform block) → PSM 7 (single line)
-      const strategies: Array<{ variantIdx: number; psm: '3' | '4' | '6' | '7'; label: string }> = [
-        { variantIdx: 0, psm: '4', label: 'adaptive PSM 4' },
-        { variantIdx: 1, psm: '4', label: 'Otsu PSM 4' },
-        { variantIdx: 0, psm: '3', label: 'adaptive PSM 3' },
-        { variantIdx: 1, psm: '6', label: 'Otsu PSM 6' },
-        { variantIdx: 0, psm: '6', label: 'adaptive PSM 6' },
-        { variantIdx: 2, psm: '6', label: 'invertido PSM 6' },
-        { variantIdx: 3, psm: '6', label: 'contraste PSM 6' },
-        { variantIdx: 1, psm: '7', label: 'Otsu PSM 7' },
-      ];
 
       let bestText = '';
       let bestConfidence = 0;
+      let cloudOk = false;
 
-      // Timeout global 28s: 8 estrategias principales + posibles pases regionales
+      // Timeout global de seguridad (incluye respaldo local).
       let timedOut = false;
-      ocrTimeoutRef.current = setTimeout(() => { timedOut = true; }, 28000);
+      ocrTimeoutRef.current = setTimeout(() => { timedOut = true; }, 30000);
 
-      const mainProgressSlice = 65; // 65% del progreso para las estrategias principales
-      const progressPerStep = Math.round(mainProgressSlice / strategies.length);
-
-      for (let s = 0; s < strategies.length; s++) {
-        if (closedRef.current || timedOut) break;
-
-        const { variantIdx, psm, label } = strategies[s];
-        _ocr.progressFn = (p) => {
-          setProgress(15 + s * progressPerStep + Math.round(p * progressPerStep / 100));
-        };
-        setProgressLabel(`Leyendo etiqueta (${label})...`);
-
-        const { text, confidence } = await runOcrPass(worker, variants[variantIdx].dataUrl, psm);
-
-        if (confidence > bestConfidence || (confidence === bestConfidence && text.length > bestText.length)) {
-          bestConfidence = confidence;
-          bestText = text;
+      // ── PRINCIPAL: Cloud Vision (impreso + manuscrito) ────────────────────
+      try {
+        setProgressLabel('Leyendo con Cloud Vision...');
+        setProgress(45);
+        const cloud = await recognizeImage(cropDataUrl);
+        if (cloud.ok && cloud.text.trim()) {
+          bestText = cloud.text.trim();
+          bestConfidence = cloud.confidence || 80;
+          cloudOk = true;
+          setProgress(90);
         }
-
-        if (bestConfidence >= CONFIDENCE_THRESHOLD) break;
+      } catch {
+        // Cloud no disponible (Vision deshabilitada / sin red) → respaldo local.
+        cloudOk = false;
       }
 
-      // ── Pase dedicado de región inferior para OF ──────────────────────────
-      // Si tras todas las estrategias no se detectó un patrón OF, intentamos
-      // hacer OCR sólo sobre la mitad inferior de la imagen (donde siempre está la OF).
-      const hasOF = /OF\s*\d{2}\s*[-–—]?\s*\d{3,}/i.test(bestText);
-      if (!hasOF && !closedRef.current && !timedOut) {
-        setProgressLabel('Buscando OF en zona inferior...');
-        setProgress(80);
-
-        try {
-          const cropBottom = cropHalfCanvas(crop, 'bottom');
-          const cropTop = cropHalfCanvas(crop, 'top');
-
-          // Zona inferior: variantes optimizadas para línea única (la OF)
-          const bottomVariants = [
-            preprocessSingleLine(cropBottom),
-            preprocessSingleLine(cropTop), // artículo en zona superior
-          ];
-
-          // Pase 1: zona inferior con PSM 7 (single line) — máxima precisión para OF
-          if (!closedRef.current && !timedOut) {
-            _ocr.progressFn = (p) => setProgress(80 + Math.round(p * 8 / 100));
-            const { text: ofText, confidence: ofConf } = await runOcrPass(worker, bottomVariants[0], '7');
-            if (ofText && /OF\s*\d/i.test(ofText)) {
-              // Encontramos OF en zona inferior — combinar con mejor artículo actual
-              const parseResult = parseScanInputLenient(bestText + ' ' + ofText);
-              if (parseResult.success) {
-                bestText = `${parseResult.data.articleCode} // ${parseResult.data.orderFab}`;
-                bestConfidence = Math.max(bestConfidence, ofConf);
-              } else if (ofConf > bestConfidence) {
-                bestText = ofText;
-                bestConfidence = ofConf;
-              }
-            }
-          }
-
-          // Pase 2: zona superior con PSM 7 para artículo (si OF ya encontrada o como refuerzo)
-          if (!closedRef.current && !timedOut) {
-            _ocr.progressFn = (p) => setProgress(88 + Math.round(p * 7 / 100));
-            const { text: artText, confidence: artConf } = await runOcrPass(worker, bottomVariants[1], '7');
-            if (artText && artConf > 20) {
-              // Intentar combinar zona superior (artículo) + zona inferior (OF ya en bestText)
-              const combined = artText + ' ' + bestText;
-              const parseResult = parseScanInputLenient(combined);
-              if (parseResult.success) {
-                bestText = `${parseResult.data.articleCode} // ${parseResult.data.orderFab}`;
-                bestConfidence = Math.max(bestConfidence, artConf);
-              }
-            }
-          }
-        } catch {
-          // pases regionales opcionales — ignorar fallos
-        }
+      // ── RESPALDO: Tesseract local (solo si la nube falló) ─────────────────
+      if (!cloudOk && !closedRef.current && !timedOut) {
+        const fallback = await runTesseractFallback(
+          crop,
+          (pct, label) => { setProgress(pct); setProgressLabel(label); },
+          () => closedRef.current || timedOut,
+        );
+        bestText = fallback.text;
+        bestConfidence = fallback.confidence;
       }
 
       if (ocrTimeoutRef.current) clearTimeout(ocrTimeoutRef.current);
