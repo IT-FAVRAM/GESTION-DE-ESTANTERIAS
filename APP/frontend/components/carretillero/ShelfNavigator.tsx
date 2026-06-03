@@ -167,6 +167,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
         open: true, title: 'Avisar al Carretillero',
         message: `Se avisará que hay una pieza para recoger en ${shelfDef?.name || selectedShelf}`,
         icon: '🚚', variant: 'warning',
+        confirmText: 'LLEVAR — que me se lleven un artículo',
         onConfirm: async () => {
           setProcessing(true);
           setConfirmModal(prev => ({ ...prev, open: false }));

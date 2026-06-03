@@ -162,6 +162,7 @@ const CalidadView: React.FC = () => {
         message: `Selecciona el tipo de solicitud al carretillero`,
         icon: '🚚',
         variant: 'warning',
+        confirmText: 'LLEVAR — que me se lleven un artículo',
         onConfirm: async () => {
           setProcessing(true);
           setConfirmModal((prev) => ({ ...prev, open: false }));

@@ -155,6 +155,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
     setConfirmModal({
       open: true, title: 'Avisar al Carretillero', icon: '🚚', variant: 'warning',
       message: `Se enviará una solicitud de recogida en ${SHELF_DEFINITIONS.find(s => s.code === selectedShelf)?.name || selectedShelf}`,
+      confirmText: 'LLEVAR — que me se lleven un artículo',
       onConfirm: async () => {
         setConfirmModal(p => ({ ...p, open: false }));
         setProcessing(true);
