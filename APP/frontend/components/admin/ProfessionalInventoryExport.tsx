@@ -49,27 +49,75 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
         minute: '2-digit',
       });
 
-      // ── HOJA 0: PORTADA + INSTRUCCIONES ────────────────────────────────────
+      // ── HOJA 0: PORTADA PROFESIONAL ───────────────────────────────────────────
       setProgress('Creando portada...');
-      const coverRows = [
+      const coverRows: Array<Array<string>> = [
         [''],
-        ['GESTOR DE ESTANTERÍAS - INVENTARIO COMPLETO'],
+        ['🏭  GESTOR DE ESTANTERÍAS'],
+        ['INVENTARIO GENERAL DE ALMACÉN'],
         [''],
-        [`Exportado: ${dateStr}`],
+        [''],
+        [`Generado: ${dateStr}`],
         [''],
         [''],
-        ['INSTRUCCIONES PARA IMPORTAR ESTE ARCHIVO'],
+        ['📋 INSTRUCCIONES DE USO'],
         [''],
-        ['1. NO modifiques la estructura de las hojas ni los encabezados'],
-        ['2. Puedes actualizar los datos en la hoja "INVENTARIO_GLOBAL"'],
-        ['3. Las columnas son: Sección | Estantería | Código | Posición | Artículo | OF | Ubicado por | Fecha entrada | Días en almacén'],
-        ['4. Guarda el archivo y usa el botón "Importar Excel" en la app'],
-        ['5. La importación validará los datos antes de actualizar'],
+        ['✓ Hoja "INVENTARIO_GLOBAL": Inventario completo con toda la información'],
+        ['✓ Hojas por sección: Vista detallada y filtrada por zona de almacén'],
+        ['✓ Hoja "RESUMEN": Estadísticas ejecutivas y KPIs principales'],
         [''],
-        ['NOTA: Si pierdes datos, puedes recuperarlos importando este archivo'],
+        ['📥 PARA IMPORTAR DATOS PERDIDOS:'],
+        [''],
+        ['1. Abre la hoja "INVENTARIO_GLOBAL"'],
+        ['2. Realiza los cambios necesarios (mantén la estructura de columnas)'],
+        ['3. Guarda el archivo en tu computadora'],
+        ['4. En la app, haz clic en "Importar Excel"'],
+        ['5. Selecciona este archivo y confirma la importación'],
+        [''],
+        ['⚠️  IMPORTANTE: NO modifiques los encabezados de las columnas ni el nombre de las hojas'],
+        [''],
+        ['📝 Notas:'],
+        ['• Este archivo contiene un backup completo de tu inventario'],
+        ['• Puedes utilizarlo para recuperar datos en caso de pérdida'],
+        ['• La importación valida automáticamente todos los datos'],
       ];
+
       const coverWs = XLSX.utils.aoa_to_sheet(coverRows);
-      coverWs['!cols'] = [{ wch: 100 }];
+      coverWs['!cols'] = [{ wch: 120 }];
+
+      // Estilos para portada
+      const titleStyle = {
+        font: { bold: true, size: 24, color: { rgb: 'FFFFFF' }, name: 'Calibri' },
+        fill: { fgColor: { rgb: '1E40AF' }, patternType: 'solid' },
+        alignment: { horizontal: 'center' as const, vertical: 'center' as const },
+        border: {
+          bottom: { style: 'medium' as const, color: { rgb: '1E40AF' } },
+        },
+      };
+
+      const subtitleStyle = {
+        font: { bold: true, size: 14, color: { rgb: 'FFFFFF' }, name: 'Calibri' },
+        fill: { fgColor: { rgb: '0369A1' }, patternType: 'solid' },
+        alignment: { horizontal: 'center' as const, vertical: 'center' as const },
+      };
+
+      const sectionHeaderStyle = {
+        font: { bold: true, size: 12, color: { rgb: '1E40AF' }, name: 'Calibri' },
+        alignment: { horizontal: 'left' as const, vertical: 'top' as const },
+      };
+
+      const regularStyle = {
+        font: { size: 11, color: { rgb: '1F2937' }, name: 'Calibri' },
+        alignment: { horizontal: 'left' as const, vertical: 'top' as const },
+      };
+
+      if (coverWs['A2']) coverWs['A2'].s = titleStyle;
+      if (coverWs['A3']) coverWs['A3'].s = subtitleStyle;
+      if (coverWs['A6']) coverWs['A6'].s = { ...regularStyle, font: { ...regularStyle.font, bold: true, size: 10, color: { rgb: '0369A1' } } };
+      if (coverWs['A9']) coverWs['A9'].s = sectionHeaderStyle;
+      if (coverWs['A15']) coverWs['A15'].s = sectionHeaderStyle;
+      if (coverWs['A26']) coverWs['A26'].s = sectionHeaderStyle;
+
       XLSX.utils.book_append_sheet(wb, coverWs, 'PORTADA');
 
       // ── Recoger todos los datos ────────────────────────────────────────────
@@ -123,19 +171,83 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
         }
       }
 
-      // ── HOJA 1: RESUMEN EJECUTIVO ──────────────────────────────────────────
+      // ── HOJA 1: RESUMEN EJECUTIVO PROFESIONAL ────────────────────────────────
       setProgress('Creando resumen ejecutivo...');
-      const summaryRows = [
-        ['RESUMEN EJECUTIVO', '', '', ''],
-        ['Fecha', dateStr, '', ''],
-        ['Total artículos', totalArticles, '', ''],
-        ['Total OFs únicas', allOFs.size, '', ''],
-        ['Total estanterías', SHELF_DEFINITIONS.length, '', ''],
+      const avgDaysInStorage = allItems.length > 0
+        ? Math.round(
+            allItems.reduce((sum, item) => {
+              const days = typeof item.daysInStorage === 'number' ? item.daysInStorage : 0;
+              return sum + days;
+            }, 0) / allItems.length
+          )
+        : 0;
+
+      const summaryRows: Array<Array<string | number>> = [
+        ['RESUMEN EJECUTIVO DEL INVENTARIO'],
         [''],
+        ['Métrica', 'Valor', 'Descripción'],
+        [''],
+        ['📦 Total de Artículos', totalArticles, `Cantidad total de piezas almacenadas`],
+        ['🏭 Órdenes de Fabricación', allOFs.size, `OFs únicas en el sistema`],
+        ['📍 Estanterías', SHELF_DEFINITIONS.length, `Zonas de almacenamiento configuradas`],
+        ['📅 Antigüedad Promedio', `${avgDaysInStorage} días`, `Promedio de días en almacén`],
+        [''],
+        ['Fecha de generación:', dateStr],
+        ['Sistema:', 'Gestor de Estanterías v3.0'],
       ];
 
       const summaryWs = XLSX.utils.aoa_to_sheet(summaryRows);
-      summaryWs['!cols'] = [{ wch: 30 }, { wch: 20 }, { wch: 20 }, { wch: 20 }];
+      summaryWs['!cols'] = [{ wch: 28 }, { wch: 20 }, { wch: 45 }];
+
+      const summaryTitleStyle = {
+        font: { bold: true, size: 16, color: { rgb: 'FFFFFF' }, name: 'Calibri' },
+        fill: { fgColor: { rgb: '0369A1' }, patternType: 'solid' },
+        alignment: { horizontal: 'left' as const, vertical: 'center' as const },
+      };
+
+      const summaryHeaderStyle = {
+        font: { bold: true, size: 11, color: { rgb: 'FFFFFF' }, name: 'Calibri' },
+        fill: { fgColor: { rgb: '1E40AF' }, patternType: 'solid' },
+        alignment: { horizontal: 'center' as const, vertical: 'center' as const },
+        border: {
+          top: { style: 'thin' as const, color: { rgb: '1E40AF' } },
+          bottom: { style: 'thin' as const, color: { rgb: '1E40AF' } },
+          left: { style: 'thin' as const, color: { rgb: '1E40AF' } },
+          right: { style: 'thin' as const, color: { rgb: '1E40AF' } },
+        },
+      };
+
+      const summaryMetricEvenStyle = {
+        font: { bold: true, size: 11, color: { rgb: '1E40AF' }, name: 'Calibri' },
+        fill: { fgColor: { rgb: 'E0F2FE' }, patternType: 'solid' },
+        alignment: { horizontal: 'left' as const, vertical: 'center' as const },
+        border: {
+          left: { style: 'thin' as const, color: { rgb: 'BAE6FD' } },
+          right: { style: 'thin' as const, color: { rgb: 'BAE6FD' } },
+        },
+      };
+
+      const summaryValueStyle = {
+        font: { bold: true, size: 12, color: { rgb: 'FFFFFF' }, name: 'Calibri' },
+        fill: { fgColor: { rgb: '0369A1' }, patternType: 'solid' },
+        alignment: { horizontal: 'center' as const, vertical: 'center' as const },
+        border: {
+          left: { style: 'thin' as const, color: { rgb: '0284C7' } },
+          right: { style: 'thin' as const, color: { rgb: '0284C7' } },
+        },
+      };
+
+      if (summaryWs['A1']) summaryWs['A1'].s = summaryTitleStyle;
+      if (summaryWs['A3']) summaryWs['A3'].s = summaryHeaderStyle;
+      if (summaryWs['B3']) summaryWs['B3'].s = summaryHeaderStyle;
+      if (summaryWs['C3']) summaryWs['C3'].s = summaryHeaderStyle;
+
+      for (let i = 5; i <= 8; i++) {
+        const rowLetter = String.fromCharCode(64 + i - 4);
+        if (summaryWs[`A${i}`]) summaryWs[`A${i}`].s = summaryMetricEvenStyle;
+        if (summaryWs[`B${i}`]) summaryWs[`B${i}`].s = summaryValueStyle;
+      }
+
       XLSX.utils.book_append_sheet(wb, summaryWs, 'RESUMEN');
 
       // ── HOJA 2: INVENTARIO GLOBAL ──────────────────────────────────────────
@@ -164,16 +276,38 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
         { wch: 20 }, { wch: 16 }, { wch: 20 }, { wch: 14 }, { wch: 16 },
       ];
 
-      // ── Estilos profesionales ───────────────────────────────────────────────
-      const headerStyle = {
-        font: { bold: true, size: 12, color: { rgb: 'FFFFFF' } },
-        fill: { fgColor: { rgb: '1F2937' }, patternType: 'solid' },
-        alignment: { horizontal: 'center' as const, vertical: 'center' as const },
+      // ── Estilos profesionales para Inventario Global ─────────────────────────
+      const globalHeaderStyle = {
+        font: { bold: true, size: 11, color: { rgb: 'FFFFFF' }, name: 'Calibri' },
+        fill: { fgColor: { rgb: '1E40AF' }, patternType: 'solid' },
+        alignment: { horizontal: 'center' as const, vertical: 'center' as const, wrapText: true },
         border: {
-          top: { style: 'thin' as const, color: { rgb: '4B5563' } },
-          bottom: { style: 'thin' as const, color: { rgb: '4B5563' } },
-          left: { style: 'thin' as const, color: { rgb: '4B5563' } },
-          right: { style: 'thin' as const, color: { rgb: '4B5563' } },
+          top: { style: 'medium' as const, color: { rgb: '0C2340' } },
+          bottom: { style: 'medium' as const, color: { rgb: '0C2340' } },
+          left: { style: 'thin' as const, color: { rgb: '0C2340' } },
+          right: { style: 'thin' as const, color: { rgb: '0C2340' } },
+        },
+      };
+
+      const globalRowEvenStyle = {
+        font: { size: 10, color: { rgb: '1F2937' }, name: 'Calibri' },
+        fill: { fgColor: { rgb: 'F0F9FF' }, patternType: 'solid' },
+        alignment: { horizontal: 'left' as const, vertical: 'center' as const },
+        border: {
+          left: { style: 'thin' as const, color: { rgb: 'E0E7FF' } },
+          right: { style: 'thin' as const, color: { rgb: 'E0E7FF' } },
+          bottom: { style: 'thin' as const, color: { rgb: 'E0E7FF' } },
+        },
+      };
+
+      const globalRowOddStyle = {
+        font: { size: 10, color: { rgb: '1F2937' }, name: 'Calibri' },
+        fill: { fgColor: { rgb: 'FFFFFF' }, patternType: 'solid' },
+        alignment: { horizontal: 'left' as const, vertical: 'center' as const },
+        border: {
+          left: { style: 'thin' as const, color: { rgb: 'E0E7FF' } },
+          right: { style: 'thin' as const, color: { rgb: 'E0E7FF' } },
+          bottom: { style: 'thin' as const, color: { rgb: 'E0E7FF' } },
         },
       };
 
@@ -182,16 +316,31 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
       for (const col of headerCols) {
         const cellRef = `${col}1`;
         if (globalWs[cellRef]) {
-          globalWs[cellRef].s = headerStyle;
+          globalWs[cellRef].s = globalHeaderStyle;
+        }
+      }
+
+      // Aplicar estilos a las filas de datos (alternancia de colores)
+      for (let rowIdx = 2; rowIdx <= globalRows.length; rowIdx++) {
+        const isEven = rowIdx % 2 === 0;
+        const rowStyle = isEven ? globalRowEvenStyle : globalRowOddStyle;
+        for (const col of headerCols) {
+          const cellRef = `${col}${rowIdx}`;
+          if (globalWs[cellRef]) {
+            globalWs[cellRef].s = rowStyle;
+          }
         }
       }
 
       // Congelar fila de encabezados
       globalWs['!freeze'] = { xSplit: 0, ySplit: 1 };
 
+      // Altura de filas
+      globalWs['!rows'] = [{ hpt: 25 }]; // Encabezado más alto
+
       XLSX.utils.book_append_sheet(wb, globalWs, 'INVENTARIO_GLOBAL');
 
-      // ── HOJAS POR SECCIÓN (con subtotales) ─────────────────────────────────
+      // ── HOJAS POR SECCIÓN (diseño profesional) ────────────────────────────────
       setProgress('Creando hojas por sección...');
       const itemsBySection = new Map<string, typeof allItems>();
       for (const item of allItems) {
@@ -202,8 +351,8 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
 
       for (const [section, sectionItems] of itemsBySection) {
         const sectionRows: Array<Array<string | number>> = [
-          [`SECCIÓN: ${section}`],
-          [],
+          [`📍 SECCIÓN: ${section.toUpperCase()}`],
+          ['', `Total de artículos: ${sectionItems.length}`],
           ['Estantería', 'Posición', 'Artículo', 'OF', 'Ubicado por', 'Días en almacén'],
         ];
 
@@ -218,22 +367,46 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
           ]);
         }
 
-        sectionRows.push([]);
-        sectionRows.push([`Total: ${sectionItems.length} artículos`]);
-
         const sectionWs = XLSX.utils.aoa_to_sheet(sectionRows);
-        sectionWs['!cols'] = [{ wch: 22 }, { wch: 10 }, { wch: 20 }, { wch: 16 }, { wch: 20 }, { wch: 16 }];
+        sectionWs['!cols'] = [{ wch: 22 }, { wch: 12 }, { wch: 20 }, { wch: 16 }, { wch: 20 }, { wch: 16 }];
 
-        // Estilos para encabezado de sección (fila 3)
+        // Estilo para título de sección (fila 1)
+        const sectionTitleStyle = {
+          font: { bold: true, size: 14, color: { rgb: 'FFFFFF' }, name: 'Calibri' },
+          fill: { fgColor: { rgb: '0369A1' }, patternType: 'solid' },
+          alignment: { horizontal: 'left' as const, vertical: 'center' as const },
+        };
+
+        const sectionSubtitleStyle = {
+          font: { size: 10, color: { rgb: '0369A1' }, name: 'Calibri' },
+          alignment: { horizontal: 'right' as const, vertical: 'center' as const },
+        };
+
+        if (sectionWs['A1']) sectionWs['A1'].s = sectionTitleStyle;
+        if (sectionWs['B2']) sectionWs['B2'].s = sectionSubtitleStyle;
+
+        // Estilos para encabezado de tabla (fila 3)
         const secHeaderCols = ['A', 'B', 'C', 'D', 'E', 'F'];
         for (const col of secHeaderCols) {
           const cellRef = `${col}3`;
           if (sectionWs[cellRef]) {
-            sectionWs[cellRef].s = headerStyle;
+            sectionWs[cellRef].s = globalHeaderStyle;
           }
         }
 
-        // Congelar
+        // Estilos para filas de datos (alternancia)
+        for (let rowIdx = 4; rowIdx < sectionRows.length; rowIdx++) {
+          const isEven = rowIdx % 2 === 0;
+          const rowStyle = isEven ? globalRowEvenStyle : globalRowOddStyle;
+          for (const col of secHeaderCols) {
+            const cellRef = `${col}${rowIdx}`;
+            if (sectionWs[cellRef]) {
+              sectionWs[cellRef].s = rowStyle;
+            }
+          }
+        }
+
+        // Congelar encabezados
         sectionWs['!freeze'] = { xSplit: 0, ySplit: 3 };
 
         const sheetLabel = section.replace(/\s+/g, '_').substring(0, 31);
