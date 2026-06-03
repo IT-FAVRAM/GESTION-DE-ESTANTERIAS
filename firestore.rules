@@ -177,6 +177,65 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ── CONVERSACIONES PRIVADAS ──────────────────────────────────────────────
+    // Creadas por ADMIN/SUPERADMIN vía Cloud Function. Solo miembros acceden.
+
+    // Verifica que el usuario autenticado sea miembro de la sala (1 lectura extra por operación).
+    function isMemberOfConversation(convId) {
+      return isAuthenticated()
+          && isRegisteredUser()
+          && request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.memberUids;
+    }
+
+    // Valida la estructura completa de un nuevo mensaje en una sala privada.
+    // Previene inyección de campos espurios y fuerza la integridad del readBy inicial.
+    function isValidConvMessage() {
+      let d = request.resource.data;
+      return d.senderId == request.auth.uid
+          && d.text is string
+          && d.text.size() >= 1
+          && d.text.size() <= 2000
+          && d.senderName is string
+          && d.senderName.size() >= 1
+          && d.senderRole is string
+          && d.senderRole in ['ADMIN', 'SUPERADMIN', 'JEFE_SECCION', 'CARRETILLERO', 'CALIDAD', 'OPERARIO']
+          && d.readBy is list
+          && d.readBy.size() == 1
+          && d.readBy[0] == request.auth.uid;
+    }
+
+    // Garantiza que el único cambio posible sea añadir el uid propio a readBy.
+    // Reutilizada en chat/general y conversations (evita duplicación).
+    function onlyReadByAppend() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['readBy'])
+          && request.resource.data.readBy is list
+          && request.resource.data.readBy.hasAll(resource.data.readBy)
+          && request.resource.data.readBy.hasOnly(resource.data.readBy.concat([request.auth.uid]));
+    }
+
+    match /conversations/{convId} {
+      // isRegisteredUser() garantiza email-auth; previene acceso de sesiones anónimas/kiosk.
+      allow get:  if isRegisteredUser() && (isAdminLike() || resource.data.memberUids.hasAny([request.auth.uid]));
+      allow list: if isRegisteredUser() && (isAdminLike() || resource.data.memberUids.hasAny([request.auth.uid]));
+      allow write: if false;  // solo vía Cloud Functions (chatCreateConversation)
+
+      match /messages/{msgId} {
+        allow read:   if isAdminLike() || isMemberOfConversation(convId);
+        allow create: if isMemberOfConversation(convId) && isValidConvMessage();
+        allow update: if isMemberOfConversation(convId) && onlyReadByAppend();
+        allow delete: if false;
+      }
+    }
+
+    // ── ALERTAS DE URGENCIA INDEPENDIENTES ───────────────────────────────────
+    // Creadas y resueltas exclusivamente por Cloud Functions (ADMIN/SUPERADMIN).
+    // Lectura: todos los usuarios registrados y dispositivos validados.
+
+    match /urgent_alerts/{alertId} {
+      allow read:  if isRegisteredUser() || isValidatedDevice();
+      allow write: if false;  // solo vía Cloud Functions
+    }
+
     // ── CHAT INTERNO ─────────────────────────────────────────────────────────
     // Acceso para ADMIN, SUPERADMIN, JEFE_SECCION y CARRETILLERO (OPERARIO/CALIDAD fuera).
     // Los mensajes se crean vía Cloud Function `chatSendMessage`; las reglas permiten
@@ -190,10 +249,7 @@ service cloud.firestore {
         allow read:   if isChatParticipant();
         allow create: if isChatParticipant()
                       && request.resource.data.senderId == request.auth.uid;
-        allow update: if isChatParticipant()
-                      && request.resource.data.diff(resource.data).changedKeys().hasOnly(['readBy'])
-                      && request.resource.data.readBy.hasAll(resource.data.readBy)
-                      && request.resource.data.readBy.hasOnly(resource.data.readBy.concat([request.auth.uid]));
+        allow update: if isChatParticipant() && onlyReadByAppend();
         allow delete: if false; // limpieza vía Cloud Function
       }
 

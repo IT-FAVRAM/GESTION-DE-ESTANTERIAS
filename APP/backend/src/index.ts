@@ -44,5 +44,16 @@ export {
 } from './urgency';
 
 export {
+  chatCreateConversation,
+  chatSendConversationMessage,
+} from './conversations';
+
+export {
+  createUrgentAlert,
+  resolveUrgentAlert,
+  deleteUrgentAlert,
+} from './urgentAlerts';
+
+export {
   ocrImage,
 } from './ocr';

@@ -32,7 +32,7 @@ export const SetUrgencyModal: React.FC<SetUrgencyModalProps> = ({
 
     try {
       const functions = getFunctions();
-      const setPinnedFn = httpsCallable(functions, 'setPinnedUrgency');
+      const setPinnedFn = httpsCallable(functions, 'createUrgentAlert');
 
       await setPinnedFn({
         text,

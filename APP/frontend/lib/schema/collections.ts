@@ -12,6 +12,8 @@ export const COLLECTIONS = {
   CONNECTION_STATUS: 'conexion_estado',
   CONNECTION_LOGS: 'conexion_logs',
   CHAT: 'chat',
+  CONVERSATIONS: 'conversations',
+  URGENT_ALERTS: 'urgent_alerts',
 } as const;
 
 export const CONFIG_DOC_ID = 'app';

@@ -23,8 +23,8 @@ import { useConnectionMonitor } from './hooks/useConnectionMonitor';
 import AppLoadingScreen from './components/app/AppLoadingScreen';
 import PushToast from './components/app/PushToast';
 import ChatButton from './components/app/ChatButton';
-import { PinnedUrgenciesBar } from './components/app/PinnedUrgenciesBar';
-import { usePinnedUrgencies } from './hooks/usePinnedUrgencies';
+import { UrgentAlertsBar } from './components/app/UrgentAlertsBar';
+import { useUrgentAlerts } from './hooks/useUrgentAlerts';
 
 // ── Lazy-loaded views — cada rol sólo descarga su código ──────────────────────
 const UnifiedLogin      = lazy(() => import('./components/auth/UnifiedLogin'));
@@ -79,9 +79,9 @@ const AppV3: React.FC = () => {
   const [showCarrosAdminMode, setShowCarrosAdminMode] = useState(false);
   const [adminPanelTab, setAdminPanelTab] = useState<AdminTab>('reports');
   const [pushNotif, setPushNotif] = useState<{ title: string; body: string } | null>(null);
-  const { urgencies } = usePinnedUrgencies();
-  const urgencyBar = isAuthenticated && urgencies.length > 0
-    ? <PinnedUrgenciesBar urgencies={urgencies} currentUid={firebaseUser?.uid ?? null} currentRole={role} />
+  const { alerts, resolveAlert } = useUrgentAlerts();
+  const urgencyBar = isAuthenticated && alerts.length > 0
+    ? <UrgentAlertsBar alerts={alerts} currentUid={firebaseUser?.uid ?? null} currentRole={role} onResolve={resolveAlert} />
     : null;
 
   const openAdminPanel = useCallback((tab: AdminTab = 'reports') => {
