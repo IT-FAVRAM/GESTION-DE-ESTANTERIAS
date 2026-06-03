@@ -519,11 +519,11 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
     <div className="flex flex-col h-full w-full min-w-0 overflow-hidden">
       {/* Selector de estanterías — oculto cuando estamos en modo carro */}
       {!lockedShelf && (
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 hidden sm:block">
           <ShelfNavigatorTabs selectedShelf={selectedShelf} onSelectShelf={(shelfCode) => { setSelectedShelf(shelfCode); setAction('idle'); setScanData(null); setHighlightedSearch([]); }} />
         </div>
       )}
-      <div className="flex-shrink-0">
+      <div className="flex-shrink-0 hidden sm:block">
         <ShelfNavigatorStatus
           totalEmpty={totalEmpty}
           totalOccupied={totalOccupied}
