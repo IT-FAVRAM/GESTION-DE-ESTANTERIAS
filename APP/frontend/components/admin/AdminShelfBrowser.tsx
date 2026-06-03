@@ -813,6 +813,12 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
 
         {/* MAIN CONTENT AREA */}
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+          {/* Barra de búsqueda */}
+          {action === 'idle' && !gridFocused && (
+            <div className="flex-shrink-0">
+              <KioskSearchBar locations={locations} onHighlight={setHighlightedPositions} />
+            </div>
+          )}
           {/* Manual operations panel — hidden in grid focus mode */}
       <div className={`px-4 pt-3 pb-2 ${gridFocused ? 'hidden' : ''} ${action === 'idle' ? 'hidden sm:block' : ''}`}>
         <div className="bg-white border border-slate-200 rounded-2xl p-3 space-y-2.5 shadow-sm">

@@ -58,6 +58,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
   const [scanMethodPickerOpen, setScanMethodPickerOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<NavAction | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [scanData, setScanData] = useState<{ articleCode: string; orderFab: string } | null>(null);
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
   const [processing, setProcessing] = useState(false);
@@ -131,7 +132,8 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
 
   const finishAction = (type: 'success' | 'error' | 'info', msg: string) => {
     showToast(type, msg, 2800);
-    setTimeout(() => resetOperative(), 2800);
+    if (finishTimerRef.current) clearTimeout(finishTimerRef.current);
+    finishTimerRef.current = setTimeout(() => resetOperative(), 2800);
   };
 
   const applyScanMethod = (method: ScanMethod) => {
@@ -520,7 +522,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
       {/* Selector de estanterías — oculto cuando estamos en modo carro */}
       {!lockedShelf && (
         <div className="flex-shrink-0 hidden sm:block">
-          <ShelfNavigatorTabs selectedShelf={selectedShelf} onSelectShelf={(shelfCode) => { setSelectedShelf(shelfCode); setAction('idle'); setScanData(null); setHighlightedSearch([]); }} />
+          <ShelfNavigatorTabs selectedShelf={selectedShelf} onSelectShelf={(shelfCode) => { setSelectedShelf(shelfCode); resetOperative(); setHighlightedSearch([]); }} />
         </div>
       )}
       <div className="flex-shrink-0 hidden sm:block">
@@ -535,7 +537,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
           scannerActive={scannerActive}
           scanArticle={scanData && action === 'ubicar' && selectedPositions.length === 0 ? scanData.articleCode : undefined}
           onConfirmMove={handleMoverConfirm}
-          onCancel={() => { setAction('idle'); setScanData(null); setSelectedPositions([]); setScannerActive(false); }}
+          onCancel={resetOperative}
         />
         {/* Confirm ubicar when positions selected */}
         {action === 'ubicar' && scanData && selectedPositions.length > 0 && (
@@ -570,9 +572,16 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
           </div>
         )}
 
+      {/* Barra de búsqueda */}
+      {action === 'idle' && (
+        <div className="flex-shrink-0">
+          <KioskSearchBar locations={locations} onHighlight={setHighlightedSearch} />
+        </div>
+      )}
+
         {/* Modal: añadir posición en otra estantería */}
         {showAddShelfModal && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowAddShelfModal(false)}>
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={() => { setShowAddShelfModal(false); setAddShelfCode(''); setAddShelfPositionText(''); }}>
             <div className="w-full max-w-md bg-white rounded-t-3xl p-6 space-y-4" onClick={e => e.stopPropagation()}>
               <h3 className="text-lg font-black text-slate-900">➕ Añadir posición en otra sección</h3>
               <div>
