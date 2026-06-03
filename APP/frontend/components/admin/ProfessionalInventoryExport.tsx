@@ -1,12 +1,12 @@
 /**
  * ProfessionalInventoryExport — Importación/Exportación profesional de Excel
- * con validación, estilos, y múltiples hojas estructuradas.
+ * con validación, estilos hiperprofesionales, múltiples hojas y recuperación de datos.
  */
 
 import React, { useCallback, useRef, useState } from 'react';
-import { collection, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { COLLECTIONS, SHELF_DEFINITIONS, type LocationDoc } from '../../lib/firestoreSchema';
+import { COLLECTIONS, SHELF_DEFINITIONS, type LocationDoc, type LocationItem } from '../../lib/firestoreSchema';
 
 interface ProfessionalInventoryExportProps {
   onExportComplete?: () => void;
@@ -163,8 +163,32 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
         { wch: 16 }, { wch: 22 }, { wch: 10 }, { wch: 10 },
         { wch: 20 }, { wch: 16 }, { wch: 20 }, { wch: 14 }, { wch: 16 },
       ];
-      // Estilos: encabezado negrita + fondo
-      if (globalWs['A1']) globalWs['A1'].font = { bold: true, size: 12 };
+
+      // ── Estilos profesionales ───────────────────────────────────────────────
+      const headerStyle = {
+        font: { bold: true, size: 12, color: { rgb: 'FFFFFF' } },
+        fill: { fgColor: { rgb: '1F2937' }, patternType: 'solid' },
+        alignment: { horizontal: 'center' as const, vertical: 'center' as const },
+        border: {
+          top: { style: 'thin' as const, color: { rgb: '4B5563' } },
+          bottom: { style: 'thin' as const, color: { rgb: '4B5563' } },
+          left: { style: 'thin' as const, color: { rgb: '4B5563' } },
+          right: { style: 'thin' as const, color: { rgb: '4B5563' } },
+        },
+      };
+
+      // Aplicar estilos al encabezado (fila 1)
+      const headerCols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+      for (const col of headerCols) {
+        const cellRef = `${col}1`;
+        if (globalWs[cellRef]) {
+          globalWs[cellRef].s = headerStyle;
+        }
+      }
+
+      // Congelar fila de encabezados
+      globalWs['!freeze'] = { xSplit: 0, ySplit: 1 };
+
       XLSX.utils.book_append_sheet(wb, globalWs, 'INVENTARIO_GLOBAL');
 
       setProgress('Generando archivo...');
@@ -184,7 +208,7 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
   }, []);
 
   /**
-   * Importar desde Excel con validación.
+   * Importar desde Excel con validación y actualización real en Firestore.
    */
   const handleImport = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -230,14 +254,73 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
           }
         }
 
-        // Aquí iría la lógica para actualizar Firestore
-        // Por ahora solo confirmamos que fue válido
-        setProgress(`✅ ${data.length} registros validados`);
-        showMessage('success', `Importación lista: ${data.length} artículos para actualizar`);
+        // ── Agrupar por estantería/posición para actualizar ─────────────────
+        setProgress(`Procesando ${data.length} artículos...`);
+        const shelfMap = new Map<string, Map<number, LocationItem[]>>();
+
+        for (const row of data) {
+          const shelfCode = String(row['Código']).trim().toUpperCase();
+          const position = parseInt(String(row['Posición']), 10);
+
+          if (!shelfCode || isNaN(position)) continue;
+
+          if (!shelfMap.has(shelfCode)) {
+            shelfMap.set(shelfCode, new Map());
+          }
+
+          const posMap = shelfMap.get(shelfCode)!;
+          if (!posMap.has(position)) {
+            posMap.set(position, []);
+          }
+
+          posMap.get(position)!.push({
+            articleCode: String(row['Artículo']).trim(),
+            orderFab: String(row['OF']).trim(),
+            locatedBy: String(row['Ubicado por']).trim() || 'import',
+            locatedByName: String(row['Ubicado por']).trim(),
+            locatedAt: row['Fecha entrada'] && row['Fecha entrada'] !== '-'
+              ? new Date(row['Fecha entrada']).toISOString()
+              : new Date().toISOString(),
+          });
+        }
+
+        // ── Escribir en Firestore con batch ──────────────────────────────────
+        setProgress('Actualizando Firestore...');
+        let processedCount = 0;
+        const batchSize = 500;
+        const allUpdates: Array<{ ref: any; data: any }> = [];
+
+        for (const [shelfCode, posMap] of shelfMap) {
+          for (const [position, items] of posMap) {
+            const posStr = position.toString().padStart(3, '0');
+            const locRef = doc(db, COLLECTIONS.SHELVES, shelfCode, COLLECTIONS.LOCATIONS, posStr);
+            allUpdates.push({
+              ref: locRef,
+              data: { items },
+            });
+          }
+        }
+
+        // Procesar en lotes
+        for (let i = 0; i < allUpdates.length; i += batchSize) {
+          const batch = writeBatch(db);
+          const chunk = allUpdates.slice(i, i + batchSize);
+
+          for (const { ref, data } of chunk) {
+            batch.set(ref, data, { merge: true });
+          }
+
+          await batch.commit();
+          processedCount += chunk.length;
+          setProgress(`Guardando... ${processedCount}/${allUpdates.length}`);
+        }
+
+        setProgress(`✅ ${allUpdates.length} posiciones actualizadas`);
+        showMessage('success', `Importación completada: ${allUpdates.length} posiciones restauradas`);
         setTimeout(() => setProgress(''), 2000);
       } catch (err: any) {
         console.error('Import error:', err);
-        showMessage('error', `Error al procesar Excel: ${err.message}`);
+        showMessage('error', `Error: ${err.message}`);
       } finally {
         setImporting(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
