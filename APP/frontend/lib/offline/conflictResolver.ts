@@ -64,13 +64,13 @@ export const analyzeConflict = async (
         // Verificar si ya existe en posición
         const items = await getItemsFromServer();
 
-        // Si servidor no responde, asumir que funcionó
+        // Sin datos del servidor no se puede asumir éxito — requiere revisión manual
         if (items.length === 0) {
           return {
-            resolution: 'auto_resolved',
-            reason: 'No se pudo verificar, pero operación probablemente funcionó',
-            recommendation: 'Asumiendo éxito basado en patrones históricos',
-            confidence: 0.95,
+            resolution: 'needs_manual_review',
+            reason: 'No se pudo verificar el estado del servidor',
+            recommendation: 'Comprueba manualmente si el artículo fue ubicado correctamente',
+            confidence: 0,
           };
         }
 
@@ -199,10 +199,10 @@ export const analyzeConflict = async (
 
         if (items.length === 0) {
           return {
-            resolution: 'auto_resolved',
-            reason: 'No se pudo verificar, asumiendo éxito',
-            recommendation: 'Operación probablemente completada',
-            confidence: 0.95,
+            resolution: 'needs_manual_review',
+            reason: 'No se pudo verificar el estado del servidor',
+            recommendation: 'Comprueba manualmente si el artículo fue movido correctamente',
+            confidence: 0,
           };
         }
 
@@ -236,12 +236,12 @@ export const analyzeConflict = async (
           };
         }
 
-        // Fallback: asumir que funcionó
+        // Artículo no encontrado en ningún lado — estado ambiguo, revisión manual
         return {
-          resolution: 'auto_resolved',
-          reason: 'Asumiendo operación completada',
-          recommendation: 'Verifica ubicación si es crítico',
-          confidence: 0.85,
+          resolution: 'needs_manual_review',
+          reason: 'El artículo no se encontró en ninguna ubicación del servidor',
+          recommendation: 'Verifica manualmente el estado del artículo en el almacén',
+          confidence: 0,
         };
       }
 
@@ -269,19 +269,19 @@ export const analyzeConflict = async (
 
       default:
         return {
-          resolution: 'auto_resolved',
-          reason: 'Asumiendo operación completada (fallback seguro)',
-          recommendation: 'Verifica manualmente si es crítico',
-          confidence: 0.85,
+          resolution: 'needs_manual_review',
+          reason: 'Tipo de operación sin verificación automática definida',
+          recommendation: 'Revisa manualmente el estado de la operación en el servidor',
+          confidence: 0,
         };
     }
   } catch (error) {
-    console.warn('[conflictResolver] Analysis error, asumiendo éxito', error);
+    console.warn('[conflictResolver] Error al analizar conflicto — marcando para revisión manual', error);
     return {
-      resolution: 'auto_resolved',
-      reason: 'Asumiendo éxito por error de verificación (fallback robusto)',
-      recommendation: 'Sistema verificará consistencia más tarde',
-      confidence: 0.85,
+      resolution: 'needs_manual_review',
+      reason: 'Error al analizar el conflicto — no se puede asumir éxito',
+      recommendation: 'Revisa manualmente el estado de la operación',
+      confidence: 0,
     };
   }
 };

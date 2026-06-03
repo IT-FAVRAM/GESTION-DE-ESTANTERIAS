@@ -150,9 +150,9 @@ export const resolveOperationalActor = async (
   const operarioId = String(session?.operarioId || '').trim();
   const operarioName = String(session?.operarioName || '').trim();
 
-  // Roles administrativos (ADMIN, SUPERADMIN, CALIDAD) desde sesión anónima:
-  // no requieren validación de dispositivo, se confía en la sesión guest.
-  if (['ADMIN', 'SUPERADMIN', 'CALIDAD'].includes(role)) {
+  // CALIDAD puede usar sesión de kiosco anónima para operar CAL.
+  // ADMIN y SUPERADMIN deben autenticarse siempre con email — no se permiten sesiones anónimas.
+  if (role === 'CALIDAD') {
     if (!operarioId) {
       throw new functions.https.HttpsError('permission-denied', 'Sesion operativa anonima invalida.');
     }
@@ -162,7 +162,7 @@ export const resolveOperationalActor = async (
       email: null,
       section: null,
       deviceId: deviceId || undefined,
-      assignedShelf: role === 'CALIDAD' ? 'CAL' : '*',
+      assignedShelf: 'CAL',
       operarioId,
       operarioName: operarioName || operarioId,
     };

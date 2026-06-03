@@ -1,5 +1,5 @@
 import * as functions from 'firebase-functions';
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 const ALERT_ALLOWED_ROLES = new Set(['ADMIN', 'SUPERADMIN']);
 
@@ -56,7 +56,7 @@ export const createUrgentAlert = functions.https.onCall(
         orderNumber: data.orderNumber || null,
         createdBy: uid,
         createdByName: displayName,
-        updatedAt: Timestamp.now(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
       return { success: true, id: existingDoc.id, action: 'updated' };
     }
@@ -70,8 +70,8 @@ export const createUrgentAlert = functions.https.onCall(
       orderNumber: data.orderNumber || null,
       createdBy: uid,
       createdByName: displayName,
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
       resolved: false,
       resolvedAt: null,
       resolvedBy: null,
@@ -113,10 +113,10 @@ export const resolveUrgentAlert = functions.https.onCall(
 
     await alertRef.update({
       resolved: true,
-      resolvedAt: Timestamp.now(),
+      resolvedAt: FieldValue.serverTimestamp(),
       resolvedBy: uid,
       resolvedByName: displayName,
-      updatedAt: Timestamp.now(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
 
     return { success: true, id: data.alertId, action: 'resolved' };

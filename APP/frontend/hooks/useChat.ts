@@ -9,6 +9,7 @@ import {
   writeBatch,
   arrayUnion,
 } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
 import { db, auth, functions } from '../lib/firebase';
 import { COLLECTIONS, CHAT_ROOM_ID, type ChatMessage } from '../lib/firestoreSchema';
@@ -17,17 +18,29 @@ const MESSAGE_LIMIT = 60;
 
 /**
  * useChat — estado del chat interno (sala única `general`).
- * - `messages`: últimos 60 mensajes en orden cronológico.
- * - `sendMessage`: envía vía Cloud Function `chatSendMessage` (sin escritura directa).
- * - `unreadCount`: mensajes ajenos sin el uid propio en `readBy`.
- * - `markAllRead`: añade el uid propio a `readBy` de los mensajes no leídos.
+ * Reactivo a cambios de auth: limpia mensajes y re-suscribe en login/logout.
  */
 export const useChat = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
-  const uid = auth.currentUser?.uid ?? null;
+  const [uid, setUid] = useState<string | null>(auth.currentUser?.uid ?? null);
 
+  // Seguir cambios de sesión
   useEffect(() => {
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
+      setUid(user?.uid ?? null);
+    });
+    return () => unsubAuth();
+  }, []);
+
+  // Re-suscribir cuando uid cambia (limpia mensajes al hacer logout)
+  useEffect(() => {
+    if (!uid) {
+      setMessages([]);
+      setLoading(false);
+      return;
+    }
+
     const messagesRef = collection(db, COLLECTIONS.CHAT, CHAT_ROOM_ID, 'messages');
     const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(MESSAGE_LIMIT));
 
@@ -49,7 +62,7 @@ export const useChat = () => {
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [uid]);
 
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim();

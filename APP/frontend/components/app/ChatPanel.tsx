@@ -52,10 +52,14 @@ const AVATAR_BG: Partial<Record<UserRole, string>> = {
 };
 
 const formatTime = (msg: ChatMessage): string => {
-  const ts: any = msg.timestamp;
-  const date: Date | null = ts && typeof ts.toDate === 'function' ? ts.toDate() : null;
-  if (!date) return '';
-  return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  try {
+    const ts: any = msg.timestamp;
+    if (!ts || typeof ts.toDate !== 'function') return '';
+    const date: Date = ts.toDate();
+    return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return '';
+  }
 };
 
 const initialOf = (name: string) => (name || '?').trim().charAt(0).toUpperCase();

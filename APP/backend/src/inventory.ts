@@ -897,6 +897,14 @@ export const updateReproceso = functions.https.onCall(async (data: any, context:
   const orderFab = String(data?.payload?.orderFab || '').trim();
   const quantity = Number(data?.payload?.quantity) || 0;
   const unitCost = Number(data?.payload?.unitCost) || 0;
+
+  if (!isFinite(quantity) || quantity < 0) {
+    throw new functions.https.HttpsError('invalid-argument', 'quantity debe ser un número ≥ 0.');
+  }
+  if (!isFinite(unitCost) || unitCost < 0) {
+    throw new functions.https.HttpsError('invalid-argument', 'unitCost debe ser un número ≥ 0.');
+  }
+
   const posNum = parseInt(position, 10);
 
   if (isNaN(posNum) || posNum < 1 || posNum > 22) {
