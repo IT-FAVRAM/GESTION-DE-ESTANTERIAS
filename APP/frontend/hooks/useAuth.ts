@@ -218,14 +218,16 @@ export const useAuth = () => {
     const detectMode = async () => {
       const deviceConfig = await getDeviceConfig(deviceId);
       if (!deviceConfig) {
-        setState((prev) => ({ ...prev, deviceMode: 'admin', error: null }));
+        // Dispositivo no registrado: el modo más restrictivo, no admin.
+        setState((prev) => ({ ...prev, deviceMode: 'unassigned', error: 'device_not_found' }));
         return;
       }
 
       const isKiosk = deviceConfig.type === 'KIOSK';
 
       // Auto-login como OPERARIO para kioskos, sobrescribiendo sesiones obsoletas o sin estantería.
-      // Para dispositivos no-KIOSK (CARRETILLERO, ADMIN), NO tocamos assignedShelf — viene de la sesión.
+      // Para dispositivos no-KIOSK (CARRETILLERO, ADMIN), el rol viene del servidor y sobrescribe
+      // cualquier valor que el usuario pudiera haber manipulado en localStorage.
       const existingSession = readGuestSession<GuestSession>();
       let shelfUpdate: { assignedShelf: string | null } | undefined;
       if (isKiosk) {
@@ -238,6 +240,13 @@ export const useAuth = () => {
           resolvedShelf = existingSession.assignedShelf;
         }
         shelfUpdate = { assignedShelf: resolvedShelf };
+      } else if (existingSession) {
+        // El rol de dispositivos no-kiosk se sincroniza con el valor del servidor para
+        // evitar elevación de privilegios por manipulación de localStorage.
+        const serverRole = deviceConfig.type as UserRole;
+        if (serverRole && existingSession.role !== serverRole) {
+          writeGuestSession({ ...existingSession, role: serverRole });
+        }
       }
 
       setState((prev) => ({

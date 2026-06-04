@@ -4,13 +4,13 @@ importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js'
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js');
 
 const firebaseConfig = {
-    apiKey: 'AIzaSyARd3U4v2dLciTswSbnaKI2YgXnzUTap70',
-    authDomain: 'gestion-de-estanterias.firebaseapp.com',
-    projectId: 'gestion-de-estanterias',
-    storageBucket: 'gestion-de-estanterias.firebasestorage.app',
-    messagingSenderId: '570794350818',
-    appId: '1:570794350818:web:ba71424870eb1a87f0e6bb',
-    measurementId: 'G-6VPFSYWH8M',
+    apiKey: '%%VITE_FIREBASE_API_KEY%%',
+    authDomain: '%%VITE_FIREBASE_AUTH_DOMAIN%%',
+    projectId: '%%VITE_FIREBASE_PROJECT_ID%%',
+    storageBucket: '%%VITE_FIREBASE_STORAGE_BUCKET%%',
+    messagingSenderId: '%%VITE_FIREBASE_MESSAGING_SENDER_ID%%',
+    appId: '%%VITE_FIREBASE_APP_ID%%',
+    measurementId: '%%VITE_FIREBASE_MEASUREMENT_ID%%',
 };
 
 const hasMessagingConfig = firebaseConfig.apiKey

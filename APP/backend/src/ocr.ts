@@ -100,6 +100,7 @@ export const ocrImage = functions
           'La API de Vision no está habilitada en el proyecto.',
         );
       }
-      throw new functions.https.HttpsError('internal', `OCR falló: ${message}`);
+      console.error('[ocrImage] Error interno:', message);
+      throw new functions.https.HttpsError('internal', 'Error al procesar la imagen. Inténtalo de nuevo.');
     }
   });

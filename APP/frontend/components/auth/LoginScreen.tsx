@@ -43,21 +43,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
     }
   };
 
-  const handleDirectAccess = async (role: string, section?: string) => {
-    setIsLoading(true);
-    try {
-      localStorage.setItem('guest_role', role);
-      if (section) localStorage.setItem('guest_section', section);
-      
-      await auth.signInAnonymously();
-      
-      if (onSuccess) onSuccess();
-      window.location.reload();
-    } catch (err: any) {
-      console.error("Direct access failed", err);
-      setError("Error en acceso rápido.");
-      setIsLoading(false);
-    }
+  const handleDirectAccess = async (_role: string, _section?: string) => {
+    // Acceso directo por rol deshabilitado: usa el formulario de email.
+    setShowEmailLogin(true);
   };
 
   if (showEmailLogin) {

@@ -44,14 +44,19 @@ const KIOSK_URL_TO_DEVICE_ID: Record<string, string> = {
 };
 
 export const getOrCreateDeviceId = (): string => {
-  // Si la URL incluye ?kiosko=XXX, restaurar el ID fijo en localStorage.
+  // ?kiosko=XXX solo restaura el ID del marcador si el dispositivo no tiene uno
+  // o si el ID existente ya corresponde a ese kiosko. Evita que un usuario externo
+  // tome la identidad de un kiosko visitando la URL con el parámetro.
   if (typeof window !== 'undefined') {
     const kiosko = new URLSearchParams(window.location.search).get('kiosko');
     if (kiosko) {
       const fixedId = KIOSK_URL_TO_DEVICE_ID[kiosko.toLowerCase()];
       if (fixedId) {
-        localStorage.setItem(AUTH_STORAGE_KEYS.DEVICE_ID, fixedId);
-        return fixedId;
+        const existingId = localStorage.getItem(AUTH_STORAGE_KEYS.DEVICE_ID);
+        if (!existingId || existingId === fixedId) {
+          localStorage.setItem(AUTH_STORAGE_KEYS.DEVICE_ID, fixedId);
+        }
+        return localStorage.getItem(AUTH_STORAGE_KEYS.DEVICE_ID)!;
       }
     }
   }

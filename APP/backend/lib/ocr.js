@@ -92,7 +92,8 @@ exports.ocrImage = functions
         if (/permission|denied|disabled|not been used|SERVICE_DISABLED/i.test(message)) {
             throw new functions.https.HttpsError('failed-precondition', 'La API de Vision no está habilitada en el proyecto.');
         }
-        throw new functions.https.HttpsError('internal', `OCR falló: ${message}`);
+        console.error('[ocrImage] Error interno:', message);
+        throw new functions.https.HttpsError('internal', 'Error al procesar la imagen. Inténtalo de nuevo.');
     }
 });
 //# sourceMappingURL=ocr.js.map
