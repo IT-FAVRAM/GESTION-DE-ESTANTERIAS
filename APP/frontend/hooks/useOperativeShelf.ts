@@ -24,6 +24,7 @@ import {
 import { findArticleGlobal } from '../lib/findArticleGlobal';
 import { parseCallableError } from '../lib/callableError';
 import { isReprocesosLocation, getShelfDefinition } from '../lib/firestoreSchema';
+import { validateContiguity } from '../lib/contiguityValidator';
 import type { LocationItem } from '../lib/schema/locations';
 import type { RoleOperativeConfig } from '../lib/operative/operativeConfig';
 import type { AdditionalShelfPosition } from '../components/operative/AddShelfPositionModal';
@@ -206,9 +207,14 @@ export function useOperativeShelf({
   // ── Captura de método ────────────────────────────────────────────────────────
   const applyScanMethod = useCallback((method: 'manual' | 'barcode' | 'ocr') => {
     setScanMethodPickerOpen(false);
-    if (!pendingAction) return;
-    setAction(pendingAction);
-    setPendingAction(null);
+    
+    // Si hay pendingAction (primer escaneo del lote o acción normal), establecer la acción
+    if (pendingAction) {
+      setAction(pendingAction);
+      setPendingAction(null);
+    }
+    
+    // Activar el método seleccionado
     if (method === 'manual') setScannerActive(true);
     else if (method === 'barcode') setShowCameraQR(true);
     else setShowCameraOCR(true);
@@ -222,7 +228,8 @@ export function useOperativeShelf({
     setBatchArticles([]);
     setSelectedPositions([]);
     setPendingAction(null);
-    setScannerActive(true);
+    // Abrir selector de método de escaneo en lugar de activar scanner directamente
+    setScanMethodPickerOpen(true);
   }, [pendingAction]);
 
   // Abre el selector de método para ubicar (tras decidir lote / no lote)
@@ -419,12 +426,32 @@ export function useOperativeShelf({
       const duplicate = batchArticles.some((a) => a.articleCode === articleCode && a.orderFab === orderFab);
       if (duplicate) {
         showToast('error', `${articleCode} ${orderFab} ya está en el lote`);
-        setScannerActive(true);
+        // Mantener scanner activo para siguiente intento
+        if (showCameraQR || showCameraOCR) {
+          // Para cámaras, reabrir después de un breve delay
+          setTimeout(() => {
+            if (showCameraQR) setShowCameraQR(true);
+            else if (showCameraOCR) setShowCameraOCR(true);
+          }, 300);
+        } else {
+          setScannerActive(true);
+        }
         return;
       }
       setBatchArticles((prev) => [...prev, { articleCode, orderFab }]);
       showToast('success', `✅ ${articleCode} añadido (${batchArticles.length + 1} en lote)`);
-      setScannerActive(true);
+      
+      // Mantener scanner activo para siguiente escaneo
+      if (showCameraQR || showCameraOCR) {
+        // Para cámaras, reabrir después de un breve delay
+        setTimeout(() => {
+          if (showCameraQR) setShowCameraQR(true);
+          else if (showCameraOCR) setShowCameraOCR(true);
+        }, 300);
+      } else {
+        // Para pistola USB, mantener input activo
+        setScannerActive(true);
+      }
       return;
     }
 
@@ -554,7 +581,7 @@ export function useOperativeShelf({
       return;
     }
 
-    // UBICAR lote: acumular posiciones
+    // UBICAR lote: acumular posiciones con validación de contigüidad
     if (action === 'ubicar' && batchMode && batchArticles.length > 0) {
       const position = loc.position;
       if (reprocesosEnabled && isReprocesosLocation(shelfCode, padPos(position))) {
@@ -562,14 +589,29 @@ export function useOperativeShelf({
         setShowReprocesosUbicacionModal(true);
         return;
       }
+      
+      // Calcular nuevas posiciones si añadimos esta
+      const newPositions = selectedPositions.includes(position)
+        ? selectedPositions.filter(p => p !== position)
+        : [...selectedPositions, position];
+      
+      // Validar contigüidad
+      const validation = validateContiguity(newPositions, shelfDef);
+      
+      if (!validation.isContiguous && newPositions.length > 1) {
+        showToast('error', `❌ ${validation.message}`);
+        return;
+      }
+      
       if (!loc.isEmpty && loc.items.length > 0 && !selectedPositions.includes(position)) {
         showToast('info', `⚠️ Pos. ${padPos(position)} ocupada — se añadirá igualmente`);
       }
-      toggleSelected(position);
+      
+      setSelectedPositions(newPositions);
       return;
     }
 
-    // UBICAR individual: acumular posiciones (multi-posición)
+    // UBICAR individual: acumular posiciones con validación de contigüidad
     if (action === 'ubicar' && !batchMode && scanData) {
       const position = loc.position;
       if (reprocesosEnabled && isReprocesosLocation(shelfCode, padPos(position))) {
@@ -577,10 +619,25 @@ export function useOperativeShelf({
         setShowReprocesosUbicacionModal(true);
         return;
       }
+      
+      // Calcular nuevas posiciones si añadimos esta
+      const newPositions = selectedPositions.includes(position)
+        ? selectedPositions.filter(p => p !== position)
+        : [...selectedPositions, position];
+      
+      // Validar contigüidad
+      const validation = validateContiguity(newPositions, shelfDef);
+      
+      if (!validation.isContiguous && newPositions.length > 1) {
+        showToast('error', `❌ ${validation.message}`);
+        return;
+      }
+      
       if (!loc.isEmpty && loc.items.length > 0 && !selectedPositions.includes(position)) {
         showToast('info', `⚠️ Pos. ${padPos(position)} ya tiene ${loc.items.length} artículo(s) — se añadirá igualmente`);
       }
-      toggleSelected(position);
+      
+      setSelectedPositions(newPositions);
       return;
     }
 

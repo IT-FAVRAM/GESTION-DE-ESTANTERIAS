@@ -214,7 +214,12 @@ export const useAuth = () => {
     error: null,
   });
 
+  // Flag: true after onAuthStateChanged fires at least once (auth resolved)
+  const [authResolved, setAuthResolved] = useState(false);
+
   useEffect(() => {
+    if (!authResolved) return;
+
     const detectMode = async () => {
       const deviceConfig = await getDeviceConfig(deviceId);
       if (!deviceConfig) {
@@ -258,10 +263,11 @@ export const useAuth = () => {
       }));
     };
     detectMode();
-  }, [deviceId]);
+  }, [deviceId, authResolved]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setAuthResolved(true);
       if (!user || user.isAnonymous) {
         const session = readGuestSession<GuestSession>();
         if (session) {
@@ -281,6 +287,15 @@ export const useAuth = () => {
             error: null,
           }));
           return;
+        }
+
+        // No user and no guest session: try anonymous sign-in so Cloud Functions get auth
+        if (!user) {
+          try {
+            await signInAnonymously(auth);
+          } catch {
+            // Non-fatal: will show device_not_found if anonymous auth is disabled
+          }
         }
 
         setState((prev) => ({

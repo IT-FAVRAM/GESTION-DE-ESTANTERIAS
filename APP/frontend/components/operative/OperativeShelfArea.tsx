@@ -28,6 +28,7 @@ import TraerArticuloModal from '../kiosk/TraerArticuloModal';
 import AddShelfPositionModal from './AddShelfPositionModal';
 import { SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
 import { parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
+import { validateContiguity } from '../../lib/contiguityValidator';
 import type { RoleOperativeConfig } from '../../lib/operative/operativeConfig';
 import type { UseOperativeShelfReturn } from '../../hooks/useOperativeShelf';
 
@@ -66,7 +67,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
     handleMoverSelectArticle, handleMoverConfirm, handleReubicarConfirm,
     handleSectionPicked, handleRecogidaConfirm, handleTraerConfirm,
     addAdditionalShelf,
-    setShowRetirarArticleList, setShowMoverArticleList, setSectionPicker,
+    setShowRetirarArticleList, setShowMoverArticleList, setSectionPicker, setScanMethodPickerOpen,
   } = engine;
 
   const reprocesosCosts = !!config.reprocesos?.showCosts;
@@ -98,7 +99,13 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
               <span className="text-xs text-emerald-700 font-bold">
                 {selectedPositions.length === 0
                   ? '👇 Toca las celdas donde ubicar'
-                  : `${shelfCode}: pos. ${selectedPositions.map(padPos).join(', ')}`}
+                  : (() => {
+                      const validation = validateContiguity(selectedPositions, shelfDef);
+                      return validation.isContiguous 
+                        ? `${shelfCode}: pos. ${selectedPositions.map(padPos).join(', ')}`
+                        : `❌ ${validation.message}`;
+                    })()
+                }
                 {additionalShelfPositions.map((e) => (
                   <span key={e.shelfCode} className="ml-1 text-blue-600">· {e.shelfName}: pos. {e.positions.map(padPos).join(', ')}</span>
                 ))}
@@ -162,18 +169,38 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             <div className="flex items-center gap-2">
               <span className="text-sm font-black text-slate-900">📦 Lote</span>
               <span className="bg-cyan-600 text-white px-2 py-0.5 rounded-full text-xs font-bold">{batchArticles.length} art.</span>
-              {selectedPositions.length > 0 && (
-                <span className="bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full text-xs font-bold">
-                  pos. {selectedPositions.map(padPos).join(', ')}
-                </span>
-              )}
+              {selectedPositions.length > 0 && (() => {
+                const validation = validateContiguity(selectedPositions, shelfDef);
+                return (
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${
+                    validation.isContiguous 
+                      ? 'bg-emerald-100 text-emerald-700 border-emerald-200' 
+                      : 'bg-red-100 text-red-700 border-red-200'
+                  }`}>
+                    {selectedPositions.length} pos. {validation.isContiguous ? '✓' : '✗'}
+                  </span>
+                );
+              })()}
             </div>
-            <button onClick={cancelAction} className="text-xs text-slate-400 hover:text-red-500 transition-colors">✕ Cancelar</button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setScanMethodPickerOpen(true)}
+                className="text-xs text-sky-600 hover:text-sky-800 font-bold transition-colors"
+              >
+                🔄 Cambiar método
+              </button>
+              <button onClick={cancelAction} className="text-xs text-slate-400 hover:text-red-500 transition-colors">✕ Cancelar</button>
+            </div>
           </div>
           {batchArticles.length > 0 && (
-            <div className="max-h-14 overflow-y-auto bg-slate-50 rounded-lg p-2 mb-2">
+            <div className="max-h-20 overflow-y-auto bg-slate-50 rounded-lg p-2 mb-2">
               {batchArticles.map((a, i) => (
-                <div key={i} className="text-xs text-slate-600 font-mono truncate">{i + 1}. {a.articleCode} · {a.orderFab}</div>
+                <div key={i} className="flex items-center justify-between text-xs py-0.5">
+                  <span className="text-slate-700 font-mono truncate">
+                    <span className="text-cyan-600 font-bold">{i + 1}.</span> {a.articleCode}
+                  </span>
+                  <span className="text-slate-500 font-mono text-[10px]">{a.orderFab}</span>
+                </div>
               ))}
             </div>
           )}
@@ -254,7 +281,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         onScan={handleScan}
         active={scannerActive}
         disabled={processing}
-        showCameraButtons={false}
+        showCameraButtons={batchMode}
         dualField
       />
 
