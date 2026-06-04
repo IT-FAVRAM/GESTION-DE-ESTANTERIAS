@@ -129,9 +129,9 @@ describe('isUrgentLocation', () => {
 // ── isTechReviewLocation ──────────────────────────────────────────────────────
 
 describe('isTechReviewLocation', () => {
-  it('identifies CAL tech-review zone (position 29) as tech-review', () => {
-    expect(isTechReviewLocation('CAL', 29)).toBe(true);
-    expect(isTechReviewLocation('CAL', 32)).toBe(true);
+  it('identifies CAL tech-review zone (positions 31 and 34) as tech-review', () => {
+    expect(isTechReviewLocation('CAL', 31)).toBe(true);
+    expect(isTechReviewLocation('CAL', 34)).toBe(true);
   });
 
   it('does not flag CAL non-tech-review positions', () => {
@@ -140,7 +140,7 @@ describe('isTechReviewLocation', () => {
   });
 
   it('works with locationId string form', () => {
-    expect(isTechReviewLocation('CAL-029')).toBe(true);
+    expect(isTechReviewLocation('CAL-031')).toBe(true);
     expect(isTechReviewLocation('CAL-001')).toBe(false);
   });
 
@@ -154,8 +154,8 @@ describe('isTechReviewLocation', () => {
     };
     // CAL-005 is in the config override → tech review
     expect(isTechReviewLocation('CAL-005', config)).toBe(true);
-    // CAL-029 is in the hardcoded tech-review zone → still tech review regardless of config
-    expect(isTechReviewLocation('CAL-029', config)).toBe(true);
+    // CAL-031 is in the hardcoded tech-review zone → still tech review regardless of config
+    expect(isTechReviewLocation('CAL-031', config)).toBe(true);
     // CAL-001 is not in config, not in tech-review zone → not tech review
     expect(isTechReviewLocation('CAL-001', config)).toBe(false);
   });

@@ -390,12 +390,12 @@ export const SHELF_DEFINITIONS: Shelf[] = [
       zones: [
         { name: 'REPROCESOS', range: [1, 22], color: '#3b82f6' },
         { name: 'GENERAL', range: [23, 28], color: '#8b5cf6' },
-        { name: 'REVISION TECNICA', range: [29, 29], color: '#f59e0b', isTechReview: true },
+        { name: 'URGENTE', range: [29, 29], color: '#ef4444', isUrgent: true },
         { name: 'GENERAL B', range: [30, 30], color: '#8b5cf6' },
-        { name: 'URGENTE', range: [31, 31], color: '#ef4444', isUrgent: true },
-        { name: 'REVISION TECNICA B', range: [32, 32], color: '#f59e0b', isTechReview: true },
+        { name: 'REVISION TECNICA', range: [31, 31], color: '#f59e0b', isTechReview: true },
+        { name: 'URGENTE B', range: [32, 32], color: '#ef4444', isUrgent: true },
         { name: 'GENERAL C', range: [33, 33], color: '#8b5cf6' },
-        { name: 'URGENTE B', range: [34, 34], color: '#ef4444', isUrgent: true },
+        { name: 'REVISION TECNICA B', range: [34, 34], color: '#f59e0b', isTechReview: true },
       ],
       physicalBlocks: [
         {
