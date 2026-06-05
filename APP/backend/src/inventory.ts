@@ -128,6 +128,9 @@ export const inventoryOperate = functions.https.onCall(async (data: any, context
     const warehouse = payload?.warehouse as string;
     const shelf = payload?.shelf as string;
     if (!warehouse || !shelf) throw new functions.https.HttpsError('invalid-argument', 'Missing warehouse/shelf');
+    if (!canOperateWarehouse(role, section, warehouse)) {
+      throw new functions.https.HttpsError('permission-denied', 'Warehouse out of scope');
+    }
     const prefix = `${warehouse}-E${shelf}-`;
     const snapshot = await admin.firestore().collection('assignments').doc(warehouse).collection('locations').get();
     const docs = snapshot.docs.filter((doc) => doc.id.startsWith(prefix));
@@ -865,9 +868,6 @@ export const cartOperate = functions.https.onCall(async (data: any, context: any
   const description = String(data?.payload?.description || '').trim();
   if (!cartCode || !position) {
     throw new functions.https.HttpsError('invalid-argument', 'cartCode y position son obligatorios.');
-  }
-  if (!cartCode.startsWith('CARRO')) {
-    throw new functions.https.HttpsError('invalid-argument', 'cartCode debe ser una estantería de tipo carro (prefijo CARRO).');
   }
 
   const now = new Date().toISOString();

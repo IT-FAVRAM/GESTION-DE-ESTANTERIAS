@@ -56,12 +56,6 @@ export const assertActorMayOperateShelf = (
     throw new functions.https.HttpsError('invalid-argument', 'shelfCode requerido.');
   }
 
-  // OPERARIO (kiosko) puede operar cualquier estantería
-  // El kiosko tiene sus propias estanterías y cualquier operario puede usarlo
-  if (actor.role === 'OPERARIO' && false) {
-    // no-op: se permite cualquier estantería
-  }
-
   if (actor.role === 'CALIDAD' && shelf !== 'CAL') {
     throw new functions.https.HttpsError(
       'permission-denied',
@@ -155,6 +149,16 @@ export const resolveOperationalActor = async (
   if (role === 'CALIDAD') {
     if (!operarioId) {
       throw new functions.https.HttpsError('permission-denied', 'Sesion operativa anonima invalida.');
+    }
+    if (deviceId) {
+      const deviceDoc = await admin.firestore().collection('dispositivos').doc(deviceId).get();
+      if (!deviceDoc.exists) {
+        throw new functions.https.HttpsError('permission-denied', 'Dispositivo no registrado.');
+      }
+      const device = deviceDoc.data() as { active?: boolean };
+      if (device.active === false) {
+        throw new functions.https.HttpsError('permission-denied', 'Dispositivo desactivado.');
+      }
     }
     return {
       uid: context.auth.uid,
