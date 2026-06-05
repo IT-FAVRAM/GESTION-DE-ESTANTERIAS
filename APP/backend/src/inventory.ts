@@ -54,20 +54,21 @@ export const onAssignmentWrite = functions.firestore
     newItems.forEach((item) => {
       if (item.orderId && item.orderId !== 'PENDIENTE') ordersToUpdate.add(item.orderId);
     });
-    await Promise.all(Array.from(ordersToUpdate).map(async (orderId) => {
-      try {
-        const docRef = admin.firestore().collection('inboundOrders').doc(orderId);
-        const doc = await docRef.get();
-        if (!doc.exists) return;
-        await docRef.update({
-          fecha_disponible_estanteria: admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          status: 'DISPONIBLE',
-        });
-      } catch (error) {
-        console.error(`Failed to update InboundOrder ${orderId}:`, error);
-      }
-    }));
+    const orderIds = Array.from(ordersToUpdate);
+    const orderRefs = orderIds.map((id) => admin.firestore().collection('inboundOrders').doc(id));
+    const orderDocs = await Promise.all(orderRefs.map((ref) => ref.get()));
+    const inboundBatch = admin.firestore().batch();
+    let hasBatchUpdates = false;
+    for (let i = 0; i < orderIds.length; i++) {
+      if (!orderDocs[i].exists) continue;
+      inboundBatch.update(orderRefs[i], {
+        fecha_disponible_estanteria: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        status: 'DISPONIBLE',
+      });
+      hasBatchUpdates = true;
+    }
+    if (hasBatchUpdates) await inboundBatch.commit();
   });
 
 // Trigger for the new shelfOperate path (shelves/{shelfCode}/locations/{position})
@@ -87,20 +88,21 @@ export const onShelfLocationWrite = functions.firestore
     newItems.forEach((item) => {
       if (item.orderFab && item.orderFab !== 'PENDIENTE') ordersToUpdate.add(item.orderFab);
     });
-    await Promise.all(Array.from(ordersToUpdate).map(async (orderFab) => {
-      try {
-        const docRef = admin.firestore().collection('inboundOrders').doc(orderFab);
-        const doc = await docRef.get();
-        if (!doc.exists) return;
-        await docRef.update({
-          fecha_disponible_estanteria: admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          status: 'DISPONIBLE',
-        });
-      } catch (error) {
-        console.error(`Failed to update InboundOrder ${orderFab}:`, error);
-      }
-    }));
+    const orderFabs = Array.from(ordersToUpdate);
+    const orderRefs = orderFabs.map((of) => admin.firestore().collection('inboundOrders').doc(of));
+    const orderDocs = await Promise.all(orderRefs.map((ref) => ref.get()));
+    const inboundBatch = admin.firestore().batch();
+    let hasBatchUpdates = false;
+    for (let i = 0; i < orderFabs.length; i++) {
+      if (!orderDocs[i].exists) continue;
+      inboundBatch.update(orderRefs[i], {
+        fecha_disponible_estanteria: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        status: 'DISPONIBLE',
+      });
+      hasBatchUpdates = true;
+    }
+    if (hasBatchUpdates) await inboundBatch.commit();
   });
 
 export const inventoryOperate = functions.https.onCall(async (data: any, context: any) => {
@@ -317,6 +319,9 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
     if (!articleCode || !orderFab || positions.length === 0) {
       throw new functions.https.HttpsError('invalid-argument', 'Datos incompletos para ubicar múltiple.');
     }
+    if (positions.length > 100) {
+      throw new functions.https.HttpsError('invalid-argument', 'No se pueden ubicar mas de 100 posiciones en una operacion.');
+    }
     const db2 = admin.firestore();
     const results: string[] = [];
 
@@ -518,6 +523,9 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
       const oldLocData = activePresences.map((presence) => {
         const locationId = String(presence.data.locationIds?.[0] || '');
         const position = locationId.split('-').slice(1).join('-');
+        if (!position) {
+          throw new functions.https.HttpsError('failed-precondition', `Presencia ${presence.ref.id} tiene locationId invalido: '${locationId}'.`);
+        }
         const locRef = db.collection('shelves').doc(shelfCode).collection('locations').doc(position);
         return { presence, locationId, position, locRef };
       });
@@ -528,15 +536,25 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         presence: activePresences[index],
       }));
 
-      // Deduplicate refs by path, then read all in one pass before any writes
+      // Deduplicate refs by path, then read all in one pass before any writes.
+      // Presence refs are included so Firestore's optimistic locking detects concurrent retirar/mover.
       const refByPath = new Map<string, any>();
       refByPath.set(aggregateRef.path, aggregateRef);
       for (const d of oldLocData) refByPath.set(d.locRef.path, d.locRef);
       for (const d of newLocData) refByPath.set(d.locRef.path, d.locRef);
+      for (const p of activePresences) refByPath.set(p.ref.path, p.ref);
       const refEntries = [...refByPath.entries()];
       const allSnaps = await Promise.all(refEntries.map(([, ref]) => tx.get(ref)));
       const snapByPath = new Map<string, any>();
       for (let i = 0; i < refEntries.length; i++) snapByPath.set(refEntries[i][0], allSnaps[i]);
+
+      // Verify presences are still active — guards against concurrent retirar
+      for (const presence of activePresences) {
+        const presSnap = snapByPath.get(presence.ref.path);
+        if (!presSnap?.exists || presSnap.data()?.active === false) {
+          throw new functions.https.HttpsError('failed-precondition', 'El articulo fue modificado por otra operacion en curso. Intentalo de nuevo.');
+        }
+      }
 
       const aggregateSnap = snapByPath.get(aggregateRef.path);
       const oldLocationIds: string[] = [];
@@ -796,14 +814,21 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
       await batchWrite.commit();
     }
 
-    // 3. Update itemAggregates to remove deactivated presenceIds
-    for (const [aggregateKey, removedIds] of aggregateMap) {
-      const aggRef = db.collection('itemAggregates').doc(aggregateKey);
-      const aggSnap = await aggRef.get();
-      if (aggSnap.exists) {
-        const aggData = aggSnap.data() as any;
-        const remaining = (aggData.activePresenceIds || []).filter((id: string) => !removedIds.includes(id));
-        await aggRef.update({ activePresenceIds: remaining, totalActivePresences: remaining.length, updatedAt: now });
+    // 3. Update itemAggregates — parallel reads then batched writes (avoids N+1)
+    const aggEntries = Array.from(aggregateMap.entries());
+    if (aggEntries.length > 0) {
+      const aggRefs = aggEntries.map(([key]) => db.collection('itemAggregates').doc(key));
+      const aggSnaps = await Promise.all(aggRefs.map((ref) => ref.get()));
+      for (let i = 0; i < aggEntries.length; i += CHUNK) {
+        const aggBatch = db.batch();
+        for (let j = i; j < Math.min(i + CHUNK, aggEntries.length); j++) {
+          if (!aggSnaps[j].exists) continue;
+          const [, removedIds] = aggEntries[j];
+          const aggData = aggSnaps[j].data() as any;
+          const remaining = (aggData.activePresenceIds || []).filter((id: string) => !removedIds.includes(id));
+          aggBatch.update(aggRefs[j], { activePresenceIds: remaining, totalActivePresences: remaining.length, updatedAt: now });
+        }
+        await aggBatch.commit();
       }
     }
 
@@ -840,6 +865,9 @@ export const cartOperate = functions.https.onCall(async (data: any, context: any
   const description = String(data?.payload?.description || '').trim();
   if (!cartCode || !position) {
     throw new functions.https.HttpsError('invalid-argument', 'cartCode y position son obligatorios.');
+  }
+  if (!cartCode.startsWith('CARRO')) {
+    throw new functions.https.HttpsError('invalid-argument', 'cartCode debe ser una estantería de tipo carro (prefijo CARRO).');
   }
 
   const now = new Date().toISOString();
@@ -930,17 +958,8 @@ export const updateReproceso = functions.https.onCall(async (data: any, context:
       return item;
     });
 
-    if (!found && articleCode && orderFab) {
-      items.push({
-        presenceId: `repro-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        articleCode,
-        orderFab,
-        quantity,
-        unitCost,
-        locatedBy: actor.operarioId || actor.uid || actor.role,
-        locatedByName: actor.operarioName || actor.email || actor.role,
-        locatedAt: new Date().toISOString(),
-      });
+    if (!found) {
+      throw new functions.https.HttpsError('not-found', 'Artículo no encontrado en la ubicación CAL indicada. Ubícalo primero con shelfOperate.');
     }
 
     tx.set(locRef, {

@@ -47,6 +47,9 @@ export const checkStaleItems = functions.pubsub.schedule('every day 02:00').time
   const alertIntervalMs = STALE_ITEM_ALERT_INTERVAL_HOURS * 60 * 60 * 1000;
   let notifiedItems = 0;
 
+  // Group stale items by section to avoid N+1 getUsersByEmails calls
+  type StaleEntry = { doc: FirebaseFirestore.QueryDocumentSnapshot; item: any; shelfCode: string; section: string; locatedAtMs: number };
+  const staleItems: StaleEntry[] = [];
   for (const itemDoc of itemsSnapshot.docs) {
     const item = itemDoc.data() || {};
     const locatedAtMs = toMillis(item.locatedAt);
@@ -54,9 +57,19 @@ export const checkStaleItems = functions.pubsub.schedule('every day 02:00').time
     const lastAlertAtMs = toMillis(item.lastAlertAt);
     if (lastAlertAtMs && now - lastAlertAtMs < alertIntervalMs) continue;
     const shelfCode = normalize(item.shelfCode);
-    const section = getWmsSectionForShelf(shelfCode);
+    staleItems.push({ doc: itemDoc, item, shelfCode, section: getWmsSectionForShelf(shelfCode), locatedAtMs });
+  }
+
+  // Prefetch users once per section
+  const uniqueSections = [...new Set(staleItems.map((s) => s.section))];
+  const usersBySection = new Map<string, any[]>();
+  await Promise.all(uniqueSections.map(async (section) => {
     const emails = Array.isArray(chiefMapping[section]) ? chiefMapping[section] : [];
-    const userDocs = await getUsersByEmails(emails);
+    usersBySection.set(section, await getUsersByEmails(emails));
+  }));
+
+  for (const { doc: itemDoc, item, shelfCode, section, locatedAtMs } of staleItems) {
+    const userDocs = usersBySection.get(section) || [];
     const notificationResult = await sendPushToUsers(userDocs, {
       title: 'Articulo estancado en estanteria',
       body: `${item.articleCode || 'Articulo'} ${item.orderFab || ''} lleva ${Math.floor((now - locatedAtMs) / (1000 * 60 * 60 * 24))} dias en ${Array.isArray(item.locationIds) ? item.locationIds.join(', ') : shelfCode}`.trim(),
@@ -393,7 +406,15 @@ export const pickupQueueOperate = functions.https.onCall(async (data: any, conte
     if (!requestId) {
       throw new functions.https.HttpsError('invalid-argument', 'requestId requerido.');
     }
-    await admin.firestore().collection('pickupQueue').doc(requestId).update({
+    const reqRef = admin.firestore().collection('pickupQueue').doc(requestId);
+    const reqSnap = await reqRef.get();
+    if (!reqSnap.exists) {
+      throw new functions.https.HttpsError('not-found', 'Solicitud no encontrada.');
+    }
+    if (reqSnap.data()?.status !== 'PENDING') {
+      throw new functions.https.HttpsError('failed-precondition', 'La solicitud no está pendiente.');
+    }
+    await reqRef.update({
       status: 'COMPLETED',
       completedAt: new Date().toISOString(),
       completedBy: actor.uid,

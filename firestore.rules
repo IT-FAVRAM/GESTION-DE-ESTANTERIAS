@@ -284,6 +284,24 @@ service cloud.firestore {
           && d.readBy[0] == request.auth.uid;
     }
 
+    // Valida la estructura de un mensaje en el chat interno (general).
+    // Igual que isValidConvMessage pero para el canal público/general.
+    function isValidChatMessage() {
+      let d = request.resource.data;
+      return d.senderId == request.auth.uid
+          && d.text is string
+          && d.text.size() >= 1
+          && d.text.size() <= 2000
+          && d.senderName is string
+          && d.senderName.size() >= 1
+          && d.senderName.size() <= 120
+          && d.senderRole is string
+          && d.senderRole in ['ADMIN', 'SUPERADMIN', 'JEFE_SECCION', 'CARRETILLERO', 'CALIDAD', 'OPERARIO']
+          && d.readBy is list
+          && d.readBy.size() == 1
+          && d.readBy[0] == request.auth.uid;
+    }
+
     // Garantiza que el único cambio posible sea añadir el uid propio a readBy.
     // Reutilizada en chat/general y conversations (evita duplicación).
     function onlyReadByAppend() {
@@ -327,8 +345,7 @@ service cloud.firestore {
 
       match /messages/{messageId} {
         allow read:   if isChatParticipant();
-        allow create: if isChatParticipant()
-                      && request.resource.data.senderId == request.auth.uid;
+        allow create: if isChatParticipant() && isValidChatMessage();
         allow update: if isChatParticipant() && onlyReadByAppend();
         allow delete: if false; // limpieza vía Cloud Function
       }
