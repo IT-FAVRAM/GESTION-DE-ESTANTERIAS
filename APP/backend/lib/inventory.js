@@ -20,6 +20,44 @@ const samePresence = (item, presenceId, articleCode, orderFab) => {
     }
     return normalize(item === null || item === void 0 ? void 0 : item.articleCode) === normalize(articleCode) && normalize(item === null || item === void 0 ? void 0 : item.orderFab) === normalize(orderFab);
 };
+// ── Ubicaciones urgentes compartidas URG MEC-PRE ─────────────────────────────
+// PRE (Prensas) y MEC (Mecanizado) comparten físicamente las 4 ubicaciones
+// "URG MEC-PRE 001..004". En Firestore son documentos separados
+// (shelves/PRE/locations/... y shelves/MEC/locations/...), así que cualquier
+// alta/baja en una debe espejarse en la otra. Modelo: una sola presencia
+// canónica (no se duplican contadores) + el array `items` del doc de ubicación
+// espejado en ambas estanterías. El item espejado lleva el MISMO presenceId, de
+// modo que las retiradas (que filtran por presenceId) funcionan en ambos lados.
+const URG_TWIN = { PRE: 'MEC', MEC: 'PRE' };
+/** Devuelve el shelfCode gemelo si la posición es una urgente compartida, o null. */
+const urgentTwinShelf = (shelfCode, position) => {
+    var _a;
+    if (!position || !position.startsWith('URG MEC-PRE'))
+        return null;
+    return (_a = URG_TWIN[normalize(shelfCode)]) !== null && _a !== void 0 ? _a : null;
+};
+/** Ref del documento de ubicación gemelo (o null si la posición no es compartida). */
+const twinLocRefFor = (db, shelfCode, position) => {
+    const twin = urgentTwinShelf(shelfCode, position);
+    return twin ? db.collection('shelves').doc(twin).collection('locations').doc(position) : null;
+};
+/** Espeja un alta: añade `item` al array `items` del doc gemelo. */
+const mirrorAppend = (tx, twinLocRef, twinSnap, position, item) => {
+    var _a;
+    if (!twinLocRef)
+        return;
+    const cur = (twinSnap === null || twinSnap === void 0 ? void 0 : twinSnap.exists) ? (((_a = twinSnap.data()) === null || _a === void 0 ? void 0 : _a.items) || []) : [];
+    tx.set(twinLocRef, { position, items: [...cur, item], isEmpty: false }, { merge: true });
+};
+/** Espeja una baja: elimina la presencia del array `items` del doc gemelo. */
+const mirrorRemove = (tx, twinLocRef, twinSnap, position, presenceId, articleCode, orderFab) => {
+    var _a;
+    if (!twinLocRef || !(twinSnap === null || twinSnap === void 0 ? void 0 : twinSnap.exists))
+        return;
+    const cur = (((_a = twinSnap.data()) === null || _a === void 0 ? void 0 : _a.items) || []);
+    const updated = cur.filter((it) => !samePresence(it, presenceId, articleCode, orderFab));
+    tx.set(twinLocRef, { position, items: updated, isEmpty: updated.length === 0 }, { merge: true });
+};
 const sectionForWarehouse = (warehouseId) => (0, authz_1.getWmsSectionForShelf)(warehouseId);
 const canOperateWarehouse = (role, section, warehouseId) => {
     if (['ADMIN', 'CARRETILLERO', 'SUPERADMIN', 'CALIDAD'].includes(role))
@@ -46,22 +84,23 @@ exports.onAssignmentWrite = functions.firestore
         if (item.orderId && item.orderId !== 'PENDIENTE')
             ordersToUpdate.add(item.orderId);
     });
-    await Promise.all(Array.from(ordersToUpdate).map(async (orderId) => {
-        try {
-            const docRef = firebaseAdmin_1.admin.firestore().collection('inboundOrders').doc(orderId);
-            const doc = await docRef.get();
-            if (!doc.exists)
-                return;
-            await docRef.update({
-                fecha_disponible_estanteria: firebaseAdmin_1.admin.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebaseAdmin_1.admin.firestore.FieldValue.serverTimestamp(),
-                status: 'DISPONIBLE',
-            });
-        }
-        catch (error) {
-            console.error(`Failed to update InboundOrder ${orderId}:`, error);
-        }
-    }));
+    const orderIds = Array.from(ordersToUpdate);
+    const orderRefs = orderIds.map((id) => firebaseAdmin_1.admin.firestore().collection('inboundOrders').doc(id));
+    const orderDocs = await Promise.all(orderRefs.map((ref) => ref.get()));
+    const inboundBatch = firebaseAdmin_1.admin.firestore().batch();
+    let hasBatchUpdates = false;
+    for (let i = 0; i < orderIds.length; i++) {
+        if (!orderDocs[i].exists)
+            continue;
+        inboundBatch.update(orderRefs[i], {
+            fecha_disponible_estanteria: firebaseAdmin_1.admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebaseAdmin_1.admin.firestore.FieldValue.serverTimestamp(),
+            status: 'DISPONIBLE',
+        });
+        hasBatchUpdates = true;
+    }
+    if (hasBatchUpdates)
+        await inboundBatch.commit();
 });
 // Trigger for the new shelfOperate path (shelves/{shelfCode}/locations/{position})
 // Updates inboundOrders to DISPONIBLE when articles are placed via shelfOperate.
@@ -83,22 +122,23 @@ exports.onShelfLocationWrite = functions.firestore
         if (item.orderFab && item.orderFab !== 'PENDIENTE')
             ordersToUpdate.add(item.orderFab);
     });
-    await Promise.all(Array.from(ordersToUpdate).map(async (orderFab) => {
-        try {
-            const docRef = firebaseAdmin_1.admin.firestore().collection('inboundOrders').doc(orderFab);
-            const doc = await docRef.get();
-            if (!doc.exists)
-                return;
-            await docRef.update({
-                fecha_disponible_estanteria: firebaseAdmin_1.admin.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebaseAdmin_1.admin.firestore.FieldValue.serverTimestamp(),
-                status: 'DISPONIBLE',
-            });
-        }
-        catch (error) {
-            console.error(`Failed to update InboundOrder ${orderFab}:`, error);
-        }
-    }));
+    const orderFabs = Array.from(ordersToUpdate);
+    const orderRefs = orderFabs.map((of) => firebaseAdmin_1.admin.firestore().collection('inboundOrders').doc(of));
+    const orderDocs = await Promise.all(orderRefs.map((ref) => ref.get()));
+    const inboundBatch = firebaseAdmin_1.admin.firestore().batch();
+    let hasBatchUpdates = false;
+    for (let i = 0; i < orderFabs.length; i++) {
+        if (!orderDocs[i].exists)
+            continue;
+        inboundBatch.update(orderRefs[i], {
+            fecha_disponible_estanteria: firebaseAdmin_1.admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebaseAdmin_1.admin.firestore.FieldValue.serverTimestamp(),
+            status: 'DISPONIBLE',
+        });
+        hasBatchUpdates = true;
+    }
+    if (hasBatchUpdates)
+        await inboundBatch.commit();
 });
 exports.inventoryOperate = functions.https.onCall(async (data, context) => {
     const userCtx = await (0, authz_1.requireAllowedRoles)(context, ['ADMIN', 'SUPERADMIN', 'JEFE_SECCION', 'CARRETILLERO', 'CALIDAD']);
@@ -122,6 +162,9 @@ exports.inventoryOperate = functions.https.onCall(async (data, context) => {
         const shelf = payload === null || payload === void 0 ? void 0 : payload.shelf;
         if (!warehouse || !shelf)
             throw new functions.https.HttpsError('invalid-argument', 'Missing warehouse/shelf');
+        if (!canOperateWarehouse(role, section, warehouse)) {
+            throw new functions.https.HttpsError('permission-denied', 'Warehouse out of scope');
+        }
         const prefix = `${warehouse}-E${shelf}-`;
         const snapshot = await firebaseAdmin_1.admin.firestore().collection('assignments').doc(warehouse).collection('locations').get();
         const docs = snapshot.docs.filter((doc) => doc.id.startsWith(prefix));
@@ -258,15 +301,23 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
         const locRef = db.collection('shelves').doc(shelfCode).collection('locations').doc(position);
         const presenceRef = db.collection('items').doc();
         const aggregateRef = db.collection('itemAggregates').doc(aggregateKey);
+        const twinLocRef = twinLocRefFor(db, shelfCode, position);
         await db.runTransaction(async (tx) => {
             var _a;
-            const [locSnap, aggregateSnap] = await Promise.all([tx.get(locRef), tx.get(aggregateRef)]);
+            const [locSnap, aggregateSnap, twinSnap] = await Promise.all([
+                tx.get(locRef),
+                tx.get(aggregateRef),
+                twinLocRef ? tx.get(twinLocRef) : Promise.resolve(undefined),
+            ]);
             const currentItems = locSnap.exists ? (((_a = locSnap.data()) === null || _a === void 0 ? void 0 : _a.items) || []) : [];
+            const newItem = { presenceId: presenceRef.id, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now };
             tx.set(locRef, {
                 position,
-                items: [...currentItems, { presenceId: presenceRef.id, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now }],
+                items: [...currentItems, newItem],
                 isEmpty: false,
             }, { merge: true });
+            // Espejo a la estantería gemela si es una urgente compartida (URG MEC-PRE).
+            mirrorAppend(tx, twinLocRef, twinSnap, position, newItem);
             tx.set(presenceRef, { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true });
             if (aggregateSnap.exists) {
                 const aggregate = aggregateSnap.data();
@@ -308,6 +359,9 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
         if (!articleCode || !orderFab || positions.length === 0) {
             throw new functions.https.HttpsError('invalid-argument', 'Datos incompletos para ubicar múltiple.');
         }
+        if (positions.length > 100) {
+            throw new functions.https.HttpsError('invalid-argument', 'No se pueden ubicar mas de 100 posiciones en una operacion.');
+        }
         const db2 = firebaseAdmin_1.admin.firestore();
         const results = [];
         await db2.runTransaction(async (tx) => {
@@ -317,10 +371,15 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
             // Pre-build all refs and pre-read all docs before any writes
             const locRefs = positions.map((pos) => db2.collection('shelves').doc(shelfCode).collection('locations').doc(pos));
             const presenceRefs = positions.map(() => db2.collection('items').doc());
-            const [aggregateSnap, ...locSnaps] = await Promise.all([
+            // Refs gemelas (urgentes compartidas) en paralelo a positions; null si no aplica.
+            const twinLocRefs = positions.map((pos) => twinLocRefFor(db2, shelfCode, pos));
+            const [aggregateSnap, ...restSnaps] = await Promise.all([
                 tx.get(aggregateRef),
                 ...locRefs.map((ref) => tx.get(ref)),
+                ...twinLocRefs.map((ref) => (ref ? tx.get(ref) : Promise.resolve(undefined))),
             ]);
+            const locSnaps = restSnaps.slice(0, positions.length);
+            const twinSnaps = restSnaps.slice(positions.length);
             let totalPresencesAdded = 0;
             const presenceIdsToAdd = [];
             for (let i = 0; i < positions.length; i++) {
@@ -340,6 +399,8 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
                     items: [...currentItems, locationItem],
                     isEmpty: false,
                 }, { merge: true });
+                // Espejo a la estantería gemela (urgentes compartidas).
+                mirrorAppend(tx, twinLocRefs[i], twinSnaps[i], position, locationItem);
                 const presenceDoc = { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true };
                 if (importe !== undefined)
                     presenceDoc.unitCost = importe;
@@ -390,24 +451,30 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
                 const locationId = String(((_a = presence.data.locationIds) === null || _a === void 0 ? void 0 : _a[0]) || '');
                 const position = locationId.split('-').slice(1).join('-');
                 const locRef = db.collection('shelves').doc(shelfCode).collection('locations').doc(position);
-                return { presence, position, locRef };
+                const twinLocRef = twinLocRefFor(db, shelfCode, position);
+                return { presence, position, locRef, twinLocRef };
             });
-            // All reads before any writes
-            const [aggregateSnap, ...locSnaps] = await Promise.all([
+            // All reads before any writes (incluye docs gemelos de urgentes compartidas)
+            const [aggregateSnap, ...restSnaps] = await Promise.all([
                 tx.get(aggregateRef),
                 ...presenceLocData.map(({ locRef }) => tx.get(locRef)),
+                ...presenceLocData.map(({ twinLocRef }) => (twinLocRef ? tx.get(twinLocRef) : Promise.resolve(undefined))),
             ]);
+            const locSnaps = restSnaps.slice(0, presenceLocData.length);
+            const twinSnaps = restSnaps.slice(presenceLocData.length);
             const aggregate = aggregateSnap.exists ? aggregateSnap.data() : null;
             const removedPresenceIds = [];
             for (let i = 0; i < presenceLocData.length; i++) {
-                const { presence, position, locRef } = presenceLocData[i];
+                const { presence, position, locRef, twinLocRef } = presenceLocData[i];
                 const locSnap = locSnaps[i];
                 positions.push(position);
-                if (locSnap.exists) {
+                if (locSnap === null || locSnap === void 0 ? void 0 : locSnap.exists) {
                     const locData = locSnap.data();
                     const updatedItems = (locData.items || []).filter((item) => !samePresence(item, presence.data.presenceId, articleCode, orderFab));
                     tx.set(locRef, { position, items: updatedItems, isEmpty: updatedItems.length === 0 }, { merge: true });
                 }
+                // Espejo de la baja en la estantería gemela (urgentes compartidas).
+                mirrorRemove(tx, twinLocRef, twinSnaps[i], position, presence.data.presenceId, articleCode, orderFab);
                 tx.update(presence.ref, { active: false, removedAt: now, removedBy: operarioId, locationIds: [] });
                 removedPresenceIds.push(presence.ref.id);
             }
@@ -428,9 +495,14 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
         const locRef = db.collection('shelves').doc(shelfCode).collection('locations').doc(position);
         const aggregateKey = `${normalize(articleCode)}__${normalize(orderFab)}`;
         const aggregateRef = db.collection('itemAggregates').doc(aggregateKey);
+        const twinLocRef = twinLocRefFor(db, shelfCode, position);
         await db.runTransaction(async (tx) => {
             // All reads must come before writes in a Firestore transaction
-            const [locSnap, aggregateSnap] = await Promise.all([tx.get(locRef), tx.get(aggregateRef)]);
+            const [locSnap, aggregateSnap, twinSnap] = await Promise.all([
+                tx.get(locRef),
+                tx.get(aggregateRef),
+                twinLocRef ? tx.get(twinLocRef) : Promise.resolve(undefined),
+            ]);
             if (!locSnap.exists) {
                 throw new functions.https.HttpsError('not-found', 'Ubicacion no encontrada.');
             }
@@ -446,6 +518,8 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
             const newItems = items.filter((_, idx) => idx !== itemIndex);
             // Writes after all reads
             tx.set(locRef, { position, items: newItems, isEmpty: newItems.length === 0 }, { merge: true });
+            // Espejo de la baja en la estantería gemela (urgentes compartidas).
+            mirrorRemove(tx, twinLocRef, twinSnap, position, presenceId, articleCode, orderFab);
             if (presenceId) {
                 const presenceRef = db.collection('items').doc(presenceId);
                 tx.update(presenceRef, { active: false, removedAt: now, removedBy: operarioId, locationIds: [] });
@@ -478,12 +552,15 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
             throw new functions.https.HttpsError('failed-precondition', 'Las presencias activas no coinciden con los destinos.');
         }
         await db.runTransaction(async (tx) => {
-            var _a;
+            var _a, _b;
             // Pre-compute all old and new location refs
             const oldLocData = activePresences.map((presence) => {
                 var _a;
                 const locationId = String(((_a = presence.data.locationIds) === null || _a === void 0 ? void 0 : _a[0]) || '');
                 const position = locationId.split('-').slice(1).join('-');
+                if (!position) {
+                    throw new functions.https.HttpsError('failed-precondition', `Presencia ${presence.ref.id} tiene locationId invalido: '${locationId}'.`);
+                }
                 const locRef = db.collection('shelves').doc(shelfCode).collection('locations').doc(position);
                 return { presence, locationId, position, locRef };
             });
@@ -493,18 +570,39 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
                 locRef: db.collection('shelves').doc(shelfCode).collection('locations').doc(position),
                 presence: activePresences[index],
             }));
-            // Deduplicate refs by path, then read all in one pass before any writes
+            // Deduplicate refs by path, then read all in one pass before any writes.
+            // Presence refs are included so Firestore's optimistic locking detects concurrent retirar/mover.
+            // Refs gemelas (urgentes compartidas) de origen y destino para espejado.
             const refByPath = new Map();
             refByPath.set(aggregateRef.path, aggregateRef);
             for (const d of oldLocData)
                 refByPath.set(d.locRef.path, d.locRef);
             for (const d of newLocData)
                 refByPath.set(d.locRef.path, d.locRef);
+            for (const p of activePresences)
+                refByPath.set(p.ref.path, p.ref);
+            for (const d of oldLocData) {
+                const twin = twinLocRefFor(db, shelfCode, d.position);
+                if (twin)
+                    refByPath.set(twin.path, twin);
+            }
+            for (const d of newLocData) {
+                const twin = twinLocRefFor(db, shelfCode, d.position);
+                if (twin)
+                    refByPath.set(twin.path, twin);
+            }
             const refEntries = [...refByPath.entries()];
             const allSnaps = await Promise.all(refEntries.map(([, ref]) => tx.get(ref)));
             const snapByPath = new Map();
             for (let i = 0; i < refEntries.length; i++)
                 snapByPath.set(refEntries[i][0], allSnaps[i]);
+            // Verify presences are still active — guards against concurrent retirar
+            for (const presence of activePresences) {
+                const presSnap = snapByPath.get(presence.ref.path);
+                if (!(presSnap === null || presSnap === void 0 ? void 0 : presSnap.exists) || ((_a = presSnap.data()) === null || _a === void 0 ? void 0 : _a.active) === false) {
+                    throw new functions.https.HttpsError('failed-precondition', 'El articulo fue modificado por otra operacion en curso. Intentalo de nuevo.');
+                }
+            }
             const aggregateSnap = snapByPath.get(aggregateRef.path);
             const oldLocationIds = [];
             const newLocationIds = [];
@@ -517,13 +615,20 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
                     const updatedItems = (locData.items || []).filter((item) => !samePresence(item, presence.data.presenceId, articleCode, orderFab));
                     tx.set(locRef, { position, items: updatedItems, isEmpty: updatedItems.length === 0 }, { merge: true });
                 }
+                // Espejo de la baja si la posición de origen es urgente compartida.
+                const twinRef = twinLocRefFor(db, shelfCode, position);
+                mirrorRemove(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, presence.data.presenceId, articleCode, orderFab);
             }
             // Add article to new positions
             for (const { position, locationId, locRef, presence } of newLocData) {
                 newLocationIds.push(locationId);
                 const locSnap = snapByPath.get(locRef.path);
-                const currentItems = (locSnap === null || locSnap === void 0 ? void 0 : locSnap.exists) ? (((_a = locSnap.data()) === null || _a === void 0 ? void 0 : _a.items) || []) : [];
-                tx.set(locRef, { position, items: [...currentItems, { presenceId: presence.data.presenceId, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now }], isEmpty: false }, { merge: true });
+                const currentItems = (locSnap === null || locSnap === void 0 ? void 0 : locSnap.exists) ? (((_b = locSnap.data()) === null || _b === void 0 ? void 0 : _b.items) || []) : [];
+                const movedItem = { presenceId: presence.data.presenceId, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now };
+                tx.set(locRef, { position, items: [...currentItems, movedItem], isEmpty: false }, { merge: true });
+                // Espejo del alta si la posición de destino es urgente compartida.
+                const twinRef = twinLocRefFor(db, shelfCode, position);
+                mirrorAppend(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, movedItem);
                 tx.update(presence.ref, { locationIds: [locationId], shelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now });
             }
             if (aggregateSnap === null || aggregateSnap === void 0 ? void 0 : aggregateSnap.exists) {
@@ -584,6 +689,17 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
                 refByPath.set(d.locRef.path, d.locRef);
             for (const d of newLocData)
                 refByPath.set(d.locRef.path, d.locRef);
+            // Refs gemelas: origen según fromShelfCode, destino según toShelfCode.
+            for (const d of oldLocData) {
+                const twin = twinLocRefFor(db, fromShelfCode, d.position);
+                if (twin)
+                    refByPath.set(twin.path, twin);
+            }
+            for (const d of newLocData) {
+                const twin = twinLocRefFor(db, toShelfCode, d.position);
+                if (twin)
+                    refByPath.set(twin.path, twin);
+            }
             const refEntries = [...refByPath.entries()];
             const allSnaps = await Promise.all(refEntries.map(([, ref]) => tx.get(ref)));
             const snapByPath = new Map();
@@ -601,13 +717,20 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
                     const updatedItems = (locData.items || []).filter((item) => !samePresence(item, presence.data.presenceId, articleCode, orderFab));
                     tx.set(locRef, { position, items: updatedItems, isEmpty: updatedItems.length === 0 }, { merge: true });
                 }
+                // Espejo de la baja si el origen es urgente compartida.
+                const twinRef = twinLocRefFor(db, fromShelfCode, position);
+                mirrorRemove(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, presence.data.presenceId, articleCode, orderFab);
             }
             // Añadir en las posiciones de destino (otra sección) + reasignar presencia
             for (const { position, locationId, locRef, presence } of newLocData) {
                 newLocationIds.push(locationId);
                 const locSnap = snapByPath.get(locRef.path);
                 const currentItems = (locSnap === null || locSnap === void 0 ? void 0 : locSnap.exists) ? (((_a = locSnap.data()) === null || _a === void 0 ? void 0 : _a.items) || []) : [];
-                tx.set(locRef, { position, items: [...currentItems, { presenceId: presence.data.presenceId, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now }], isEmpty: false }, { merge: true });
+                const movedItem = { presenceId: presence.data.presenceId, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now };
+                tx.set(locRef, { position, items: [...currentItems, movedItem], isEmpty: false }, { merge: true });
+                // Espejo del alta si el destino es urgente compartida.
+                const twinRef = twinLocRefFor(db, toShelfCode, position);
+                mirrorAppend(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, movedItem);
                 tx.update(presence.ref, { locationIds: [locationId], shelfCode: toShelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now });
             }
             if (aggregateSnap === null || aggregateSnap === void 0 ? void 0 : aggregateSnap.exists) {
@@ -665,20 +788,29 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
                 const sc = parts[0] || '';
                 const pos = parts.slice(1).join('-');
                 const locRef = sc && pos ? db.collection('shelves').doc(sc).collection('locations').doc(pos) : null;
-                return { presSnap, presData, locId, pos, locRef };
+                const twinLocRef = sc && pos ? twinLocRefFor(db, sc, pos) : null;
+                return { presSnap, presData, locId, pos, locRef, twinLocRef };
             });
-            // All reads before any writes: aggregate + all location docs
+            // All reads before any writes: aggregate + all location docs (+ gemelos)
             const validLocData = presLocData.filter(({ locRef }) => locRef !== null);
-            const [aggregateSnap, ...locSnaps] = await Promise.all([
+            const twinLocData = presLocData.filter(({ twinLocRef }) => twinLocRef !== null);
+            const [aggregateSnap, ...restSnaps] = await Promise.all([
                 tx.get(aggregateRef),
                 ...validLocData.map(({ locRef }) => tx.get(locRef)),
+                ...twinLocData.map(({ twinLocRef }) => tx.get(twinLocRef)),
             ]);
+            const locSnaps = restSnaps.slice(0, validLocData.length);
+            const twinSnaps = restSnaps.slice(validLocData.length);
             const locSnapByPath = new Map();
             for (let i = 0; i < validLocData.length; i++) {
                 locSnapByPath.set(validLocData[i].locRef.path, locSnaps[i]);
             }
+            const twinSnapByPath = new Map();
+            for (let i = 0; i < twinLocData.length; i++) {
+                twinSnapByPath.set(twinLocData[i].twinLocRef.path, twinSnaps[i]);
+            }
             // All writes
-            for (const { presSnap, presData, locId, pos, locRef } of presLocData) {
+            for (const { presSnap, presData, locId, pos, locRef, twinLocRef } of presLocData) {
                 if (locRef) {
                     const locSnap = locSnapByPath.get(locRef.path);
                     if (locSnap === null || locSnap === void 0 ? void 0 : locSnap.exists) {
@@ -688,6 +820,8 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
                     }
                     removedFromLocations.push(locId);
                 }
+                // Espejo de la baja si la posición es urgente compartida.
+                mirrorRemove(tx, twinLocRef, twinLocRef ? twinSnapByPath.get(twinLocRef.path) : undefined, pos, presData.presenceId, articleCode, orderFab);
                 tx.update(presSnap.ref, { active: false, removedAt: now, removedBy: operarioId, locationIds: [], sentToWarehouse: true });
             }
             if (aggregateSnap.exists) {
@@ -710,9 +844,24 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
         if (!['ADMIN', 'SUPERADMIN'].includes(actor.role)) {
             throw new functions.https.HttpsError('permission-denied', 'Solo admin puede vaciar estanterias.');
         }
-        // 1. Delete all location documents
+        // 1. Delete all location documents (+ clear items[] mirror in URG twin)
         const locSnapshot = await db.collection('shelves').doc(shelfCode).collection('locations').get();
         const CHUNK = 30;
+        // Identify URG MEC-PRE positions being deleted and clear their twin mirror
+        const urgPositions = locSnapshot.docs.map((d) => d.id).filter((id) => id.startsWith('URG MEC-PRE'));
+        if (urgPositions.length > 0) {
+            const twinShelf = URG_TWIN[normalize(shelfCode)];
+            if (twinShelf) {
+                for (let i = 0; i < urgPositions.length; i += CHUNK) {
+                    const twinBatch = db.batch();
+                    urgPositions.slice(i, i + CHUNK).forEach((pos) => {
+                        const twinRef = db.collection('shelves').doc(twinShelf).collection('locations').doc(pos);
+                        twinBatch.set(twinRef, { position: pos, items: [], isEmpty: true }, { merge: true });
+                    });
+                    await twinBatch.commit();
+                }
+            }
+        }
         for (let i = 0; i < locSnapshot.docs.length; i += CHUNK) {
             const batchWrite = db.batch();
             locSnapshot.docs.slice(i, i + CHUNK).forEach((d) => batchWrite.delete(d.ref));
@@ -738,14 +887,22 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
             presenceSnapshot.docs.slice(i, i + CHUNK).forEach((d) => batchWrite.update(d.ref, { active: false, removedAt: now, removedBy: operarioId, locationIds: [] }));
             await batchWrite.commit();
         }
-        // 3. Update itemAggregates to remove deactivated presenceIds
-        for (const [aggregateKey, removedIds] of aggregateMap) {
-            const aggRef = db.collection('itemAggregates').doc(aggregateKey);
-            const aggSnap = await aggRef.get();
-            if (aggSnap.exists) {
-                const aggData = aggSnap.data();
-                const remaining = (aggData.activePresenceIds || []).filter((id) => !removedIds.includes(id));
-                await aggRef.update({ activePresenceIds: remaining, totalActivePresences: remaining.length, updatedAt: now });
+        // 3. Update itemAggregates — parallel reads then batched writes (avoids N+1)
+        const aggEntries = Array.from(aggregateMap.entries());
+        if (aggEntries.length > 0) {
+            const aggRefs = aggEntries.map(([key]) => db.collection('itemAggregates').doc(key));
+            const aggSnaps = await Promise.all(aggRefs.map((ref) => ref.get()));
+            for (let i = 0; i < aggEntries.length; i += CHUNK) {
+                const aggBatch = db.batch();
+                for (let j = i; j < Math.min(i + CHUNK, aggEntries.length); j++) {
+                    if (!aggSnaps[j].exists)
+                        continue;
+                    const [, removedIds] = aggEntries[j];
+                    const aggData = aggSnaps[j].data();
+                    const remaining = (aggData.activePresenceIds || []).filter((id) => !removedIds.includes(id));
+                    aggBatch.update(aggRefs[j], { activePresenceIds: remaining, totalActivePresences: remaining.length, updatedAt: now });
+                }
+                await aggBatch.commit();
             }
         }
         await db.collection('history').add({
@@ -832,6 +989,12 @@ exports.updateReproceso = functions.https.onCall(async (data, context) => {
     const orderFab = String(((_d = data === null || data === void 0 ? void 0 : data.payload) === null || _d === void 0 ? void 0 : _d.orderFab) || '').trim();
     const quantity = Number((_e = data === null || data === void 0 ? void 0 : data.payload) === null || _e === void 0 ? void 0 : _e.quantity) || 0;
     const unitCost = Number((_f = data === null || data === void 0 ? void 0 : data.payload) === null || _f === void 0 ? void 0 : _f.unitCost) || 0;
+    if (!isFinite(quantity) || quantity < 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'quantity debe ser un número ≥ 0.');
+    }
+    if (!isFinite(unitCost) || unitCost < 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'unitCost debe ser un número ≥ 0.');
+    }
     const posNum = parseInt(position, 10);
     if (isNaN(posNum) || posNum < 1 || posNum > 22) {
         throw new functions.https.HttpsError('invalid-argument', 'Solo se pueden editar reprocesos en CAL 001-022.');
@@ -854,17 +1017,8 @@ exports.updateReproceso = functions.https.onCall(async (data, context) => {
             }
             return item;
         });
-        if (!found && articleCode && orderFab) {
-            items.push({
-                presenceId: `repro-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                articleCode,
-                orderFab,
-                quantity,
-                unitCost,
-                locatedBy: actor.operarioId || actor.uid || actor.role,
-                locatedByName: actor.operarioName || actor.email || actor.role,
-                locatedAt: new Date().toISOString(),
-            });
+        if (!found) {
+            throw new functions.https.HttpsError('not-found', 'Artículo no encontrado en la ubicación CAL indicada. Ubícalo primero con shelfOperate.');
         }
         tx.set(locRef, {
             position,

@@ -38,11 +38,6 @@ const assertActorMayOperateShelf = (actor, shelfCode) => {
     if (!shelf) {
         throw new functions.https.HttpsError('invalid-argument', 'shelfCode requerido.');
     }
-    // OPERARIO (kiosko) puede operar cualquier estantería
-    // El kiosko tiene sus propias estanterías y cualquier operario puede usarlo
-    if (actor.role === 'OPERARIO' && false) {
-        // no-op: se permite cualquier estantería
-    }
     if (actor.role === 'CALIDAD' && shelf !== 'CAL') {
         throw new functions.https.HttpsError('permission-denied', 'Calidad solo puede operar la estantería CAL.');
     }
@@ -105,11 +100,21 @@ const resolveOperationalActor = async (context, session) => {
     const deviceId = String((session === null || session === void 0 ? void 0 : session.deviceId) || '').trim();
     const operarioId = String((session === null || session === void 0 ? void 0 : session.operarioId) || '').trim();
     const operarioName = String((session === null || session === void 0 ? void 0 : session.operarioName) || '').trim();
-    // Roles administrativos (ADMIN, SUPERADMIN, CALIDAD) desde sesión anónima:
-    // no requieren validación de dispositivo, se confía en la sesión guest.
-    if (['ADMIN', 'SUPERADMIN', 'CALIDAD'].includes(role)) {
+    // CALIDAD puede usar sesión de kiosco anónima para operar CAL.
+    // ADMIN y SUPERADMIN deben autenticarse siempre con email — no se permiten sesiones anónimas.
+    if (role === 'CALIDAD') {
         if (!operarioId) {
             throw new functions.https.HttpsError('permission-denied', 'Sesion operativa anonima invalida.');
+        }
+        if (deviceId) {
+            const deviceDoc = await admin.firestore().collection('dispositivos').doc(deviceId).get();
+            if (!deviceDoc.exists) {
+                throw new functions.https.HttpsError('permission-denied', 'Dispositivo no registrado.');
+            }
+            const device = deviceDoc.data();
+            if (device.active === false) {
+                throw new functions.https.HttpsError('permission-denied', 'Dispositivo desactivado.');
+            }
         }
         return {
             uid: context.auth.uid,
@@ -117,7 +122,7 @@ const resolveOperationalActor = async (context, session) => {
             email: null,
             section: null,
             deviceId: deviceId || undefined,
-            assignedShelf: role === 'CALIDAD' ? 'CAL' : '*',
+            assignedShelf: 'CAL',
             operarioId,
             operarioName: operarioName || operarioId,
         };

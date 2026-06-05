@@ -131,13 +131,12 @@ export const parseScanInput = (rawInput: string): ScanParseResult => {
  *   "CL34712023 // OF25-07221"        (separador clásico)
  *   "OF25-07221 CL34712023"           (orden invertida)
  */
-export const parseScanInputLenient = (rawInput: string): ScanParseResult => {
-  if (!rawInput || typeof rawInput !== 'string') {
-    return { success: false, error: 'No se recibió ningún dato', rawInput: '' };
-  }
-
-  // Normaliza: une saltos de línea, colapsa espacios, mayúsculas, corrige OCR típico
-  const cleaned = rawInput
+/**
+ * Normaliza texto OCR: une saltos de línea, mayúsculas, corrige las confusiones
+ * típicas de OCR en el código de OF y colapsa espacios.
+ */
+const normalizeOcrText = (rawInput: string): string => {
+  return rawInput
     .trim()
     .replace(/[\r\n\t]+/g, ' ')
     .replace(/\s+/g, ' ')
@@ -153,7 +152,7 @@ export const parseScanInputLenient = (rawInput: string): ScanParseResult => {
     .replace(/\bOF(\d{2})\s+(\d{3,})/g, 'OF$1-$2')     // OF25 07221 → OF25-07221 (guion faltante)
     .replace(/\bO(\d{2}-\d{3,})/g, 'OF$1')              // O25-07221 → OF25-07221 (F faltante)
     // Confusión O↔0 dentro del número de OF: OF25-O7221 → OF25-07221
-    .replace(/\bOF(\d{2})-([0O])(\d{4,})/g, (_, yr, z, rest) => `OF${yr}-0${rest}`)
+    .replace(/\bOF(\d{2})-([0O])(\d{4,})/g, (_, yr, _z, rest) => `OF${yr}-0${rest}`)
     // Dígitos separados en el año de OF: OF 2 5-07221 → OF25-07221
     .replace(/\bOF\s*(\d)\s*(\d)\s*[-]\s*(\d{3,})/g, 'OF$1$2-$3')
     // Correcciones de caracteres individuales
@@ -166,45 +165,28 @@ export const parseScanInputLenient = (rawInput: string): ScanParseResult => {
     // Colapsar espacios múltiples
     .replace(/\s+/g, ' ')
     .trim();
+};
 
-  if (!cleaned) {
-    return { success: false, error: 'El texto está vacío', rawInput };
-  }
-
-  // 1º intenta el parser estricto (formatos clásicos de pistola)
-  const strict = parseScanInput(cleaned);
-  if (strict.success) return strict;
-
-  // 2º busca el patrón OF en cualquier parte (con o sin guion)
+/** Extrae el código OFxx-nnnnn de un texto YA normalizado; '' si no hay. */
+const extractOF = (cleaned: string): string => {
   const ofMatch = cleaned.match(/OF\d{2}-\d{3,}/);
-  let orderFab = '';
-  if (!ofMatch) {
-    // Buscar OF seguido de espacios + dígitos (OCR a veces omite el guion)
-    const noHyphenMatch = cleaned.match(/OF\s*(\d{2})\s*[-–—]?\s*(\d{3,})/);
-    if (noHyphenMatch) {
-      orderFab = `OF${noHyphenMatch[1]}-${noHyphenMatch[2]}`;
-    }
-  } else {
-    orderFab = ofMatch[0];
-  }
+  if (ofMatch) return ofMatch[0];
+  // OF seguido de espacios + dígitos (OCR a veces omite el guion)
+  const noHyphenMatch = cleaned.match(/OF\s*(\d{2})\s*[-–—]?\s*(\d{3,})/);
+  if (noHyphenMatch) return `OF${noHyphenMatch[1]}-${noHyphenMatch[2]}`;
+  return '';
+};
 
-  if (!orderFab) {
-    return {
-      success: false,
-      error: `No se encontró ningún código OFxx-nnnnn en el texto.\nRecibido: "${cleaned}"`,
-      rawInput,
-    };
-  }
-
-  // 3º extrae el código de artículo: todo lo que no sea el OF ni etiquetas comunes
-  const withoutOF = cleaned.replace(orderFab, '');
-  const cleanedNoLabels = withoutOF
+/**
+ * Extrae el código de artículo de un texto (idealmente ya sin la OF). Quita
+ * etiquetas comunes y toma el token más prometedor.
+ */
+const extractArticleCode = (text: string): string => {
+  const cleanedNoLabels = text
     .replace(/\b(ART(I|Í)CULO|ARTICLE|REF(ERENCIA)?|ORDEN|ORDER|FABRICACI(O|Ó)N|OF|COD(IGO|Ó)?|PIEZA)\s*:?\s*/gi, '')
     .replace(/[\/\\|–—]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-
-  // Toma el token más prometedor como código de artículo
   const tokens = cleanedNoLabels.split(/\s+/).filter(Boolean);
   // 1º: token alfanumérico (letra+número) más largo — artículos industriales típicos
   let articleCode = tokens
@@ -214,7 +196,35 @@ export const parseScanInputLenient = (rawInput: string): ScanParseResult => {
   if (!articleCode) articleCode = tokens.filter((t) => t.length >= 4).sort((a, b) => b.length - a.length)[0];
   // 3º: primer token disponible
   if (!articleCode) articleCode = tokens[0];
+  return articleCode || '';
+};
 
+export const parseScanInputLenient = (rawInput: string): ScanParseResult => {
+  if (!rawInput || typeof rawInput !== 'string') {
+    return { success: false, error: 'No se recibió ningún dato', rawInput: '' };
+  }
+
+  const cleaned = normalizeOcrText(rawInput);
+  if (!cleaned) {
+    return { success: false, error: 'El texto está vacío', rawInput };
+  }
+
+  // 1º intenta el parser estricto (formatos clásicos de pistola)
+  const strict = parseScanInput(cleaned);
+  if (strict.success) return strict;
+
+  // 2º busca el patrón OF en cualquier parte (con o sin guion)
+  const orderFab = extractOF(cleaned);
+  if (!orderFab) {
+    return {
+      success: false,
+      error: `No se encontró ningún código OFxx-nnnnn en el texto.\nRecibido: "${cleaned}"`,
+      rawInput,
+    };
+  }
+
+  // 3º extrae el código de artículo: todo lo que no sea el OF ni etiquetas comunes
+  const articleCode = extractArticleCode(cleaned.replace(orderFab, ''));
   if (!articleCode) {
     return {
       success: false,
@@ -226,6 +236,55 @@ export const parseScanInputLenient = (rawInput: string): ScanParseResult => {
   return {
     success: true,
     data: { articleCode, orderFab },
+  };
+};
+
+/**
+ * Parseo OCR orientado a etiquetas multilínea: cuando la OF está en una línea y
+ * el código de artículo en la línea inmediatamente inferior (caso típico de las
+ * etiquetas de OF). Busca la primera línea con OF y, si esa misma línea no trae
+ * el artículo, toma la siguiente línea como código de artículo.
+ *
+ * Devuelve ScanError si no hay OF en ninguna línea — el llamador debe entonces
+ * caer al parser lenient sobre el texto completo, y si tampoco, a foto manual.
+ */
+export const parseScanFromLines = (lines: string[]): ScanParseResult => {
+  const rawInput = Array.isArray(lines) ? lines.join('\n') : '';
+  if (!Array.isArray(lines) || lines.length === 0) {
+    return { success: false, error: 'Sin líneas OCR', rawInput };
+  }
+
+  const norm = lines.map((l) => normalizeOcrText(l)).filter((l) => l.length > 0);
+
+  for (let i = 0; i < norm.length; i++) {
+    const of = extractOF(norm[i]);
+    if (!of) continue;
+
+    // Si la propia línea de la OF ya trae el artículo, úsalo.
+    const sameLine = extractArticleCode(norm[i].replace(of, ''));
+    if (sameLine) {
+      return { success: true, data: { articleCode: sameLine, orderFab: of } };
+    }
+
+    // Si no, el artículo casi siempre está en la línea inmediatamente inferior.
+    if (i + 1 < norm.length) {
+      const below = extractArticleCode(norm[i + 1]);
+      if (below) {
+        return { success: true, data: { articleCode: below, orderFab: of } };
+      }
+    }
+
+    return {
+      success: false,
+      error: `Se detectó ${of} pero no el código de artículo debajo.`,
+      rawInput,
+    };
+  }
+
+  return {
+    success: false,
+    error: 'No se encontró ningún código OFxx-nnnnn en las líneas.',
+    rawInput,
   };
 };
 

@@ -31,6 +31,61 @@ const samePresence = (item: any, presenceId: string, articleCode: string, orderF
   return normalize(item?.articleCode) === normalize(articleCode) && normalize(item?.orderFab) === normalize(orderFab);
 };
 
+// ── Ubicaciones urgentes compartidas URG MEC-PRE ─────────────────────────────
+// PRE (Prensas) y MEC (Mecanizado) comparten físicamente las 4 ubicaciones
+// "URG MEC-PRE 001..004". En Firestore son documentos separados
+// (shelves/PRE/locations/... y shelves/MEC/locations/...), así que cualquier
+// alta/baja en una debe espejarse en la otra. Modelo: una sola presencia
+// canónica (no se duplican contadores) + el array `items` del doc de ubicación
+// espejado en ambas estanterías. El item espejado lleva el MISMO presenceId, de
+// modo que las retiradas (que filtran por presenceId) funcionan en ambos lados.
+const URG_TWIN: Record<string, string> = { PRE: 'MEC', MEC: 'PRE' };
+
+/** Devuelve el shelfCode gemelo si la posición es una urgente compartida, o null. */
+const urgentTwinShelf = (shelfCode: string, position: string): string | null => {
+  if (!position || !position.startsWith('URG MEC-PRE')) return null;
+  return URG_TWIN[normalize(shelfCode)] ?? null;
+};
+
+/** Ref del documento de ubicación gemelo (o null si la posición no es compartida). */
+const twinLocRefFor = (
+  db: FirebaseFirestore.Firestore,
+  shelfCode: string,
+  position: string,
+) => {
+  const twin = urgentTwinShelf(shelfCode, position);
+  return twin ? db.collection('shelves').doc(twin).collection('locations').doc(position) : null;
+};
+
+/** Espeja un alta: añade `item` al array `items` del doc gemelo. */
+const mirrorAppend = (
+  tx: FirebaseFirestore.Transaction,
+  twinLocRef: FirebaseFirestore.DocumentReference | null,
+  twinSnap: FirebaseFirestore.DocumentSnapshot | undefined,
+  position: string,
+  item: any,
+) => {
+  if (!twinLocRef) return;
+  const cur = twinSnap?.exists ? ((twinSnap.data()?.items || []) as any[]) : [];
+  tx.set(twinLocRef, { position, items: [...cur, item], isEmpty: false }, { merge: true });
+};
+
+/** Espeja una baja: elimina la presencia del array `items` del doc gemelo. */
+const mirrorRemove = (
+  tx: FirebaseFirestore.Transaction,
+  twinLocRef: FirebaseFirestore.DocumentReference | null,
+  twinSnap: FirebaseFirestore.DocumentSnapshot | undefined,
+  position: string,
+  presenceId: string,
+  articleCode: string,
+  orderFab: string,
+) => {
+  if (!twinLocRef || !twinSnap?.exists) return;
+  const cur = (twinSnap.data()?.items || []) as any[];
+  const updated = cur.filter((it) => !samePresence(it, presenceId, articleCode, orderFab));
+  tx.set(twinLocRef, { position, items: updated, isEmpty: updated.length === 0 }, { merge: true });
+};
+
 const sectionForWarehouse = (warehouseId: string) => getWmsSectionForShelf(warehouseId);
 
 const canOperateWarehouse = (role: string, section: string | null, warehouseId: string) => {
@@ -267,14 +322,22 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
     const locRef = db.collection('shelves').doc(shelfCode).collection('locations').doc(position);
     const presenceRef = db.collection('items').doc();
     const aggregateRef = db.collection('itemAggregates').doc(aggregateKey);
+    const twinLocRef = twinLocRefFor(db, shelfCode, position);
     await db.runTransaction(async (tx) => {
-      const [locSnap, aggregateSnap] = await Promise.all([tx.get(locRef), tx.get(aggregateRef)]);
+      const [locSnap, aggregateSnap, twinSnap] = await Promise.all([
+        tx.get(locRef),
+        tx.get(aggregateRef),
+        twinLocRef ? tx.get(twinLocRef) : Promise.resolve(undefined),
+      ]);
       const currentItems = locSnap.exists ? ((locSnap.data()?.items || []) as any[]) : [];
+      const newItem = { presenceId: presenceRef.id, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now };
       tx.set(locRef, {
         position,
-        items: [...currentItems, { presenceId: presenceRef.id, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now }],
+        items: [...currentItems, newItem],
         isEmpty: false,
       }, { merge: true });
+      // Espejo a la estantería gemela si es una urgente compartida (URG MEC-PRE).
+      mirrorAppend(tx, twinLocRef, twinSnap, position, newItem);
       tx.set(presenceRef, { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true });
       if (aggregateSnap.exists) {
         const aggregate = aggregateSnap.data() as any;
@@ -337,10 +400,15 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         db2.collection('shelves').doc(shelfCode).collection('locations').doc(pos)
       );
       const presenceRefs = positions.map(() => db2.collection('items').doc());
-      const [aggregateSnap, ...locSnaps] = await Promise.all([
+      // Refs gemelas (urgentes compartidas) en paralelo a positions; null si no aplica.
+      const twinLocRefs = positions.map((pos: string) => twinLocRefFor(db2, shelfCode, pos));
+      const [aggregateSnap, ...restSnaps] = await Promise.all([
         tx.get(aggregateRef),
         ...locRefs.map((ref: any) => tx.get(ref)),
+        ...twinLocRefs.map((ref: FirebaseFirestore.DocumentReference | null) => (ref ? tx.get(ref) : Promise.resolve(undefined))),
       ]);
+      const locSnaps = restSnaps.slice(0, positions.length);
+      const twinSnaps = restSnaps.slice(positions.length);
 
       let totalPresencesAdded = 0;
       const presenceIdsToAdd: string[] = [];
@@ -361,6 +429,8 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
           items: [...currentItems, locationItem],
           isEmpty: false,
         }, { merge: true });
+        // Espejo a la estantería gemela (urgentes compartidas).
+        mirrorAppend(tx, twinLocRefs[i], twinSnaps[i] as any, position, locationItem);
 
         const presenceDoc: any = { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true };
         if (importe !== undefined) presenceDoc.unitCost = importe;
@@ -416,26 +486,32 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         const locationId = String(presence.data.locationIds?.[0] || '');
         const position = locationId.split('-').slice(1).join('-');
         const locRef = db.collection('shelves').doc(shelfCode).collection('locations').doc(position);
-        return { presence, position, locRef };
+        const twinLocRef = twinLocRefFor(db, shelfCode, position);
+        return { presence, position, locRef, twinLocRef };
       });
 
-      // All reads before any writes
-      const [aggregateSnap, ...locSnaps] = await Promise.all([
+      // All reads before any writes (incluye docs gemelos de urgentes compartidas)
+      const [aggregateSnap, ...restSnaps] = await Promise.all([
         tx.get(aggregateRef),
         ...presenceLocData.map(({ locRef }) => tx.get(locRef)),
+        ...presenceLocData.map(({ twinLocRef }) => (twinLocRef ? tx.get(twinLocRef) : Promise.resolve(undefined))),
       ]);
+      const locSnaps = restSnaps.slice(0, presenceLocData.length);
+      const twinSnaps = restSnaps.slice(presenceLocData.length);
       const aggregate = aggregateSnap.exists ? (aggregateSnap.data() as any) : null;
       const removedPresenceIds: string[] = [];
 
       for (let i = 0; i < presenceLocData.length; i++) {
-        const { presence, position, locRef } = presenceLocData[i];
+        const { presence, position, locRef, twinLocRef } = presenceLocData[i];
         const locSnap = locSnaps[i];
         positions.push(position);
-        if (locSnap.exists) {
+        if (locSnap?.exists) {
           const locData = locSnap.data() as any;
           const updatedItems = (locData.items || []).filter((item: any) => !samePresence(item, presence.data.presenceId, articleCode, orderFab));
           tx.set(locRef, { position, items: updatedItems, isEmpty: updatedItems.length === 0 }, { merge: true });
         }
+        // Espejo de la baja en la estantería gemela (urgentes compartidas).
+        mirrorRemove(tx, twinLocRef, twinSnaps[i] as any, position, presence.data.presenceId, articleCode, orderFab);
         tx.update(presence.ref, { active: false, removedAt: now, removedBy: operarioId, locationIds: [] });
         removedPresenceIds.push(presence.ref.id);
       }
@@ -458,10 +534,15 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
     const locRef = db.collection('shelves').doc(shelfCode).collection('locations').doc(position);
     const aggregateKey = `${normalize(articleCode)}__${normalize(orderFab)}`;
     const aggregateRef = db.collection('itemAggregates').doc(aggregateKey);
+    const twinLocRef = twinLocRefFor(db, shelfCode, position);
 
     await db.runTransaction(async (tx) => {
       // All reads must come before writes in a Firestore transaction
-      const [locSnap, aggregateSnap] = await Promise.all([tx.get(locRef), tx.get(aggregateRef)]);
+      const [locSnap, aggregateSnap, twinSnap] = await Promise.all([
+        tx.get(locRef),
+        tx.get(aggregateRef),
+        twinLocRef ? tx.get(twinLocRef) : Promise.resolve(undefined),
+      ]);
 
       if (!locSnap.exists) {
         throw new functions.https.HttpsError('not-found', 'Ubicacion no encontrada.');
@@ -485,6 +566,8 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
 
       // Writes after all reads
       tx.set(locRef, { position, items: newItems, isEmpty: newItems.length === 0 }, { merge: true });
+      // Espejo de la baja en la estantería gemela (urgentes compartidas).
+      mirrorRemove(tx, twinLocRef, twinSnap as any, position, presenceId, articleCode, orderFab);
 
       if (presenceId) {
         const presenceRef = db.collection('items').doc(presenceId);
@@ -541,11 +624,20 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
 
       // Deduplicate refs by path, then read all in one pass before any writes.
       // Presence refs are included so Firestore's optimistic locking detects concurrent retirar/mover.
+      // Refs gemelas (urgentes compartidas) de origen y destino para espejado.
       const refByPath = new Map<string, any>();
       refByPath.set(aggregateRef.path, aggregateRef);
       for (const d of oldLocData) refByPath.set(d.locRef.path, d.locRef);
       for (const d of newLocData) refByPath.set(d.locRef.path, d.locRef);
       for (const p of activePresences) refByPath.set(p.ref.path, p.ref);
+      for (const d of oldLocData) {
+        const twin = twinLocRefFor(db, shelfCode, d.position);
+        if (twin) refByPath.set(twin.path, twin);
+      }
+      for (const d of newLocData) {
+        const twin = twinLocRefFor(db, shelfCode, d.position);
+        if (twin) refByPath.set(twin.path, twin);
+      }
       const refEntries = [...refByPath.entries()];
       const allSnaps = await Promise.all(refEntries.map(([, ref]) => tx.get(ref)));
       const snapByPath = new Map<string, any>();
@@ -572,6 +664,9 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
           const updatedItems = (locData.items || []).filter((item: any) => !samePresence(item, presence.data.presenceId, articleCode, orderFab));
           tx.set(locRef, { position, items: updatedItems, isEmpty: updatedItems.length === 0 }, { merge: true });
         }
+        // Espejo de la baja si la posición de origen es urgente compartida.
+        const twinRef = twinLocRefFor(db, shelfCode, position);
+        mirrorRemove(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, presence.data.presenceId, articleCode, orderFab);
       }
 
       // Add article to new positions
@@ -579,7 +674,11 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         newLocationIds.push(locationId);
         const locSnap = snapByPath.get(locRef.path);
         const currentItems = locSnap?.exists ? ((locSnap.data()?.items || []) as any[]) : [];
-        tx.set(locRef, { position, items: [...currentItems, { presenceId: presence.data.presenceId, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now }], isEmpty: false }, { merge: true });
+        const movedItem = { presenceId: presence.data.presenceId, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now };
+        tx.set(locRef, { position, items: [...currentItems, movedItem], isEmpty: false }, { merge: true });
+        // Espejo del alta si la posición de destino es urgente compartida.
+        const twinRef = twinLocRefFor(db, shelfCode, position);
+        mirrorAppend(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, movedItem);
         tx.update(presence.ref, { locationIds: [locationId], shelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now });
       }
 
@@ -641,6 +740,15 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
       refByPath.set(aggregateRef.path, aggregateRef);
       for (const d of oldLocData) refByPath.set(d.locRef.path, d.locRef);
       for (const d of newLocData) refByPath.set(d.locRef.path, d.locRef);
+      // Refs gemelas: origen según fromShelfCode, destino según toShelfCode.
+      for (const d of oldLocData) {
+        const twin = twinLocRefFor(db, fromShelfCode, d.position);
+        if (twin) refByPath.set(twin.path, twin);
+      }
+      for (const d of newLocData) {
+        const twin = twinLocRefFor(db, toShelfCode, d.position);
+        if (twin) refByPath.set(twin.path, twin);
+      }
       const refEntries = [...refByPath.entries()];
       const allSnaps = await Promise.all(refEntries.map(([, ref]) => tx.get(ref)));
       const snapByPath = new Map<string, any>();
@@ -659,6 +767,9 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
           const updatedItems = (locData.items || []).filter((item: any) => !samePresence(item, presence.data.presenceId, articleCode, orderFab));
           tx.set(locRef, { position, items: updatedItems, isEmpty: updatedItems.length === 0 }, { merge: true });
         }
+        // Espejo de la baja si el origen es urgente compartida.
+        const twinRef = twinLocRefFor(db, fromShelfCode, position);
+        mirrorRemove(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, presence.data.presenceId, articleCode, orderFab);
       }
 
       // Añadir en las posiciones de destino (otra sección) + reasignar presencia
@@ -666,7 +777,11 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         newLocationIds.push(locationId);
         const locSnap = snapByPath.get(locRef.path);
         const currentItems = locSnap?.exists ? ((locSnap.data()?.items || []) as any[]) : [];
-        tx.set(locRef, { position, items: [...currentItems, { presenceId: presence.data.presenceId, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now }], isEmpty: false }, { merge: true });
+        const movedItem = { presenceId: presence.data.presenceId, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now };
+        tx.set(locRef, { position, items: [...currentItems, movedItem], isEmpty: false }, { merge: true });
+        // Espejo del alta si el destino es urgente compartida.
+        const twinRef = twinLocRefFor(db, toShelfCode, position);
+        mirrorAppend(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, movedItem);
         tx.update(presence.ref, { locationIds: [locationId], shelfCode: toShelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now });
       }
 
@@ -730,22 +845,31 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         const sc = parts[0] || '';
         const pos = parts.slice(1).join('-');
         const locRef = sc && pos ? db.collection('shelves').doc(sc).collection('locations').doc(pos) : null;
-        return { presSnap, presData, locId, pos, locRef };
+        const twinLocRef = sc && pos ? twinLocRefFor(db, sc, pos) : null;
+        return { presSnap, presData, locId, pos, locRef, twinLocRef };
       });
 
-      // All reads before any writes: aggregate + all location docs
+      // All reads before any writes: aggregate + all location docs (+ gemelos)
       const validLocData = presLocData.filter(({ locRef }) => locRef !== null);
-      const [aggregateSnap, ...locSnaps] = await Promise.all([
+      const twinLocData = presLocData.filter(({ twinLocRef }) => twinLocRef !== null);
+      const [aggregateSnap, ...restSnaps] = await Promise.all([
         tx.get(aggregateRef),
         ...validLocData.map(({ locRef }) => tx.get(locRef!)),
+        ...twinLocData.map(({ twinLocRef }) => tx.get(twinLocRef!)),
       ]);
+      const locSnaps = restSnaps.slice(0, validLocData.length);
+      const twinSnaps = restSnaps.slice(validLocData.length);
       const locSnapByPath = new Map<string, any>();
       for (let i = 0; i < validLocData.length; i++) {
         locSnapByPath.set(validLocData[i].locRef!.path, locSnaps[i]);
       }
+      const twinSnapByPath = new Map<string, any>();
+      for (let i = 0; i < twinLocData.length; i++) {
+        twinSnapByPath.set(twinLocData[i].twinLocRef!.path, twinSnaps[i]);
+      }
 
       // All writes
-      for (const { presSnap, presData, locId, pos, locRef } of presLocData) {
+      for (const { presSnap, presData, locId, pos, locRef, twinLocRef } of presLocData) {
         if (locRef) {
           const locSnap = locSnapByPath.get(locRef.path);
           if (locSnap?.exists) {
@@ -757,6 +881,8 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
           }
           removedFromLocations.push(locId);
         }
+        // Espejo de la baja si la posición es urgente compartida.
+        mirrorRemove(tx, twinLocRef, twinLocRef ? twinSnapByPath.get(twinLocRef.path) : undefined, pos, presData.presenceId, articleCode, orderFab);
         tx.update(presSnap.ref, { active: false, removedAt: now, removedBy: operarioId, locationIds: [], sentToWarehouse: true });
       }
 
@@ -784,9 +910,26 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
       throw new functions.https.HttpsError('permission-denied', 'Solo admin puede vaciar estanterias.');
     }
 
-    // 1. Delete all location documents
+    // 1. Delete all location documents (+ clear items[] mirror in URG twin)
     const locSnapshot = await db.collection('shelves').doc(shelfCode).collection('locations').get();
     const CHUNK = 30;
+
+    // Identify URG MEC-PRE positions being deleted and clear their twin mirror
+    const urgPositions = locSnapshot.docs.map((d) => d.id).filter((id) => id.startsWith('URG MEC-PRE'));
+    if (urgPositions.length > 0) {
+      const twinShelf = URG_TWIN[normalize(shelfCode)];
+      if (twinShelf) {
+        for (let i = 0; i < urgPositions.length; i += CHUNK) {
+          const twinBatch = db.batch();
+          urgPositions.slice(i, i + CHUNK).forEach((pos) => {
+            const twinRef = db.collection('shelves').doc(twinShelf).collection('locations').doc(pos);
+            twinBatch.set(twinRef, { position: pos, items: [], isEmpty: true }, { merge: true });
+          });
+          await twinBatch.commit();
+        }
+      }
+    }
+
     for (let i = 0; i < locSnapshot.docs.length; i += CHUNK) {
       const batchWrite = db.batch();
       locSnapshot.docs.slice(i, i + CHUNK).forEach((d) => batchWrite.delete(d.ref));

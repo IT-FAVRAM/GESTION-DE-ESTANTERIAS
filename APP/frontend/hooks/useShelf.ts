@@ -48,6 +48,7 @@ export interface UseShelfReturn {
   mover: (articleCode: string, orderFab: string, newPositions: string[], operarioId: string, operarioName: string) => Promise<boolean>;
   findArticle: (articleCode: string, orderFab: string) => ShelfLocationState[];
   emptyShelf: (operarioId: string, operarioName: string) => Promise<boolean>;
+  validateShelfAccess: (purpose: 'view' | 'operate') => Promise<{ ok: boolean }>;
   totalArticles: number;
   totalOccupied: number;
   totalEmpty: number;
@@ -149,6 +150,10 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
         setError('No hay estanteria o posicion valida para ubicar.');
         return false;
       }
+      if (!articleCode.trim() || !orderFab.trim()) {
+        setError('Codigo de articulo y OF son obligatorios para ubicar.');
+        return false;
+      }
       const session = getOperationalSession();
       if (!navigator.onLine) {
         enqueueOfflineOperation('UBICAR', { shelfCode, articleCode, orderFab, position, operarioId, operarioName }, session);
@@ -233,23 +238,20 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
       if (!access.ok) return { success: false, positions: [], error: 'Sin permiso para operar en esta estantería' };
       const session = getOperationalSession();
       
-      let optimisticPositions: string[] = [];
       if (!navigator.onLine) {
-        setLocations((prev) => {
-          const result = applyRetirar(prev, articleCode, orderFab);
-          optimisticPositions = result.positions;
-          return result.next;
-        });
-        if (optimisticPositions.length === 0) {
+        const offlineResult = applyRetirar(previousLocations, articleCode, orderFab);
+        if (offlineResult.positions.length === 0) {
           const msg = 'Articulo no encontrado';
           setError(msg);
           return { success: false, positions: [], error: msg };
         }
+        setLocations(offlineResult.next);
         enqueueOfflineOperation('RETIRAR', { shelfCode, articleCode, orderFab, operarioId, operarioName }, session);
-        return { success: true, positions: optimisticPositions };
+        return { success: true, positions: offlineResult.positions };
       }
 
       // Optimistic update
+      let optimisticPositions: string[] = [];
       setLocations((prev) => {
         const result = applyRetirar(prev, articleCode, orderFab);
         optimisticPositions = result.positions;
@@ -283,15 +285,16 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
       const access = await validateShelfAccess('operate');
       if (!access.ok) return { success: false, position: '', error: 'Sin permiso para operar en esta estantería' };
       const session = getOperationalSession();
-
-      // Apply optimistic update — only remove from the specific position
-      const result = applyRetirarDeUbicacion(previousLocations, articleCode, orderFab, position);
-      setLocations(result.next);
+      const optimisticResult = applyRetirarDeUbicacion(previousLocations, articleCode, orderFab, position);
 
       if (!navigator.onLine) {
+        setLocations(optimisticResult.next);
         enqueueOfflineOperation('RETIRAR_DE_UBICACION', { shelfCode, articleCode, orderFab, position, operarioId, operarioName }, session);
         return { success: true, position };
       }
+
+      // Online: apply optimistic update before API call
+      setLocations(optimisticResult.next);
 
       const retirarUbicResult = await inventoryApi.retirarDeUbicacion({ shelfCode, articleCode, orderFab, position, operarioId, operarioName }, session);
       if (!retirarUbicResult?.ok) {
@@ -422,6 +425,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     mover,
     findArticle,
     emptyShelf,
+    validateShelfAccess,
     totalArticles,
     totalOccupied,
     totalEmpty,

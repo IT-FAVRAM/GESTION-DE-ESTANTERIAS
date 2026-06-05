@@ -216,7 +216,8 @@ export const usePickupQueue = () => {
         return true;
       }
 
-      await pickupQueueApi.create(payload, session);
+      const result = await pickupQueueApi.create(payload, session);
+      if (!result?.ok) throw new Error('El servidor rechazó la solicitud de recogida');
       return true;
 
     } catch (err: unknown) {
@@ -270,12 +271,13 @@ export const usePickupQueue = () => {
         return true;
       }
 
-      await pickupQueueApi.create({
+      const result = await pickupQueueApi.create({
         operarioId, operarioName,
         shelfCode: requesterShelfCode, shelfSection: section, shelfName: requesterShelfName,
         requestType: 'TRAER',
         articleCode, articleOrderFab, articleShelfName, articlePositions,
       }, session);
+      if (!result?.ok) throw new Error('El servidor rechazó la solicitud de traslado');
       return true;
     } catch (err: unknown) {
       const msg = parseCallableError(err);
@@ -290,9 +292,10 @@ export const usePickupQueue = () => {
     requestId: string,
     completedByUid: string,
   ): Promise<boolean> => {
+    const previousPending = pendingRequests;
+    const completedReq = pendingRequests.find((req) => req.id === requestId);
     try {
       const session = getOperationalSession();
-      const completedReq = pendingRequests.find((req) => req.id === requestId);
       if (completedReq) {
         const completedWithMeta: PickupRequest = {
           ...completedReq,
@@ -309,13 +312,15 @@ export const usePickupQueue = () => {
         return true;
       }
 
-      await pickupQueueApi.complete({ requestId, completedByUid }, session);
-
+      const result = await pickupQueueApi.complete({ requestId, completedByUid }, session);
+      if (!result?.ok) throw new Error('El servidor rechazó completar la recogida');
       return true;
 
     } catch (err: any) {
       console.error('[usePickupQueue] Complete error:', err);
       setError(parseCallableError(err));
+      setPendingRequests(previousPending);
+      if (completedReq) setCompletedRequests((prev) => prev.filter((r) => r.id !== requestId));
       return false;
     }
   }, [pendingRequests]);

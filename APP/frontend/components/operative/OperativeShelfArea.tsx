@@ -47,10 +47,11 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
   const {
     action, scanData, selectedPositions, scannerActive, processing, feedback,
     shelfCode, shelfDef, locations, loading,
+    selectedCell, setSelectedCell,
     confirmModal, setConfirmModal,
     scanMethodPickerOpen, pendingAction,
     showCameraQR, setShowCameraQR, showCameraOCR, setShowCameraOCR,
-    batchMode, batchArticles,
+    batchMode, batchArticles, batchProcessedCount,
     additionalShelfPositions, showAddShelfModal, setShowAddShelfModal,
     showRetirarArticleList, showRetirarCellModal, retirarCellPosition, retirarCellItems,
     showMoverArticleList,
@@ -60,8 +61,10 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
     moverNeeded, highlightedPositions,
     setScannerActive, setHighlightedSearch,
     cancelAction, applyScanMethod, beginBatchMode, showToast,
+    prepareChangeMethod, scanMore, handleScanMethodPickerClose,
+    handleStopBatch,
     handleScan, handleCellPress,
-    handleUbicarConfirm, handleUbicarBatchConfirm,
+    handleUbicarConfirm, handleUbicarBatchConfirm, handleUbicarBatchStart,
     handleReprocesosUbicacionConfirm, handleReprocesosUbicacionSkip,
     handleRetirarArticleListConfirm, handleRetirarCellItemsConfirm,
     handleMoverSelectArticle, handleMoverConfirm, handleReubicarConfirm,
@@ -183,13 +186,13 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
               })()}
             </div>
             <div className="flex items-center gap-2">
-              <button 
-                onClick={() => setScanMethodPickerOpen(true)}
+              <button
+                onClick={prepareChangeMethod}
                 className="text-xs text-sky-600 hover:text-sky-800 font-bold transition-colors"
               >
                 🔄 Cambiar método
               </button>
-              <button onClick={cancelAction} className="text-xs text-slate-400 hover:text-red-500 transition-colors">✕ Cancelar</button>
+              <button onClick={handleStopBatch} className="text-xs text-slate-400 hover:text-red-500 transition-colors">✕ Cancelar</button>
             </div>
           </div>
           {batchArticles.length > 0 && (
@@ -207,18 +210,23 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
           {selectedPositions.length === 0 && batchArticles.length > 0 && (
             <p className="text-xs text-slate-500 mb-2">👇 Toca celda(s) en el grid para seleccionar ubicación</p>
           )}
+          {batchProcessedCount > 1 && (
+            <button
+              onClick={handleStopBatch}
+              className="w-full min-h-[40px] mb-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold active:scale-95 transition-all touch-manipulation"
+            >
+              ⏹ Detener análisis (ubicar {batchProcessedCount} ya procesados)
+            </button>
+          )}
           <div className="flex gap-2">
             <button
-              onClick={() => setScannerActive(true)}
+              onClick={scanMore}
               className="flex-1 min-h-[40px] rounded-xl bg-slate-100 text-slate-700 text-xs font-bold active:scale-95 transition-all touch-manipulation"
             >
               + Escanear más
             </button>
             <button
-              onClick={() => {
-                if (selectedPositions.length === 0) { showToast('error', 'Selecciona al menos una posición'); return; }
-                handleUbicarBatchConfirm();
-              }}
+              onClick={handleUbicarBatchStart}
               disabled={selectedPositions.length === 0 || batchArticles.length === 0 || processing}
               className="flex-[2] min-h-[40px] rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold disabled:opacity-40 active:scale-95 transition-all touch-manipulation"
             >
@@ -288,10 +296,10 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
       {/* ── Modales ── */}
       <ScanMethodPicker
         open={scanMethodPickerOpen}
-        actionLabel={actionLabel}
+        actionLabel={batchMode ? 'Ubicar en lote' : actionLabel}
         onSelect={applyScanMethod}
-        onBatch={pendingAction === 'ubicar' ? beginBatchMode : undefined}
-        onClose={() => engine.setScanMethodPickerOpen(false)}
+        onBatch={pendingAction === 'ubicar' && !batchMode ? beginBatchMode : undefined}
+        onClose={handleScanMethodPickerClose}
       />
 
       {showCameraQR && (
@@ -445,6 +453,59 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         extraButton={confirmModal.extraButton}
         loading={processing}
       />
+
+      {/* Inspección de celda: pulsar una ubicación ocupada la amplía para ver su
+          contenido; pulsar fuera (backdrop) vuelve al tamaño normal. */}
+      {selectedCell && (
+        <div
+          className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => setSelectedCell(null)}
+        >
+          <div
+            className="w-full max-w-md bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ubicación</p>
+                <h3 className="text-lg font-black text-white font-mono truncate">
+                  {shelfCode} {padPos(selectedCell.position) || selectedCell.position}
+                </h3>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-[11px] font-bold font-mono px-2.5 py-1 rounded-full bg-slate-700 text-slate-200">
+                  {selectedCell.items.length} art.
+                </span>
+                <button
+                  onClick={() => setSelectedCell(null)}
+                  className="text-slate-400 hover:text-white text-2xl leading-none"
+                  aria-label="Cerrar"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            <div className="p-3 max-h-[60vh] overflow-y-auto space-y-2">
+              {selectedCell.items.length === 0 ? (
+                <p className="text-center text-sm text-slate-400 py-6">Ubicación vacía</p>
+              ) : (
+                selectedCell.items.map((item, idx) => (
+                  <div key={`${item.articleCode}-${item.orderFab}-${idx}`} className="rounded-xl px-3 py-2.5 bg-slate-800 border border-slate-700">
+                    <p className="text-[15px] font-black font-mono text-white leading-tight break-all">{item.articleCode}</p>
+                    <p className="text-[12px] font-bold font-mono text-cyan-300 leading-tight break-all">{item.orderFab}</p>
+                    {reprocesosCosts && item.quantity != null && item.unitCost != null && item.unitCost > 0 && (
+                      <p className="text-[11px] text-amber-300 font-mono mt-0.5">{item.quantity} ud · {item.unitCost.toFixed(2)} €/ud</p>
+                    )}
+                    <p className="text-[11px] text-slate-400 mt-1 break-words">
+                      {item.locatedByName}{item.locatedAt ? ` · ${new Date(item.locatedAt).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}` : ''}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

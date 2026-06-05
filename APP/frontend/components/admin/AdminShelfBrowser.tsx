@@ -15,6 +15,7 @@ import KioskSearchBar from '../kiosk/KioskSearchBar';
 import ConfirmationModal from '../common/ConfirmationModal';
 import { SHELF_DEFINITIONS, ALL_SHELVES, CART_DEFINITIONS } from '../../lib/firestoreSchema';
 import { formatArticleDisplay, parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
+import { validateContiguity } from '../../lib/contiguityValidator';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import type { CellDragData } from '../kiosk/ShelfGridCell';
 import CameraQRScanner from '../common/CameraQRScanner';
@@ -186,43 +187,69 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
     const article = articleInput.trim();
     const of = ofInput.trim();
 
-    // Nueva lógica: si no hay artículo/OF, pedir escaneo o texto primero
+    if (act === 'ubicar') {
+      // Preguntar primero: ¿Solo UNO o VARIOS artículos?
+      setConfirmModal({
+        open: true,
+        title: '¿Cuántos artículos vas a ubicar?',
+        message: '¿Vas a ubicar varios artículos en la MISMA posición o posiciones?',
+        icon: '📦',
+        variant: 'info',
+        confirmText: 'Solo UNO',
+        onConfirm: async () => {
+          setConfirmModal((p) => ({ ...p, open: false }));
+          setBatchMode(false);
+          setBatchArticles([]);
+          setAction('ubicar');
+          setSelectedPositions([]);
+          setFeedback(null);
+          if (!article || !of) {
+            setScanPickerOpen(true);
+            return;
+          }
+          // Ghost check cuando ya hay artículo en el input
+          setProcessing(true);
+          const globalLocs = await findArticleGlobal(article, of);
+          setProcessing(false);
+          if (globalLocs.length > 0) {
+            const locationText = globalLocs
+              .map((l) => `• ${l.shelfName} — pos. ${parseInt(l.position, 10)}`)
+              .join('\n');
+            setConfirmModal({
+              open: true,
+              title: '⚠️ Artículo ya ubicado',
+              message: `${formatArticleDisplay(article, of)} ya figura en el sistema:\n\n${locationText}\n\n¿Confirmas que ya NO se encuentra ahí y quieres ubicarlo en un nuevo sitio?`,
+              icon: '⚠️',
+              variant: 'warning',
+              onConfirm: () => setConfirmModal((p) => ({ ...p, open: false })),
+              extraButton: {
+                text: 'Cancelar',
+                onClick: () => { setConfirmModal((p) => ({ ...p, open: false })); resetAction(); },
+              },
+            });
+          }
+        },
+        extraButton: {
+          text: 'VARIOS (lote)',
+          onClick: () => {
+            setConfirmModal((p) => ({ ...p, open: false }));
+            setBatchMode(true);
+            setBatchArticles([]);
+            setAction('ubicar');
+            setSelectedPositions([]);
+            setFeedback(null);
+            setScanPickerOpen(true);
+          },
+        },
+      });
+      return;
+    }
+
+    // Para otras acciones: si no hay artículo/OF, pedir escaneo primero
     if (!article || !of) {
       setScanPickerOpen(true);
       setAction(act);
       return;
-    }
-
-    // Ghost article check before ubicar
-    if (act === 'ubicar') {
-      setProcessing(true);
-      const globalLocs = await findArticleGlobal(article, of);
-      setProcessing(false);
-      if (globalLocs.length > 0) {
-        const locationText = globalLocs
-          .map((l) => `• ${l.shelfName} — pos. ${parseInt(l.position, 10)}`)
-          .join('\n');
-        setConfirmModal({
-          open: true,
-          title: '⚠️ Artículo ya ubicado',
-          message: `${formatArticleDisplay(article, of)} ya figura en el sistema:\n\n${locationText}\n\n¿Confirmas que ya NO se encuentra ahí y quieres ubicarlo en un nuevo sitio?`,
-          icon: '⚠️',
-          variant: 'warning',
-          onConfirm: () => {
-            setConfirmModal((p) => ({ ...p, open: false }));
-            // Proceed to ubicar flow
-            setBatchMode(false);
-            setAction('ubicar');
-            setSelectedPositions([]);
-            setFeedback(null);
-          },
-          extraButton: {
-            text: 'Cancelar',
-            onClick: () => setConfirmModal((p) => ({ ...p, open: false })),
-          },
-        });
-        return;
-      }
     }
 
     if (act === 'retirar') {
@@ -230,14 +257,6 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
       setFeedback(null);
       setSelectedPositions([]);
       setShowRetirarArticleList(true);
-      return;
-    }
-
-    if (act === 'ubicar') {
-      setBatchMode(false);
-      setAction('ubicar');
-      setSelectedPositions([]);
-      setFeedback(null);
       return;
     }
 
@@ -337,9 +356,14 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
 
   const handleMoverSeccionConfirm = useCallback(async () => {
     if (!moverSeccionTargetShelf || !moverSeccionTargetPos) return;
+    const posNum = parseInt(moverSeccionTargetPos, 10);
+    if (isNaN(posNum) || posNum < 1) {
+      showFeedback('error', 'La posición destino debe ser un número ≥ 1');
+      return;
+    }
     const article = articleInput.trim();
     const of = ofInput.trim();
-    const destPos = parseInt(moverSeccionTargetPos, 10).toString().padStart(3, '0');
+    const destPos = posNum.toString().padStart(3, '0');
     const destShelfName = ALL_SHELVES.find((s) => s.code === moverSeccionTargetShelf)?.name || moverSeccionTargetShelf;
 
     setConfirmModal({
@@ -383,21 +407,18 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
       return;
     }
 
-    if (action === 'ubicar' && batchMode) {
+    if (action === 'ubicar') {
       const position = loc.position;
-      setSelectedPositions((current) => {
-        if (current.includes(position)) return current.filter((value) => value !== position);
-        return [...current, position];
-      });
-      return;
-    }
+      const newPositions = selectedPositions.includes(position)
+        ? selectedPositions.filter((v) => v !== position)
+        : [...selectedPositions, position];
 
-    if (action === 'ubicar' && !batchMode) {
-      const position = loc.position;
-      setSelectedPositions((current) => {
-        if (current.includes(position)) return current.filter((value) => value !== position);
-        return [...current, position];
-      });
+      const validation = validateContiguity(newPositions, shelfDef);
+      if (!validation.isContiguous && newPositions.length > 1) {
+        showFeedback('error', `❌ ${validation.message}`);
+        return;
+      }
+      setSelectedPositions(newPositions);
       return;
     }
 
@@ -712,7 +733,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
   }, [action, articleInput, ofInput, locations]);
 
   // Grid focus mode: active when action requires cell selection
-  const gridFocused = action !== 'idle' && action !== 'moverSeccion' && articleInput.trim() !== '' && ofInput.trim() !== '';
+  const gridFocused = !batchMode && action !== 'idle' && action !== 'moverSeccion' && articleInput.trim() !== '' && ofInput.trim() !== '';
 
   return (
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
@@ -952,7 +973,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
                       handleRetirarBatchNext();
                     }
                   }}
-                  disabled={action === 'ubicar' && selectedPositions.length === 0}
+                  disabled={(action === 'ubicar' && selectedPositions.length === 0) || processing}
                   className="flex-1 px-3 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   ✓ Finalizar {action === 'ubicar' ? 'ubicación' : 'retirada'}
@@ -979,17 +1000,22 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
                   {articleInput} · {ofInput}
                 </span>
                 {action === 'ubicar' && selectedPositions.length === 0 && (
-                  <span className="text-xs text-slate-500">Pulsa celdas del grid para seleccionar ubicaciones</span>
+                  <span className="text-xs text-slate-500">Pulsa celdas contiguas del grid para seleccionar ubicaciones</span>
                 )}
-                {action === 'ubicar' && selectedPositions.length > 0 && (
-                  <button
-                    onClick={handleUbicarMultiPositionConfirm}
-                    disabled={processing}
-                    className="px-4 py-2 min-h-[44px] bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                  >
-                    ✓ Confirmar ubicación en {selectedPositions.map((p) => parseInt(p, 10)).join(', ')}
-                  </button>
-                )}
+                {action === 'ubicar' && selectedPositions.length > 0 && (() => {
+                  const v = validateContiguity(selectedPositions, shelfDef);
+                  return v.isContiguous ? (
+                    <button
+                      onClick={handleUbicarMultiPositionConfirm}
+                      disabled={processing}
+                      className="px-4 py-2 min-h-[44px] bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      ✓ Confirmar ubicación en {selectedPositions.map((p) => parseInt(p, 10)).join(', ')}
+                    </button>
+                  ) : (
+                    <span className="text-xs font-bold text-red-600 px-2 py-1 bg-red-50 rounded-lg border border-red-200">❌ {v.message}</span>
+                  );
+                })()}
                 {action === 'reubicar' && reubicarSource && (
                   <span className="text-xs text-amber-400">Origen: {reubicarSource.position} → Elige destino</span>
                 )}
@@ -1066,8 +1092,13 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
                 action === 'retirar' ? 'text-red-700' :
                 action === 'mover' ? 'text-blue-700' :
                 'text-amber-700'}`}>
-              {action === 'ubicar' && selectedPositions.length === 0 && '👇 Toca una celda para seleccionar dónde ubicar'}
-              {action === 'ubicar' && selectedPositions.length > 0 && `✅ ${selectedPositions.length} celda${selectedPositions.length > 1 ? 's' : ''} seleccionada${selectedPositions.length > 1 ? 's' : ''} — confirma arriba o añade más`}
+              {action === 'ubicar' && selectedPositions.length === 0 && '👇 Toca celdas contiguas para seleccionar dónde ubicar'}
+              {action === 'ubicar' && selectedPositions.length > 0 && (() => {
+                const v = validateContiguity(selectedPositions, shelfDef);
+                return v.isContiguous
+                  ? `✅ ${selectedPositions.length} celda${selectedPositions.length > 1 ? 's' : ''} seleccionada${selectedPositions.length > 1 ? 's' : ''} — confirma arriba o añade más`
+                  : `❌ ${v.message}`;
+              })()}
               {action === 'retirar' && '👇 Toca la celda de donde quieres retirar'}
               {action === 'mover' && selectedPositions.length < moverNeeded && `👇 Selecciona ${moverNeeded - selectedPositions.length} celda${moverNeeded - selectedPositions.length > 1 ? 's' : ''} de destino (${selectedPositions.length}/${moverNeeded})`}
               {action === 'mover' && selectedPositions.length === moverNeeded && '✅ Celdas de destino listas — confirma arriba'}

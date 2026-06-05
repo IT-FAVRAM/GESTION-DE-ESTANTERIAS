@@ -31,12 +31,14 @@ const AddShelfPositionModal: React.FC<AddShelfPositionModalProps> = ({
 }) => {
   const [shelfCode, setShelfCode] = useState('');
   const [positionText, setPositionText] = useState('');
+  const [inputError, setInputError] = useState('');
 
   if (!open) return null;
 
   const reset = () => {
     setShelfCode('');
     setPositionText('');
+    setInputError('');
   };
 
   const handleClose = () => {
@@ -46,12 +48,16 @@ const AddShelfPositionModal: React.FC<AddShelfPositionModalProps> = ({
 
   const handleAdd = () => {
     if (!shelfCode || !positionText.trim()) return;
+    setInputError('');
     const parsedPositions = positionText
       .split(',')
       .map((p) => parseInt(p.trim(), 10))
       .filter((n) => !isNaN(n) && n > 0)
       .map((n) => String(n).padStart(3, '0'));
-    if (parsedPositions.length === 0) return;
+    if (parsedPositions.length === 0) {
+      setInputError('Introduce números válidos (ej: 5 ó 3,4,5)');
+      return;
+    }
     const shelfName = ALL_SHELVES.find((s) => s.code === shelfCode)?.name ?? shelfCode;
     onAdd({ shelfCode, shelfName, positions: parsedPositions });
     reset();
@@ -91,6 +97,7 @@ const AddShelfPositionModal: React.FC<AddShelfPositionModalProps> = ({
             className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-mono bg-white"
           />
         </div>
+        {inputError && <p className="text-xs text-red-500 font-medium">{inputError}</p>}
         <div className="flex gap-3">
           <button
             onClick={handleClose}

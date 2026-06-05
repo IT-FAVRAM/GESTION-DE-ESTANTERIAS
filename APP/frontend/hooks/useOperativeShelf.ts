@@ -44,6 +44,8 @@ export interface ScanData {
   orderFab: string;
 }
 
+export type ScanMethod = 'manual' | 'barcode' | 'ocr';
+
 export interface OperativeFeedback {
   type: 'success' | 'error' | 'info';
   message: string;
@@ -79,6 +81,24 @@ export interface UseOperativeShelfParams {
 
 const padPos = (p: string) => parseInt(p, 10);
 
+// Clave versionada para persistir un lote en curso (tolerancia a desconexión/recarga).
+const BATCH_STORAGE_KEY = 'wms.batch.v1';
+const BATCH_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 h
+
+interface PersistedBatch {
+  v: number;
+  shelfCode: string;
+  action: OperativeAction;
+  batchArticles: ScanData[];
+  batchMethod: ScanMethod | null;
+  batchProcessedCount: number;
+  ts: number;
+}
+
+const clearBatchStorage = () => {
+  try { window.localStorage.removeItem(BATCH_STORAGE_KEY); } catch { /* ignore */ }
+};
+
 export function useOperativeShelf({
   config,
   shelfCode,
@@ -87,7 +107,7 @@ export function useOperativeShelf({
   displayName,
 }: UseOperativeShelfParams) {
   const shelf = useShelf(shelfCode);
-  const { locations, loading, shelfDef, ubicar, ubicarMulti, retirar, retirarDeUbicacion, mover, findArticle, totalArticles, totalOccupied, totalEmpty } = shelf;
+  const { locations, loading, shelfDef, ubicar, ubicarMulti, retirar, retirarDeUbicacion, mover, findArticle, validateShelfAccess, totalArticles, totalOccupied, totalEmpty } = shelf;
   const { createPickupRequest, createDeliveryRequest } = usePickupQueue();
 
   // ── Estado de flujo ────────────────────────────────────────────────────────
@@ -113,6 +133,10 @@ export function useOperativeShelf({
   // Lote (varios artículos en la misma posición)
   const [batchMode, setBatchMode] = useState(false);
   const [batchArticles, setBatchArticles] = useState<ScanData[]>([]);
+  // Método de escaneo recordado durante toda la sesión de lote.
+  const [batchMethod, setBatchMethod] = useState<ScanMethod | null>(null);
+  // Cuántos artículos del lote ya están escritos en Firestore (controla "Detener análisis").
+  const [batchProcessedCount, setBatchProcessedCount] = useState(0);
 
   // Multi-sección (artículo grande)
   const [additionalShelfPositions, setAdditionalShelfPositions] = useState<AdditionalShelfPosition[]>([]);
@@ -177,6 +201,8 @@ export function useOperativeShelf({
     setConfirmModal((p) => ({ ...p, open: false }));
     setBatchMode(false);
     setBatchArticles([]);
+    setBatchMethod(null);
+    setBatchProcessedCount(0);
     setAdditionalShelfPositions([]);
     setShowAddShelfModal(false);
     setShowRetirarArticleList(false);
@@ -192,6 +218,7 @@ export function useOperativeShelf({
     setScanMethodPickerOpen(false);
     setShowCameraQR(false);
     setShowCameraOCR(false);
+    clearBatchStorage();
   }, []);
 
   const cancelAction = useCallback(() => {
@@ -204,33 +231,141 @@ export function useOperativeShelf({
     resetFlow();
   }, [showToast, resetFlow]);
 
+  // ── Persistencia del lote (tolerancia a desconexión/recarga) ─────────────────
+  // Guarda una instantánea del lote en curso en cada cambio relevante.
+  useEffect(() => {
+    if (!batchMode) return;
+    try {
+      const snap: PersistedBatch = {
+        v: 1, shelfCode, action, batchArticles, batchMethod, batchProcessedCount, ts: Date.now(),
+      };
+      window.localStorage.setItem(BATCH_STORAGE_KEY, JSON.stringify(snap));
+    } catch { /* cuota / modo privado: ignorar */ }
+  }, [batchMode, shelfCode, action, batchArticles, batchMethod, batchProcessedCount]);
+
+  // Ofrece reanudar un lote sin terminar (misma estantería, <24h). Sólo una vez.
+  const batchRehydratedRef = useRef(false);
+  useEffect(() => {
+    if (batchRehydratedRef.current || batchMode || !shelfCode) return;
+    let snap: PersistedBatch | null = null;
+    try {
+      const raw = window.localStorage.getItem(BATCH_STORAGE_KEY);
+      if (raw) snap = JSON.parse(raw) as PersistedBatch;
+    } catch { snap = null; }
+    if (!snap) return;
+
+    const fresh = !!snap.ts && (Date.now() - snap.ts < BATCH_MAX_AGE_MS);
+    const applicable =
+      fresh &&
+      snap.action === 'ubicar' &&
+      snap.shelfCode === shelfCode &&
+      Array.isArray(snap.batchArticles) &&
+      snap.batchArticles.length > 0;
+    if (!applicable) {
+      if (!fresh) clearBatchStorage();
+      return;
+    }
+    batchRehydratedRef.current = true;
+    const recovered = snap;
+    setConfirmModal({
+      open: true,
+      title: '🔄 Lote recuperado',
+      message: `Se encontró un lote sin terminar con ${recovered.batchArticles.length} artículo(s) en ${shelfCode}.\n¿Reanudar el lote?`,
+      icon: '🔄',
+      variant: 'info',
+      confirmText: 'Sí, reanudar',
+      onConfirm: () => {
+        setConfirmModal((p) => ({ ...p, open: false }));
+        setAction('ubicar');
+        setBatchMode(true);
+        setBatchArticles(recovered.batchArticles);
+        setBatchMethod(recovered.batchMethod ?? null);
+        setBatchProcessedCount(recovered.batchProcessedCount ?? 0);
+        setSelectedPositions([]);
+        showToast('info', `Lote recuperado: ${recovered.batchArticles.length} artículos`);
+      },
+      extraButton: {
+        text: 'No, descartar',
+        onClick: () => { clearBatchStorage(); setConfirmModal((p) => ({ ...p, open: false })); },
+      },
+    });
+  }, [shelfCode, batchMode, showToast]);
+
   // ── Captura de método ────────────────────────────────────────────────────────
-  const applyScanMethod = useCallback((method: 'manual' | 'barcode' | 'ocr') => {
+  /**
+   * Activa UN método de escaneo de forma mutuamente excluyente: cierra cualquier
+   * escáner/cámara abierto antes de abrir el nuevo (evita modales solapados y
+   * MediaStreams huérfanos al cambiar de método a mitad de un lote).
+   */
+  const activateMethod = useCallback((method: ScanMethod) => {
+    setScannerActive(false);
+    setShowCameraQR(false);
+    setShowCameraOCR(false);
+    if (method === 'manual') setScannerActive(true);
+    else if (method === 'barcode') setShowCameraQR(true);
+    else setShowCameraOCR(true);
+  }, []);
+
+  const applyScanMethod = useCallback((method: ScanMethod) => {
     setScanMethodPickerOpen(false);
-    
+
     // Si hay pendingAction (primer escaneo del lote o acción normal), establecer la acción
     if (pendingAction) {
       setAction(pendingAction);
       setPendingAction(null);
     }
-    
-    // Activar el método seleccionado
-    if (method === 'manual') setScannerActive(true);
-    else if (method === 'barcode') setShowCameraQR(true);
-    else setShowCameraOCR(true);
-  }, [pendingAction]);
+
+    // En lote, recordar el método para toda la sesión ("+ Escanear más" no re-pregunta)
+    if (batchMode) setBatchMethod(method);
+
+    activateMethod(method);
+  }, [pendingAction, batchMode, activateMethod]);
 
   const beginBatchMode = useCallback(() => {
     setScanMethodPickerOpen(false);
-    if (!pendingAction) return;
-    setAction(pendingAction);
+    // El lote es siempre de "ubicar"; usa pendingAction si existe.
+    const act: OperativeAction = pendingAction ?? 'ubicar';
+    setAction(act);
+    setPendingAction(act); // lo consume applyScanMethod al elegir método
     setBatchMode(true);
     setBatchArticles([]);
+    setBatchMethod(null);
+    setBatchProcessedCount(0);
     setSelectedPositions([]);
-    setPendingAction(null);
-    // Abrir selector de método de escaneo en lugar de activar scanner directamente
+    // Abrir selector de método de escaneo (bloqueante hasta elegir).
     setScanMethodPickerOpen(true);
   }, [pendingAction]);
+
+  /**
+   * "Cambiar método" a mitad de lote: cierra el escáner vivo (detiene el
+   * MediaStream al desmontar la cámara) y reabre el selector. No toca
+   * `batchArticles`, así que los artículos ya escaneados se conservan.
+   */
+  const prepareChangeMethod = useCallback(() => {
+    setScannerActive(false);
+    setShowCameraQR(false);
+    setShowCameraOCR(false);
+    setScanMethodPickerOpen(true);
+  }, []);
+
+  /** "+ Escanear más": reactiva el método recordado del lote sin re-preguntar. */
+  const scanMore = useCallback(() => {
+    if (batchMethod) activateMethod(batchMethod);
+    else setScanMethodPickerOpen(true);
+  }, [batchMethod, activateMethod]);
+
+  /**
+   * Cierre del selector de método. Si estamos arrancando un lote y aún no se ha
+   * elegido método, cerrar = abortar el lote (no dejar un batchMode zombi sin
+   * escáner). En cualquier otro caso, sólo cierra el selector.
+   */
+  const handleScanMethodPickerClose = useCallback(() => {
+    if (batchMode && !batchMethod) {
+      cancelAction();
+      return;
+    }
+    setScanMethodPickerOpen(false);
+  }, [batchMode, batchMethod, cancelAction]);
 
   // Abre el selector de método para ubicar (tras decidir lote / no lote)
   const openScanPickerFor = (act: OperativeAction) => {
@@ -318,6 +453,8 @@ export function useOperativeShelf({
     setSelectedPositions([]);
     setBatchMode(false);
     setBatchArticles([]);
+    setBatchMethod(null);
+    setBatchProcessedCount(0);
     setAdditionalShelfPositions([]);
     setFeedback(null);
 
@@ -366,11 +503,10 @@ export function useOperativeShelf({
             text: 'VARIOS (lote)',
             onClick: () => {
               setConfirmModal((p) => ({ ...p, open: false }));
-              setAction('ubicar');
-              setBatchMode(true);
-              setBatchArticles([]);
-              setSelectedPositions([]);
-              setScannerActive(true);
+              // Entrada unificada: abre el selector de método (bloqueante) antes
+              // de empezar a escanear. beginBatchMode usa 'ubicar' por defecto.
+              setPendingAction('ubicar');
+              beginBatchMode();
             },
           },
         });
@@ -423,35 +559,22 @@ export function useOperativeShelf({
 
     // Lote: acumular artículos
     if (action === 'ubicar' && batchMode) {
+      // Reactiva el método recordado para el siguiente escaneo. Las cámaras se
+      // remontan tras un breve delay; la pistola/teclado se reactiva al instante.
+      const reactivate = () => {
+        const m = batchMethod ?? 'manual';
+        if (m === 'manual') setScannerActive(true);
+        else setTimeout(() => activateMethod(m), 300);
+      };
       const duplicate = batchArticles.some((a) => a.articleCode === articleCode && a.orderFab === orderFab);
       if (duplicate) {
         showToast('error', `${articleCode} ${orderFab} ya está en el lote`);
-        // Mantener scanner activo para siguiente intento
-        if (showCameraQR || showCameraOCR) {
-          // Para cámaras, reabrir después de un breve delay
-          setTimeout(() => {
-            if (showCameraQR) setShowCameraQR(true);
-            else if (showCameraOCR) setShowCameraOCR(true);
-          }, 300);
-        } else {
-          setScannerActive(true);
-        }
+        reactivate();
         return;
       }
       setBatchArticles((prev) => [...prev, { articleCode, orderFab }]);
       showToast('success', `✅ ${articleCode} añadido (${batchArticles.length + 1} en lote)`);
-      
-      // Mantener scanner activo para siguiente escaneo
-      if (showCameraQR || showCameraOCR) {
-        // Para cámaras, reabrir después de un breve delay
-        setTimeout(() => {
-          if (showCameraQR) setShowCameraQR(true);
-          else if (showCameraOCR) setShowCameraOCR(true);
-        }, 300);
-      } else {
-        // Para pistola USB, mantener input activo
-        setScannerActive(true);
-      }
+      reactivate();
       return;
     }
 
@@ -461,27 +584,32 @@ export function useOperativeShelf({
     // UBICAR: aviso de artículo ya ubicado en el sistema (ghost)
     if (action === 'ubicar') {
       setProcessing(true);
-      const globalLocs = await findArticleGlobal(articleCode, orderFab);
-      setProcessing(false);
-      if (globalLocs.length > 0) {
-        const locationText = globalLocs.map((l) => `• ${l.shelfName} — pos. ${padPos(l.position)}`).join('\n');
-        setConfirmModal({
-          open: true,
-          title: '⚠️ Artículo ya ubicado',
-          message: `${formatArticleDisplay(articleCode, orderFab)} ya figura en el sistema:\n\n${locationText}\n\n¿Confirmas que ya NO se encuentra ahí y quieres ubicarlo en un nuevo sitio?`,
-          icon: '⚠️',
-          variant: 'warning',
-          confirmText: 'Sí, ubicar de nuevo',
-          onConfirm: () => setConfirmModal((p) => ({ ...p, open: false })),
-          extraButton: {
-            text: 'Cancelar',
-            onClick: () => {
-              setScanData(null);
-              setScannerActive(true);
-              setConfirmModal((p) => ({ ...p, open: false }));
+      try {
+        const globalLocs = await findArticleGlobal(articleCode, orderFab);
+        if (globalLocs.length > 0) {
+          const locationText = globalLocs.map((l) => `• ${l.shelfName} — pos. ${padPos(l.position)}`).join('\n');
+          setConfirmModal({
+            open: true,
+            title: '⚠️ Artículo ya ubicado',
+            message: `${formatArticleDisplay(articleCode, orderFab)} ya figura en el sistema:\n\n${locationText}\n\n¿Confirmas que ya NO se encuentra ahí y quieres ubicarlo en un nuevo sitio?`,
+            icon: '⚠️',
+            variant: 'warning',
+            confirmText: 'Sí, ubicar de nuevo',
+            onConfirm: () => setConfirmModal((p) => ({ ...p, open: false })),
+            extraButton: {
+              text: 'Cancelar',
+              onClick: () => {
+                setScanData(null);
+                setScannerActive(true);
+                setConfirmModal((p) => ({ ...p, open: false }));
+              },
             },
-          },
-        });
+          });
+        }
+      } catch {
+        showToast('error', 'No se pudo verificar ubicaciones previas');
+      } finally {
+        setProcessing(false);
       }
       return;
     }
@@ -490,8 +618,14 @@ export function useOperativeShelf({
     // si no está ubicado → registrar igualmente la subida a almacén.
     if (action === 'almacen') {
       setProcessing(true);
-      const globalLocs = await findArticleGlobal(articleCode, orderFab);
-      setProcessing(false);
+      let globalLocs: Awaited<ReturnType<typeof findArticleGlobal>> = [];
+      try {
+        globalLocs = await findArticleGlobal(articleCode, orderFab);
+      } catch {
+        showToast('error', 'No se pudo verificar ubicaciones previas');
+      } finally {
+        setProcessing(false);
+      }
 
       const sendToAlmacen = async () => {
         setProcessing(true);
@@ -582,31 +716,27 @@ export function useOperativeShelf({
     }
 
     // UBICAR lote: acumular posiciones con validación de contigüidad
+    // (reprocesos: el modal de importe/cantidad se pide al confirmar, no al tocar la celda)
     if (action === 'ubicar' && batchMode && batchArticles.length > 0) {
       const position = loc.position;
-      if (reprocesosEnabled && isReprocesosLocation(shelfCode, padPos(position))) {
-        setSelectedPositions((cur) => (cur.includes(position) ? cur : [...cur, position]));
-        setShowReprocesosUbicacionModal(true);
-        return;
-      }
-      
+
       // Calcular nuevas posiciones si añadimos esta
       const newPositions = selectedPositions.includes(position)
         ? selectedPositions.filter(p => p !== position)
         : [...selectedPositions, position];
-      
+
       // Validar contigüidad
       const validation = validateContiguity(newPositions, shelfDef);
-      
+
       if (!validation.isContiguous && newPositions.length > 1) {
         showToast('error', `❌ ${validation.message}`);
         return;
       }
-      
+
       if (!loc.isEmpty && loc.items.length > 0 && !selectedPositions.includes(position)) {
         showToast('info', `⚠️ Pos. ${padPos(position)} ocupada — se añadirá igualmente`);
       }
-      
+
       setSelectedPositions(newPositions);
       return;
     }
@@ -680,12 +810,13 @@ export function useOperativeShelf({
     return ubicarMulti(articleCode, orderFab, positions, operarioId, displayName, importe, cantidad);
   };
 
-  const ubicarAdditionalSections = async (articleCode: string, orderFab: string) => {
-    if (additionalShelfPositions.length === 0) return;
+  const ubicarAdditionalSections = async (articleCode: string, orderFab: string): Promise<string[]> => {
+    if (additionalShelfPositions.length === 0) return [];
     const fn = httpsCallable(functions, 'shelfOperate');
+    const failed: string[] = [];
     for (const extra of additionalShelfPositions) {
       try {
-        await fn({
+        const result = await fn({
           op: extra.positions.length === 1 ? 'ubicar' : 'ubicarMulti',
           payload: {
             articleCode, orderFab,
@@ -695,8 +826,12 @@ export function useOperativeShelf({
           },
           session: { operarioId, operarioName: displayName },
         });
-      } catch { /* error por sección — continúa con las demás */ }
+        if (!(result.data as { ok?: boolean })?.ok) failed.push(extra.shelfName);
+      } catch {
+        failed.push(extra.shelfName);
+      }
     }
+    return failed;
   };
 
   const handleUbicarConfirm = async (importe?: number, cantidad?: number) => {
@@ -708,12 +843,16 @@ export function useOperativeShelf({
     const extras = [...additionalShelfPositions];
 
     const ok = await doUbicarCurrentShelf(articleCode, orderFab, positions, importe, cantidad);
-    if (ok) await ubicarAdditionalSections(articleCode, orderFab);
+    const failedSections = ok ? await ubicarAdditionalSections(articleCode, orderFab) : [];
     setProcessing(false);
 
     if (!ok) {
       finishAction('error', `Error al ubicar ${articleCode}`);
       return;
+    }
+
+    if (failedSections.length > 0) {
+      showToast('error', `Error en secciones adicionales: ${failedSections.join(', ')}`);
     }
 
     const allText = [
@@ -742,33 +881,101 @@ export function useOperativeShelf({
     });
   };
 
-  const handleUbicarBatchConfirm = async () => {
+  const handleUbicarBatchConfirm = async (importe?: number, cantidad?: number) => {
     if (selectedPositions.length === 0 || batchArticles.length === 0) return;
     setScannerActive(false);
     setProcessing(true);
+
+    // Commit incremental: cada artículo ubicado con éxito se cuenta como
+    // "procesado" y se retira del lote. Si uno falla (p.ej. desconexión), se
+    // detiene y los PENDIENTES se conservan en el lote (persistido en
+    // localStorage), de modo que no se pierde nada y se puede reintentar.
+    const pending = [...batchArticles];
     let successCount = 0;
-    for (const article of batchArticles) {
-      const ok = await doUbicarCurrentShelf(article.articleCode, article.orderFab, selectedPositions);
-      if (ok) successCount++;
+    let failedAt = -1;
+    for (let i = 0; i < pending.length; i++) {
+      const article = pending[i];
+      const ok = await doUbicarCurrentShelf(article.articleCode, article.orderFab, selectedPositions, importe, cantidad);
+      if (ok) {
+        successCount++;
+        setBatchProcessedCount((c) => c + 1);
+      } else {
+        failedAt = i;
+        break;
+      }
     }
     setProcessing(false);
-    if (successCount === batchArticles.length) {
-      finishAction('success', `✅ ${batchArticles.length} artículo(s) ubicado(s) en ${selectedPositions.length} posición(es)`);
+
+    if (failedAt === -1) {
+      finishAction('success', `✅ ${pending.length} artículo(s) ubicado(s) en ${selectedPositions.length} posición(es)`);
     } else {
-      finishAction('error', `Parcial: ${successCount}/${batchArticles.length} artículos ubicados`);
+      const remaining = pending.slice(failedAt);
+      setBatchArticles(remaining);
+      showToast('error', `Ubicados ${successCount}. Quedan ${remaining.length} pendiente(s) — reintenta o pulsa Detener.`, 4000);
     }
+  };
+
+  /**
+   * Detener/cancelar el lote con mensaje explícito de qué se ubica y qué se
+   * descarta (Punto 4 + "Detener análisis" del Punto 6). Si no hay artículos
+   * pendientes, finaliza sin preguntar.
+   */
+  const handleStopBatch = () => {
+    const pending = batchArticles.length;
+    const processed = batchProcessedCount;
+    if (pending === 0) {
+      finishAction(processed > 0 ? 'success' : 'info',
+        processed > 0 ? `✅ ${processed} artículo(s) ubicado(s)` : 'Lote cancelado');
+      return;
+    }
+    setConfirmModal({
+      open: true,
+      title: processed > 0 ? '⏹ Detener lote' : '✕ Cancelar lote',
+      message: processed > 0
+        ? `Se han ubicado ${processed} artículo(s). Los ${pending} pendiente(s) NO se ubicarán y se descartan.\n¿Detener el lote?`
+        : `Los ${pending} artículo(s) escaneados NO se ubicarán y se descartan.\n¿Cancelar el lote?`,
+      icon: processed > 0 ? '⏹' : '⚠️',
+      variant: 'warning',
+      confirmText: processed > 0 ? `Sí, detener (descartar ${pending})` : `Sí, cancelar (descartar ${pending})`,
+      onConfirm: () => finishAction(
+        processed > 0 ? 'success' : 'info',
+        processed > 0 ? `✅ ${processed} ubicado(s), ${pending} descartado(s)` : 'Lote cancelado',
+      ),
+      extraButton: {
+        text: 'Volver al lote',
+        onClick: () => setConfirmModal((p) => ({ ...p, open: false })),
+      },
+    });
   };
 
   // Reprocesos (calidad): importe/cantidad al ubicar
   const handleReprocesosUbicacionConfirm = (importe?: number, cantidad?: number) => {
     setShowReprocesosUbicacionModal(false);
-    if (batchMode) handleUbicarBatchConfirm();
+    if (batchMode) handleUbicarBatchConfirm(importe, cantidad);
     else handleUbicarConfirm(importe, cantidad);
   };
   const handleReprocesosUbicacionSkip = () => {
     setShowReprocesosUbicacionModal(false);
     if (batchMode) handleUbicarBatchConfirm();
     else handleUbicarConfirm();
+  };
+
+  // Inicia el confirm del lote: pide importe/cantidad si hay posiciones de reprocesos
+  const handleUbicarBatchStart = () => {
+    if (selectedPositions.length === 0) {
+      showToast('error', 'Selecciona al menos una posición');
+      return;
+    }
+    if (batchArticles.length === 0) return;
+    const needsReprocesos =
+      reprocesosEnabled &&
+      !!config.reprocesos?.askImporteCantidad &&
+      selectedPositions.some(pos => isReprocesosLocation(shelfCode, padPos(pos)));
+    if (needsReprocesos) {
+      setShowReprocesosUbicacionModal(true);
+    } else {
+      handleUbicarBatchConfirm();
+    }
   };
 
   // ── RETIRAR ─────────────────────────────────────────────────────────────────
@@ -851,12 +1058,15 @@ export function useOperativeShelf({
     const toShelf = shelfCode;
     setProcessing(true);
     try {
+      const access = await validateShelfAccess('operate');
+      if (!access.ok) throw new Error('Sin permiso para operar en la estantería destino');
       const fn = httpsCallable(functions, 'shelfOperate');
-      await fn({
+      const result = await fn({
         op: 'reubicar',
         payload: { articleCode, orderFab, shelfCode: fromShelf, fromShelfCode: fromShelf, toShelfCode: toShelf, newPositions: selectedPositions },
         session: { operarioId, operarioName: displayName },
       });
+      if (!(result.data as { ok?: boolean })?.ok) throw new Error('El servidor rechazó la operación de reubicación');
       finishAction('success', `✅ ${articleCode} reubicado a ${getShelfDefinition(toShelf)?.name || toShelf}`);
     } catch (err) {
       finishAction('error', parseCallableError(err));
@@ -938,7 +1148,7 @@ export function useOperativeShelf({
     scanMethodPickerOpen, pendingAction,
     showCameraQR, setShowCameraQR,
     showCameraOCR, setShowCameraOCR,
-    batchMode, batchArticles,
+    batchMode, batchArticles, batchMethod, batchProcessedCount,
     additionalShelfPositions, showAddShelfModal, setShowAddShelfModal,
     showRetirarArticleList, showRetirarCellModal, retirarCellPosition, retirarCellItems,
     showMoverArticleList,
@@ -953,8 +1163,9 @@ export function useOperativeShelf({
     // handlers de flujo
     startAction, cancelAction, finishAction, showToast,
     applyScanMethod, beginBatchMode,
+    prepareChangeMethod, scanMore, handleScanMethodPickerClose,
     handleScan, handleCellPress,
-    handleUbicarConfirm, handleUbicarBatchConfirm,
+    handleUbicarConfirm, handleUbicarBatchConfirm, handleUbicarBatchStart, handleStopBatch,
     handleReprocesosUbicacionConfirm, handleReprocesosUbicacionSkip,
     handleRetirarArticleListConfirm, handleRetirarCellItemsConfirm,
     handleMoverSelectArticle, handleMoverConfirm,

@@ -13,7 +13,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { createWorker } from 'tesseract.js';
 import { generateOcrVariants, cropHalfCanvas, preprocessSingleLine, measureSharpnessLive, waitForVideoReady } from '../../lib/ocrPreprocess';
-import { parseScanInputLenient } from '../../lib/qrParser';
+import { parseScanInputLenient, parseScanFromLines } from '../../lib/qrParser';
 import { recognizeImage } from '../../lib/api/ocrApi';
 
 interface CameraOCRScannerProps {
@@ -273,6 +273,9 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
       let bestText = '';
       let bestConfidence = 0;
       let cloudOk = false;
+      // Líneas en orden de lectura (sólo Cloud Vision las provee) — permiten
+      // detectar la OF y el artículo de la línea inmediatamente inferior.
+      let bestLines: string[] = [];
 
       // Timeout global de seguridad (incluye respaldo local).
       let timedOut = false;
@@ -286,6 +289,7 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
         if (cloud.ok && cloud.text.trim()) {
           bestText = cloud.text.trim();
           bestConfidence = cloud.confidence || 80;
+          bestLines = cloud.lines || [];
           cloudOk = true;
           setProgress(90);
         }
@@ -312,8 +316,11 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
         throw new Error('timeout');
       }
 
-      // Intentar parsear y formatear el texto reconocido antes de mostrarlo al usuario
-      const parseResult = parseScanInputLenient(bestText);
+      // Parsear y formatear el texto reconocido antes de mostrarlo al usuario.
+      // 1º: por líneas (OF + artículo de la línea inferior) — evita una 2ª foto.
+      // 2º: parser lenient sobre el texto completo. 3º: texto crudo (foto manual).
+      const lineParse = bestLines.length > 0 ? parseScanFromLines(bestLines) : null;
+      const parseResult = lineParse && lineParse.success ? lineParse : parseScanInputLenient(bestText);
       const displayText = parseResult.success
         ? `${parseResult.data.articleCode} // ${parseResult.data.orderFab}`
         : bestText;

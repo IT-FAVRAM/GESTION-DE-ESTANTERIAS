@@ -45,6 +45,7 @@ exports.checkStaleItems = functions.pubsub.schedule('every day 02:00').timeZone(
     const staleLimitMs = STALE_ITEM_THRESHOLD_DAYS * 24 * 60 * 60 * 1000;
     const alertIntervalMs = STALE_ITEM_ALERT_INTERVAL_HOURS * 60 * 60 * 1000;
     let notifiedItems = 0;
+    const staleItems = [];
     for (const itemDoc of itemsSnapshot.docs) {
         const item = itemDoc.data() || {};
         const locatedAtMs = toMillis(item.locatedAt);
@@ -54,9 +55,17 @@ exports.checkStaleItems = functions.pubsub.schedule('every day 02:00').timeZone(
         if (lastAlertAtMs && now - lastAlertAtMs < alertIntervalMs)
             continue;
         const shelfCode = normalize(item.shelfCode);
-        const section = (0, authz_1.getWmsSectionForShelf)(shelfCode);
+        staleItems.push({ doc: itemDoc, item, shelfCode, section: (0, authz_1.getWmsSectionForShelf)(shelfCode), locatedAtMs });
+    }
+    // Prefetch users once per section
+    const uniqueSections = [...new Set(staleItems.map((s) => s.section))];
+    const usersBySection = new Map();
+    await Promise.all(uniqueSections.map(async (section) => {
         const emails = Array.isArray(chiefMapping[section]) ? chiefMapping[section] : [];
-        const userDocs = await (0, push_1.getUsersByEmails)(emails);
+        usersBySection.set(section, await (0, push_1.getUsersByEmails)(emails));
+    }));
+    for (const { doc: itemDoc, item, shelfCode, section, locatedAtMs } of staleItems) {
+        const userDocs = usersBySection.get(section) || [];
         const notificationResult = await (0, push_1.sendPushToUsers)(userDocs, {
             title: 'Articulo estancado en estanteria',
             body: `${item.articleCode || 'Articulo'} ${item.orderFab || ''} lleva ${Math.floor((now - locatedAtMs) / (1000 * 60 * 60 * 24))} dias en ${Array.isArray(item.locationIds) ? item.locationIds.join(', ') : shelfCode}`.trim(),
@@ -146,13 +155,13 @@ exports.notifySpecialLocationOccupancy = functions.firestore
     if (isUrgent) {
         const chiefEmails = Array.isArray(chiefMapping[section]) ? chiefMapping[section] : [];
         // Destinatarios adicionales de avisos URGENTES por sección (configurable en config/app).
-        // Por defecto, Jorge (j.diaz) recibe los urgentes de REPASADO además del jefe de sección.
+        // urgentExtraEmails: { REPASADO: ['x@y.com'], ... }  — editable en Firestore sin redeploy.
         const urgentExtraBySection = (config.urgentExtraEmails && typeof config.urgentExtraEmails === 'object')
             ? config.urgentExtraEmails
             : {};
         const extraUrgentEmails = Array.isArray(urgentExtraBySection[section])
             ? urgentExtraBySection[section]
-            : (section === 'REPASADO' ? ['j.diaz@favram.com'] : []);
+            : [];
         const urgentChiefEmails = [...chiefEmails, ...extraUrgentEmails];
         await Promise.all([
             (0, push_1.notifyUsersByEmails)(urgentChiefEmails, {
@@ -314,6 +323,7 @@ exports.notifyLongDisconnection = functions.pubsub
     return { checked: offlineDevices.length, critical: criticalDevices.length };
 });
 exports.pickupQueueOperate = functions.https.onCall(async (data, context) => {
+    var _a;
     const actor = await (0, authz_1.resolveOperationalActor)(context, data === null || data === void 0 ? void 0 : data.session);
     const op = String((data === null || data === void 0 ? void 0 : data.op) || '');
     const payload = (data === null || data === void 0 ? void 0 : data.payload) || {};
@@ -375,7 +385,15 @@ exports.pickupQueueOperate = functions.https.onCall(async (data, context) => {
         if (!requestId) {
             throw new functions.https.HttpsError('invalid-argument', 'requestId requerido.');
         }
-        await firebaseAdmin_1.admin.firestore().collection('pickupQueue').doc(requestId).update({
+        const reqRef = firebaseAdmin_1.admin.firestore().collection('pickupQueue').doc(requestId);
+        const reqSnap = await reqRef.get();
+        if (!reqSnap.exists) {
+            throw new functions.https.HttpsError('not-found', 'Solicitud no encontrada.');
+        }
+        if (((_a = reqSnap.data()) === null || _a === void 0 ? void 0 : _a.status) !== 'PENDING') {
+            throw new functions.https.HttpsError('failed-precondition', 'La solicitud no está pendiente.');
+        }
+        await reqRef.update({
             status: 'COMPLETED',
             completedAt: new Date().toISOString(),
             completedBy: actor.uid,
