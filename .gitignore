@@ -38,3 +38,4 @@ serviceAccount.json
 *.keys.json
 service-account*.json
 firebase-adminsdk*.json
+bot/.env
