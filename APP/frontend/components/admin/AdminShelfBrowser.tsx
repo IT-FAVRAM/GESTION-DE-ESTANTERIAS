@@ -13,7 +13,7 @@ import { usePickupQueue } from '../../hooks/usePickupQueue';
 import ShelfGrid from '../kiosk/ShelfGrid';
 import KioskSearchBar from '../kiosk/KioskSearchBar';
 import ConfirmationModal from '../common/ConfirmationModal';
-import { SHELF_DEFINITIONS, ALL_SHELVES, CART_DEFINITIONS } from '../../lib/firestoreSchema';
+import { SHELF_DEFINITIONS, ALL_SHELVES, CART_DEFINITIONS, SECTION_DISPLAY_NAMES } from '../../lib/firestoreSchema';
 import { formatArticleDisplay, parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
 import { validateContiguity } from '../../lib/contiguityValidator';
 import type { ShelfLocationState } from '../../hooks/useShelf';
@@ -819,13 +819,25 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
             {/* Shelf list — only when open */}
             {sidebarOpen && (
               <div className="flex-1 overflow-y-auto [scrollbar-width:thin]">
-                <p className="px-3 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">Estanterías</p>
-                {SHELF_DEFINITIONS.map(shelf => (
-                  <button key={shelf.code} onClick={() => { setSelectedShelf(shelf.code); setHighlightedPositions([]); resetAction(); }}
-                    className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors truncate ${selectedShelf === shelf.code ? 'bg-sky-500 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
-                    {shelf.name}
-                  </button>
-                ))}
+                {(() => {
+                  const seen = new Set<string>();
+                  const sections = SHELF_DEFINITIONS
+                    .map((s) => s.section)
+                    .filter((sec) => { if (seen.has(sec)) return false; seen.add(sec); return true; });
+                  return sections.map((sec) => (
+                    <React.Fragment key={sec}>
+                      <p className="px-3 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                        {SECTION_DISPLAY_NAMES[sec] ?? sec}
+                      </p>
+                      {SHELF_DEFINITIONS.filter((s) => s.section === sec).map((shelf) => (
+                        <button key={shelf.code} onClick={() => { setSelectedShelf(shelf.code); setHighlightedPositions([]); resetAction(); }}
+                          className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors truncate ${selectedShelf === shelf.code ? 'bg-sky-500 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+                          {shelf.name}
+                        </button>
+                      ))}
+                    </React.Fragment>
+                  ));
+                })()}
                 <p className="px-3 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">Carros</p>
                 {CART_DEFINITIONS.map(shelf => (
                   <button key={shelf.code} onClick={() => { setSelectedShelf(shelf.code); setHighlightedPositions([]); resetAction(); }}

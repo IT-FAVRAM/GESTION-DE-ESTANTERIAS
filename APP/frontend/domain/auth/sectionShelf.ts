@@ -1,5 +1,17 @@
 import type { UserRole, WarehouseSection } from '../../lib/firestoreSchema';
 
+/** Valores de sección legacy que se fusionaron en PRENSAS_MECANIZADO */
+const SECTION_LEGACY_MAP: Record<string, WarehouseSection> = {
+  MECANIZADO: 'PRENSAS_MECANIZADO',
+  PRENSAS: 'PRENSAS_MECANIZADO',
+};
+
+/** Normaliza valores de sección antiguos (MECANIZADO/PRENSAS) al nuevo nombre unificado */
+export const normalizeLegacySection = (section: string | null | undefined): WarehouseSection | null => {
+  if (!section) return null;
+  return (SECTION_LEGACY_MAP[section] ?? section) as WarehouseSection;
+};
+
 /** Sección de almacén → código de estantería principal */
 export const SECTION_TO_SHELF: Partial<Record<WarehouseSection, string>> = {
   PRENSAS_MECANIZADO: 'MEC',
@@ -22,15 +34,16 @@ export const resolveAssignedShelfForRole = (
   if (!role) return null;
   if (role === 'CALIDAD') return 'CAL';
   if (role === 'JEFE_SECCION' && section) {
-    return SECTION_TO_SHELF[section] ?? null;
+    const normalized = normalizeLegacySection(section as string) ?? section;
+    return SECTION_TO_SHELF[normalized] ?? null;
   }
   if (role === 'OPERARIO') {
-    // Intenta usar deviceAssignedShelf si está configurado
     if (deviceAssignedShelf) return deviceAssignedShelf;
-    // Fallback para kioskos conocidos
     if (kioskId === 'kiosko-mecanizado') return 'MEC';
-    // Fallback: mapea section a shelf si está disponible
-    if (section) return SECTION_TO_SHELF[section] ?? null;
+    if (section) {
+      const normalized = normalizeLegacySection(section as string) ?? section;
+      return SECTION_TO_SHELF[normalized] ?? null;
+    }
   }
   return null;
 };

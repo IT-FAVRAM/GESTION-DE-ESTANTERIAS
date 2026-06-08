@@ -33,7 +33,7 @@ import {
   canViewReprocessCosts as resolveCanViewReprocessCosts,
 } from '../domain/reprocesos/reprocesosVisibility';
 import { resolveCapabilities } from '../domain/auth/authCapabilities';
-import { SECTION_TO_SHELF, resolveAssignedShelfForRole } from '../domain/auth/sectionShelf';
+import { SECTION_TO_SHELF, resolveAssignedShelfForRole, normalizeLegacySection } from '../domain/auth/sectionShelf';
 import type { AuthMethod } from '../domain/auth/authTypes';
 
 // ── Auth resolved-state cache (for offline startup resilience) ────────────────
@@ -317,7 +317,7 @@ export const useAuth = () => {
       // If Firestore returned nothing (cold cache + offline), fall back to localStorage cache
       const cachedForThisUser = initialAuthCache?.uid === user.uid ? initialAuthCache : null;
       const resolvedRole = userData?.role || cachedForThisUser?.role || null;
-      const resolvedSection = userData?.section || cachedForThisUser?.section || null;
+      const resolvedSection = normalizeLegacySection(userData?.section || cachedForThisUser?.section || null);
       const resolvedDisplayName = userData?.displayName || cachedForThisUser?.displayName || user.email || '';
 
       // Update cache whenever we have a good profile (online or Firestore cached)

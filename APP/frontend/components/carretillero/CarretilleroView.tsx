@@ -13,7 +13,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { usePickupQueue } from '../../hooks/usePickupQueue';
 import PickupQueue from './PickupQueue';
 import CarrosView from './CarrosView';
-import { SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
+import { SHELF_DEFINITIONS, SECTION_DISPLAY_NAMES } from '../../lib/firestoreSchema';
 import { buildOperativeConfig } from '../../lib/operative/operativeConfig';
 import { useOperativeShelf } from '../../hooks/useOperativeShelf';
 import OperativeShelfArea from '../operative/OperativeShelfArea';
@@ -113,18 +113,30 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
           {sidebarOpen && isIdle && (
             <div className="flex-1 overflow-y-auto flex flex-col [scrollbar-width:thin]">
               <div className="flex-1">
-                <p className="px-3 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">Estanterías</p>
-                {SHELF_DEFINITIONS.map((shelf) => (
-                  <button key={shelf.code}
-                    onClick={() => selectShelf(shelf.code)}
-                    className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors truncate ${
-                      activeTab === 'shelves' && selectedShelf === shelf.code
-                        ? 'bg-sky-500 text-white'
-                        : 'text-slate-600 hover:bg-slate-200'
-                    }`}>
-                    {shelf.name}
-                  </button>
-                ))}
+                {(() => {
+                  const seen = new Set<string>();
+                  const sections = SHELF_DEFINITIONS
+                    .map((s) => s.section)
+                    .filter((sec) => { if (seen.has(sec)) return false; seen.add(sec); return true; });
+                  return sections.map((sec) => (
+                    <React.Fragment key={sec}>
+                      <p className="px-3 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                        {SECTION_DISPLAY_NAMES[sec] ?? sec}
+                      </p>
+                      {SHELF_DEFINITIONS.filter((s) => s.section === sec).map((shelf) => (
+                        <button key={shelf.code}
+                          onClick={() => selectShelf(shelf.code)}
+                          className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors truncate ${
+                            activeTab === 'shelves' && selectedShelf === shelf.code
+                              ? 'bg-sky-500 text-white'
+                              : 'text-slate-600 hover:bg-slate-200'
+                          }`}>
+                          {shelf.name}
+                        </button>
+                      ))}
+                    </React.Fragment>
+                  ));
+                })()}
               </div>
 
               <div className="flex-shrink-0 border-t border-slate-300 pb-2">

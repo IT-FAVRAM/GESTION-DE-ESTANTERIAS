@@ -1,6 +1,7 @@
 import React from 'react';
 import { adminApi } from '../../lib/api/adminApi';
 import type { UserDoc } from '../../lib/firestoreSchema';
+import { normalizeLegacySection } from '../../domain/auth/sectionShelf';
 
 interface AdminUsersTabProps {
   users: Array<UserDoc & { uid: string }>;
@@ -38,18 +39,19 @@ const AdminUsersTab: React.FC<AdminUsersTabProps> = ({ users }) => (
 
               {user.role === 'JEFE_SECCION' && (
                 <select
-                  value={user.section || ''}
+                  value={normalizeLegacySection(user.section || '') ?? ''}
                   onChange={(event) => adminApi.updateUser(user.uid, { role: user.role, section: event.target.value || null })}
                   className="rounded-2xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white"
                 >
                   <option value="">Sin seccion</option>
-                  <option value="MECANIZADO">Mecanizado</option>
+                  <option value="PRENSAS_MECANIZADO">Prensas-Mecanizado</option>
                   <option value="PLEGADORA">Plegadora</option>
                   <option value="SOLDADURA">Soldadura</option>
                   <option value="REPASADO">Repasado</option>
                   <option value="PINTURA">Pintura</option>
                   <option value="LASER">Laser</option>
                   <option value="AUTOPLEGADORA">Autoplegadora</option>
+                  <option value="PUNZONADO">Punzonado</option>
                 </select>
               )}
             </div>
