@@ -63,8 +63,8 @@ function getPaletteKey(shelfCode: string, zoneName?: string): PaletteKey {
   return 'blue';
 }
 
-function getSlotMinH(_rowCount: number): number {
-  return 90;
+function getSlotMinH(_rowCount: number, compact?: boolean): number {
+  return compact ? 62 : 90;
 }
 
 // ─── RackSlot — hueco individual ──────────────────────────────────────────────
@@ -316,6 +316,7 @@ export interface ShelfRackViewProps {
   dragOverPosition?: string | null;
   onCellPress?: (location: ShelfLocationState) => void;
   showReprocessCosts: boolean;
+  compact?: boolean;
   createEmptyLocation: (position: string, shelfCode?: string) => ShelfLocationState;
   onCellDragStart?: (data: CellDragData) => void;
   onCellDragEnter?: (position: string) => void;
@@ -332,6 +333,7 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
   dragOverPosition,
   onCellPress,
   showReprocessCosts,
+  compact = false,
   createEmptyLocation,
   onCellDragStart,
   onCellDragEnter,
@@ -341,19 +343,20 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
   const pk = getPaletteKey(shelfCode, block.zoneName);
   const palette = PALETTES[pk];
   const rowCount = block.rows.length;
-  const slotMinH = getSlotMinH(rowCount);
+  const slotMinH = getSlotMinH(rowCount, compact);
 
   // Dimensiones estructurales del rack
-  const POST_W = 14;   // ancho de los postes verticales (px)
-  const BEAM_H = 10;   // alto de los largueros horizontales (px)
-  const TOP_H = 16;    // marco superior del rack (px)
-  const BASE_H = 20;   // placa base inferior (px)
-  const FOOT_H = 8;    // patas del rack (px)
+  const POST_W = compact ? 10 : 14;   // ancho de los postes verticales (px)
+  const BEAM_H = compact ? 7 : 10;    // alto de los largueros horizontales (px)
+  const TOP_H = compact ? 12 : 16;    // marco superior del rack (px)
+  const BASE_H = compact ? 14 : 20;   // placa base inferior (px)
+  const FOOT_H = compact ? 6 : 8;     // patas del rack (px)
 
-  // Calcular ancho mínimo: slots × 70px + gaps + postes + padding interno
+  // Calcular ancho mínimo: slots × ancho + gaps + postes + padding interno
   const maxCols = Math.max(...block.rows.map((r) => r.length), 1);
-  const SLOT_MIN_W = 70;
-  const calculatedMinWidth = POST_W * 2 + 12 + maxCols * SLOT_MIN_W + (maxCols - 1) * 4;
+  const SLOT_MIN_W = compact ? 48 : 70;
+  const slotGap = compact ? 3 : 4;
+  const calculatedMinWidth = POST_W * 2 + (compact ? 8 : 12) + maxCols * SLOT_MIN_W + (maxCols - 1) * slotGap;
 
   return (
     <div
@@ -409,8 +412,8 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
             <div
               style={{
                 display: 'flex',
-                gap: 4,
-                padding: '6px 6px',
+                gap: slotGap,
+                padding: compact ? '4px 4px' : '6px 6px',
                 minHeight: slotMinH,
                 alignItems: 'stretch',
               }}

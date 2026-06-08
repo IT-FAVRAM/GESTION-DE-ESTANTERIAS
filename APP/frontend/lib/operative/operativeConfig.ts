@@ -67,6 +67,8 @@ export interface BuildOperativeConfigOptions {
   /** Permisos de reprocesos del usuario (calidad). */
   canEditReprocesses?: boolean;
   canViewReprocessCosts?: boolean;
+  /** Estantería actualmente seleccionada (para ADMIN con scope 'all'). */
+  currentShelfCode?: string | null;
 }
 
 const PINTURA_SHELF = 'PIN';
@@ -86,7 +88,7 @@ export function buildOperativeConfig(
   role: UserRole,
   opts: BuildOperativeConfigOptions = {},
 ): RoleOperativeConfig {
-  const { lockedShelfCode, section, canEditReprocesses, canViewReprocessCosts } = opts;
+  const { lockedShelfCode, section, canEditReprocesses, canViewReprocessCosts, currentShelfCode } = opts;
 
   switch (role) {
     case 'OPERARIO':
@@ -167,7 +169,8 @@ export function buildOperativeConfig(
       };
 
     case 'ADMIN':
-    case 'SUPERADMIN':
+    case 'SUPERADMIN': {
+      const onCAL = (currentShelfCode || '').toUpperCase() === 'CAL';
       return {
         role,
         shelfScope: 'all',
@@ -179,10 +182,18 @@ export function buildOperativeConfig(
           almacen: 'full',
           avisar: 'recogida+traer',
         },
-        ubicar: { askMultiArticle: true, allowMultiSection: true },
+        ubicar: { askMultiArticle: true, allowMultiSection: !onCAL },
         retirar: { askSectionFirst: true },
         mover: { loop: true },
+        ...(onCAL ? {
+          reprocesos: {
+            askImporteCantidad: canEditReprocesses ?? true,
+            showCosts: canViewReprocessCosts ?? true,
+            cellFirst: true,
+          },
+        } : {}),
       };
+    }
 
     default:
       // Fallback defensivo: rol desconocido → solo lectura/avisar recogida.

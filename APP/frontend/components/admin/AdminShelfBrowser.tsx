@@ -756,7 +756,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
             <span className="text-sm font-bold text-slate-800 truncate flex-1 font-mono">
               {articleInput.trim()} <span className="text-slate-400 font-normal">· OF {ofInput.trim()}</span>
             </span>
-            <span className="text-xs text-slate-400 hidden sm:block">{shelfDef?.name || selectedShelf}</span>
+            <span className="text-sm font-black text-slate-600 hidden sm:block">{shelfDef?.name || selectedShelf}</span>
             <button onClick={resetAction} className="px-3 py-1.5 bg-slate-200 hover:bg-red-100 text-slate-700 hover:text-red-700 text-xs font-bold rounded-lg border border-slate-300 hover:border-red-200 shrink-0 transition-all active:scale-95">
               ✕ Cancelar
             </button>
@@ -767,7 +767,9 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
             <div className="flex items-center gap-3 mb-1.5">
               <button onClick={onBack} className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center hover:bg-slate-200 shrink-0">←</button>
               <div className="min-w-0">
-                <h1 className="text-lg font-black text-slate-900 leading-tight">🏭 Estanterías</h1>
+                <h1 className="text-xl font-black text-slate-900 leading-tight truncate">
+                  {shelfDef?.name || '🏭 Estanterías'}
+                </h1>
                 <p className="text-xs text-slate-500 truncate">
                   {action === 'idle' ? 'Operativa manual' : `Acción activa: ${action.toUpperCase()}`}
                 </p>

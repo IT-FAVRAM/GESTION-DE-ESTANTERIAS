@@ -36,7 +36,10 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
   const [selectedShelf, setSelectedShelf] = useState<string>(SHELF_DEFINITIONS[0]?.code ?? 'MEC');
 
   const effectiveRole = role ?? 'CARRETILLERO';
-  const config = useMemo(() => buildOperativeConfig(effectiveRole, {}), [effectiveRole]);
+  const config = useMemo(
+    () => buildOperativeConfig(effectiveRole, { currentShelfCode: selectedShelf }),
+    [effectiveRole, selectedShelf],
+  );
 
   const engine = useOperativeShelf({
     config,
@@ -64,7 +67,9 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
           <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-shrink-0">
             <span className="text-lg sm:text-xl flex-shrink-0">🚚</span>
             <div className="min-w-0">
-              <h1 className="text-sm sm:text-base font-black text-slate-900 tracking-tight leading-none">{titleByRole}</h1>
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-none truncate">
+                {engine.shelfDef?.name || titleByRole}
+              </h1>
               <p className="text-[8px] sm:text-[10px] text-slate-500 truncate leading-none mt-0.5">{displayName} · {operarioId}</p>
             </div>
           </div>

@@ -58,9 +58,9 @@ const CalidadView: React.FC = () => {
       <header className="flex-shrink-0 bg-white border-b border-slate-200 px-3 py-2 shadow-sm">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
-            <span className="text-xl">🔍</span>
+            <span className="text-2xl">🔍</span>
             <div className="min-w-0">
-              <h1 className="text-base font-black text-slate-900 tracking-tight leading-none">Calidad — CAL</h1>
+              <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none">Calidad — CAL</h1>
               <p className="text-[10px] text-slate-500 truncate leading-none mt-0.5">{displayName}</p>
             </div>
           </div>

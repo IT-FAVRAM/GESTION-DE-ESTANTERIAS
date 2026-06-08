@@ -263,6 +263,7 @@ interface BlockProps {
   onToggle: () => void;
   showReprocessCosts: boolean;
   showVerticalStrip?: boolean;
+  compactRack?: boolean;
   onCellDragStart?: (data: CellDragData) => void;
   onCellDragEnter?: (position: string) => void;
   onCellDragLeave?: () => void;
@@ -281,6 +282,7 @@ const Block = React.memo(({
   onToggle,
   showReprocessCosts,
   showVerticalStrip = true,
+  compactRack = false,
   onCellDragStart,
   onCellDragEnter,
   onCellDragLeave,
@@ -395,6 +397,7 @@ const Block = React.memo(({
               dragOverPosition={dragOverPosition}
               onCellPress={onCellPress}
               showReprocessCosts={showReprocessCosts}
+              compact={compactRack}
               createEmptyLocation={createEmptyLocation}
               onCellDragStart={onCellDragStart}
               onCellDragEnter={onCellDragEnter}
@@ -453,6 +456,9 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
   const pct = totalSlots > 0 ? Math.round((occupiedSlots / totalSlots) * 100) : 0;
   const physicalBlocks = shelfDef?.layout.physicalBlocks ?? [];
   const regularBlocks = physicalBlocks.filter((b) => !b.fullWidth);
+
+  // CAL y REP usan rack compacto para ahorrar espacio horizontal
+  const compactRack = shelfDef?.code === 'CAL' || shelfDef?.code === 'REP';
 
   const colsForBlock = useCallback((rows: Array<Array<number | string | null>>): string => {
     const maxCols = Math.max(...rows.map((row) => row.length), 1);
@@ -596,23 +602,24 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
                    key={block.id}
                    className={[hiddenClass, widthClass].filter(Boolean).join(' ')}
                  >
-                   <Block
-                     block={block}
-                     shelfDef={shelfDef!}
-                     locationMap={locationMap}
-                     selectedPositions={selectedPositions}
-                     highlightedPositions={highlightedPositions}
-                     dragOverPosition={dragOverPosition}
-                     onCellPress={onCellPress}
-                     isCollapsed={isCollapsed}
-                     onToggle={() => toggleSection(block.id)}
-                     showReprocessCosts={showReprocessCosts}
-                     showVerticalStrip={!forceSingleBlock}
-                     onCellDragStart={onCellDragStart}
-                     onCellDragEnter={onCellDragEnter}
-                     onCellDragLeave={onCellDragLeave}
-                     onCellDrop={onCellDrop}
-                   />
+                    <Block
+                      block={block}
+                      shelfDef={shelfDef!}
+                      locationMap={locationMap}
+                      selectedPositions={selectedPositions}
+                      highlightedPositions={highlightedPositions}
+                      dragOverPosition={dragOverPosition}
+                      onCellPress={onCellPress}
+                      isCollapsed={isCollapsed}
+                      onToggle={() => toggleSection(block.id)}
+                      showReprocessCosts={showReprocessCosts}
+                      showVerticalStrip={!forceSingleBlock}
+                      compactRack={compactRack}
+                      onCellDragStart={onCellDragStart}
+                      onCellDragEnter={onCellDragEnter}
+                      onCellDragLeave={onCellDragLeave}
+                      onCellDrop={onCellDrop}
+                    />
                  </div>
                );
              })}

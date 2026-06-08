@@ -15,9 +15,12 @@ interface KioskHeaderProps {
 }
 
 const KioskHeader: React.FC<KioskHeaderProps> = ({ shelfName, shelfCode, displayName, operarioId, deviceId, onLogout, onInfo, actionButtons }) => (
-  <header className="flex-shrink-0 bg-slate-900 border-b border-slate-700 px-3 py-1.5">
+  <header className="flex-shrink-0 bg-slate-900 border-b border-slate-700 px-3 py-2">
     <div className="flex items-center justify-between gap-2">
-      <h1 className="text-sm font-bold text-white tracking-tight shrink-0">{shelfName || shelfCode}</h1>
+      <div className="min-w-0 flex-shrink-0">
+        <h1 className="text-xl font-black text-white tracking-tight leading-none truncate">{shelfName || shelfCode}</h1>
+        {displayName && <p className="text-[9px] text-slate-400 truncate leading-none mt-0.5">{displayName}</p>}
+      </div>
       {actionButtons && (
         <div className="flex-1 flex items-center justify-center gap-1 overflow-hidden min-w-0">
           {actionButtons}
