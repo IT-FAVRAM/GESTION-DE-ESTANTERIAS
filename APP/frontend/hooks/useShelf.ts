@@ -196,6 +196,19 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
         setError('Debe seleccionar al menos una posicion.');
         return false;
       }
+      // ✅ FIX #4: Validar importe y cantidad ANTES de optimistic update
+      if (importe !== undefined) {
+        if (!Number.isFinite(importe) || importe < 0) {
+          setError('Importe debe ser un número válido ≥ 0.');
+          return false;
+        }
+      }
+      if (cantidad !== undefined) {
+        if (!Number.isFinite(cantidad) || cantidad < 0) {
+          setError('Cantidad debe ser un número válido ≥ 0.');
+          return false;
+        }
+      }
       const session = getOperationalSession();
 
       if (!navigator.onLine) {

@@ -70,6 +70,15 @@ const mirrorAppend = (
   tx.set(twinLocRef, { position, items: [...cur, item], isEmpty: false }, { merge: true });
 };
 
+/** ✅ FIX #6: Determina los shelfCodes para una posición (soporta ubicaciones compartidas). */
+const getShelfCodesForPosition = (shelfCode: string, position: string): string[] => {
+  const isTwin = position && position.startsWith('URG MEC-PRE');
+  if (isTwin) {
+    return ['PRE', 'MEC'];
+  }
+  return [shelfCode];
+};
+
 /** Espeja una baja: elimina la presencia del array `items` del doc gemelo. */
 const mirrorRemove = (
   tx: FirebaseFirestore.Transaction,
@@ -338,7 +347,9 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
       }, { merge: true });
       // Espejo a la estantería gemela si es una urgente compartida (URG MEC-PRE).
       mirrorAppend(tx, twinLocRef, twinSnap, position, newItem);
-      tx.set(presenceRef, { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true });
+      // ✅ FIX #6: Usar shelfCodes array para soportar ubicaciones compartidas
+      const shelfCodes = getShelfCodesForPosition(shelfCode, position);
+      tx.set(presenceRef, { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode, shelfCodes, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true });
       if (aggregateSnap.exists) {
         const aggregate = aggregateSnap.data() as any;
         const currentIds: string[] = aggregate.activePresenceIds || [];
@@ -388,6 +399,17 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
     if (positions.length > 100) {
       throw new functions.https.HttpsError('invalid-argument', 'No se pueden ubicar mas de 100 posiciones en una operacion.');
     }
+    // ✅ FIX #2: Validar importe y cantidad (mismo que updateReproceso)
+    if (importe !== undefined) {
+      if (!isFinite(importe) || importe < 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'importe debe ser un número ≥ 0.');
+      }
+    }
+    if (cantidad !== undefined) {
+      if (!isFinite(cantidad) || cantidad < 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'cantidad debe ser un número ≥ 0.');
+      }
+    }
     const db2 = admin.firestore();
     const results: string[] = [];
 
@@ -408,7 +430,14 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         ...twinLocRefs.map((ref: FirebaseFirestore.DocumentReference | null) => (ref ? tx.get(ref) : Promise.resolve(undefined))),
       ]);
       const locSnaps = restSnaps.slice(0, positions.length);
-      const twinSnaps = restSnaps.slice(positions.length);
+      // ✅ FIX #3: Mantener mapping correcto de twinSnaps por índice (evitar desfase con nulls)
+      const twinSnapsByIndex: Record<number, any> = {};
+      for (let i = 0; i < positions.length; i++) {
+        const snapIdx = positions.length + i;
+        if (snapIdx < restSnaps.length) {
+          twinSnapsByIndex[i] = restSnaps[snapIdx];
+        }
+      }
 
       let totalPresencesAdded = 0;
       const presenceIdsToAdd: string[] = [];
@@ -430,9 +459,11 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
           isEmpty: false,
         }, { merge: true });
         // Espejo a la estantería gemela (urgentes compartidas).
-        mirrorAppend(tx, twinLocRefs[i], twinSnaps[i] as any, position, locationItem);
+        mirrorAppend(tx, twinLocRefs[i], twinSnapsByIndex[i] as any, position, locationItem);
 
-        const presenceDoc: any = { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true };
+        // ✅ FIX #6: Usar shelfCodes array para soportar ubicaciones compartidas
+        const shelfCodes = getShelfCodesForPosition(shelfCode, position);
+        const presenceDoc: any = { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode, shelfCodes, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true };
         if (importe !== undefined) presenceDoc.unitCost = importe;
         if (cantidad !== undefined) presenceDoc.quantity = cantidad;
         tx.set(presenceRef, presenceDoc);
@@ -470,10 +501,11 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
     }
     const aggregateKey = `${normalize(articleCode)}__${normalize(orderFab)}`;
     const aggregateRef = db.collection('itemAggregates').doc(aggregateKey);
+    // ✅ FIX #6: Buscar usando shelfCodes array para soportar ubicaciones compartidas
     const presenceSnapshot = await db.collection('items')
       .where('aggregateKey', '==', aggregateKey)
       .where('active', '==', true)
-      .where('shelfCode', '==', shelfCode)
+      .where('shelfCodes', 'array-contains', shelfCode)
       .get();
     const activePresences = presenceSnapshot.docs.map((snap) => ({ ref: snap.ref, data: snap.data() as any }));
     if (activePresences.length === 0) {
@@ -1115,13 +1147,16 @@ export const updateReproceso = functions.https.onCall(async (data: any, context:
     const locSnap = await tx.get(locRef);
     const locData = locSnap.exists ? (locSnap.data() as any) : { position, items: [], isEmpty: true };
     let found = false;
+    let foundPresenceId = '';
     const items = (locData.items || []).map((item: any) => {
-      const matchByPresence = presenceId && item.presenceId === presenceId;
-      const matchByCode = !presenceId
+      // ✅ FIX #1: Validar presenceId no esté vacío antes de usar para matching
+      const matchByPresence = presenceId.length > 0 && item.presenceId === presenceId;
+      const matchByCode = presenceId.length === 0
         && item.articleCode?.toUpperCase() === articleCode.toUpperCase()
         && item.orderFab?.toUpperCase() === orderFab.toUpperCase();
       if (matchByPresence || matchByCode) {
         found = true;
+        foundPresenceId = item.presenceId;
         return { ...item, quantity, unitCost };
       }
       return item;
@@ -1136,6 +1171,12 @@ export const updateReproceso = functions.https.onCall(async (data: any, context:
       isEmpty: items.length === 0,
       items,
     }, { merge: true });
+
+    // ✅ FIX #5: Actualizar también la presencia en la colección items para mantener sincronización
+    if (foundPresenceId) {
+      const itemRef = db.collection('items').doc(foundPresenceId);
+      tx.update(itemRef, { quantity, unitCost });
+    }
   });
 
   return { ok: true };
