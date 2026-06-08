@@ -43,7 +43,7 @@ async function migrateKiosk() {
 }
 
 async function migrateUsers() {
-  const usersRef = db.collection('users');
+  const usersRef = db.collection('usuarios');
   const oldSections = ['MECANIZADO', 'PRENSAS'];
 
   let total = 0;
