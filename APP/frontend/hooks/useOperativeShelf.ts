@@ -60,6 +60,7 @@ export interface ConfirmModalState {
   confirmText?: string;
   onConfirm: () => void;
   extraButton?: { text: string; onClick: () => void };
+  onClose?: () => void;
 }
 
 export type SectionPickerPurpose = 'retirar' | 'reubicar-origen' | 'reubicar-destino';
@@ -156,6 +157,11 @@ export function useOperativeShelf({
   const [showReprocesosUbicacionModal, setShowReprocesosUbicacionModal] = useState(false);
   const [reprocesosCell, setReprocesosCell] = useState<ShelfLocationState | null>(null);
 
+  // Reprocesos cellFirst: seleccionar celda antes de escanear, preguntar si tiene OF
+  const [pendingCell, setPendingCell] = useState<ShelfLocationState | null>(null);
+  const [showOFQuestion, setShowOFQuestion] = useState(false);
+  const [scanArticleOnly, setScanArticleOnly] = useState(false);
+
   // Selector de sección (retirar por sección — carretillero/admin; reubicar — admin)
   const [sectionPicker, setSectionPicker] = useState<{ open: boolean; purpose: SectionPickerPurpose }>({ open: false, purpose: 'retirar' });
   // Reubicar (admin): contexto capturado en origen antes de cambiar a destino
@@ -210,6 +216,9 @@ export function useOperativeShelf({
     setPendingRetirarQueue([]);
     setShowMoverArticleList(false);
     setShowReprocesosUbicacionModal(false);
+    setPendingCell(null);
+    setShowOFQuestion(false);
+    setScanArticleOnly(false);
     setSectionPicker((p) => ({ ...p, open: false }));
     setReubicarCtx(null);
     setShowRecogidaModal(false);
@@ -364,14 +373,32 @@ export function useOperativeShelf({
       cancelAction();
       return;
     }
+    // cellFirst: cerrar el picker tras la pregunta OF → volver a esperar celda
+    if (config.reprocesos?.cellFirst && pendingCell) {
+      setPendingCell(null);
+      setScanArticleOnly(false);
+    }
     setScanMethodPickerOpen(false);
-  }, [batchMode, batchMethod, cancelAction]);
+  }, [batchMode, batchMethod, cancelAction, config.reprocesos, pendingCell]);
 
   // Abre el selector de método para ubicar (tras decidir lote / no lote)
   const openScanPickerFor = (act: OperativeAction) => {
     setPendingAction(act);
     setScanMethodPickerOpen(true);
   };
+
+  // cellFirst: respuesta a "¿Tiene OF?"
+  const handleOFAnswer = useCallback((hasOF: boolean) => {
+    setShowOFQuestion(false);
+    if (!hasOF) setScanArticleOnly(true);
+    setScanMethodPickerOpen(true);
+  }, []);
+
+  // cellFirst: cerrar el modal "¿Tiene OF?" sin elegir → volver a esperar celda
+  const handleOFCancel = useCallback(() => {
+    setShowOFQuestion(false);
+    setPendingCell(null);
+  }, []);
 
   // ── Avisar ─────────────────────────────────────────────────────────────────
   const startAvisar = () => {
@@ -485,6 +512,11 @@ export function useOperativeShelf({
     }
 
     if (next === 'ubicar') {
+      // cellFirst (calidad reprocesos): no scanner al inicio, esperar que el usuario pulse celda
+      if (config.reprocesos?.cellFirst) {
+        setAction('ubicar');
+        return;
+      }
       if (config.ubicar.askMultiArticle) {
         // Pregunta previa: ¿uno o varios artículos en la misma posición?
         setAction('ubicar');
@@ -578,11 +610,28 @@ export function useOperativeShelf({
       return;
     }
 
+    // cellFirst sin OF: artículo capturado → ir directamente al modal de reprocesos
+    if (scanArticleOnly && pendingCell) {
+      setScanData({ articleCode, orderFab: 'SIN-OF' });
+      setScannerActive(false);
+      setShowCameraQR(false);
+      setShowCameraOCR(false);
+      setSelectedPositions([pendingCell.position]);
+      setShowReprocesosUbicacionModal(true);
+      return;
+    }
+
     setScanData({ articleCode, orderFab });
     setScannerActive(false);
 
     // UBICAR: aviso de artículo ya ubicado en el sistema (ghost)
     if (action === 'ubicar') {
+      // cellFirst con OF: celda ya seleccionada, ir directamente al modal de reprocesos
+      if (config.reprocesos?.cellFirst && pendingCell) {
+        setSelectedPositions([pendingCell.position]);
+        setShowReprocesosUbicacionModal(true);
+        return;
+      }
       setProcessing(true);
       try {
         const globalLocs = await findArticleGlobal(articleCode, orderFab);
@@ -712,6 +761,17 @@ export function useOperativeShelf({
         setRetirarCellItems(loc.items);
         setShowRetirarCellModal(true);
       }
+      return;
+    }
+
+    // UBICAR cellFirst (calidad reprocesos): seleccionar celda antes de escanear
+    if (action === 'ubicar' && config.reprocesos?.cellFirst && !scanData && !pendingCell) {
+      if (!reprocesosEnabled || !isReprocesosLocation(shelfCode, padPos(loc.position))) {
+        showToast('error', 'Selecciona una celda de reprocesos');
+        return;
+      }
+      setPendingCell(loc);
+      setShowOFQuestion(true);
       return;
     }
 
@@ -872,7 +932,13 @@ export function useOperativeShelf({
       onConfirm: () => {
         setConfirmModal((p) => ({ ...p, open: false }));
         setScanData(null);
-        setScannerActive(true);
+        setPendingCell(null);
+        setScanArticleOnly(false);
+        setScannerActive(false);
+        setShowCameraQR(false);
+        setShowCameraOCR(false);
+        // cellFirst: volver al grid para seleccionar celda; de lo contrario abrir picker
+        if (!config.reprocesos?.cellFirst) setScanMethodPickerOpen(true);
       },
       extraButton: {
         text: 'NO, finalizar',
@@ -984,7 +1050,7 @@ export function useOperativeShelf({
     setProcessing(true);
     let successCount = 0;
     for (const item of selectedItems) {
-      const r = await retirarDeUbicacion(item.articleCode, item.orderFab, item.position, operarioId, displayName);
+      const r = await retirarDeUbicacion(item.articleCode, item.orderFab, item.position, operarioId, displayName, item.presenceId);
       if (r.success) successCount++;
     }
     setProcessing(false);
@@ -1015,7 +1081,7 @@ export function useOperativeShelf({
         let successCount = 0;
         for (const queueItem of updatedQueue) {
           for (const item of queueItem.items) {
-            const r = await retirarDeUbicacion(item.articleCode, item.orderFab, queueItem.position, operarioId, displayName);
+            const r = await retirarDeUbicacion(item.articleCode, item.orderFab, queueItem.position, operarioId, displayName, item.presenceId);
             if (r.success) successCount++;
           }
         }
@@ -1031,6 +1097,10 @@ export function useOperativeShelf({
       extraButton: {
         text: 'SÍ, retirar más',
         onClick: () => setConfirmModal((p) => ({ ...p, open: false })),
+      },
+      onClose: () => {
+        setConfirmModal((p) => ({ ...p, open: false }));
+        cancelAction();
       },
     });
   };
@@ -1153,6 +1223,7 @@ export function useOperativeShelf({
     showRetirarArticleList, showRetirarCellModal, retirarCellPosition, retirarCellItems,
     showMoverArticleList,
     showReprocesosUbicacionModal, reprocesosCell, setReprocesosCell,
+    showOFQuestion, handleOFAnswer, handleOFCancel,
     sectionPicker,
     reubicarCtx, reubicarNeeded,
     showRecogidaModal, setShowRecogidaModal,

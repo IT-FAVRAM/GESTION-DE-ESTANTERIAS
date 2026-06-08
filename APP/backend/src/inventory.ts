@@ -550,11 +550,11 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
 
       const locData = locSnap.data() as any;
       const items = locData.items || [];
-      const itemIndex = items.findIndex(
-        (i: any) =>
-          normalize(i.articleCode) === normalize(articleCode) &&
-          normalize(i.orderFab) === normalize(orderFab),
-      );
+      const payloadPresenceId = String(payload?.presenceId || '').trim();
+      const itemIndex = items.findIndex((i: any) => {
+        if (payloadPresenceId && i.presenceId) return i.presenceId === payloadPresenceId;
+        return normalize(i.articleCode) === normalize(articleCode) && normalize(i.orderFab) === normalize(orderFab);
+      });
 
       if (itemIndex === -1) {
         throw new functions.https.HttpsError('not-found', 'Articulo no encontrado en esta ubicacion.');
@@ -655,6 +655,16 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
       const oldLocationIds: string[] = [];
       const newLocationIds: string[] = [];
 
+      // Capture preserved fields (unitCost/quantity) from the source location items
+      const preservedFields = new Map<string, { unitCost?: number; quantity?: number }>();
+      for (const { presence, locRef } of oldLocData) {
+        const locSnap = snapByPath.get(locRef.path);
+        if (locSnap?.exists) {
+          const srcItem = (locSnap.data()?.items || []).find((i: any) => samePresence(i, presence.data.presenceId, articleCode, orderFab));
+          if (srcItem) preservedFields.set(presence.ref.id, { unitCost: srcItem.unitCost, quantity: srcItem.quantity });
+        }
+      }
+
       // Remove article from old positions
       for (const { presence, locationId, position, locRef } of oldLocData) {
         oldLocationIds.push(locationId);
@@ -674,7 +684,10 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         newLocationIds.push(locationId);
         const locSnap = snapByPath.get(locRef.path);
         const currentItems = locSnap?.exists ? ((locSnap.data()?.items || []) as any[]) : [];
-        const movedItem = { presenceId: presence.data.presenceId, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now };
+        const pf = preservedFields.get(presence.ref.id) ?? {};
+        const movedItem: Record<string, unknown> = { presenceId: presence.data.presenceId, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now };
+        if (pf.unitCost !== undefined) movedItem.unitCost = pf.unitCost;
+        if (pf.quantity !== undefined) movedItem.quantity = pf.quantity;
         tx.set(locRef, { position, items: [...currentItems, movedItem], isEmpty: false }, { merge: true });
         // Espejo del alta si la posición de destino es urgente compartida.
         const twinRef = twinLocRefFor(db, shelfCode, position);
@@ -758,6 +771,16 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
       const oldLocationIds: string[] = [];
       const newLocationIds: string[] = [];
 
+      // Capture preserved fields (unitCost/quantity) from the source location items
+      const preservedFieldsR = new Map<string, { unitCost?: number; quantity?: number }>();
+      for (const { presence, locRef } of oldLocData) {
+        const locSnap = snapByPath.get(locRef.path);
+        if (locSnap?.exists) {
+          const srcItem = (locSnap.data()?.items || []).find((i: any) => samePresence(i, presence.data.presenceId, articleCode, orderFab));
+          if (srcItem) preservedFieldsR.set(presence.ref.id, { unitCost: srcItem.unitCost, quantity: srcItem.quantity });
+        }
+      }
+
       // Quitar de las posiciones de origen
       for (const { presence, locationId, position, locRef } of oldLocData) {
         oldLocationIds.push(locationId);
@@ -777,7 +800,10 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         newLocationIds.push(locationId);
         const locSnap = snapByPath.get(locRef.path);
         const currentItems = locSnap?.exists ? ((locSnap.data()?.items || []) as any[]) : [];
-        const movedItem = { presenceId: presence.data.presenceId, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now };
+        const pfR = preservedFieldsR.get(presence.ref.id) ?? {};
+        const movedItem: Record<string, unknown> = { presenceId: presence.data.presenceId, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now };
+        if (pfR.unitCost !== undefined) movedItem.unitCost = pfR.unitCost;
+        if (pfR.quantity !== undefined) movedItem.quantity = pfR.quantity;
         tx.set(locRef, { position, items: [...currentItems, movedItem], isEmpty: false }, { merge: true });
         // Espejo del alta si el destino es urgente compartida.
         const twinRef = twinLocRefFor(db, toShelfCode, position);

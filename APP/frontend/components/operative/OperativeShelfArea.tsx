@@ -10,7 +10,10 @@
  * de flujo y es imposible que diverjan.
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { COLLECTIONS } from '../../lib/schema/collections';
 import ShelfGrid from '../kiosk/ShelfGrid';
 import KioskSearchBar from '../kiosk/KioskSearchBar';
 import ScannerInput from '../kiosk/ScannerInput';
@@ -39,11 +42,13 @@ interface OperativeShelfAreaProps {
   setShelfCode?: (code: string) => void;
   /** Grid a pantalla completa (kiosko / carretillero). */
   fullscreenGrid?: boolean;
+  /** Kiosk mode: always show one block at a time with navigation. */
+  forceSingleBlock?: boolean;
 }
 
 const padPos = (p: string) => parseInt(p, 10);
 
-const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config, setShelfCode, fullscreenGrid = true }) => {
+const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config, setShelfCode, fullscreenGrid = true, forceSingleBlock = false }) => {
   const {
     action, scanData, selectedPositions, scannerActive, processing, feedback,
     shelfCode, shelfDef, locations, loading,
@@ -56,6 +61,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
     showRetirarArticleList, showRetirarCellModal, retirarCellPosition, retirarCellItems,
     showMoverArticleList,
     showReprocesosUbicacionModal, reprocesosCell, setReprocesosCell,
+    showOFQuestion, handleOFAnswer, handleOFCancel,
     sectionPicker, reubicarCtx, reubicarNeeded,
     showRecogidaModal, setShowRecogidaModal, showTraerModal, setShowTraerModal,
     moverNeeded, highlightedPositions,
@@ -75,6 +81,11 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
 
   const reprocesosCosts = !!config.reprocesos?.showCosts;
   const canMultiSection = config.ubicar.allowMultiSection;
+
+  const handleSaveNota = useCallback(async (nota: string, locationId: string) => {
+    const ref = doc(db, COLLECTIONS.SHELVES, shelfCode, COLLECTIONS.LOCATIONS, locationId);
+    await updateDoc(ref, { nota });
+  }, [shelfCode]);
 
   const actionLabel =
     pendingAction === 'ubicar' ? 'Ubicar artículo' :
@@ -280,6 +291,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             highlightedPositions={highlightedPositions}
             showReprocessCosts={reprocesosCosts}
             fullscreenMode={fullscreenGrid}
+            forceSingleBlock={forceSingleBlock}
           />
         )}
       </div>
@@ -396,6 +408,20 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         onClose={() => setShowAddShelfModal(false)}
       />
 
+      {/* Calidad cellFirst: pregunta si el artículo tiene OF antes de escanear */}
+      <ConfirmationModal
+        open={showOFQuestion}
+        onClose={handleOFCancel}
+        title="¿Tiene OF?"
+        message="¿Este artículo tiene hoja de ruta / orden de fabricación?"
+        icon="📋"
+        variant="info"
+        confirmText="SÍ, tiene OF"
+        onConfirm={() => handleOFAnswer(true)}
+        extraButton={{ text: 'NO, sin OF', onClick: () => handleOFAnswer(false) }}
+        loading={false}
+      />
+
       {/* Reprocesos: importe/cantidad al ubicar (calidad) */}
       <ReprocesosUbicacionModal
         open={showReprocesosUbicacionModal}
@@ -443,7 +469,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
       {/* Confirmaciones (incluye ghost, bucles, almacén, avisar) */}
       <ConfirmationModal
         open={confirmModal.open}
-        onClose={() => setConfirmModal((p) => ({ ...p, open: false }))}
+        onClose={confirmModal.onClose ?? (() => setConfirmModal((p) => ({ ...p, open: false })))}
         title={confirmModal.title}
         message={confirmModal.message}
         icon={confirmModal.icon}
@@ -502,6 +528,17 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
                   </div>
                 ))
               )}
+              <div className="pt-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Nota</p>
+                <textarea
+                  key={selectedCell.locationId}
+                  className="w-full bg-slate-800 border border-slate-600 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 resize-none focus:outline-none focus:border-cyan-500 transition-colors"
+                  placeholder="Añadir nota..."
+                  rows={2}
+                  defaultValue={selectedCell.nota ?? ''}
+                  onBlur={(e) => handleSaveNota(e.target.value, selectedCell.locationId)}
+                />
+              </div>
             </div>
           </div>
         </div>

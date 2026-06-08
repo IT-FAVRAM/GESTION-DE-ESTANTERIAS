@@ -86,12 +86,20 @@ export const applyRetirarDeUbicacion = (
   articleCode: string,
   orderFab: string,
   position: string,
+  presenceId?: string,
 ): { next: ShelfLocationState[]; found: boolean } => {
   let found = false;
   const next = prev.map((loc) => {
     if (loc.position !== position) return loc;
-    const updatedItems = loc.items.filter((item) => !isSameArticle(item.articleCode, item.orderFab, articleCode, orderFab));
-    if (updatedItems.length !== loc.items.length) found = true;
+    let removedOne = false;
+    const updatedItems = loc.items.filter((item) => {
+      if (removedOne) return true;
+      const matches = presenceId && item.presenceId
+        ? item.presenceId === presenceId
+        : isSameArticle(item.articleCode, item.orderFab, articleCode, orderFab);
+      if (matches) { removedOne = true; found = true; return false; }
+      return true;
+    });
     return { ...loc, items: updatedItems, isEmpty: updatedItems.length === 0 };
   });
   return { next, found };

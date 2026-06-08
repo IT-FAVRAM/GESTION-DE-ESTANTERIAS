@@ -78,11 +78,11 @@ export const SHELF_DEFINITIONS: Shelf[] = [
     name: 'Mecanizado',
     section: 'MECANIZADO',
     type: 'shelf',
-    locationCount: 34,
+    locationCount: 37,
     layout: {
       zones: [
         { name: 'URG MEC-PRE', range: [0, 0], color: '#ef4444', isUrgent: true },
-        { name: 'PRINCIPAL', range: [1, 30], color: '#f97316' },
+        { name: 'PRINCIPAL', range: [14, 46], color: '#f97316' },
       ],
       physicalBlocks: [
         {
@@ -100,15 +100,17 @@ export const SHELF_DEFINITIONS: Shelf[] = [
         {
           id: 'mec-main',
           title: 'Mecanizado',
-          subtitle: '4 filas · 9 columnas (30 ubicaciones)',
+          subtitle: '4 filas · 9 columnas (33 ubicaciones)',
           zoneName: 'PRINCIPAL',
-          // Cols 0-2 = cuerpo1 (001-012). Cols 3-5 = cuerpo2 (013-021, filas 2-4).
-          // Cols 6-8 = cuerpo3 (022-030, filas 2-4).
+          // Misma forma que antes. Numeración desplazada +13 para cuerpos 1-2 (001-021 → 014-034)
+          // y +16 para cuerpo3 (022-030 → 038-046). 3 celdas nuevas en fila 1 de cuerpo3 (035-037).
+          // Cols 0-2 = cuerpo1 (014-025). Cols 3-5 = cuerpo2 (026-034, filas 2-4).
+          // Cols 6-8 = cuerpo3 (035-037 fila 1 nuevas; 038-046 filas 2-4 renumeradas).
           rows: [
-            [1,  2,  3,    null, null, null, null, null, null],
-            [4,  5,  6,    13,   14,   15,   22,   23,   24 ],
-            [7,  8,  9,    16,   17,   18,   25,   26,   27 ],
-            [10, 11, 12,   19,   20,   21,   28,   29,   30 ],
+            [14, 15, 16,   null, null, null,   35, 36, 37],
+            [17, 18, 19,   26,   27,   28,     38, 39, 40],
+            [20, 21, 22,   29,   30,   31,     41, 42, 43],
+            [23, 24, 25,   32,   33,   34,     44, 45, 46],
           ],
         },
       ],

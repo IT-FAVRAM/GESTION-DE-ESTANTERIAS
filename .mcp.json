@@ -2,18 +2,22 @@
   "mcpServers": {
     "firebase": {
       "command": "npx",
-      "args": ["-y", "firebase-tools", "mcp"],
+      "args": [
+        "-y",
+        "firebase-tools",
+        "mcp"
+      ],
       "env": {
         "GOOGLE_APPLICATION_CREDENTIALS": ""
       }
     },
     "ruflo": {
       "command": "npx",
-      "args": ["--yes", "ruflo", "mcp"]
-    },
-    "memory_store": {
-      "command": "npx",
-      "args": ["--yes", "@anthropics-ai/memory-store", "mcp"]
+      "args": [
+        "ruflo@latest",
+        "mcp",
+        "start"
+      ]
     }
   }
 }

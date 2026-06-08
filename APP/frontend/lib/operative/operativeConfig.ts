@@ -54,6 +54,8 @@ export interface RoleOperativeConfig {
     askImporteCantidad: boolean;
     /** Muestra costes de reprocesos en el grid. */
     showCosts: boolean;
+    /** Seleccionar celda primero, luego preguntar si tiene OF antes de escanear. */
+    cellFirst?: boolean;
   };
 }
 
@@ -160,6 +162,7 @@ export function buildOperativeConfig(
         reprocesos: {
           askImporteCantidad: canEditReprocesses ?? true,
           showCosts: canViewReprocessCosts ?? false,
+          cellFirst: true,
         },
       };
 

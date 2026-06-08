@@ -44,7 +44,7 @@ export interface UseShelfReturn {
   ubicar: (articleCode: string, orderFab: string, position: string, operarioId: string, operarioName: string) => Promise<boolean>;
   ubicarMulti: (articleCode: string, orderFab: string, positions: string[], operarioId: string, operarioName: string, importe?: number, cantidad?: number) => Promise<boolean>;
   retirar: (articleCode: string, orderFab: string, operarioId: string, operarioName: string) => Promise<{ success: boolean; positions: string[]; error?: string }>;
-  retirarDeUbicacion: (articleCode: string, orderFab: string, position: string, operarioId: string, operarioName: string) => Promise<{ success: boolean; position: string; error?: string }>;
+  retirarDeUbicacion: (articleCode: string, orderFab: string, position: string, operarioId: string, operarioName: string, presenceId?: string) => Promise<{ success: boolean; position: string; error?: string }>;
   mover: (articleCode: string, orderFab: string, newPositions: string[], operarioId: string, operarioName: string) => Promise<boolean>;
   findArticle: (articleCode: string, orderFab: string) => ShelfLocationState[];
   emptyShelf: (operarioId: string, operarioName: string) => Promise<boolean>;
@@ -106,6 +106,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
             items: data.items || [],
             isEmpty: data.isEmpty ?? (data.items?.length === 0),
             locationId: getLocationDocId(shelfCode, data.position || docSnap.id),
+            nota: data.nota,
           });
         });
         locs.sort((a, b) => {
@@ -114,11 +115,6 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
           if (!Number.isNaN(numA) && !Number.isNaN(numB)) return numA - numB;
           return a.position.localeCompare(b.position);
         });
-        // DEBUG PERSISTENCIA: log para diagnosticar desaparición de artículos
-        const totalItems = locs.reduce((sum, l) => sum + l.items.length, 0);
-        const fromCache = snapshot.metadata.fromCache;
-        const hasPending = snapshot.metadata.hasPendingWrites;
-        console.log(`[useShelf][onSnapshot] ${shelfCode} → ${locs.length} ubicaciones, ${totalItems} artículos | fromCache=${fromCache} | pendingWrites=${hasPending}`);
         setLocations(locs);
         setLoading(false);
         setError(null);
@@ -279,13 +275,14 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     position: string,
     operarioId: string,
     operarioName: string,
+    presenceId?: string,
   ): Promise<{ success: boolean; position: string; error?: string }> => {
     const previousLocations = locations;
     try {
       const access = await validateShelfAccess('operate');
       if (!access.ok) return { success: false, position: '', error: 'Sin permiso para operar en esta estantería' };
       const session = getOperationalSession();
-      const optimisticResult = applyRetirarDeUbicacion(previousLocations, articleCode, orderFab, position);
+      const optimisticResult = applyRetirarDeUbicacion(previousLocations, articleCode, orderFab, position, presenceId);
 
       if (!navigator.onLine) {
         setLocations(optimisticResult.next);
@@ -296,7 +293,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
       // Online: apply optimistic update before API call
       setLocations(optimisticResult.next);
 
-      const retirarUbicResult = await inventoryApi.retirarDeUbicacion({ shelfCode, articleCode, orderFab, position, operarioId, operarioName }, session);
+      const retirarUbicResult = await inventoryApi.retirarDeUbicacion({ shelfCode, articleCode, orderFab, position, operarioId, operarioName, ...(presenceId ? { presenceId } : {}) }, session);
       if (!retirarUbicResult?.ok) {
         throw new Error(`Fallo al retirar artículo de ubicación en Firestore: ${retirarUbicResult?.ok === false ? 'backend rechazó la operación' : 'sin respuesta del servidor'}`);
       }

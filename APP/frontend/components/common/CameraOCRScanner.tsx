@@ -566,7 +566,7 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
           <>
             <button onClick={handleClose}
               className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors text-sm font-bold">
-              Cerrar
+              Dejar de escanear
             </button>
             <button
               onClick={captureAndOCR}

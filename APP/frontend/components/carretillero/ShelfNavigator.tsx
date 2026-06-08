@@ -384,7 +384,10 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
         onConfirm: () => {
           setConfirmModal(p => ({ ...p, open: false }));
           setScanData(null);
-          setScannerActive(true);
+          setScannerActive(false);
+          setShowCameraQR(false);
+          setShowCameraOCR(false);
+          setScanMethodPickerOpen(true);
         },
         extraButton: {
           text: 'NO, finalizar',

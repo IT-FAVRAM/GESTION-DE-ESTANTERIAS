@@ -3,10 +3,11 @@
  * Colapso individual por sección mediante chevron animado.
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import {
   type Shelf,
+  type ShelfPhysicalBlock,
   isTechReviewLocation,
   isUrgentLocation,
   isAluminioLocation,
@@ -30,6 +31,8 @@ interface ShelfGridProps {
   onCellDragEnter?: (position: string) => void;
   onCellDragLeave?: () => void;
   onCellDrop?: (targetPosition: string) => void;
+  /** Kiosk mode: always show one block at a time with navigation (ignores screen size) */
+  forceSingleBlock?: boolean;
 }
 
 const createEmptyLocation = (position: string, shelfCode?: string): ShelfLocationState => ({
@@ -175,6 +178,70 @@ const CollapsibleContent = React.memo(({
   </div>
 ));
 
+// ─── Mobile block navigation ──────────────────────────────────────────────────
+
+interface MobileBlockNavProps {
+  blocks: Array<{ id: string; title: string }>;
+  activeIdx: number;
+  onSelect: (idx: number) => void;
+  alwaysShow?: boolean;
+}
+
+const MobileBlockNav = React.memo(({ blocks, activeIdx, onSelect, alwaysShow = false }: MobileBlockNavProps) => {
+  const count = blocks.length;
+  const wrapCls = alwaysShow
+    ? 'flex items-center gap-2 mb-2 px-1 py-1.5 rounded-xl bg-slate-50 border border-slate-200/80'
+    : 'flex md:hidden items-center gap-2 mb-2 px-1 py-1.5 rounded-xl bg-slate-50 border border-slate-200/80';
+  return (
+    <div className={wrapCls}>
+      <button
+        type="button"
+        aria-label="Bloque anterior"
+        onClick={() => onSelect(Math.max(0, activeIdx - 1))}
+        disabled={activeIdx === 0}
+        className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-500 disabled:opacity-25 hover:bg-sky-50 hover:border-sky-200 hover:text-sky-600 transition-colors shrink-0"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+
+      <div className="flex items-center gap-2 flex-1 min-w-0 px-1">
+        <span className="text-xs font-black font-mono text-slate-700 truncate leading-none">{blocks[activeIdx]?.title}</span>
+        <span className="text-[10px] font-mono text-slate-400 shrink-0 tabular-nums">{activeIdx + 1}/{count}</span>
+      </div>
+
+      <div className="flex items-center gap-1 shrink-0 px-1">
+        {blocks.map((b, i) => (
+          <button
+            key={b.id}
+            type="button"
+            aria-label={b.title}
+            onClick={() => onSelect(i)}
+            className={`rounded-full transition-all duration-200 ${
+              i === activeIdx
+                ? 'w-5 h-1.5 bg-sky-500'
+                : 'w-1.5 h-1.5 bg-slate-300 hover:bg-slate-400'
+            }`}
+          />
+        ))}
+      </div>
+
+      <button
+        type="button"
+        aria-label="Bloque siguiente"
+        onClick={() => onSelect(Math.min(count - 1, activeIdx + 1))}
+        disabled={activeIdx === count - 1}
+        className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-500 disabled:opacity-25 hover:bg-sky-50 hover:border-sky-200 hover:text-sky-600 transition-colors shrink-0"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+    </div>
+  );
+});
+
 // ─── Block (physical layout) ──────────────────────────────────────────────────
 
 interface BlockProps {
@@ -195,6 +262,7 @@ interface BlockProps {
   isCollapsed: boolean;
   onToggle: () => void;
   showReprocessCosts: boolean;
+  showVerticalStrip?: boolean;
   onCellDragStart?: (data: CellDragData) => void;
   onCellDragEnter?: (position: string) => void;
   onCellDragLeave?: () => void;
@@ -212,6 +280,7 @@ const Block = React.memo(({
   isCollapsed,
   onToggle,
   showReprocessCosts,
+  showVerticalStrip = true,
   onCellDragStart,
   onCellDragEnter,
   onCellDragLeave,
@@ -232,27 +301,93 @@ const Block = React.memo(({
     const loc = locationMap.get(toPos(p));
     return sum + (loc?.items.length ?? 0);
   }, 0);
+  const pct = allPos.length > 0 ? Math.round((occupiedCount / allPos.length) * 100) : 0;
+
+  const stripCls = isUrgent
+    ? 'bg-red-50 border-red-300 hover:bg-red-100/60'
+    : isTechReview
+    ? 'bg-amber-50 border-amber-300 hover:bg-amber-100/60'
+    : 'bg-white border-slate-200 hover:bg-sky-50/60';
+  const stripTitleCls = isUrgent ? 'text-red-800' : isTechReview ? 'text-amber-800' : 'text-slate-700';
+  const stripStatsCls = isUrgent ? 'text-red-600' : isTechReview ? 'text-amber-600' : 'text-slate-500';
+  const stripChevronCls = isUrgent
+    ? 'text-red-400 group-hover:text-red-600'
+    : isTechReview
+    ? 'text-amber-400 group-hover:text-amber-600'
+    : 'text-slate-400 group-hover:text-slate-600';
+  const stripAccentCls = isUrgent ? 'bg-red-500' : isTechReview ? 'bg-amber-500' : 'bg-sky-500';
 
   return (
-    <div className="flex flex-col gap-2 min-w-0 w-full">
-      <SectionHeader
-        title={block.title}
-        subtitle={block.subtitle}
-        isUrgent={isUrgent}
-        isTechReview={isTechReview}
-        isAluminio={isAluminio}
-        occupiedCount={occupiedCount}
-        totalCount={allPos.length}
-        totalArticles={totalArticles}
-        isCollapsed={isCollapsed}
-        onToggle={onToggle}
-      />
+    <div className="flex flex-col gap-2 min-w-0 w-full h-full">
+      {/* Normal header: on desktop, hidden when showing vertical strip instead */}
+      <div className={showVerticalStrip && isCollapsed ? 'md:hidden' : undefined}>
+        <SectionHeader
+          title={block.title}
+          subtitle={block.subtitle}
+          isUrgent={isUrgent}
+          isTechReview={isTechReview}
+          isAluminio={isAluminio}
+          occupiedCount={occupiedCount}
+          totalCount={allPos.length}
+          totalArticles={totalArticles}
+          isCollapsed={isCollapsed}
+          onToggle={onToggle}
+        />
+      </div>
+
+      {/* Vertical strip: desktop only, when collapsed and vertical strip mode active */}
+      {showVerticalStrip && isCollapsed && (
+        <button
+          type="button"
+          onClick={onToggle}
+          title={`Expandir: ${block.title}`}
+          className={`hidden md:flex flex-col items-center justify-between flex-1 w-full rounded-xl border
+            py-3 px-1 relative overflow-hidden
+            transition-colors duration-200 cursor-pointer group
+            active:scale-[0.97] animate-fade-in
+            ${stripCls}`}
+        >
+          {/* Occupancy fill rising from bottom — subtle background indicator */}
+          <div
+            className={`absolute inset-x-0 bottom-0 ${stripAccentCls} opacity-[0.08] rounded-b-xl transition-all duration-700`}
+            style={{ height: `${pct}%` }}
+          />
+
+          {/* Left-edge accent line */}
+          <div className={`absolute left-0 top-2 bottom-2 w-[2px] ${stripAccentCls} opacity-50 rounded-full`} />
+
+          {/* Expand chevron at top (← = "click to expand") */}
+          <svg
+            className={`w-3 h-3 -rotate-90 shrink-0 transition-transform duration-200 ${stripChevronCls}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+
+          {/* Title reading top → bottom */}
+          <span
+            className={`text-[8px] font-mono font-black tracking-widest uppercase flex-1 py-2 leading-none ${stripTitleCls}`}
+            style={{ writingMode: 'vertical-lr' }}
+          >
+            {block.title}
+          </span>
+
+          {/* Count + accent dot at bottom */}
+          <div className="flex flex-col items-center gap-1 shrink-0">
+            <span className={`text-[7px] font-mono tabular-nums leading-none ${stripStatsCls}`}>
+              {occupiedCount}/{allPos.length}
+            </span>
+            <div className={`w-1 h-1 rounded-full ${stripAccentCls} opacity-50`} />
+          </div>
+        </button>
+      )}
+
       <CollapsibleContent isCollapsed={isCollapsed}>
         <div className="pt-1 pb-2 min-w-0">
           {/* Scroll horizontal solo en este contenedor; la estantería mantiene su ancho mínimo */}
           <div className="w-full max-w-full overflow-x-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
             <ShelfRackView
-              block={block as import('../../lib/firestoreSchema').ShelfPhysicalBlock}
+              block={block as ShelfPhysicalBlock}
               shelfCode={shelfDef.code}
               locationMap={locationMap}
               selectedPositions={selectedPositions}
@@ -285,12 +420,17 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
   compact = false,
   showReprocessCosts = false,
   fullscreenMode = false,
+  forceSingleBlock = false,
   onCellDragStart,
   onCellDragEnter,
   onCellDragLeave,
   onCellDrop,
 }) => {
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [activeMobileBlockIdx, setActiveMobileBlockIdx] = useState(0);
+
+  // Reset navigation index when the shelf changes
+  useEffect(() => { setActiveMobileBlockIdx(0); }, [shelfDef?.code]);
 
   const toggleSection = useCallback((id: string) => {
     setCollapsedSections((prev) => {
@@ -312,16 +452,7 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
   const totalArticles = locations.reduce((sum, loc) => sum + (loc.items?.length ?? 0), 0);
   const pct = totalSlots > 0 ? Math.round((occupiedSlots / totalSlots) * 100) : 0;
   const physicalBlocks = shelfDef?.layout.physicalBlocks ?? [];
-
-  // Adaptar columnas al número de bloques no-fullWidth de la sección
-  // → secciones pequeñas (1 bloque) ocupan todo el ancho y se centran
-  const regularBlockCount = physicalBlocks.filter((b) => !b.fullWidth).length;
-  const blockGridCols =
-    regularBlockCount <= 1
-      ? 'grid-cols-1'
-      : regularBlockCount === 2
-      ? 'grid-cols-1 md:grid-cols-2'
-      : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3';
+  const regularBlocks = physicalBlocks.filter((b) => !b.fullWidth);
 
   const colsForBlock = useCallback((rows: Array<Array<number | string | null>>): string => {
     const maxCols = Math.max(...rows.map((row) => row.length), 1);
@@ -435,27 +566,57 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
        )}
 
        {physicalBlocks.length > 0 ? (
-         <div className={`grid ${blockGridCols} pb-4 ${fullscreenMode ? 'gap-2' : 'gap-3'} w-full min-w-0`}>
-           {physicalBlocks.map((block) => (
-             <div key={block.id} className={`min-w-0 ${block.fullWidth ? 'col-span-full' : ''}`}>
-               <Block
-                 block={block}
-                 shelfDef={shelfDef!}
-                 locationMap={locationMap}
-                 selectedPositions={selectedPositions}
-                 highlightedPositions={highlightedPositions}
-                 dragOverPosition={dragOverPosition}
-                 onCellPress={onCellPress}
-                 isCollapsed={collapsedSections.has(block.id)}
-                 onToggle={() => toggleSection(block.id)}
-                 showReprocessCosts={showReprocessCosts}
-                 onCellDragStart={onCellDragStart}
-                 onCellDragEnter={onCellDragEnter}
-                 onCellDragLeave={onCellDragLeave}
-                 onCellDrop={onCellDrop}
-               />
-             </div>
-           ))}
+         <div className="w-full min-w-0">
+           {regularBlocks.length > 1 && (
+             <MobileBlockNav
+               blocks={regularBlocks}
+               activeIdx={activeMobileBlockIdx}
+               onSelect={setActiveMobileBlockIdx}
+               alwaysShow={forceSingleBlock}
+             />
+           )}
+           <div className={`flex ${forceSingleBlock ? 'flex-col' : 'flex-wrap'} pb-4 ${fullscreenMode ? 'gap-2' : 'gap-3'} w-full min-w-0`}>
+             {physicalBlocks.map((block) => {
+               const isCollapsed = collapsedSections.has(block.id);
+               const regularIdx = regularBlocks.findIndex((b) => b.id === block.id);
+               const isRegular = regularIdx >= 0;
+               const isMobileInactive = isRegular && regularIdx !== activeMobileBlockIdx;
+               const hiddenClass = isMobileInactive
+                 ? (forceSingleBlock ? 'hidden' : 'hidden md:block')
+                 : '';
+               const widthClass = block.fullWidth
+                 ? 'w-full min-w-0'
+                 : forceSingleBlock
+                 ? 'w-full min-w-0'
+                 : isCollapsed
+                 ? 'flex-1 min-w-0 md:flex-none md:w-8 md:self-stretch md:transition-all md:duration-300'
+                 : 'flex-1 min-w-0 md:transition-all md:duration-300';
+               return (
+                 <div
+                   key={block.id}
+                   className={[hiddenClass, widthClass].filter(Boolean).join(' ')}
+                 >
+                   <Block
+                     block={block}
+                     shelfDef={shelfDef!}
+                     locationMap={locationMap}
+                     selectedPositions={selectedPositions}
+                     highlightedPositions={highlightedPositions}
+                     dragOverPosition={dragOverPosition}
+                     onCellPress={onCellPress}
+                     isCollapsed={isCollapsed}
+                     onToggle={() => toggleSection(block.id)}
+                     showReprocessCosts={showReprocessCosts}
+                     showVerticalStrip={!forceSingleBlock}
+                     onCellDragStart={onCellDragStart}
+                     onCellDragEnter={onCellDragEnter}
+                     onCellDragLeave={onCellDragLeave}
+                     onCellDrop={onCellDrop}
+                   />
+                 </div>
+               );
+             })}
+           </div>
          </div>
        ) : (
          <div className={`space-y-${fullscreenMode ? 2 : 3}`}>

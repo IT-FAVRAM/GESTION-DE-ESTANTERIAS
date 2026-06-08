@@ -2,6 +2,7 @@ export interface LocationDoc {
   position: string;
   items: LocationItem[];
   isEmpty: boolean;
+  nota?: string;
 }
 
 export interface LocationItem {
@@ -58,6 +59,7 @@ export interface ShelfLocationState {
   items: LocationItem[];
   isEmpty: boolean;
   locationId: string;
+  nota?: string;
 }
 
 

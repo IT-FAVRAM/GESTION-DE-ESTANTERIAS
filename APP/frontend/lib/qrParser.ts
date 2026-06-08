@@ -138,6 +138,7 @@ export const parseScanInput = (rawInput: string): ScanParseResult => {
 const normalizeOcrText = (rawInput: string): string => {
   return rawInput
     .trim()
+    .replace(/\bHoja\b/gi, '')
     .replace(/[\r\n\t]+/g, ' ')
     .replace(/\s+/g, ' ')
     .toUpperCase()

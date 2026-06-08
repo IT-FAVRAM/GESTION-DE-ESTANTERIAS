@@ -578,6 +578,9 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
             setConfirmModal(p => ({ ...p, open: false }));
             setArticleInput('');
             setOfInput('');
+            setShowCameraQR(false);
+            setShowCameraOCR(false);
+            setScanPickerOpen(true);
           },
           extraButton: {
             text: 'NO, finalizar',

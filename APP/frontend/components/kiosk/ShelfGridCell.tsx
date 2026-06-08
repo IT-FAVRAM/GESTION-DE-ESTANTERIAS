@@ -135,6 +135,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
         <span className={`text-[9px] font-black font-mono ${headerText}`}>{displayNum}</span>
         {!isEmpty && itemCount === 1 && <span className="w-2 h-2 rounded-full bg-cyan-300 mt-0.5 shadow-[0_0_10px_rgba(103,232,249,0.8)]" />}
         {!isEmpty && itemCount > 1 && <span className={`text-[8px] font-black mt-0.5 ${headerText}`}>{itemCount}</span>}
+        {location?.nota && <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-amber-400 pointer-events-none" />}
       </button>
     );
   }
@@ -181,7 +182,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
     return (
       <div
         onClick={onPress ? handleClick : undefined}
-        className={`rounded-2xl border transition-all duration-200 overflow-hidden w-full
+        className={`rounded-2xl border transition-all duration-200 overflow-hidden w-full relative
           hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20 ${onPress ? 'cursor-pointer' : 'cursor-default'}
           ${isDragOver ? 'ring-2 ring-emerald-300/90 bg-emerald-500/10' : ''}
           ${emptyBorder} ${emptyBg}`}
@@ -195,6 +196,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
             Libre
           </span>
         </div>
+        {location?.nota && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 pointer-events-none" />}
       </div>
     );
   }
@@ -286,7 +288,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
 
   return (
     <div
-      className={`rounded-2xl border transition-all duration-200 overflow-hidden w-full
+      className={`rounded-2xl border transition-all duration-200 overflow-hidden w-full relative
         hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/25
         ${isHighlighted ? 'animate-pulse' : ''}
         ${isDraggable && !multiItem ? 'cursor-grab active:cursor-grabbing' : (onPress ? 'cursor-pointer active:scale-[0.98]' : 'cursor-default')}
@@ -296,6 +298,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
       {...(!multiItem ? dragProps : {})}
       {...dropProps}
     >
+      {location?.nota && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 z-10 pointer-events-none" />}
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 gap-2">
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
