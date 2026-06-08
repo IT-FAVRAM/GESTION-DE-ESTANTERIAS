@@ -141,12 +141,12 @@ export const RACKS = DEFAULT_RACKS;
 export const POSITIONS = DEFAULT_POSITIONS;
 
 // --- SECTIONS LOGIC ---
-export type WarehouseSection = "PLEGADORA" | "MECANIZADO" | "LASER" | "REPASADO" | "SOLDADURA" | "AUTOPLEGADORA" | "PINTURA" | "ROBOT_PLEGADO" | "CALIDAD" | "OTROS";
+export type WarehouseSection = "PLEGADORA" | "PRENSAS_MECANIZADO" | "LASER" | "REPASADO" | "SOLDADURA" | "AUTOPLEGADORA" | "PINTURA" | "ROBOT_PLEGADO" | "CALIDAD" | "OTROS";
 
 // Mapa de prefijos de ubicación a secciones
 export const WAREHOUSE_TO_SECTION: Record<string, WarehouseSection> = {
-  MEC: "MECANIZADO",
-  PRE: "MECANIZADO", // Prensas belongs to Mecanizado section
+  MEC: "PRENSAS_MECANIZADO",
+  PRE: "PRENSAS_MECANIZADO",
   PLE: "PLEGADORA",
   RPL: "AUTOPLEGADORA", // Autoplegadora
   SOL: "SOLDADURA",
@@ -169,7 +169,7 @@ export const getSectionFromLocation = (locationId: string): WarehouseSection | n
   // Robust check based on content rather than strict prefix
   if (upper.includes("ROB.PLE") || upper.includes("RPL-")) return "AUTOPLEGADORA";
   if (upper.includes("PLE")) return "PLEGADORA";
-  if (upper.includes("MEC")) return "MECANIZADO";
+  if (upper.includes("MEC") || upper.includes("PRE")) return "PRENSAS_MECANIZADO";
   if (upper.includes("SOL") || upper.includes("SXP") || upper.includes("RSO") || upper.includes("ROB.SOL")) return "SOLDADURA";
   if (upper.includes("REP") || upper.includes("PIN") || upper.includes("ZIN")) return "REPASADO";
   if (upper.includes("LAS")) return "LASER";

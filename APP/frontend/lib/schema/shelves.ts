@@ -42,7 +42,7 @@ export const SHELF_DEFINITIONS: Shelf[] = [
   {
     code: 'PRE',
     name: 'Prensas',
-    section: 'PRENSAS',
+    section: 'PRENSAS_MECANIZADO',
     type: 'shelf',
     locationCount: 13,
     layout: {
@@ -76,7 +76,7 @@ export const SHELF_DEFINITIONS: Shelf[] = [
   {
     code: 'MEC',
     name: 'Mecanizado',
-    section: 'MECANIZADO',
+    section: 'PRENSAS_MECANIZADO',
     type: 'shelf',
     locationCount: 37,
     layout: {

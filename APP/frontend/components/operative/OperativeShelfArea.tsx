@@ -61,7 +61,8 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
     showRetirarArticleList, showRetirarCellModal, retirarCellPosition, retirarCellItems,
     showMoverArticleList,
     showReprocesosUbicacionModal, reprocesosCell, setReprocesosCell,
-    showOFQuestion, handleOFAnswer, handleOFCancel,
+    pendingCell,
+    showOFQuestion, handleOFAnswer, handleOFCancel, handleCellFirstConfirmPositions,
     sectionPicker, reubicarCtx, reubicarNeeded,
     showRecogidaModal, setShowRecogidaModal, showTraerModal, setShowTraerModal,
     moverNeeded, highlightedPositions,
@@ -101,7 +102,24 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
       {action !== 'idle' && !batchMode && (
         <div className="flex-shrink-0 px-3 py-2 bg-white border-b border-slate-200 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 flex-wrap min-w-0">
-            {scannerActive && !scanData && (
+            {/* cellFirst fase 1: seleccionar una o varias celdas antes de escanear */}
+            {action === 'ubicar' && config.reprocesos?.cellFirst && !scanData && !pendingCell && (
+              selectedPositions.length === 0 ? (
+                <span className="text-xs text-emerald-700 font-bold">👇 Toca las celdas de reprocesos donde ubicar</span>
+              ) : (
+                <>
+                  <span className="text-xs text-emerald-700 font-bold">{selectedPositions.length} celda(s) seleccionada(s)</span>
+                  <button
+                    onClick={handleCellFirstConfirmPositions}
+                    disabled={processing}
+                    className="px-4 py-2 min-h-[40px] bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold rounded-xl disabled:opacity-50 transition-all touch-manipulation"
+                  >
+                    ✓ Continuar
+                  </button>
+                </>
+              )
+            )}
+            {scannerActive && !scanData && !(action === 'ubicar' && config.reprocesos?.cellFirst && !pendingCell) && (
               <span className="text-xs text-sky-600 animate-pulse font-bold">📡 Esperando escáner…</span>
             )}
             {scanData && (

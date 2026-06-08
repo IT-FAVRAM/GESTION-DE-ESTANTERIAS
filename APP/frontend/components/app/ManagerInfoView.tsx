@@ -10,9 +10,8 @@ import { SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
 import { SECTION_TO_SHELF } from '../../domain/auth/sectionShelf';
 
 const SECTION_LABEL: Record<WarehouseSection, string> = {
-  MECANIZADO: 'Mecanizado',
+  PRENSAS_MECANIZADO: 'Prensas-Mecanizado',
   PLEGADORA: 'Plegadora',
-  PRENSAS: 'Prensas',
   SOLDADURA: 'Soldadura',
   AUTOPLEGADORA: 'Autoplegadora',
   REPASADO: 'Repasado',

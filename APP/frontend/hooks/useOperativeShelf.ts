@@ -330,7 +330,7 @@ export function useOperativeShelf({
     activateMethod(method);
   }, [pendingAction, batchMode, activateMethod]);
 
-  const beginBatchMode = useCallback(() => {
+  const beginBatchMode = useCallback((preservePositions = false) => {
     setScanMethodPickerOpen(false);
     // El lote es siempre de "ubicar"; usa pendingAction si existe.
     const act: OperativeAction = pendingAction ?? 'ubicar';
@@ -340,7 +340,7 @@ export function useOperativeShelf({
     setBatchArticles([]);
     setBatchMethod(null);
     setBatchProcessedCount(0);
-    setSelectedPositions([]);
+    if (!preservePositions) setSelectedPositions([]);
     // Abrir selector de método de escaneo (bloqueante hasta elegir).
     setScanMethodPickerOpen(true);
   }, [pendingAction]);
@@ -387,12 +387,45 @@ export function useOperativeShelf({
     setScanMethodPickerOpen(true);
   };
 
-  // cellFirst: respuesta a "¿Tiene OF?"
+  // cellFirst: confirmar posiciones seleccionadas → abre pregunta OF
+  const handleCellFirstConfirmPositions = useCallback(() => {
+    if (selectedPositions.length === 0) {
+      showToast('error', 'Selecciona al menos una celda');
+      return;
+    }
+    const firstLoc = locations.find((l) => l.position === selectedPositions[0]) || null;
+    setPendingCell(firstLoc);
+    setShowOFQuestion(true);
+  }, [selectedPositions, locations, showToast]);
+
+  // cellFirst: respuesta a "¿Tiene OF?" → pregunta lote/individual
   const handleOFAnswer = useCallback((hasOF: boolean) => {
     setShowOFQuestion(false);
     if (!hasOF) setScanArticleOnly(true);
-    setScanMethodPickerOpen(true);
-  }, []);
+    if (config.ubicar.askMultiArticle) {
+      setConfirmModal({
+        open: true,
+        title: '¿Cuántos artículos vas a analizar?',
+        message: '¿Vas a analizar varios artículos en estas posiciones?',
+        icon: '📦',
+        variant: 'info',
+        confirmText: 'Solo UNO',
+        onConfirm: () => {
+          setConfirmModal((p) => ({ ...p, open: false }));
+          setScanMethodPickerOpen(true);
+        },
+        extraButton: {
+          text: 'VARIOS (lote)',
+          onClick: () => {
+            setConfirmModal((p) => ({ ...p, open: false }));
+            beginBatchMode(true);
+          },
+        },
+      });
+    } else {
+      setScanMethodPickerOpen(true);
+    }
+  }, [config.ubicar.askMultiArticle, beginBatchMode]);
 
   // cellFirst: cerrar el modal "¿Tiene OF?" sin elegir → volver a esperar celda
   const handleOFCancel = useCallback(() => {
@@ -611,12 +644,12 @@ export function useOperativeShelf({
     }
 
     // cellFirst sin OF: artículo capturado → ir directamente al modal de reprocesos
+    // selectedPositions ya están establecidas por la selección múltiple de celdas
     if (scanArticleOnly && pendingCell) {
       setScanData({ articleCode, orderFab: orderFab || 'SIN-OF' });
       setScannerActive(false);
       setShowCameraQR(false);
       setShowCameraOCR(false);
-      setSelectedPositions([pendingCell.position]);
       setShowReprocesosUbicacionModal(true);
       return;
     }
@@ -626,9 +659,8 @@ export function useOperativeShelf({
 
     // UBICAR: aviso de artículo ya ubicado en el sistema (ghost)
     if (action === 'ubicar') {
-      // cellFirst con OF: celda ya seleccionada, ir directamente al modal de reprocesos
+      // cellFirst con OF: posiciones ya seleccionadas, ir directamente al modal de reprocesos
       if (config.reprocesos?.cellFirst && pendingCell) {
-        setSelectedPositions([pendingCell.position]);
         setShowReprocesosUbicacionModal(true);
         return;
       }
@@ -764,14 +796,14 @@ export function useOperativeShelf({
       return;
     }
 
-    // UBICAR cellFirst (calidad reprocesos): seleccionar celda antes de escanear
+    // UBICAR cellFirst (calidad reprocesos): fase 1 de selección múltiple de celdas
+    // pendingCell=null significa "todavía eligiendo celdas"; pendingCell set = "en fase escaneo"
     if (action === 'ubicar' && config.reprocesos?.cellFirst && !scanData && !pendingCell) {
       if (!reprocesosEnabled || !isReprocesosLocation(shelfCode, padPos(loc.position))) {
         showToast('error', 'Selecciona una celda de reprocesos');
         return;
       }
-      setPendingCell(loc);
-      setShowOFQuestion(true);
+      toggleSelected(loc.position);
       return;
     }
 
@@ -1223,7 +1255,8 @@ export function useOperativeShelf({
     showRetirarArticleList, showRetirarCellModal, retirarCellPosition, retirarCellItems,
     showMoverArticleList,
     showReprocesosUbicacionModal, reprocesosCell, setReprocesosCell,
-    showOFQuestion, handleOFAnswer, handleOFCancel,
+    pendingCell,
+    showOFQuestion, handleOFAnswer, handleOFCancel, handleCellFirstConfirmPositions,
     sectionPicker,
     reubicarCtx, reubicarNeeded,
     showRecogidaModal, setShowRecogidaModal,

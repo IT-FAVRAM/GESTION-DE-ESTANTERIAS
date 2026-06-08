@@ -1,14 +1,14 @@
 /**
  * JefeSeccionView — Vista del jefe de sección en móvil.
- * Acceso directo a su estantería. Sin sidebar. Sin carros. Sin almacén.
+ * Acceso directo a su(s) estantería(s). Sin sidebar. Sin carros. Sin almacén.
  *
- * Cascarón fino: el header con la botonera y el cuerpo del flujo los aporta el
- * motor operativo único (useOperativeShelf + OperativeShelfArea).
+ * Si la sección agrupa varias estanterías (p.ej. PRENSAS_MECANIZADO → MEC + PRE),
+ * muestra pestañas de cambio de estantería en el header.
  */
 
 import React, { useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
+import { SHELF_DEFINITIONS, getSectionForShelf, getShelvesForSection } from '../../lib/firestoreSchema';
 import { buildOperativeConfig } from '../../lib/operative/operativeConfig';
 import { useOperativeShelf } from '../../hooks/useOperativeShelf';
 import OperativeShelfArea from '../operative/OperativeShelfArea';
@@ -22,9 +22,19 @@ const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack }) => {
   const { displayName, operarioId, firebaseUser, section, assignedShelf, logout } = useAuth();
   const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? '';
 
-  // assignedShelf contiene el CÓDIGO de estantería correcto (ej: 'PLE' para PLEGADORA).
-  // NO usar `section` directamente — es el nombre de la sección ('PLEGADORA'), no el código.
-  const shelfCode = assignedShelf ?? SHELF_DEFINITIONS[0]?.code ?? 'MEC';
+  // Determina las estanterías accesibles para la sección del usuario
+  const sectionKey = section ? getSectionForShelf(assignedShelf ?? '') || (section as ReturnType<typeof getSectionForShelf>) : null;
+  const sectionShelfCodes = useMemo(() => {
+    if (!section) return [assignedShelf ?? SHELF_DEFINITIONS[0]?.code ?? 'MEC'];
+    const codesFromSection = getShelvesForSection(section as Parameters<typeof getShelvesForSection>[0]);
+    if (codesFromSection.length > 0) return codesFromSection;
+    return [assignedShelf ?? SHELF_DEFINITIONS[0]?.code ?? 'MEC'];
+  }, [section, assignedShelf]);
+
+  // Estantería activa (por defecto la primera, o la assignedShelf si pertenece a la sección)
+  const defaultShelf = sectionShelfCodes.includes(assignedShelf ?? '') ? (assignedShelf ?? sectionShelfCodes[0]) : sectionShelfCodes[0];
+  const [shelfCode, setShelfCode] = useState<string>(defaultShelf);
+
   const shelfDef = SHELF_DEFINITIONS.find((s) => s.code === shelfCode);
 
   const config = useMemo(
@@ -35,9 +45,15 @@ const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack }) => {
   const engine = useOperativeShelf({
     config,
     shelfCode,
+    setShelfCode,
     operarioId: effectiveOperarioId,
     displayName,
   });
+
+  const handleShelfChange = (code: string) => {
+    engine.cancelAction();
+    setShelfCode(code);
+  };
 
   return (
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
@@ -52,6 +68,28 @@ const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack }) => {
               <p className="text-[10px] text-slate-500 truncate leading-none mt-0.5">{displayName} · {operarioId}</p>
             </div>
           </div>
+
+          {/* Selector de estantería si la sección tiene varias */}
+          {sectionShelfCodes.length > 1 && (
+            <div className="flex gap-1 flex-shrink-0">
+              {sectionShelfCodes.map((code) => {
+                const def = SHELF_DEFINITIONS.find((s) => s.code === code);
+                return (
+                  <button
+                    key={code}
+                    onClick={() => handleShelfChange(code)}
+                    className={`px-2.5 py-1.5 text-xs font-black rounded-lg transition-all ${
+                      shelfCode === code
+                        ? 'bg-sky-600 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {def?.name ?? code}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           <OperativeActionButtons engine={engine} config={config} />
 

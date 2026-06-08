@@ -2,8 +2,7 @@ import type { UserRole, WarehouseSection } from '../../lib/firestoreSchema';
 
 /** Sección de almacén → código de estantería principal */
 export const SECTION_TO_SHELF: Partial<Record<WarehouseSection, string>> = {
-  MECANIZADO: 'MEC',
-  PRENSAS: 'PRE',
+  PRENSAS_MECANIZADO: 'MEC',
   PLEGADORA: 'PLE',
   PUNZONADO: 'PLE',  // la punzonadora está en la sección de Plegado
   SOLDADURA: 'SOL',

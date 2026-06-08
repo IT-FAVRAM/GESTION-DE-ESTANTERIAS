@@ -51,7 +51,7 @@ export const useKiosk = (kioskId: string | null | undefined): UseKioskReturn => 
           const fallbackMap: Record<string, KioskDoc> = {
             'kiosko-mecanizado': {
               id: 'kiosko-mecanizado',
-              name: 'Mecanizado-Prensas',
+              name: 'Prensas-Mecanizado',
               shelves: ['MEC', 'PRE'],
               location: 'Zona Mecanizado y Prensas',
               isActive: true,
@@ -79,7 +79,7 @@ export const useKiosk = (kioskId: string | null | undefined): UseKioskReturn => 
         const fallbackMap: Record<string, KioskDoc> = {
           'kiosko-mecanizado': {
             id: 'kiosko-mecanizado',
-            name: 'Mecanizado-Prensas',
+            name: 'Prensas-Mecanizado',
             shelves: ['MEC', 'PRE'],
             location: 'Zona Mecanizado y Prensas',
             isActive: true,
