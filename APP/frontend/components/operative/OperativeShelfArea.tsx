@@ -77,6 +77,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
     handleSectionPicked, handleRecogidaConfirm, handleTraerConfirm,
     addAdditionalShelf,
     setShowRetirarArticleList, setShowMoverArticleList, setSectionPicker, setScanMethodPickerOpen,
+    scanArticleOnly,
   } = engine;
 
   const reprocesosCosts = !!config.reprocesos?.showCosts;
@@ -303,6 +304,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         disabled={processing}
         showCameraButtons={batchMode}
         dualField
+        ofOptional={scanArticleOnly}
       />
 
       {/* ── Modales ── */}

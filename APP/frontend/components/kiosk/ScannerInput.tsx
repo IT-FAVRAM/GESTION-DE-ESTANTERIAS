@@ -25,6 +25,8 @@ interface ScannerInputProps {
    * (compatibilidad con pistola de barras que escanea todo de una vez).
    */
   dualField?: boolean;
+  /** Si true, el campo OF es opcional (flujo calidad: "sin OF"). */
+  ofOptional?: boolean;
 }
 
 const ScannerInput: React.FC<ScannerInputProps> = ({
@@ -35,6 +37,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
   onOpenOCRCamera,
   showCameraButtons = true,
   dualField = false,
+  ofOptional = false,
 }) => {
   // Modo single-field
   const [input, setInput] = useState('');
@@ -98,14 +101,14 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
       return;
     }
 
-    if (!of) {
+    if (!of && !ofOptional) {
       onScan({ success: false, error: 'El campo Nº OF es obligatorio', rawInput: article });
       return;
     }
 
     onScan({
       success: true,
-      data: { articleCode: article, orderFab: of },
+      data: { articleCode: article, orderFab: of || 'SIN-OF' },
     });
     setArticleInput('');
     setOfInput('');
@@ -162,13 +165,13 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
               value={ofInput}
               onChange={(e) => setOfInput(e.target.value)}
               onKeyDown={handleOfKeyDown}
-              placeholder="Nº OF  (ej: OF25-1234)"
+              placeholder={ofOptional ? "Sin OF (opcional)" : "Nº OF  (ej: OF25-1234)"}
               disabled={disabled}
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="characters"
               spellCheck={false}
-              className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:opacity-50 text-sm"
+              className={`w-full px-3 py-2.5 bg-slate-800 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-1 disabled:opacity-50 text-sm ${ofOptional ? 'border-slate-600 focus:border-amber-500 focus:ring-amber-500' : 'border-slate-700 focus:border-cyan-500 focus:ring-cyan-500'}`}
             />
           </div>
           <button

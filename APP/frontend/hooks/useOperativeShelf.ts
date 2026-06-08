@@ -612,7 +612,7 @@ export function useOperativeShelf({
 
     // cellFirst sin OF: artículo capturado → ir directamente al modal de reprocesos
     if (scanArticleOnly && pendingCell) {
-      setScanData({ articleCode, orderFab: 'SIN-OF' });
+      setScanData({ articleCode, orderFab: orderFab || 'SIN-OF' });
       setScannerActive(false);
       setShowCameraQR(false);
       setShowCameraOCR(false);
@@ -1247,6 +1247,7 @@ export function useOperativeShelf({
     setShowRetirarArticleList, setShowRetirarCellModal, setShowMoverArticleList,
     setSectionPicker, setScanMethodPickerOpen, setPendingAction,
     setShowReprocesosUbicacionModal,
+    scanArticleOnly,
     // utilidades
     getShelfDefinition,
   };
