@@ -289,19 +289,19 @@ export const SHELF_DEFINITIONS: Shelf[] = [
     name: 'Pintura',
     section: 'PINTURA',
     type: 'shelf',
-    locationCount: 33,
+    locationCount: 39,
     layout: {
       zones: [
-        { name: 'DENTRO', range: [1, 21], color: '#3b82f6' },
+        { name: 'DENTRO', range: [1, 27], color: '#3b82f6' },
         { name: 'FUERA', range: [28, 39], color: '#f97316' },
       ],
       physicalBlocks: [
         {
           id: 'pin-dentro',
           title: 'Estanteria 1',
-          subtitle: 'Dentro · 001-021',
+          subtitle: 'Dentro · 001-027',
           zoneName: 'DENTRO',
-          rows: [[15, 16, 17, 18, 19, 20, 21], [8, 9, 10, 11, 12, 13, 14], [1, 2, 3, 4, 5, 6, 7]],
+          rows: [[19, 20, 21, 22, 23, 24, 25, 26, 27], [10, 11, 12, 13, 14, 15, 16, 17, 18], [1, 2, 3, 4, 5, 6, 7, 8, 9]],
         },
         {
           id: 'pin-fuera',
