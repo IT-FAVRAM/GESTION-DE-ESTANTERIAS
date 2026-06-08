@@ -67,7 +67,10 @@ const mirrorAppend = (
 ) => {
   if (!twinLocRef) return;
   const cur = twinSnap?.exists ? ((twinSnap.data()?.items || []) as any[]) : [];
-  tx.set(twinLocRef, { position, items: [...cur, item], isEmpty: false }, { merge: true });
+  // ✅ FIX #9: Copiar `nota` y otros campos de la ubicación gemela
+  const twinData = twinSnap?.exists ? twinSnap.data() : {};
+  const notaToPreserve = twinData?.nota;
+  tx.set(twinLocRef, { position, items: [...cur, item], isEmpty: false, ...(notaToPreserve ? { nota: notaToPreserve } : {}) }, { merge: true });
 };
 
 /** ✅ FIX #6: Determina los shelfCodes para una posición (soporta ubicaciones compartidas). */

@@ -21,32 +21,60 @@ const ReprocesosUbicacionModal: React.FC<ReprocesosUbicacionModalProps> = ({
 }) => {
   const [importe, setImporte] = useState<string>('');
   const [cantidad, setCantidad] = useState<string>('');
+  const [error, setError] = useState<string>('');
 
-  const handleConfirm = useCallback(() => {
+  // ✅ FIX #7: Validar en tiempo real para mostrar feedback
+  const validateInputs = useCallback(() => {
     const importeNum = importe.trim() ? parseFloat(importe) : undefined;
     const cantidadNum = cantidad.trim() ? parseInt(cantidad, 10) : undefined;
 
-    if (importeNum !== undefined && isNaN(importeNum)) {
-      return;
+    if (importeNum !== undefined) {
+      if (isNaN(importeNum) || importeNum < 0) {
+        setError('Importe no puede ser negativo');
+        return false;
+      }
+      if (importeNum > 999999) {
+        setError('Importe máximo: 999.999 €');
+        return false;
+      }
     }
-    if (cantidadNum !== undefined && isNaN(cantidadNum)) {
-      return;
+    if (cantidadNum !== undefined) {
+      if (isNaN(cantidadNum) || cantidadNum < 0) {
+        setError('Cantidad no puede ser negativa');
+        return false;
+      }
+      if (cantidadNum > 999999) {
+        setError('Cantidad máxima: 999.999 pzas');
+        return false;
+      }
     }
+    setError('');
+    return true;
+  }, [importe, cantidad]);
+
+  const handleConfirm = useCallback(() => {
+    if (!validateInputs()) return;
+
+    const importeNum = importe.trim() ? parseFloat(importe) : undefined;
+    const cantidadNum = cantidad.trim() ? parseInt(cantidad, 10) : undefined;
 
     onConfirm(importeNum, cantidadNum);
     setImporte('');
     setCantidad('');
-  }, [importe, cantidad, onConfirm]);
+    setError('');
+  }, [importe, cantidad, onConfirm, validateInputs]);
 
   const handleSkip = useCallback(() => {
     setImporte('');
     setCantidad('');
+    setError('');
     onSkip();
   }, [onSkip]);
 
   const handleClose = useCallback(() => {
     setImporte('');
     setCantidad('');
+    setError('');
     onClose();
   }, [onClose]);
 
@@ -113,6 +141,13 @@ const ReprocesosUbicacionModal: React.FC<ReprocesosUbicacionModalProps> = ({
               />
             </div>
           </div>
+
+          {/* Error message */}
+          {error && (
+            <div className="p-3 rounded-lg bg-red-950/30 border border-red-700/30 text-xs text-red-300 font-bold">
+              ❌ {error}
+            </div>
+          )}
 
           {/* Note */}
           <div className="p-3 rounded-lg bg-amber-950/30 border border-amber-700/30 text-xs text-amber-200">
