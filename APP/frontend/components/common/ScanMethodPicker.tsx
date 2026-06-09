@@ -1,6 +1,5 @@
 import React from 'react';
-
-export type ScanMethod = 'manual' | 'barcode' | 'ocr';
+import type { ScanMethod } from '../../lib/types/scan';
 
 interface ScanMethodPickerProps {
   open: boolean;

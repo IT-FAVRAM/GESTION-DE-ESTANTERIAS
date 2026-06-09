@@ -29,6 +29,7 @@ import type { LocationItem } from '../lib/schema/locations';
 import type { RoleOperativeConfig } from '../lib/operative/operativeConfig';
 import type { AdditionalShelfPosition } from '../components/operative/AddShelfPositionModal';
 import type { RetirarItem } from '../components/kiosk/RetirarArticleList';
+import type { ScanMethod, ParsedScan } from '../lib/types/scan';
 
 export type OperativeAction =
   | 'idle'
@@ -39,12 +40,8 @@ export type OperativeAction =
   | 'almacen'
   | 'avisar';
 
-export interface ScanData {
-  articleCode: string;
-  orderFab: string;
-}
-
-export type ScanMethod = 'manual' | 'barcode' | 'ocr';
+// ScanData ahora usa ParsedScan del módulo centralizado
+export type ScanData = ParsedScan;
 
 export interface OperativeFeedback {
   type: 'success' | 'error' | 'info';
@@ -667,8 +664,11 @@ export function useOperativeShelf({
         reactivate();
         return;
       }
-      setBatchArticles((prev) => [...prev, { articleCode, orderFab }]);
-      showToast('success', `✅ ${articleCode} añadido (${batchArticles.length + 1} en lote)`);
+      setBatchArticles((prev) => {
+        const newLength = prev.length + 1;
+        showToast('success', `✅ ${articleCode} añadido (${newLength} en lote)`);
+        return [...prev, { articleCode, orderFab }];
+      });
       reactivate();
       return;
     }

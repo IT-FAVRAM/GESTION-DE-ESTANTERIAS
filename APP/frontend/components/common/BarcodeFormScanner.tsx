@@ -24,7 +24,18 @@ const BarcodeFormScanner: React.FC<BarcodeFormScannerProps> = ({
   const [ofValue, setOfValue] = useState('OF26-');
   const [articleValue, setArticleValue] = useState('');
   const [fetching, setFetching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup on unmount or when active changes to false
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) abortControllerRef.current.abort();
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
   // Enfocar el input de código de barras cuando se activa
   useEffect(() => {
@@ -36,11 +47,19 @@ const BarcodeFormScanner: React.FC<BarcodeFormScannerProps> = ({
   // Cuando cambia el código de barras, completar OF y buscar artículo
   const handleBarcodeChange = async (code: string) => {
     setBarcodeInput(code);
+    setError(null);
+
     if (!code.trim()) {
       setOfValue('OF26-');
       setArticleValue('');
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (abortControllerRef.current) abortControllerRef.current.abort();
       return;
     }
+
+    // Cancelar búsqueda anterior
+    if (abortControllerRef.current) abortControllerRef.current.abort();
+    abortControllerRef.current = new AbortController();
 
     // Completar OF con el código escaneado
     const completeOf = `OF26-${code.trim()}`;
@@ -49,29 +68,41 @@ const BarcodeFormScanner: React.FC<BarcodeFormScannerProps> = ({
     // Buscar artículo automáticamente
     setFetching(true);
     try {
-      const articulo = await getArticuloByOf(completeOf);
+      const signal = abortControllerRef.current.signal;
+      const articulo = await getArticuloByOf(completeOf, signal);
+
+      if (signal.aborted) return; // Solicitud cancelada, no procesar
+
       if (articulo) {
         setArticleValue(articulo);
-        // Auto-submit si se tiene artículo
-        setTimeout(() => {
-          if (articulo) {
-            onScan({
-              success: true,
-              data: {
-                articleCode: articulo,
-                orderFab: completeOf,
-              },
-            });
-            // Limpiar para el siguiente escaneo
-            setBarcodeInput('');
-            setOfValue('OF26-');
-            setArticleValue('');
-            if (inputRef.current) inputRef.current.focus();
-          }
+        setError(null);
+        // Auto-submit si se tiene artículo (con pequeño delay para UX)
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => {
+          if (signal.aborted) return; // Verificar nuevamente antes de submit
+          onScan({
+            success: true,
+            data: {
+              articleCode: articulo,
+              orderFab: completeOf,
+            },
+          });
+          // Limpiar para el siguiente escaneo
+          setBarcodeInput('');
+          setOfValue('OF26-');
+          setArticleValue('');
+          setError(null);
+          if (inputRef.current) inputRef.current.focus();
         }, 500);
       } else {
         setArticleValue('');
+        setError('Artículo no encontrado para esta OF');
       }
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return; // Cancelada, ignorar
+      console.error('Error fetching article:', err);
+      setArticleValue('');
+      setError('Error al buscar artículo');
     } finally {
       setFetching(false);
     }
@@ -107,6 +138,13 @@ const BarcodeFormScanner: React.FC<BarcodeFormScannerProps> = ({
         <div className="bg-cyan-50 border border-cyan-200 rounded-lg px-3 py-2">
           <p className="text-xs text-cyan-900 font-bold">📝 Escanea o escribe el código (sin "OF26-")</p>
         </div>
+
+        {/* Mensaje de error */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            <p className="text-xs text-red-700 font-bold">❌ {error}</p>
+          </div>
+        )}
 
         {/* Campos de entrada */}
         <div className="space-y-2">
@@ -162,9 +200,12 @@ const BarcodeFormScanner: React.FC<BarcodeFormScannerProps> = ({
         <div className="flex gap-2">
           <button
             onClick={() => {
+              if (abortControllerRef.current) abortControllerRef.current.abort();
+              if (timeoutRef.current) clearTimeout(timeoutRef.current);
               setBarcodeInput('');
               setOfValue('OF26-');
               setArticleValue('');
+              setError(null);
               if (inputRef.current) inputRef.current.focus();
             }}
             disabled={disabled || !barcodeInput}
