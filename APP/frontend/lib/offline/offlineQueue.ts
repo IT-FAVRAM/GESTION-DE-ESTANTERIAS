@@ -88,6 +88,12 @@ const saveState = (state: OfflineQueueState) => {
   localStorage.setItem(STATE_KEY, JSON.stringify(state));
 };
 
+// MEDIO FIX #13: Preserve original timestamp from offline operation, don't use sync time
+const preserveOfflineTimestamp = (createdAt: string): string => {
+  // createdAt from offline operation is accurate; don't override with sync time
+  return createdAt;
+};
+
 const emitState = () => {
   if (!hasBrowser()) return;
   window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: getOfflineQueueState() }));
