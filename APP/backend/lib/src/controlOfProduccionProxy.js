@@ -11,94 +11,109 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.proxyControlOfProduccion = void 0;
 const functions = require("firebase-functions");
+const cors = require("cors");
 const CONTROL_OF_PRODUCCION_URL = 'http://10.0.0.19:8000/ControlOfProduccion/fichajes/getControlOfProduccion';
 const REQUEST_TIMEOUT = 5000; // 5 segundos
+// CORS middleware configurado para permitir solicitudes desde cualquier origen
+const corsHandler = cors({
+    origin: true,
+    methods: ['GET', 'POST', 'OPTIONS'],
+    credentials: true,
+});
 /**
  * Cloud Function proxy para buscar artículo por OF
  *
- * Función callable (onCall) que maneja CORS automáticamente a través del SDK de Firebase
- * Endpoint: httpsCallable('proxyControlOfProduccion')
- * Payload: { "orderFab": "OF26-02217" }
+ * HTTP endpoint (onRequest) con CORS explícito mediante middleware
+ * GET /proxyControlOfProduccion?orderFab=OF26-02217
  * Response: { "success": true, "articulo": "27894-05" } o error
  */
-exports.proxyControlOfProduccion = functions.https.onCall(async (data, context) => {
-    try {
-        const { orderFab } = data;
-        // Validar entrada
-        if (!orderFab || typeof orderFab !== 'string') {
-            return {
-                success: false,
-                error: 'orderFab es requerido y debe ser string',
-            };
-        }
-        // Validar formato OF
-        if (!/^OF26-\d{5}$/.test(orderFab)) {
-            return {
-                success: false,
-                error: 'Formato de OF inválido. Esperado: OF26-XXXXX',
-            };
-        }
-        // Hacer solicitud con timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+exports.proxyControlOfProduccion = functions.https.onRequest((req, res) => {
+    // Aplicar CORS middleware
+    corsHandler(req, res, async () => {
         try {
-            const response = await fetch(`${CONTROL_OF_PRODUCCION_URL}?orderFab=${encodeURIComponent(orderFab)}`, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'User-Agent': 'Firebase-Backend/1.0',
-                },
-                // @ts-ignore - AbortSignal no está disponible en Node 18, pero funciona
-                signal: controller.signal,
-            });
-            clearTimeout(timeoutId);
-            // Manejar respuesta de la API
-            if (!response.ok) {
-                if (response.status === 404) {
-                    return {
+            const { orderFab } = req.query;
+            // Validar entrada
+            if (!orderFab || typeof orderFab !== 'string') {
+                res.status(400).json({
+                    success: false,
+                    error: 'orderFab es requerido y debe ser string',
+                });
+                return;
+            }
+            // Validar formato OF
+            if (!/^OF26-\d{5}$/.test(orderFab)) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Formato de OF inválido. Esperado: OF26-XXXXX',
+                });
+                return;
+            }
+            // Hacer solicitud con timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+            try {
+                const response = await fetch(`${CONTROL_OF_PRODUCCION_URL}?orderFab=${encodeURIComponent(orderFab)}`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'User-Agent': 'Firebase-Backend/1.0',
+                    },
+                    // @ts-ignore - AbortSignal funciona en Node 22
+                    signal: controller.signal,
+                });
+                clearTimeout(timeoutId);
+                // Manejar respuesta de la API
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        res.status(404).json({
+                            success: false,
+                            error: 'Artículo no encontrado',
+                        });
+                        return;
+                    }
+                    res.status(502).json({
                         success: false,
-                        error: 'Artículo no encontrado',
-                    };
+                        error: `API respondió con ${response.status}`,
+                    });
+                    return;
                 }
-                return {
+                const apiData = await response.json();
+                // Extraer artículo de la respuesta
+                // Esperamos estructura como { "articulo": "27894-05" }
+                if (apiData && apiData.articulo) {
+                    res.json({
+                        success: true,
+                        articulo: apiData.articulo,
+                    });
+                    return;
+                }
+                res.status(400).json({
                     success: false,
-                    error: `API respondió con ${response.status}`,
-                };
+                    error: 'Respuesta inválida de API',
+                });
             }
-            const apiData = await response.json();
-            // Extraer artículo de la respuesta
-            // Esperamos estructura como { "articulo": "27894-05" }
-            if (apiData && apiData.articulo) {
-                return {
-                    success: true,
-                    articulo: apiData.articulo,
-                };
-            }
-            return {
-                success: false,
-                error: 'Respuesta inválida de API',
-            };
-        }
-        catch (err) {
-            clearTimeout(timeoutId);
-            if ((err === null || err === void 0 ? void 0 : err.name) === 'AbortError') {
-                return {
+            catch (err) {
+                clearTimeout(timeoutId);
+                if ((err === null || err === void 0 ? void 0 : err.name) === 'AbortError') {
+                    res.status(504).json({
+                        success: false,
+                        error: 'Búsqueda tardó demasiado (timeout)',
+                    });
+                    return;
+                }
+                res.status(502).json({
                     success: false,
-                    error: 'Búsqueda tardó demasiado (timeout)',
-                };
+                    error: `Error al conectar con API: ${(err === null || err === void 0 ? void 0 : err.message) || 'unknown'}`,
+                });
             }
-            return {
-                success: false,
-                error: `Error al conectar con API: ${(err === null || err === void 0 ? void 0 : err.message) || 'unknown'}`,
-            };
         }
-    }
-    catch (error) {
-        console.error('[proxyControlOfProduccion] Error:', error);
-        return {
-            success: false,
-            error: 'Error interno del servidor',
-        };
-    }
+        catch (error) {
+            console.error('[proxyControlOfProduccion] Error:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Error interno del servidor',
+            });
+        }
+    });
 });
 //# sourceMappingURL=controlOfProduccionProxy.js.map
