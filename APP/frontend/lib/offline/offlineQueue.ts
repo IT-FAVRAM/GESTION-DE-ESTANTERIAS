@@ -39,6 +39,7 @@ export interface OfflineQueueState {
   isSyncing: boolean;
   lastSyncAt: string | null;
   lastError: string | null;
+  completedPresenceIds?: string[]; // Dedup: track completed presenceIds to avoid duplicates on retry
 }
 
 const QUEUE_KEY = 'wms-offline-queue-v1';

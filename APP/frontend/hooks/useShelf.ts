@@ -158,14 +158,15 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
         setLocations((prev) => applyUbicar(prev, shelfCode, articleCode, orderFab, position, operarioId, operarioName));
         return true;
       }
-      
-      // Optimistic Update
-      setLocations((prev) => applyUbicar(prev, shelfCode, articleCode, orderFab, position, operarioId, operarioName));
 
+      // CRITICAL: Validate API response BEFORE optimistic update to prevent phantom data
       const ubicarResult = await inventoryApi.ubicar({ shelfCode, articleCode, orderFab, position, operarioId, operarioName }, session);
       if (!ubicarResult?.ok) {
         throw new Error(`Fallo al guardar artículo en Firestore: ${ubicarResult?.ok === false ? 'backend rechazó la operación' : 'sin respuesta del servidor'}`);
       }
+
+      // Only apply optimistic update AFTER confirming success
+      setLocations((prev) => applyUbicar(prev, shelfCode, articleCode, orderFab, position, operarioId, operarioName));
       return true;
     } catch (err: any) {
       console.error('[useShelf] Ubicar error:', err);

@@ -64,9 +64,16 @@ const RetirarCellModal: React.FC<RetirarCellModalProps> = ({
   }, [items, selectedKeys]);
 
   const handleConfirm = useCallback(() => {
+    if (selectedKeys.size === 0) {
+      // CRITICAL FIX: Validate that at least one item is selected
+      console.warn('[RetirarCellModal] Attempted confirm with no selection');
+      return; // Do not proceed if nothing selected
+    }
+
     const selected = items.filter((item) =>
       selectedKeys.has(`${item.articleCode}__${item.orderFab}__${item.presenceId}`)
     );
+
     if (selected.length > 0) {
       onConfirm(selected);
     }

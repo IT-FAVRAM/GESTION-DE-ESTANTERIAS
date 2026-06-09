@@ -73,6 +73,14 @@ const mirrorAppend = (
 ) => {
   if (!twinLocRef) return;
   const cur = twinSnap?.exists ? ((twinSnap.data()?.items || []) as any[]) : [];
+
+  // CRITICAL FIX: Validar que presenceId NO exista ya en ubicación gemela (evita duplicación)
+  const presenceIdExists = cur.some((it) => it?.presenceId === item?.presenceId);
+  if (presenceIdExists) {
+    // presenceId ya existe → no duplicar
+    return;
+  }
+
   // ✅ FIX #9: Copiar `nota` y otros campos de la ubicación gemela
   const twinData = twinSnap?.exists ? twinSnap.data() : {};
   const notaToPreserve = twinData?.nota;
