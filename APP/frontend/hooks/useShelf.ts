@@ -95,6 +95,80 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
       setLoading(false);
       return;
     }
+
+    // HOTFIX: PRE y MEC están separados. Cuando sea PRE, combina datos de ambos
+    if (shelfCode === 'PRE') {
+      const unsubscribers: Array<() => void> = [];
+
+      // Leer desde PRE (PRENSAS 1-9)
+      const preRef = collection(db, COLLECTIONS.SHELVES, 'PRE', COLLECTIONS.LOCATIONS);
+      const preUnsub = onSnapshot(
+        preRef,
+        (snapshot) => {
+          const preLocs: ShelfLocationState[] = [];
+          snapshot.forEach((docSnap) => {
+            const data = docSnap.data() as LocationDoc;
+            preLocs.push({
+              position: data.position || docSnap.id,
+              items: data.items || [],
+              isEmpty: data.isEmpty ?? (data.items?.length === 0),
+              locationId: getLocationDocId('PRE', data.position || docSnap.id),
+              nota: data.nota,
+            });
+          });
+
+          // Leer desde MEC (MECANIZADO 14-46)
+          const mecRef = collection(db, COLLECTIONS.SHELVES, 'MEC', COLLECTIONS.LOCATIONS);
+          const mecUnsub = onSnapshot(
+            mecRef,
+            (mecSnapshot) => {
+              const mecLocs: ShelfLocationState[] = [];
+              mecSnapshot.forEach((docSnap) => {
+                const data = docSnap.data() as LocationDoc;
+                mecLocs.push({
+                  position: data.position || docSnap.id,
+                  items: data.items || [],
+                  isEmpty: data.isEmpty ?? (data.items?.length === 0),
+                  locationId: getLocationDocId('MEC', data.position || docSnap.id),
+                  nota: data.nota,
+                });
+              });
+
+              // Combinar y ordenar
+              const combined = [...preLocs, ...mecLocs];
+              combined.sort((a, b) => {
+                const numA = parseInt(a.position, 10);
+                const numB = parseInt(b.position, 10);
+                if (!Number.isNaN(numA) && !Number.isNaN(numB)) return numA - numB;
+                return a.position.localeCompare(b.position);
+              });
+
+              setLocations(combined);
+              setLoading(false);
+              setError(null);
+            },
+            (err) => {
+              console.error(`[useShelf] Error on shelf MEC:`, err);
+              setError('Error cargando datos de MECANIZADO');
+              setLoading(false);
+            },
+          );
+          unsubscribers.push(mecUnsub);
+        },
+        (err) => {
+          console.error(`[useShelf] Error on shelf PRE:`, err);
+          setError('Error cargando datos de PRENSAS');
+          setLoading(false);
+        },
+      );
+      unsubscribers.push(preUnsub);
+
+      return () => {
+        unsubscribers.forEach((unsub) => unsub());
+      };
+    }
+
+    // Para cualquier otro shelf, comportamiento normal
     const locationsRef = collection(db, COLLECTIONS.SHELVES, shelfCode, COLLECTIONS.LOCATIONS);
     const unsubscribe = onSnapshot(
       locationsRef,
