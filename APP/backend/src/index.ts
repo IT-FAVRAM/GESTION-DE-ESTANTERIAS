@@ -50,6 +50,10 @@ export {
 } from './conversations';
 
 export {
+  migratPreToPme,
+} from './migrations/migratePreToPme';
+
+export {
   createUrgentAlert,
   resolveUrgentAlert,
   deleteUrgentAlert,

@@ -40,7 +40,7 @@ export interface ShelfPhysicalBlock {
 
 export const SHELF_DEFINITIONS: Shelf[] = [
   {
-    code: 'PME',
+    code: 'PRE',
     name: 'Prensas - Mecanizado',
     section: 'PRENSAS_MECANIZADO',
     type: 'shelf',
