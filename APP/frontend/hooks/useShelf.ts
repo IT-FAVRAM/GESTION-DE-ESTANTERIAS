@@ -148,8 +148,14 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
         setError('No hay estanteria o posicion valida para ubicar.');
         return false;
       }
-      if (!articleCode.trim() || !orderFab.trim()) {
-        setError('Codigo de articulo y OF son obligatorios para ubicar.');
+      if (!articleCode.trim()) {
+        setError('Codigo de articulo es obligatorio para ubicar.');
+        return false;
+      }
+      // CALIDAD (CAL): Permite ubicar sin OF en cualquier posición
+      const isCalidadShelf = shelfCode === 'CAL';
+      if (!orderFab.trim() && !isCalidadShelf) {
+        setError('OF (Orden de Fabricación) es obligatoria para ubicar.');
         return false;
       }
       const session = getOperationalSession();
