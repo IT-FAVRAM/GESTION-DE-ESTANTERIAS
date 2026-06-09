@@ -40,72 +40,43 @@ export interface ShelfPhysicalBlock {
 
 export const SHELF_DEFINITIONS: Shelf[] = [
   {
-    code: 'PRE',
-    name: 'Prensas',
+    code: 'PME',
+    name: 'Prensas - Mecanizado',
     section: 'PRENSAS_MECANIZADO',
     type: 'shelf',
-    locationCount: 13,
+    locationCount: 50,
     layout: {
       zones: [
-        { name: 'ESTANTERIA PRINCIPAL', range: [1, 9], color: '#3b82f6' },
         { name: 'URG MEC-PRE', range: [0, 0], color: '#ef4444', isUrgent: true },
+        { name: 'PRENSAS', range: [1, 9], color: '#3b82f6' },
+        { name: 'MECANIZADO', range: [14, 46], color: '#f97316' },
       ],
       physicalBlocks: [
         {
-          id: 'pre-main',
-          title: 'Estanteria principal',
+          id: 'pme-urg-shared',
+          title: 'URG MEC-PRE',
+          subtitle: 'Ubicaciones compartidas · 4 ubicaciones',
+          zoneName: 'URG MEC-PRE',
+          fullWidth: true,
+          rows: [
+            ['URG MEC-PRE 001'],
+            ['URG MEC-PRE 002'],
+            ['URG MEC-PRE 003'],
+            ['URG MEC-PRE 004'],
+          ],
+        },
+        {
+          id: 'pme-prensas',
+          title: 'Prensas',
           subtitle: '3 filas x 3 columnas',
-          zoneName: 'ESTANTERIA PRINCIPAL',
+          zoneName: 'PRENSAS',
           rows: [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
         },
         {
-          id: 'pre-urg-shared',
-          title: 'URG MEC-PRE',
-          subtitle: 'Compartidas con Mecanizado · 4 ubicaciones',
-          zoneName: 'URG MEC-PRE',
-          rows: [
-            ['URG MEC-PRE 001'],
-            ['URG MEC-PRE 002'],
-            ['URG MEC-PRE 003'],
-            ['URG MEC-PRE 004'],
-          ],
-        },
-      ],
-    },
-  },
-  {
-    code: 'MEC',
-    name: 'Mecanizado',
-    section: 'PRENSAS_MECANIZADO',
-    type: 'shelf',
-    locationCount: 37,
-    layout: {
-      zones: [
-        { name: 'URG MEC-PRE', range: [0, 0], color: '#ef4444', isUrgent: true },
-        { name: 'PRINCIPAL', range: [14, 46], color: '#f97316' },
-      ],
-      physicalBlocks: [
-        {
-          id: 'mec-urg-shared',
-          title: 'URG MEC-PRE',
-          subtitle: 'Compartidas con Prensas · 4 ubicaciones',
-          zoneName: 'URG MEC-PRE',
-          rows: [
-            ['URG MEC-PRE 001'],
-            ['URG MEC-PRE 002'],
-            ['URG MEC-PRE 003'],
-            ['URG MEC-PRE 004'],
-          ],
-        },
-        {
-          id: 'mec-main',
+          id: 'pme-mecanizado',
           title: 'Mecanizado',
           subtitle: '4 filas · 9 columnas (33 ubicaciones)',
-          zoneName: 'PRINCIPAL',
-          // Misma forma que antes. Numeración desplazada +13 para cuerpos 1-2 (001-021 → 014-034)
-          // y +16 para cuerpo3 (022-030 → 038-046). 3 celdas nuevas en fila 1 de cuerpo3 (035-037).
-          // Cols 0-2 = cuerpo1 (014-025). Cols 3-5 = cuerpo2 (026-034, filas 2-4).
-          // Cols 6-8 = cuerpo3 (035-037 fila 1 nuevas; 038-046 filas 2-4 renumeradas).
+          zoneName: 'MECANIZADO',
           rows: [
             [14, 15, 16,   null, null, null,   35, 36, 37],
             [17, 18, 19,   26,   27,   28,     38, 39, 40],

@@ -51,8 +51,8 @@ export const useKiosk = (kioskId: string | null | undefined): UseKioskReturn => 
           const fallbackMap: Record<string, KioskDoc> = {
             'kiosko-mecanizado': {
               id: 'kiosko-mecanizado',
-              name: 'Prensas-Mecanizado',
-              shelves: ['MEC', 'PRE'],
+              name: 'Prensas - Mecanizado',
+              shelves: ['PME'],
               location: 'Zona Mecanizado y Prensas',
               isActive: true,
               createdAt: new Date().toISOString(),
@@ -109,7 +109,7 @@ export const useKiosk = (kioskId: string | null | undefined): UseKioskReturn => 
   const setCurrentShelf = (shelf: string) => {
     if (kioskId) {
       const allowedShelves = kiosk?.shelves || [];
-      const isAllowed = allowedShelves.includes(shelf) || (kioskId === 'kiosko-mecanizado' && ['MEC', 'PRE'].includes(shelf));
+      const isAllowed = allowedShelves.includes(shelf) || (kioskId === 'kiosko-mecanizado' && ['PME'].includes(shelf));
       if (isAllowed) {
         setCurrentShelfState(shelf);
         localStorage.setItem(`kiosk-${kioskId}-shelf`, shelf);
@@ -119,7 +119,7 @@ export const useKiosk = (kioskId: string | null | undefined): UseKioskReturn => 
 
   return {
     kiosk,
-    shelves: kiosk?.shelves || (kioskId === 'kiosko-mecanizado' ? ['MEC', 'PRE'] : []),
+    shelves: kiosk?.shelves || (kioskId === 'kiosko-mecanizado' ? ['PME'] : []),
     currentShelf,
     setCurrentShelf,
     loading,

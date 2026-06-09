@@ -36,7 +36,7 @@ interface AdminShelfBrowserProps {
 }
 
 const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCarros }) => {
-  const [selectedShelf, setSelectedShelf] = useState(ALL_SHELVES[0]?.code || 'MEC');
+  const [selectedShelf, setSelectedShelf] = useState(ALL_SHELVES[0]?.code || 'PME');
   const [highlightedPositions, setHighlightedPositions] = useState<string[]>([]);
   const [action, setAction] = useState<AdminAction>('idle');
   const [articleInput, setArticleInput] = useState('');

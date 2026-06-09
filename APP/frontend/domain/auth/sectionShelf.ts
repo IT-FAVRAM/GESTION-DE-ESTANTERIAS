@@ -14,7 +14,7 @@ export const normalizeLegacySection = (section: string | null | undefined): Ware
 
 /** Sección de almacén → código de estantería principal */
 export const SECTION_TO_SHELF: Partial<Record<WarehouseSection, string>> = {
-  PRENSAS_MECANIZADO: 'MEC',
+  PRENSAS_MECANIZADO: 'PME',
   PLEGADORA: 'PLE',
   PUNZONADO: 'PLE',  // la punzonadora está en la sección de Plegado
   SOLDADURA: 'SOL',
