@@ -130,6 +130,7 @@ export function useOperativeShelf({
   const [pendingAction, setPendingAction] = useState<OperativeAction | null>(null);
   const [showCameraQR, setShowCameraQR] = useState(false);
   const [showCameraOCR, setShowCameraOCR] = useState(false);
+  const [showBarcodeForm, setShowBarcodeForm] = useState(false);
 
   // Lote (varios artículos en la misma posición)
   const [batchMode, setBatchMode] = useState(false);
@@ -337,8 +338,9 @@ export function useOperativeShelf({
     setScannerActive(false);
     setShowCameraQR(false);
     setShowCameraOCR(false);
+    setShowBarcodeForm(false);
     if (method === 'manual') setScannerActive(true);
-    else if (method === 'barcode') setShowCameraQR(true);
+    else if (method === 'barcode') setShowBarcodeForm(true);
     else setShowCameraOCR(true);
   }, []);
 
@@ -381,6 +383,7 @@ export function useOperativeShelf({
     setScannerActive(false);
     setShowCameraQR(false);
     setShowCameraOCR(false);
+    setShowBarcodeForm(false);
     setScanMethodPickerOpen(true);
   }, []);
 
@@ -1368,6 +1371,7 @@ export function useOperativeShelf({
     scanMethodPickerOpen, pendingAction,
     showCameraQR, setShowCameraQR,
     showCameraOCR, setShowCameraOCR,
+    showBarcodeForm, setShowBarcodeForm,
     batchMode, batchArticles, batchMethod, batchProcessedCount,
     additionalShelfPositions, showAddShelfModal, setShowAddShelfModal,
     showRetirarArticleList, showRetirarCellModal, retirarCellPosition, retirarCellItems,

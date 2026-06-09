@@ -21,6 +21,7 @@ import ScanMethodPicker from '../common/ScanMethodPicker';
 import ConfirmationModal from '../common/ConfirmationModal';
 import CameraQRScanner from '../common/CameraQRScanner';
 import CameraOCRScanner from '../common/CameraOCRScanner';
+import BarcodeFormScanner from '../common/BarcodeFormScanner';
 import RetirarArticleList from '../kiosk/RetirarArticleList';
 import RetirarCellModal from '../kiosk/RetirarCellModal';
 import MoverArticleList from '../kiosk/MoverArticleList';
@@ -55,7 +56,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
     selectedCell, setSelectedCell,
     confirmModal, setConfirmModal,
     scanMethodPickerOpen, pendingAction,
-    showCameraQR, setShowCameraQR, showCameraOCR, setShowCameraOCR,
+    showCameraQR, setShowCameraQR, showCameraOCR, setShowCameraOCR, showBarcodeForm, setShowBarcodeForm,
     batchMode, batchArticles, batchProcessedCount,
     additionalShelfPositions, showAddShelfModal, setShowAddShelfModal,
     showRetirarArticleList, showRetirarCellModal, retirarCellPosition, retirarCellItems,
@@ -350,6 +351,14 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         <CameraOCRScanner
           onResult={(text) => { setShowCameraOCR(false); handleScan(parseScanInputLenient(text)); }}
           onClose={() => { setShowCameraOCR(false); setScannerActive(true); }}
+        />
+      )}
+
+      {showBarcodeForm && (
+        <BarcodeFormScanner
+          active={showBarcodeForm}
+          disabled={processing}
+          onScan={(result) => { setShowBarcodeForm(false); handleScan(result); }}
         />
       )}
 

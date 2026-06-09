@@ -40,37 +40,20 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
         <div className="p-4 space-y-2">
           <button
             type="button"
-            onClick={() => onSelect('manual')}
-            className="w-full rounded-xl border-2 border-slate-200 hover:border-sky-400 bg-slate-50 px-4 py-3 text-left transition-colors"
-          >
-            <span className="font-bold text-slate-900">⌨️ Pistola o teclado</span>
-            <span className="block text-xs text-slate-500 mt-0.5">Escanea con pistola USB o escribe el código</span>
-          </button>
-          <button
-            type="button"
             onClick={() => onSelect('barcode')}
             className="w-full rounded-xl border-2 border-cyan-200 hover:border-cyan-500 bg-cyan-50 px-4 py-3 text-left transition-colors"
           >
-            <span className="font-bold text-cyan-900">📷 Código de barras / QR</span>
-            <span className="block text-xs text-cyan-700/80 mt-0.5">Code128, EAN, QR, DataMatrix</span>
+            <span className="font-bold text-cyan-900">📝 Texto / Código de barras</span>
+            <span className="block text-xs text-cyan-700/80 mt-0.5">Escribe código o escanea con pistola</span>
           </button>
           <button
             type="button"
             onClick={() => onSelect('ocr')}
             className="w-full rounded-xl border-2 border-purple-200 hover:border-purple-500 bg-purple-50 px-4 py-3 text-left transition-colors"
           >
-            <span className="font-bold text-purple-900">📸 Foto de etiqueta (OCR)</span>
-            <span className="block text-xs text-purple-700/80 mt-0.5">Lee artículo y OF de la etiqueta</span>
+            <span className="font-bold text-purple-900">📸 OCR con cámara</span>
+            <span className="block text-xs text-purple-700/80 mt-0.5">Lee la etiqueta automáticamente</span>
           </button>
-          {onBatch && (
-            <button
-              type="button"
-              onClick={onBatch}
-              className="w-full rounded-xl border border-dashed border-slate-300 hover:border-slate-400 px-4 py-2.5 text-sm font-bold text-slate-600"
-            >
-              📋 Varios artículos (modo lote)
-            </button>
-          )}
         </div>
       </div>
     </div>
