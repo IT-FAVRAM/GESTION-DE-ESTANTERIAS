@@ -183,6 +183,13 @@ export function useOperativeShelf({
     if (updated && updated !== reprocesosCell) setReprocesosCell(updated);
   }, [locations, reprocesosCell]);
 
+  // También sincronizar `pendingCell` con los datos en vivo (mantener ambas referencias consistentes)
+  useEffect(() => {
+    if (!pendingCell) return;
+    const updated = locations.find((l) => l.position === pendingCell.position);
+    if (updated && updated !== pendingCell) setPendingCell(updated);
+  }, [locations, pendingCell]);
+
   useEffect(() => () => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     if (finishTimerRef.current) clearTimeout(finishTimerRef.current);

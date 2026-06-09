@@ -8,6 +8,7 @@
 
 import type { ShelfLocationState } from '../schema/locations';
 import type { LocationItem } from '../schema/locations';
+import { getLocationDocId } from '../schema/shelves';
 import { isSameArticle } from '../articleIdentity';
 
 export const applyUbicar = (
@@ -20,8 +21,9 @@ export const applyUbicar = (
   operarioName: string,
   importe?: number,
   cantidad?: number,
+  presenceId?: string,
 ): ShelfLocationState[] => {
-  return applyUbicarMulti(prev, shelfCode, articleCode, orderFab, [position], operarioId, operarioName, importe, cantidad);
+  return applyUbicarMulti(prev, shelfCode, articleCode, orderFab, [position], operarioId, operarioName, importe, cantidad, presenceId);
 };
 
 export const applyUbicarMulti = (
@@ -34,15 +36,18 @@ export const applyUbicarMulti = (
   operarioName: string,
   importe?: number,
   cantidad?: number,
+  presenceId?: string,
 ): ShelfLocationState[] => {
   const now = new Date().toISOString();
   let next = [...prev];
 
   for (const position of positions) {
     const index = next.findIndex((loc) => loc.position === position);
-    const presenceId = `offline-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    // Use provided presenceId or generate a dedup-friendly one: {uid}-{timestamp}-{shelf}-{pos}
+    // This allows backend to dedup based on uid+shelf+position combo
+    const finalPresenceId = presenceId || `${operarioId}-${Date.now()}-${shelfCode}-${position}`;
     const nextItem: LocationItem = {
-      presenceId,
+      presenceId: finalPresenceId,
       articleCode,
       orderFab,
       locatedBy: operarioId,
@@ -59,7 +64,7 @@ export const applyUbicarMulti = (
         position,
         items: [nextItem],
         isEmpty: false,
-        locationId: `${shelfCode}_${position}`,
+        locationId: getLocationDocId(shelfCode, position),
       });
     }
   }

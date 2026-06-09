@@ -137,8 +137,9 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     operarioId: string,
     operarioName: string,
   ): Promise<boolean> => {
-    // Keep a snapshot of current locations for rollback
-    const previousLocations = locations;
+    // Keep a DEEP COPY snapshot of current locations for rollback
+    // Critical: must be deep copy to prevent mutations when snapshot arrives
+    const previousLocations = JSON.parse(JSON.stringify(locations));
     try {
       const access = await validateShelfAccess('operate');
       if (!access.ok) return false;
@@ -183,7 +184,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     importe?: number,
     cantidad?: number,
   ): Promise<boolean> => {
-    const previousLocations = locations;
+    const previousLocations = JSON.parse(JSON.stringify(locations));
     try {
       const access = await validateShelfAccess('operate');
       if (!access.ok) return false;
@@ -241,7 +242,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     operarioId: string,
     operarioName: string,
   ): Promise<{ success: boolean; positions: string[]; error?: string }> => {
-    const previousLocations = locations;
+    const previousLocations = JSON.parse(JSON.stringify(locations));
     try {
       const access = await validateShelfAccess('operate');
       if (!access.ok) return { success: false, positions: [], error: 'Sin permiso para operar en esta estantería' };
@@ -290,7 +291,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     operarioName: string,
     presenceId?: string,
   ): Promise<{ success: boolean; position: string; error?: string }> => {
-    const previousLocations = locations;
+    const previousLocations = JSON.parse(JSON.stringify(locations));
     try {
       const access = await validateShelfAccess('operate');
       if (!access.ok) return { success: false, position: '', error: 'Sin permiso para operar en esta estantería' };
@@ -327,7 +328,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     operarioId: string,
     operarioName: string,
   ): Promise<boolean> => {
-    const previousLocations = locations;
+    const previousLocations = JSON.parse(JSON.stringify(locations));
     try {
       const access = await validateShelfAccess('operate');
       if (!access.ok) return false;
@@ -389,7 +390,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     operarioId: string,
     operarioName: string,
   ): Promise<boolean> => {
-    const previousLocations = locations;
+    const previousLocations = JSON.parse(JSON.stringify(locations));
     try {
       const access = await validateShelfAccess('operate');
       if (!access.ok) return false;
