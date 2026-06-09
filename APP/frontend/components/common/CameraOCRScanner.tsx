@@ -15,6 +15,7 @@ import { createWorker } from 'tesseract.js';
 import { generateOcrVariants, cropHalfCanvas, preprocessSingleLine, measureSharpnessLive, waitForVideoReady } from '../../lib/ocrPreprocess';
 import { parseScanInputLenient, parseScanFromLines } from '../../lib/qrParser';
 import { recognizeImage } from '../../lib/api/ocrApi';
+import { runPremiumOcr, cleanOcrText, analyzeIllumination } from '../../lib/ocrPremium';
 
 interface CameraOCRScannerProps {
   onResult: (text: string) => void;
@@ -104,9 +105,11 @@ async function runTesseractFallback(
     const { variantIdx, psm } = strategies[s];
     onProgress(40 + Math.round((s / strategies.length) * 50), 'OCR local (respaldo)...');
     const { text, confidence } = await runOcrPass(worker, variants[variantIdx].dataUrl, psm);
-    if (confidence > bestConfidence || (confidence === bestConfidence && text.length > bestText.length)) {
+    // PREMIUM: Limpiar texto automáticamente
+    const cleanedText = cleanOcrText(text);
+    if (confidence > bestConfidence || (confidence === bestConfidence && cleanedText.length > bestText.length)) {
       bestConfidence = confidence;
-      bestText = text;
+      bestText = cleanedText;
     }
     if (bestConfidence >= CONFIDENCE_THRESHOLD) break;
   }
@@ -283,12 +286,17 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
 
       // ── PRINCIPAL: Cloud Vision (impreso + manuscrito) ────────────────────
       try {
-        setProgressLabel('Leyendo con Cloud Vision...');
+        setProgressLabel('Leyendo con Cloud Vision (PREMIUM)...');
         setProgress(45);
         const cloud = await recognizeImage(cropDataUrl);
         if (cloud.ok && cloud.text.trim()) {
-          bestText = cloud.text.trim();
-          bestConfidence = cloud.confidence || 80;
+          // PREMIUM: Limpiar y validar resultado de Cloud Vision
+          const cleanedCloud = cleanOcrText(cloud.text.trim());
+          bestText = cleanedCloud;
+          // PREMIUM: Aumentar confianza si el resultado es válido
+          const lighting = analyzeIllumination(crop);
+          const confidenceBoost = lighting !== 'normal' ? 10 : 0;
+          bestConfidence = Math.min(100, (cloud.confidence || 80) + confidenceBoost);
           bestLines = cloud.lines || [];
           cloudOk = true;
           setProgress(90);
