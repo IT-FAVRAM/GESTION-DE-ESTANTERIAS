@@ -6,7 +6,6 @@
  */
 
 import React, { useEffect, useState, useRef } from 'react';
-import { getArticuloByOf } from '../../lib/api/controlOfProduccionApi';
 import type { ScanParseResult } from '../../lib/qrParser';
 
 interface BarcodeFormScannerProps {
@@ -51,107 +50,48 @@ const BarcodeFormScanner: React.FC<BarcodeFormScannerProps> = ({
     }
   }, [active]);
 
-  // Cuando cambia el código de barras, completar OF y buscar artículo
-  // IMPORTANTE: Debounce de 1s para no spamear API en cada carácter
-  const handleBarcodeChange = async (code: string) => {
+  // Cuando cambia el código de barras, simplemente completar OF
+  // No hacemos búsqueda automática (evita problemas de CORS y API)
+  const handleBarcodeChange = (code: string) => {
     setBarcodeInput(code);
     setError(null);
 
     if (!code.trim()) {
       setOfValue('OF26-');
       setArticleValue('');
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      if (abortControllerRef.current) abortControllerRef.current.abort();
       return;
     }
-
-    // Cancelar búsqueda anterior y timeout anterior
-    if (abortControllerRef.current) abortControllerRef.current.abort();
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
 
     // Completar OF con el código escaneado
     const completeOf = `OF26-${code.trim()}`;
     setOfValue(completeOf);
 
-    // DEBOUNCE: Esperar 1 segundo antes de buscar
-    // Esto evita spamear la API en cada carácter (OF26-0, OF26-03, OF26-033, etc.)
-    timeoutRef.current = setTimeout(async () => {
-      abortControllerRef.current = new AbortController();
-      const signal = abortControllerRef.current.signal;
-
-      // Buscar artículo automáticamente
-      setFetching(true);
-      try {
-        const articulo = await getArticuloByOf(completeOf, signal);
-
-        if (signal.aborted) {
-          setFetching(false);
-          return; // Solicitud cancelada, no procesar
-        }
-
-        if (articulo) {
-          setArticleValue(articulo);
-          setError(null);
-          // Auto-submit si se tiene artículo (con pequeño delay para UX)
-          timeoutRef.current = setTimeout(() => {
-            if (signal.aborted) return;
-            onScan({
-              success: true,
-              data: {
-                articleCode: articulo,
-                orderFab: completeOf,
-              },
-            });
-            // Limpiar para el siguiente escaneo
-            setBarcodeInput('');
-            setOfValue('OF26-');
-            setArticleValue('');
-            setError(null);
-            if (inputRef.current) inputRef.current.focus();
-          }, 500);
-        } else {
-          setArticleValue('');
-          setError('Artículo no encontrado para esta OF');
-          setFetching(false);
-        }
-      } catch (err: any) {
-        if (err?.name === 'AbortError') {
-          setFetching(false);
-          return; // Cancelada, ignorar
-        }
-        console.error('Error fetching article:', err);
-        setArticleValue('');
-        // Mostrar error más amigable para API caída
-        if (err?.message?.includes('503') || err?.message?.includes('Service Unavailable')) {
-          setError('API no disponible. Intenta de nuevo o ingresa manualmente');
-        } else if (err?.message?.includes('timeout')) {
-          setError('Búsqueda tardó demasiado. Intenta de nuevo');
-        } else {
-          setError('Error al buscar artículo');
-        }
-        setFetching(false);
-      }
-    }, 1000); // 1 segundo de debounce
+    // IMPORTANTE: No buscamos artículo automáticamente
+    // El usuario ingresa el artículo manualmente o presiona Enter para confirmar
   };
 
   // Manejar eventos de teclado (Enter para submit, ESC para limpiar)
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && articleValue && !disabled) {
-      onScan({
-        success: true,
-        data: {
-          articleCode: articleValue,
-          orderFab: ofValue,
-        },
-      });
-      setBarcodeInput('');
-      setOfValue('OF26-');
-      setArticleValue('');
-      if (inputRef.current) inputRef.current.focus();
+    if (e.key === 'Enter' && !disabled) {
+      // Permitir submit incluso sin artículo (es opcional)
+      if (ofValue && ofValue !== 'OF26-') {
+        onScan({
+          success: true,
+          data: {
+            articleCode: articleValue || '',
+            orderFab: ofValue,
+          },
+        });
+        setBarcodeInput('');
+        setOfValue('OF26-');
+        setArticleValue('');
+        if (inputRef.current) inputRef.current.focus();
+      }
     } else if (e.key === 'Escape') {
       setBarcodeInput('');
       setOfValue('OF26-');
       setArticleValue('');
+      setError(null);
     }
   };
 
@@ -197,28 +137,17 @@ const BarcodeFormScanner: React.FC<BarcodeFormScannerProps> = ({
             />
           </div>
 
-          {/* Artículo - mostrará resultado de búsqueda o fetch en progreso */}
+          {/* Artículo - campo de entrada manual */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1">Artículo</label>
-            <div className="relative">
-              <input
-                type="text"
-                value={articleValue}
-                readOnly
-                placeholder={fetching ? 'Buscando artículo...' : 'Se llenará automáticamente'}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-slate-50 text-sm font-mono text-slate-700 focus:outline-none"
-              />
-              {fetching && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <div className="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
-                </div>
-              )}
-              {articleValue && !fetching && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 font-bold text-lg">
-                  ✓
-                </div>
-              )}
-            </div>
+            <label className="block text-xs font-bold text-slate-600 mb-1">Artículo (opcional)</label>
+            <input
+              type="text"
+              value={articleValue}
+              onChange={(e) => setArticleValue(e.target.value)}
+              disabled={disabled}
+              placeholder="Ingresa el código de artículo (ej: 27894-05)"
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent disabled:opacity-50"
+            />
           </div>
         </div>
 
@@ -241,24 +170,26 @@ const BarcodeFormScanner: React.FC<BarcodeFormScannerProps> = ({
           </button>
           <button
             onClick={() => {
-              if (articleValue) {
+              // Permitir confirmar con solo OF (artículo es opcional)
+              if (ofValue && ofValue !== 'OF26-') {
                 onScan({
                   success: true,
                   data: {
-                    articleCode: articleValue,
+                    articleCode: articleValue || '',
                     orderFab: ofValue,
                   },
                 });
                 setBarcodeInput('');
                 setOfValue('OF26-');
                 setArticleValue('');
+                setError(null);
                 if (inputRef.current) inputRef.current.focus();
               }
             }}
-            disabled={disabled || !articleValue || fetching}
+            disabled={disabled || !ofValue || ofValue === 'OF26-'}
             className="flex-1 px-3 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold disabled:opacity-50 transition-colors"
           >
-            {fetching ? '⏳' : '✓'} Confirmar
+            ✓ Confirmar
           </button>
         </div>
       </div>
