@@ -296,7 +296,13 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
       )}
 
       {/* ── Grid ── */}
-      <div className="flex-1 min-h-0 min-w-0 w-full overflow-y-auto overscroll-contain p-2 sm:p-4 [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
+      <div className="flex-1 min-h-0 min-w-0 w-full overflow-y-auto overscroll-contain p-2 sm:p-4 [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent] flex flex-col gap-4">
+        {forceSingleBlock && (
+          <div className="flex-shrink-0 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 flex items-start gap-2">
+            <span className="text-lg shrink-0">⚠️</span>
+            <p className="text-xs text-amber-800">Este dispositivo solo permite ubicar artículos en un bloque físico por operación.</p>
+          </div>
+        )}
         {loading ? (
           <div className="flex items-center justify-center h-40">
             <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />

@@ -45,9 +45,8 @@ const KioskView: React.FC = () => {
 
   const { action, loading, shelfDef, totalArticles, totalOccupied, totalEmpty, selectedCell, setSelectedCell, cancelAction, startAction } = engine;
 
-  if (!shelfCode) return <KioskEmptyState />;
-
-  if (loading) {
+  // Loading state takes priority to avoid race condition with empty state
+  if (loading && !shelfCode) {
     return (
       <div className="min-h-dvh flex flex-col items-center justify-center bg-sky-50">
         <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
@@ -55,6 +54,8 @@ const KioskView: React.FC = () => {
       </div>
     );
   }
+
+  if (!shelfCode) return <KioskEmptyState />;
 
   const showArea = showShelf || action !== 'idle';
 

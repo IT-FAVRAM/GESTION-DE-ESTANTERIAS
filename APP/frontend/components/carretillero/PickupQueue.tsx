@@ -5,7 +5,7 @@
  * Muestra solicitudes agrupadas por sección. Distingue RECOGER (naranja) de TRAER (azul).
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePickupQueue, type PickupRequest, type GroupedPickups } from '../../hooks/usePickupQueue';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -148,11 +148,24 @@ const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId
   );
 };
 
-const PickupQueue: React.FC = () => {
+interface PickupQueueProps {
+  currentShelf?: string;
+}
+
+const PickupQueue: React.FC<PickupQueueProps> = ({ currentShelf }) => {
   const { groupedPending, completedRequests, loading, completeRequest, pendingCount } = usePickupQueue();
   const { firebaseUser } = useAuth();
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [lastShelf, setLastShelf] = useState<string | undefined>(currentShelf);
+  const [shelfChanged, setShelfChanged] = useState(false);
+
+  useEffect(() => {
+    if (currentShelf !== lastShelf && lastShelf !== undefined) {
+      setShelfChanged(true);
+    }
+    setLastShelf(currentShelf);
+  }, [currentShelf, lastShelf]);
 
   // Derivar dos arrays filtrados: Recogidas (RECOGER) y Traídas (TRAER)
   const recogidasPending = groupedPending
@@ -180,6 +193,24 @@ const PickupQueue: React.FC = () => {
 
   return (
     <div className="p-4 pb-20 space-y-6">
+      {shelfChanged && (
+        <div className="bg-amber-950/50 border border-amber-500/50 rounded-xl p-3 flex items-start gap-3">
+          <span className="text-xl shrink-0">⚠️</span>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-amber-200">Información posiblemente desactualizada</p>
+            <p className="text-xs text-amber-300/80 mt-0.5">Cambiaste de estantería. Las solicitudes pueden no corresponder a {currentShelf}.</p>
+          </div>
+          <button
+            onClick={() => {
+              setShelfChanged(false);
+              setLastShelf(currentShelf);
+            }}
+            className="shrink-0 px-2 py-1 text-xs font-bold bg-amber-600 text-white rounded hover:bg-amber-500 transition-colors"
+          >
+            OK
+          </button>
+        </div>
+      )}
       {/* Sub-sección: RECOGIDAS */}
       <div>
         <h2 className="text-lg font-black text-white flex items-center gap-2 mb-4">
