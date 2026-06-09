@@ -299,6 +299,15 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
       {...dropProps}
     >
       {location?.nota && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 z-10 pointer-events-none" />}
+      {/* CALIDAD REPROCESOS: Total de cantidad en esquina superior derecha */}
+      {isReproces && location && (() => {
+        const totalQuantity = location.items.reduce((sum, item) => sum + (item.quantity ?? 0), 0);
+        return totalQuantity > 0 ? (
+          <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-purple-500/30 text-purple-300 text-[10px] font-black border border-purple-400/40 z-10">
+            {totalQuantity} ud
+          </span>
+        ) : null;
+      })()}
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 gap-2">
         <div className="flex items-center gap-1.5 min-w-0 flex-1">

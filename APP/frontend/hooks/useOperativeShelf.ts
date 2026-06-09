@@ -703,7 +703,11 @@ export function useOperativeShelf({
             icon: '⚠️',
             variant: 'warning',
             confirmText: 'Sí, ubicar de nuevo',
-            onConfirm: () => setConfirmModal((p) => ({ ...p, open: false })),
+            onConfirm: () => {
+              // PERMITE DUPLICADOS: Continuar sin reintentar verificación (usuario confirmó)
+              setConfirmModal((p) => ({ ...p, open: false }));
+              // Mantener scanData y permitir seleccionar posición
+            },
             extraButton: {
               text: 'Cancelar',
               onClick: () => {
