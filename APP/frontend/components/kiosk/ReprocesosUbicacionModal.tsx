@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 
 interface ReprocesosUbicacionModalProps {
   open: boolean;
@@ -22,6 +22,7 @@ const ReprocesosUbicacionModal: React.FC<ReprocesosUbicacionModalProps> = ({
   const [importe, setImporte] = useState<string>('');
   const [cantidad, setCantidad] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const [isDirty, setIsDirty] = useState(false);
 
   // ✅ FIX #7: Validar en tiempo real para mostrar feedback
   const validateInputs = useCallback(() => {
@@ -51,6 +52,13 @@ const ReprocesosUbicacionModal: React.FC<ReprocesosUbicacionModalProps> = ({
     setError('');
     return true;
   }, [importe, cantidad]);
+
+  // ALTO FIX #2: Validar en tiempo real mientras user escribe
+  useEffect(() => {
+    if (isDirty) {
+      validateInputs();
+    }
+  }, [importe, cantidad, isDirty, validateInputs]);
 
   const handleConfirm = useCallback(() => {
     if (!validateInputs()) return;
@@ -120,7 +128,7 @@ const ReprocesosUbicacionModal: React.FC<ReprocesosUbicacionModalProps> = ({
                 step="0.01"
                 min="0"
                 value={importe}
-                onChange={(e) => setImporte(e.target.value)}
+                onChange={(e) => { setImporte(e.target.value); setIsDirty(true); }}
                 placeholder="Ej: 125.50"
                 className="w-full mt-2 px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none transition-colors"
               />
@@ -135,7 +143,7 @@ const ReprocesosUbicacionModal: React.FC<ReprocesosUbicacionModalProps> = ({
                 type="number"
                 min="0"
                 value={cantidad}
-                onChange={(e) => setCantidad(e.target.value)}
+                onChange={(e) => { setCantidad(e.target.value); setIsDirty(true); }}
                 placeholder="Ej: 5"
                 className="w-full mt-2 px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none transition-colors"
               />

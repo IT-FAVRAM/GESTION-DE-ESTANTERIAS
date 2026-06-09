@@ -255,8 +255,12 @@ export function useOperativeShelf({
 
   const cancelAction = useCallback(() => {
     if (finishTimerRef.current) clearTimeout(finishTimerRef.current);
+    // ALTO FIX #1: Si hay lote en progreso, auto-cancelarlo al cambiar estantería
+    if (batchMode && batchArticles.length > 0) {
+      showToast('info', `⚠️ Lote de ${batchArticles.length} artículos cancelado (cambió de estantería)`);
+    }
     resetFlow();
-  }, [resetFlow]);
+  }, [resetFlow, batchMode, batchArticles, showToast]);
 
   const finishAction = useCallback((type: OperativeFeedback['type'], message: string) => {
     showToast(type, message, 2800);
@@ -904,6 +908,12 @@ export function useOperativeShelf({
 
     // MOVER: seleccionar destinos (exactamente moverNeeded)
     if (action === 'mover' && scanData) {
+      // ALTO FIX #3: Validar que posición destino está vacía
+      if (!loc.isEmpty) {
+        showToast('error', `❌ Posición ${loc.position} ocupada. Selecciona una posición vacía.`);
+        return;
+      }
+
       const found = findArticle(scanData.articleCode, scanData.orderFab);
       const needed = found.length || 1;
       const position = loc.position;
