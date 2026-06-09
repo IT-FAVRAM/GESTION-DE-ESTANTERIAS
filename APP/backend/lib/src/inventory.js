@@ -14,6 +14,12 @@ const isSameIdentity = (item, barcode, orderId, itemKey, containerId) => {
     const containerMatch = !containerId || normalize(item === null || item === void 0 ? void 0 : item.containerId) === normalize(containerId);
     return barcodeMatch && orderMatch && containerMatch;
 };
+/**
+ * Deduplica artículos basado en presenceId.
+ * Previene duplicación cuando offline operations se reintenten.
+ * presenceId format: {uid}-{timestamp}-{shelfCode}-{position}
+ * Esto permite al backend deduplicar basado en la operación original.
+ */
 const samePresence = (item, presenceId, articleCode, orderFab) => {
     if (item === null || item === void 0 ? void 0 : item.presenceId) {
         return item.presenceId === presenceId;
@@ -47,6 +53,12 @@ const mirrorAppend = (tx, twinLocRef, twinSnap, position, item) => {
     if (!twinLocRef)
         return;
     const cur = (twinSnap === null || twinSnap === void 0 ? void 0 : twinSnap.exists) ? (((_a = twinSnap.data()) === null || _a === void 0 ? void 0 : _a.items) || []) : [];
+    // CRITICAL FIX: Validar que presenceId NO exista ya en ubicación gemela (evita duplicación)
+    const presenceIdExists = cur.some((it) => (it === null || it === void 0 ? void 0 : it.presenceId) === (item === null || item === void 0 ? void 0 : item.presenceId));
+    if (presenceIdExists) {
+        // presenceId ya existe → no duplicar
+        return;
+    }
     // ✅ FIX #9: Copiar `nota` y otros campos de la ubicación gemela
     const twinData = (twinSnap === null || twinSnap === void 0 ? void 0 : twinSnap.exists) ? twinSnap.data() : {};
     const notaToPreserve = twinData === null || twinData === void 0 ? void 0 : twinData.nota;
@@ -166,8 +178,10 @@ exports.inventoryOperate = functions.https.onCall(async (data, context) => {
         tx.set(historyRef, Object.assign(Object.assign({}, entry), { id: historyRef.id, timestamp: now, uid, role, user, opId, source: 'inventoryOperate' }));
     };
     if (op === 'emptyShelf') {
-        if (role !== 'ADMIN' && role !== 'SUPERADMIN') {
-            throw new functions.https.HttpsError('permission-denied', 'Only admin can empty shelves');
+        const isAdmin = role === 'ADMIN' || role === 'SUPERADMIN';
+        const isJefeSectionInScope = role === 'JEFE_SECCION' && section && (payload === null || payload === void 0 ? void 0 : payload.warehouse) && payload.warehouse.startsWith(section);
+        if (!isAdmin && !isJefeSectionInScope) {
+            throw new functions.https.HttpsError('permission-denied', 'Only admin or section chiefs can empty shelves');
         }
         const warehouse = payload === null || payload === void 0 ? void 0 : payload.warehouse;
         const shelf = payload === null || payload === void 0 ? void 0 : payload.shelf;

@@ -1,16 +1,17 @@
 /**
- * API de Control de Producción — Proxy a través de Cloud Function
+ * API de Control de Producción — Proxy a través de Cloud Function Callable
  *
- * NOTA IMPORTANTE: Usamos un Cloud Function proxy (HTTP con CORS) en lugar de hacer llamadas directas
+ * NOTA IMPORTANTE: Usamos un Cloud Function proxy (callable/onCall) en lugar de hacer llamadas directas
  * a http://10.0.0.19:8000 para evitar problemas de Mixed Content (HTTPS → HTTP).
  *
  * El flujo es:
- * 1. Frontend (HTTPS) llama al Cloud Function HTTP (HTTPS) con CORS headers ✓
+ * 1. Frontend (HTTPS) llama al Cloud Function (HTTPS) mediante SDK de Firebase ✓
  * 2. Cloud Function (backend) hace solicitud HTTP a 10.0.0.19:8000 ✓
  * 3. No hay mixed content porque backend-to-backend es permitido
+ * 4. CORS se maneja automáticamente por el SDK de Firebase
  */
 
-const PROXY_BASE = 'https://us-central1-gestion-de-estanterias.cloudfunctions.net/proxyControlOfProduccion';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 export interface ControlOfProduccionResponse {
   articulo?: string;
@@ -23,7 +24,7 @@ export interface ControlOfProduccionResponse {
 
 /**
  * Obtiene el artículo desde la API Swagger por OF
- * Usa Cloud Function proxy para evitar Mixed Content
+ * Usa Cloud Function callable proxy para evitar Mixed Content
  */
 export const getArticuloByOf = async (orderFab: string, signal?: AbortSignal): Promise<string | null> => {
   try {
@@ -36,34 +37,22 @@ export const getArticuloByOf = async (orderFab: string, signal?: AbortSignal): P
     // Crear timeout de 5 segundos si no hay signal externo
     const controller = signal ? undefined : new AbortController();
     const timeoutId = controller ? setTimeout(() => controller.abort(), 5000) : undefined;
-    const fetchSignal = signal || controller?.signal;
 
     try {
-      // Llamar al Cloud Function proxy
-      const response = await fetch(`${PROXY_BASE}?orderFab=${encodeURIComponent(completeOf)}`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        signal: fetchSignal,
-      });
+      // Llamar Cloud Function proxy usando SDK de Firebase
+      const functions = getFunctions();
+      const proxyFn = httpsCallable(functions, 'proxyControlOfProduccion');
+
+      const result: any = await proxyFn({ orderFab: completeOf });
 
       // Verificar respuesta del proxy
-      if (!response.ok) {
-        console.warn(`[ControlOfProducción] Proxy error: ${response.status} para OF ${completeOf}`);
-        return null;
+      if (result.data.success && result.data.articulo) {
+        console.log(`[ControlOfProducción] ✓ Artículo: ${result.data.articulo} (OF ${completeOf})`);
+        return String(result.data.articulo).trim();
       }
 
-      const data: any = await response.json();
-
-      if (data.success && data.articulo) {
-        console.log(`[ControlOfProducción] ✓ Artículo: ${data.articulo} (OF ${completeOf})`);
-        return String(data.articulo).trim();
-      }
-
-      if (data.error) {
-        console.warn(`[ControlOfProducción] API error: ${data.error}`);
+      if (result.data.error) {
+        console.warn(`[ControlOfProducción] API error: ${result.data.error}`);
       }
 
       return null;
@@ -86,8 +75,10 @@ export const getArticuloByOf = async (orderFab: string, signal?: AbortSignal): P
  */
 export const testControlOfProduccionApi = async (): Promise<boolean> => {
   try {
-    const response = await fetch(`${PROXY_BASE}?orderFab=OF26-00000`);
-    return response.ok;
+    const functions = getFunctions();
+    const proxyFn = httpsCallable(functions, 'proxyControlOfProduccion');
+    await proxyFn({ orderFab: 'OF26-00000' });
+    return true;
   } catch {
     return false;
   }

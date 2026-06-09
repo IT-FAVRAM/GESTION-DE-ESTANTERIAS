@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ocrImage = exports.deleteUrgentAlert = exports.resolveUrgentAlert = exports.createUrgentAlert = exports.chatSendConversationMessage = exports.chatCreateConversation = exports.removePinnedUrgency = exports.setPinnedUrgency = exports.chatSendMessage = exports.productionOperate = exports.sendAdminMessage = exports.resolveDeviceConfig = exports.deviceHeartbeat = exports.adminOperate = exports.userPushReport = exports.leadTimeDataset = exports.leadTimeReporting = exports.pickupQueueOperate = exports.notifyLongDisconnection = exports.notifyConnectionDisconnect = exports.notifyCarretilleroRequest = exports.notifySpecialLocationOccupancy = exports.notifyPickupQueueCreated = exports.checkStaleItems = exports.updateReproceso = exports.cartOperate = exports.shelfOperate = exports.onShelfLocationWrite = exports.onAssignmentWrite = exports.inventoryOperate = void 0;
+exports.ocrImage = exports.deleteUrgentAlert = exports.resolveUrgentAlert = exports.createUrgentAlert = exports.migratPreToPme = exports.proxyControlOfProduccion = exports.chatSendConversationMessage = exports.chatCreateConversation = exports.removePinnedUrgency = exports.setPinnedUrgency = exports.chatSendMessage = exports.productionOperate = exports.sendAdminMessage = exports.resolveDeviceConfig = exports.deviceHeartbeat = exports.adminOperate = exports.userPushReport = exports.leadTimeDataset = exports.leadTimeReporting = exports.pickupQueueOperate = exports.notifyLongDisconnection = exports.notifyConnectionDisconnect = exports.notifyCarretilleroRequest = exports.notifySpecialLocationOccupancy = exports.notifyPickupQueueCreated = exports.checkStaleItems = exports.updateReproceso = exports.cartOperate = exports.shelfOperate = exports.onShelfLocationWrite = exports.onAssignmentWrite = exports.inventoryOperate = void 0;
 // runtime: nodejs22
 var inventory_1 = require("./inventory");
 Object.defineProperty(exports, "inventoryOperate", { enumerable: true, get: function () { return inventory_1.inventoryOperate; } });
@@ -36,6 +36,10 @@ Object.defineProperty(exports, "removePinnedUrgency", { enumerable: true, get: f
 var conversations_1 = require("./conversations");
 Object.defineProperty(exports, "chatCreateConversation", { enumerable: true, get: function () { return conversations_1.chatCreateConversation; } });
 Object.defineProperty(exports, "chatSendConversationMessage", { enumerable: true, get: function () { return conversations_1.chatSendConversationMessage; } });
+var controlOfProduccionProxy_1 = require("./controlOfProduccionProxy");
+Object.defineProperty(exports, "proxyControlOfProduccion", { enumerable: true, get: function () { return controlOfProduccionProxy_1.proxyControlOfProduccion; } });
+var migratePreToPme_1 = require("./migrations/migratePreToPme");
+Object.defineProperty(exports, "migratPreToPme", { enumerable: true, get: function () { return migratePreToPme_1.migratPreToPme; } });
 var urgentAlerts_1 = require("./urgentAlerts");
 Object.defineProperty(exports, "createUrgentAlert", { enumerable: true, get: function () { return urgentAlerts_1.createUrgentAlert; } });
 Object.defineProperty(exports, "resolveUrgentAlert", { enumerable: true, get: function () { return urgentAlerts_1.resolveUrgentAlert; } });
