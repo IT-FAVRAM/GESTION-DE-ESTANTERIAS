@@ -249,7 +249,8 @@
       "Bash(grep -E \"\\\\.ts$|\\\\.js$\")",
       "Bash(xargs grep -l \"PINTURA\\\\|ZINCADO\\\\|CARROS\")",
       "Bash(xargs grep -l \"UBICACIONES\\\\|ubicaciones\\\\|LOCATIONS\\\\|locations\")",
-      "Bash(GOOGLE_APPLICATION_CREDENTIALS=\"../../serviceAccount.json\" node lib/scripts/migrate_repasado_dentro.js --apply)"
+      "Bash(GOOGLE_APPLICATION_CREDENTIALS=\"../../serviceAccount.json\" node lib/scripts/migrate_repasado_dentro.js --apply)",
+      "Bash(xargs grep -l \"useInitializeCriticalData\")"
     ]
   },
   "enabledMcpjsonServers": [

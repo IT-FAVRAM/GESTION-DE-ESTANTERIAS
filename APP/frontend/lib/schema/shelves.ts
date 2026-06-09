@@ -239,8 +239,8 @@ export const SHELF_DEFINITIONS: Shelf[] = [
     layout: {
       zones: [
         { name: 'URGENTE', range: [1, 4], color: '#ef4444', isUrgent: true },
-        { name: 'ALUMINIO 1', range: [5, 9], color: '#eab308' },
-        { name: 'ALUMINIO 2', range: [10, 14], color: '#eab308' },
+        { name: 'ALUMINIO 1', range: [5, 9], color: '#fbbf24' },
+        { name: 'ALUMINIO 2', range: [10, 14], color: '#fbbf24' },
         { name: 'NORMAL INDIVIDUAL 1', range: [15, 19], color: '#3b82f6' },
         { name: 'NORMAL INDIVIDUAL 2', range: [20, 24], color: '#0ea5e9' },
         { name: 'FUERA', range: [25, 39], color: '#f97316' },

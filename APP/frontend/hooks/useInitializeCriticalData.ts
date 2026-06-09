@@ -84,17 +84,27 @@ export const useInitializeCriticalData = (): InitializationStatus => {
           console.error('[useInitializeCriticalData] Error caching config', e);
         }
 
-        // Precachear ubicaciones
+        // Precachear ubicaciones (desde subcolecc iones de estanterías)
         try {
-          const locationsSnap = await getDocs(collection(db, COLLECTIONS.LOCATIONS));
-          const locations = locationsSnap.docs.map((doc) => doc.data());
-          localStorage.setItem('wms-locations-cache', JSON.stringify(locations));
+          const allLocations: any[] = [];
+          const shelvesSnap = await getDocs(collection(db, COLLECTIONS.SHELVES));
+
+          for (const shelfDoc of shelvesSnap.docs) {
+            const locationsSnap = await getDocs(
+              collection(db, COLLECTIONS.SHELVES, shelfDoc.id, 'locations')
+            );
+            locationsSnap.docs.forEach((doc) => {
+              allLocations.push({ ...doc.data(), shelfCode: shelfDoc.id });
+            });
+          }
+
+          localStorage.setItem('wms-locations-cache', JSON.stringify(allLocations));
           localStorage.setItem('wms-locations-cache-timestamp', new Date().toISOString());
 
           if (isMounted) {
             setStatus((prev) => ({ ...prev, locationsLoaded: true }));
           }
-          console.log(`[useInitializeCriticalData] Cached ${locations.length} locations`);
+          console.log(`[useInitializeCriticalData] Cached ${allLocations.length} locations`);
         } catch (e) {
           console.error('[useInitializeCriticalData] Error caching locations', e);
         }
