@@ -86,9 +86,15 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
   const canMultiSection = config.ubicar.allowMultiSection;
 
   const handleSaveNota = useCallback(async (nota: string, locationId: string) => {
-    const ref = doc(db, COLLECTIONS.SHELVES, shelfCode, COLLECTIONS.LOCATIONS, locationId);
-    await updateDoc(ref, { nota });
-  }, [shelfCode]);
+    try {
+      const ref = doc(db, COLLECTIONS.SHELVES, shelfCode, COLLECTIONS.LOCATIONS, locationId);
+      await updateDoc(ref, { nota });
+      showToast('success', '✓ Nota guardada');
+    } catch (err) {
+      console.error('[OperativeShelfArea] Error saving nota:', err);
+      showToast('error', '❌ Error al guardar nota');
+    }
+  }, [shelfCode, showToast]);
 
   const actionLabel =
     pendingAction === 'ubicar' ? 'Ubicar artículo' :

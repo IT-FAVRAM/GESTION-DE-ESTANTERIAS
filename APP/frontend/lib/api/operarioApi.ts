@@ -98,37 +98,46 @@ export const fetchOperarios = async (forceRefresh = false): Promise<Operario[]> 
   // Start new fetch
   fetchPromise = (async () => {
     try {
-      const response = await fetch(OPERARIOS_ENDPOINT, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        // Timeout de 10 segundos
-        signal: AbortSignal.timeout(10000),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Swagger API error: ${response.status} ${response.statusText}`);
+      // Crear timeout compatible con navegadores antiguos
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      try {
+        const response = await fetch(OPERARIOS_ENDPOINT, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`Swagger API error: ${response.status} ${response.statusText}`);
+        }
+
+        const rawData: SwaggerOperario[] = await response.json();
+
+        cachedOperarios = rawData
+          .map(mapSwaggerToOperario)
+          .filter(op => op.id !== '000'); // Filtrar IDs inválidos
+
+        cacheTimestamp = Date.now();
+
+        console.log(`[OperarioAPI] Loaded ${cachedOperarios.length} operarios`);
+        return cachedOperarios;
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        throw fetchError;
       }
-      
-      const rawData: SwaggerOperario[] = await response.json();
-      
-      cachedOperarios = rawData
-        .map(mapSwaggerToOperario)
-        .filter(op => op.id !== '000'); // Filtrar IDs inválidos
-      
-      cacheTimestamp = Date.now();
-      
-      console.log(`[OperarioAPI] Loaded ${cachedOperarios.length} operarios`);
-      return cachedOperarios;
-      
     } catch (error) {
       console.error('[OperarioAPI] Error fetching operarios:', error);
-      
+
       // Si tenemos cache viejo, devuélvelo como fallback
       if (cachedOperarios.length > 0) {
         console.warn('[OperarioAPI] Using stale cache as fallback');
         return cachedOperarios;
       }
-      
+
       throw error;
     } finally {
       fetchPromise = null;

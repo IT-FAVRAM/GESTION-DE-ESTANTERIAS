@@ -983,7 +983,7 @@ export function useOperativeShelf({
   };
 
   const handleUbicarConfirm = async (importe?: number, cantidad?: number) => {
-    if (!scanData || selectedPositions.length === 0) return;
+    if (!scanData || selectedPositions.length === 0 || processing) return;
     setProcessing(true);
     setShowAddShelfModal(false);
     const { articleCode, orderFab } = scanData;
@@ -1142,6 +1142,7 @@ export function useOperativeShelf({
 
   // ── RETIRAR ─────────────────────────────────────────────────────────────────
   const handleRetirarArticleListConfirm = async (selectedItems: RetirarItem[]) => {
+    if (processing) return;
     setShowRetirarArticleList(false);
     setProcessing(true);
 
@@ -1275,7 +1276,7 @@ export function useOperativeShelf({
   };
 
   const handleReubicarConfirm = async () => {
-    if (!scanData || !reubicarCtx || selectedPositions.length === 0) return;
+    if (!scanData || !reubicarCtx || selectedPositions.length === 0 || processing) return;
     const { articleCode, orderFab } = scanData;
     const { fromShelf } = reubicarCtx;
     const toShelf = shelfCode;
@@ -1298,7 +1299,7 @@ export function useOperativeShelf({
   };
 
   const handleMoverConfirm = async () => {
-    if (!scanData || selectedPositions.length === 0) return;
+    if (!scanData || selectedPositions.length === 0 || processing) return;
     setProcessing(true);
     const ok = await mover(scanData.articleCode, scanData.orderFab, selectedPositions, operarioId, displayName);
     setProcessing(false);

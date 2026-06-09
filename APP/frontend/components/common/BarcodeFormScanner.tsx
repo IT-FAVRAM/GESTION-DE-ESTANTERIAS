@@ -37,9 +37,16 @@ const BarcodeFormScanner: React.FC<BarcodeFormScannerProps> = ({
     };
   }, []);
 
-  // Enfocar el input de código de barras cuando se activa
+  // Cleanup and focus when active changes
   useEffect(() => {
-    if (active && inputRef.current) {
+    if (!active) {
+      // Cleanup when component is hidden
+      if (abortControllerRef.current) abortControllerRef.current.abort();
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      return;
+    }
+    // Focus when component becomes active
+    if (inputRef.current) {
       inputRef.current.focus();
     }
   }, [active]);

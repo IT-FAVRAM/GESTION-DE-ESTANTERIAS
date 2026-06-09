@@ -33,7 +33,12 @@ function formatPositionLabel(posStr: string): string {
 function positionNumber(posStr: string): number {
   const idx = posStr.lastIndexOf('_');
   const raw = idx >= 0 ? posStr.slice(idx + 1) : posStr;
-  return parseInt(raw, 10);
+  const num = parseInt(raw, 10);
+  if (Number.isNaN(num)) {
+    console.warn(`[TraerArticuloModal] Invalid position number for "${posStr}"`);
+    return 0; // Fallback a 0 en lugar de NaN
+  }
+  return num;
 }
 
 function shelfNameFor(code: string): string {
