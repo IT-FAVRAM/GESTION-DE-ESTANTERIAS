@@ -125,13 +125,16 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
   const confirmManualEntry = () => {
     const art = manualArticle.trim().toUpperCase();
     const of = manualOf.trim().toUpperCase();
-    if (!art || !of) return;
+    // CALIDAD permite sin OF
+    const isCalidad = selectedShelf === 'CAL';
+    if (!art) return;
+    if (!of && !isCalidad) return;
     setArticleInput(art);
     setOfInput(of);
     setShowManualEntry(false);
     setManualArticle('');
     setManualOf('');
-    showFeedback('success', `✅ ${art} · ${of}`);
+    showFeedback('success', `✅ ${art}${of ? ` · ${of}` : ''}`);
   };
 
   const resetAction = useCallback(() => {
@@ -494,8 +497,14 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
     const article = articleInput.trim();
     const of = ofInput.trim();
 
-    if (!article || !of) {
-      showFeedback('error', 'Introduce código y OF para añadir al batch');
+    // CALIDAD permite sin OF
+    const isCalidad = selectedShelf === 'CAL';
+    if (!article) {
+      showFeedback('error', 'Introduce el código del artículo');
+      return;
+    }
+    if (!of && !isCalidad) {
+      showFeedback('error', 'Introduce OF (excepto en CALIDAD)');
       return;
     }
 
@@ -1253,7 +1262,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
               </button>
               <button
                 onClick={confirmManualEntry}
-                disabled={!manualArticle.trim() || !manualOf.trim()}
+                disabled={!manualArticle.trim() || (!manualOf.trim() && selectedShelf !== 'CAL')}
                 className="flex-[2] py-3 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl disabled:opacity-40 transition-colors active:scale-[0.98]"
               >
                 ✓ Confirmar
