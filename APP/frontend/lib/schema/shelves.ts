@@ -442,7 +442,7 @@ export const SHELF_DEFINITIONS: Shelf[] = [
           id: 'zin-baldas',
           title: 'Baldas Zincado',
           zoneName: 'BALDAS',
-          rows: [[1], [2], [3], [4], [5]],
+          rows: [[5], [4], [3], [2], [1]],
         },
       ],
     },
@@ -452,7 +452,7 @@ export const SHELF_DEFINITIONS: Shelf[] = [
 export const CART_DEFINITIONS: Shelf[] = [
   {
     code: 'RSOL',
-    name: 'Repuestos Soldadura',
+    name: '01 - Repuestos Soldadura',
     section: 'SOLDADURA',
     type: 'cart',
     locationCount: 8,
@@ -461,7 +461,7 @@ export const CART_DEFINITIONS: Shelf[] = [
       physicalBlocks: [
         {
           id: 'rsol-main',
-          title: 'Repuestos Soldadura',
+          title: '01 - Repuestos Soldadura',
           subtitle: '8 baldas',
           zoneName: 'BALDAS',
           rows: [[1], [2], [3], [4], [5], [6], [7], [8]],
@@ -471,7 +471,7 @@ export const CART_DEFINITIONS: Shelf[] = [
   },
   {
     code: 'CSOL',
-    name: 'Carro Soldadura',
+    name: '02 - Carro Soldadura',
     section: 'SOLDADURA',
     type: 'cart',
     locationCount: 8,
@@ -480,7 +480,7 @@ export const CART_DEFINITIONS: Shelf[] = [
       physicalBlocks: [
         {
           id: 'csol-main',
-          title: 'Carro Soldadura',
+          title: '02 - Carro Soldadura',
           subtitle: '8 baldas',
           zoneName: 'BALDAS',
           rows: [[1], [2], [3], [4], [5], [6], [7], [8]],
@@ -490,7 +490,7 @@ export const CART_DEFINITIONS: Shelf[] = [
   },
   {
     code: 'CSXP',
-    name: 'Carro SXP',
+    name: '03 - Carro SXP',
     section: 'SOLDADURA',
     type: 'cart',
     locationCount: 4,
@@ -499,7 +499,7 @@ export const CART_DEFINITIONS: Shelf[] = [
       physicalBlocks: [
         {
           id: 'csxp-main',
-          title: 'Carro SXP',
+          title: '03 - Carro SXP',
           subtitle: '4 baldas',
           zoneName: 'BALDAS',
           rows: [[1], [2], [3], [4]],
@@ -509,7 +509,7 @@ export const CART_DEFINITIONS: Shelf[] = [
   },
   {
     code: 'CRPL',
-    name: 'Carro Autoplegadora',
+    name: '04 - Carro Autoplegadora',
     section: 'AUTOPLEGADORA',
     type: 'cart',
     locationCount: 4,
@@ -518,7 +518,7 @@ export const CART_DEFINITIONS: Shelf[] = [
       physicalBlocks: [
         {
           id: 'crpl-main',
-          title: 'Carro Autoplegadora',
+          title: '04 - Carro Autoplegadora',
           subtitle: '4 baldas',
           zoneName: 'BALDAS',
           rows: [[1], [2], [3], [4]],
