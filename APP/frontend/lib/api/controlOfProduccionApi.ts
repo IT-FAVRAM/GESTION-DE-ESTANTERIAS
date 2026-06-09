@@ -1,17 +1,23 @@
 /**
- * API de Control de Producción — Proxy a través de Cloud Function HTTP
+ * API de Control de Producción — Proxy Local
  *
- * NOTA IMPORTANTE: Usamos un Cloud Function HTTP proxy en lugar de hacer llamadas directas
- * a http://10.0.0.19:8000 para evitar problemas de Mixed Content (HTTPS → HTTP).
+ * NOTA IMPORTANTE: Usamos un servidor proxy local (Express + CORS) en lugar de:
+ * - Cloud Functions (problemas con CORS)
+ * - Llamadas directas a http://10.0.0.19:8000 (Mixed Content error)
  *
  * El flujo es:
- * 1. Frontend (HTTPS) llama al Cloud Function HTTP (HTTPS) con CORS headers ✓
- * 2. Cloud Function (backend) hace solicitud HTTP a 10.0.0.19:8000 ✓
- * 3. No hay mixed content porque backend-to-backend es permitido
- * 4. CORS se maneja con middleware cors en el backend
+ * 1. Frontend (HTTPS) llama al Proxy Local (HTTP) desde la red LAN ✓
+ * 2. Proxy local hace solicitud HTTP a 10.0.0.19:8000 ✓
+ * 3. No hay mixed content porque ambas son HTTP en la LAN
+ *
+ * CONFIGURAR:
+ * 1. Instalar dependencias: npm install en la carpeta raíz
+ * 2. Ejecutar: node proxy-server.js
+ * 3. El servidor escuchará en http://localhost:3000
  */
 
-const PROXY_BASE = 'https://us-central1-gestion-de-estanterias.cloudfunctions.net/proxyControlOfProduccion';
+// URL del proxy local (cambiar a tu IP si está en otra máquina)
+const PROXY_BASE = process.env.REACT_APP_PROXY_URL || 'http://localhost:3000';
 
 export interface ControlOfProduccionResponse {
   articulo?: string;
@@ -40,8 +46,8 @@ export const getArticuloByOf = async (orderFab: string, signal?: AbortSignal): P
     const fetchSignal = signal || controller?.signal;
 
     try {
-      // Llamar al Cloud Function proxy HTTP con CORS
-      const response = await fetch(`${PROXY_BASE}?orderFab=${encodeURIComponent(completeOf)}`, {
+      // Llamar al proxy local
+      const response = await fetch(`${PROXY_BASE}/api/articulo?orderFab=${encodeURIComponent(completeOf)}`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -83,11 +89,11 @@ export const getArticuloByOf = async (orderFab: string, signal?: AbortSignal): P
 };
 
 /**
- * Valida que el Cloud Function esté disponible
+ * Valida que el proxy local esté disponible
  */
 export const testControlOfProduccionApi = async (): Promise<boolean> => {
   try {
-    const response = await fetch(`${PROXY_BASE}?orderFab=OF26-00000`);
+    const response = await fetch(`${PROXY_BASE}/health`);
     return response.ok;
   } catch {
     return false;
