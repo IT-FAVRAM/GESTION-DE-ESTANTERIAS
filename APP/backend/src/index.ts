@@ -50,6 +50,10 @@ export {
 } from './conversations';
 
 export {
+  proxyControlOfProduccion,
+} from './controlOfProduccionProxy';
+
+export {
   migratPreToPme,
 } from './migrations/migratePreToPme';
 
