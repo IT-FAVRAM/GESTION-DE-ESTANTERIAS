@@ -2,6 +2,8 @@ import * as functions from 'firebase-functions';
 import { admin } from './firebaseAdmin';
 import { requireAllowedRoles } from './authz';
 import { getUsersByRole, sendPushToUsers } from './push';
+import { migrateSoldaduraStructure } from '../scripts/migrate-SOL-structure';
+import { auditDatabase } from '../scripts/audit-BD-complete';
 
 const normalize = (value?: string | null) => String(value || '').trim();
 const normalizeRole = (value?: string | null) => String(value || '').trim().toUpperCase();
@@ -93,6 +95,61 @@ export const adminOperate = functions.https.onCall(async (data: any, context: an
       section: role === 'JEFE_SECCION' ? (section || null) : null,
     });
     return { ok: true };
+  }
+
+  if (op === 'migrateSoldadura') {
+    try {
+      console.log('[adminOperate] Iniciando migración de SOLDADURA...');
+      await migrateSoldaduraStructure();
+      console.log('[adminOperate] Migración completada exitosamente');
+      return { ok: true, migrationCompleted: true };
+    } catch (err) {
+      console.error('[adminOperate] Error en migración:', err);
+      throw new functions.https.HttpsError('internal',
+        `Error en migración de SOLDADURA: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  if (op === 'auditDatabase') {
+    try {
+      console.log('[adminOperate] Iniciando auditoría de BD...');
+      const issues = await auditDatabase();
+      const critical = issues.filter(i => i.severity === 'CRITICAL').length;
+      const warnings = issues.filter(i => i.severity === 'WARNING').length;
+      const infos = issues.filter(i => i.severity === 'INFO').length;
+      console.log(`[adminOperate] Auditoría completada: ${critical} críticos, ${warnings} advertencias, ${infos} informativos`);
+      return {
+        ok: true,
+        auditCompleted: true,
+        summary: { critical, warnings, infos, total: issues.length },
+        issues: issues
+      };
+    } catch (err) {
+      console.error('[adminOperate] Error en auditoría:', err);
+      throw new functions.https.HttpsError('internal',
+        `Error en auditoría de BD: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  if (op === 'updateUrgentLocations') {
+    try {
+      const locationsToAdd = Array.isArray(payload?.locationsToAdd) ? payload.locationsToAdd : [];
+      const configRef = db.collection('config').doc('app');
+      const configSnap = await configRef.get();
+      const config = configSnap.data() || {};
+      const currentUrgent = Array.isArray(config.urgentLocations) ? [...config.urgentLocations] : [];
+      const newUrgent = [...new Set([...currentUrgent, ...locationsToAdd])];
+      await configRef.update({
+        urgentLocations: newUrgent,
+        updatedAt: new Date().toISOString(),
+      });
+      console.log(`[adminOperate] Ubicaciones urgentes actualizadas: ${newUrgent.length} total`);
+      return { ok: true, urgentLocations: newUrgent };
+    } catch (err) {
+      console.error('[adminOperate] Error actualizando ubicaciones urgentes:', err);
+      throw new functions.https.HttpsError('internal',
+        `Error actualizando ubicaciones urgentes: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   throw new functions.https.HttpsError('invalid-argument', `Operacion desconocida: ${op}`);

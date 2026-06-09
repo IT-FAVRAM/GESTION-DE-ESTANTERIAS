@@ -56,8 +56,8 @@ type PaletteKey = keyof typeof PALETTES;
 function getPaletteKey(shelfCode: string, zoneName?: string): PaletteKey {
   // Reprocesos de Calidad → estantería morada
   if (shelfCode === 'CAL' && zoneName?.toUpperCase().includes('REPROC')) return 'purple';
-  // Aluminio → estantería cielo/azul
-  if (shelfCode === 'ALU' || zoneName?.toUpperCase().includes('ALUMINIO')) return 'sky';
+  // Aluminio → estantería naranja/cálida
+  if (zoneName?.toUpperCase().includes('ALUMINIO')) return 'orange';
   // Naranja: mecanizado (postes rojo-naranja en foto), pintura, robots, autoplegadora
   if (['MEC', 'PIN', 'RPL', 'RSO'].includes(shelfCode)) return 'orange';
   return 'blue';

@@ -183,29 +183,26 @@ export const SHELF_DEFINITIONS: Shelf[] = [
     name: 'Soldadura',
     section: 'SOLDADURA',
     type: 'shelf',
-    locationCount: 54,
+    locationCount: 73,
     layout: {
       zones: [
-        { name: 'PRINCIPAL', range: [1, 7], color: '#3b82f6' },
-        { name: 'URGENTE', range: [8, 8], color: '#ef4444', isUrgent: true },
-        { name: 'PRINCIPAL 2', range: [9, 21], color: '#0ea5e9' },
-        { name: 'ESTANTERIA 3', range: [22, 36], color: '#14b8a6' },
-        { name: 'ESTANTERIA 4', range: [37, 54], color: '#f59e0b' },
+        { name: 'URGENTE', range: [1, 4], color: '#ef4444', isUrgent: true },
+        { name: 'PRINCIPAL', range: [5, 73], color: '#3b82f6' },
       ],
       physicalBlocks: [
         {
           id: 'sol-main',
           title: 'Estantería Soldadura',
-          subtitle: '001-054 · Vista continua',
+          subtitle: '001-073 · 7 filas x 13 columnas',
           fullWidth: true,
           rows: [
-            [7,    null, null, null, null, null, null, null, null, null],
-            [6,    11,   16,   21,   22,   23,   24,   37,   38,   39  ],
-            [5,    10,   15,   20,   25,   26,   27,   40,   41,   42  ],
-            [4,    9,    14,   19,   28,   29,   30,   43,   44,   45  ],
-            [3,    null, 13,   18,   31,   32,   33,   46,   47,   48  ],
-            [2,    null, null, null, 34,   35,   36,   49,   50,   51  ],
-            [1,    8,    12,   17,   null, null, null, 52,   53,   54  ],
+            [17,   18,   24,   25,   38,   39,   40,   53,   54,   55,   71,   72,   73],
+            [15,   16,   22,   23,   35,   36,   37,   50,   51,   52,   68,   69,   70],
+            [13,   14,   20,   21,   32,   33,   34,   47,   48,   49,   65,   66,   67],
+            [11,   12,   null, 1,    null, null, null, 44,   45,   46,   62,   63,   64],
+            [9,    10,   null, 2,    null, null, null, null, null, null, 59,   60,   61],
+            [7,    8,    null, 3,    29,   30,   31,   null, null, null, null, null, null],
+            [5,    6,    19,   4,    26,   27,   28,   41,   42,   43,   56,   57,   58],
           ],
         },
       ],
@@ -651,7 +648,7 @@ export const isAluminioLocation = (
 
   const shelf = SHELF_DEFINITIONS.find((s) => s.code === shelfCode);
   if (!shelf) return false;
-  return shelf.layout.zones.some((z) => z.name === 'ALUMINIO' && position >= z.range[0] && position <= z.range[1]);
+  return shelf.layout.zones.some((z) => z.name.includes('ALUMINIO') && position >= z.range[0] && position <= z.range[1]);
 };
 
 /** Comprueba si una ubicacion es de reprocesos (CAL 001-022) - acepta (shelfCode, position) o locationId */

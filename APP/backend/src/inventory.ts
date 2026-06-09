@@ -189,8 +189,10 @@ export const inventoryOperate = functions.https.onCall(async (data: any, context
   };
 
   if (op === 'emptyShelf') {
-    if (role !== 'ADMIN' && role !== 'SUPERADMIN') {
-      throw new functions.https.HttpsError('permission-denied', 'Only admin can empty shelves');
+    const isAdmin = role === 'ADMIN' || role === 'SUPERADMIN';
+    const isJefeSectionInScope = role === 'JEFE_SECCION' && section && payload?.warehouse && payload.warehouse.startsWith(section);
+    if (!isAdmin && !isJefeSectionInScope) {
+      throw new functions.https.HttpsError('permission-denied', 'Only admin or section chiefs can empty shelves');
     }
     const warehouse = payload?.warehouse as string;
     const shelf = payload?.shelf as string;
@@ -967,8 +969,10 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
   }
 
   if (op === 'emptyShelf') {
-    if (!['ADMIN', 'SUPERADMIN'].includes(actor.role)) {
-      throw new functions.https.HttpsError('permission-denied', 'Solo admin puede vaciar estanterias.');
+    const canEmpty = ['ADMIN', 'SUPERADMIN'].includes(actor.role) ||
+      (actor.role === 'JEFE_SECCION' && actor.section === sectionForWarehouse(shelfCode));
+    if (!canEmpty) {
+      throw new functions.https.HttpsError('permission-denied', 'No tienes permisos para vaciar esta estanteria.');
     }
 
     // 1. Delete all location documents (+ clear items[] mirror in URG twin)

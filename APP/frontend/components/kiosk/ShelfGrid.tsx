@@ -108,15 +108,15 @@ const SectionHeader = React.memo(({
       </span>
     );
   } else if (isAluminio) {
-    wrapCls = 'bg-sky-50 border-sky-300 shadow-sm hover:bg-sky-100/60';
-    titleCls = 'text-sky-800';
-    accentBar = 'bg-sky-500';
-    pctBarCls = 'from-sky-500 to-cyan-400';
-    chevronCls = 'text-sky-400 group-hover:text-sky-600';
-    subtitleCls = 'text-sky-600/80';
-    statsCls = 'text-sky-700';
+    wrapCls = 'bg-amber-50 border-amber-300 shadow-sm hover:bg-amber-100/60';
+    titleCls = 'text-amber-800';
+    accentBar = 'bg-amber-500';
+    pctBarCls = 'from-amber-500 to-amber-400';
+    chevronCls = 'text-amber-400 group-hover:text-amber-600';
+    subtitleCls = 'text-amber-600/80';
+    statsCls = 'text-amber-700';
     badgeEl = (
-      <span className="px-2 py-0.5 text-[9px] font-black bg-sky-600 text-white border border-sky-700 rounded-md uppercase tracking-widest">
+      <span className="px-2 py-0.5 text-[9px] font-black bg-amber-600 text-white border border-amber-700 rounded-md uppercase tracking-widest">
         ALU
       </span>
     );
@@ -291,7 +291,7 @@ const Block = React.memo(({
   const zone = shelfDef.layout.zones.find((z) => z.name === block.zoneName);
   const isUrgent = zone?.isUrgent ?? false;
   const isTechReview = zone?.isTechReview ?? false;
-  const isAluminio = zone?.name === 'ALUMINIO';
+  const isAluminio = zone?.name?.includes('ALUMINIO') ?? false;
 
   const allPos = block.rows.flat().filter((p): p is (number | string) => p !== null);
   const toPos = (p: number | string) => typeof p === 'string' ? p : p.toString().padStart(3, '0');

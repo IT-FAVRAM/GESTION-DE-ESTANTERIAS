@@ -53,7 +53,9 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
   const titleByRole = effectiveRole === 'CARRETILLERO' ? 'CARRETILLERO' : 'OPERAR';
 
   const selectShelf = (code: string) => {
-    if (!isIdle) engine.cancelAction();
+    if (!isIdle) {
+      engine.cancelAction();
+    }
     setSelectedShelf(code);
     setActiveTab('shelves');
   };
@@ -77,7 +79,10 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
           {/* Botones derechos (RECOGIDAS + Salir) */}
           <div className="flex gap-0.5 sm:gap-1 flex-shrink-0">
             {effectiveRole === 'CARRETILLERO' && (
-              <button onClick={() => setActiveTab(activeTab === 'pickups' ? 'shelves' : 'pickups')}
+              <button onClick={() => {
+                if (!isIdle) engine.cancelAction();
+                setActiveTab(activeTab === 'pickups' ? 'shelves' : 'pickups');
+              }}
                 className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all whitespace-nowrap ${
                   activeTab === 'pickups' ? 'bg-orange-500 text-white shadow-md' : 'bg-orange-100 text-orange-700'
                 }`}>

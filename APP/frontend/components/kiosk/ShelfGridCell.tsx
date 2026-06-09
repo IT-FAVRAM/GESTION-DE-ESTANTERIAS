@@ -108,8 +108,8 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
       cardBase = isEmpty ? 'bg-amber-950/70 border-amber-400/50' : 'bg-amber-950/85 border-amber-300/60';
       headerText = 'text-amber-100';
     } else if (isAluminio) {
-      cardBase = isEmpty ? 'bg-sky-950/70 border-sky-400/50' : 'bg-sky-950/90 border-sky-300/65';
-      headerText = 'text-sky-100';
+      cardBase = isEmpty ? 'bg-amber-950/70 border-amber-400/50' : 'bg-amber-950/90 border-amber-300/65';
+      headerText = 'text-amber-100';
     } else if (isReproces) {
       cardBase = isEmpty ? 'bg-purple-950/60 border-purple-400/40' : 'bg-purple-950/85 border-purple-300/55';
       headerText = 'text-purple-100';
@@ -168,10 +168,10 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
       emptyCode = 'text-amber-100';
       emptyHint = 'text-amber-200/80';
     } else if (isAluminio) {
-      emptyBorder = 'border-sky-400/55 border-dashed';
-      emptyBg = 'bg-sky-950/40';
-      emptyCode = 'text-sky-100';
-      emptyHint = 'text-sky-200/80';
+      emptyBorder = 'border-amber-400/55 border-dashed';
+      emptyBg = 'bg-amber-950/40';
+      emptyCode = 'text-amber-100';
+      emptyHint = 'text-amber-200/80';
     } else if (isReproces) {
       emptyBorder = 'border-purple-400/45 border-dashed';
       emptyBg = 'bg-purple-950/35';
@@ -250,14 +250,14 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
       </span>
     );
   } else if (isAluminio) {
-    cardBase = 'bg-sky-950/88 border-sky-300/70 shadow-[0_14px_40px_rgba(14,165,233,0.22)]';
-    headerText = 'text-sky-100';
-    ofCls = 'text-sky-100';
-    itemBg = 'bg-sky-950/72 border border-sky-300/22';
-    borderTop = 'border-sky-300/35';
-    countBadgeCls = 'bg-sky-50 text-sky-950';
+    cardBase = 'bg-amber-950/88 border-amber-300/70 shadow-[0_14px_40px_rgba(217,119,6,0.22)]';
+    headerText = 'text-amber-100';
+    ofCls = 'text-amber-100';
+    itemBg = 'bg-amber-950/72 border border-amber-300/22';
+    borderTop = 'border-amber-300/35';
+    countBadgeCls = 'bg-amber-50 text-amber-950';
     badgeEl = (
-      <span className="px-1.5 py-0.5 text-[9px] font-black bg-sky-100 text-sky-950 border border-sky-200 rounded-md uppercase tracking-widest shrink-0">
+      <span className="px-1.5 py-0.5 text-[9px] font-black bg-amber-100 text-amber-950 border border-amber-200 rounded-md uppercase tracking-widest shrink-0">
         ALU
       </span>
     );

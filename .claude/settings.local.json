@@ -250,7 +250,11 @@
       "Bash(xargs grep -l \"PINTURA\\\\|ZINCADO\\\\|CARROS\")",
       "Bash(xargs grep -l \"UBICACIONES\\\\|ubicaciones\\\\|LOCATIONS\\\\|locations\")",
       "Bash(GOOGLE_APPLICATION_CREDENTIALS=\"../../serviceAccount.json\" node lib/scripts/migrate_repasado_dentro.js --apply)",
-      "Bash(xargs grep -l \"useInitializeCriticalData\")"
+      "Bash(xargs grep -l \"useInitializeCriticalData\")",
+      "Bash(grep -E \"\\\\.\\(tsx?|jsx?\\)$\")",
+      "Bash(grep -rn \"showToast.*error\\\\|throw.*Error\\\\|return;\\\\s*$\" APP/frontend/hooks/useOperativeShelf.ts)",
+      "Bash(grep -v \"//\")",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")"
     ]
   },
   "enabledMcpjsonServers": [

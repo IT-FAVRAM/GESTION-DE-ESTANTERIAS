@@ -81,7 +81,12 @@ const KioskView: React.FC = () => {
           <ShelfSelector
             shelves={shelves}
             currentShelf={currentShelf}
-            onSelectShelf={(s) => { if (action !== 'idle') cancelAction(); setCurrentShelf(s); }}
+            onSelectShelf={(s) => {
+              if (action !== 'idle') {
+                cancelAction();
+              }
+              setCurrentShelf(s);
+            }}
           />
         </div>
       )}

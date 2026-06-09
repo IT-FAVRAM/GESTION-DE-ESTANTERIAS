@@ -189,6 +189,14 @@ export function useOperativeShelf({
   }, []);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
+  // Limpiar selectedPositions y scanData cuando cambia la acción
+  useEffect(() => {
+    if (action !== 'idle') {
+      setSelectedPositions([]);
+      setScanData(null);
+    }
+  }, [action]);
+
   const showToast = useCallback((type: OperativeFeedback['type'], message: string, ms = 2500) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setFeedback({ type, message });
@@ -755,16 +763,27 @@ export function useOperativeShelf({
       return;
     }
 
-    // MOVER: validar que el artículo existe en la sección actual
+    // MOVER: validar que el artículo existe en CUALQUIER estantería
     if (action === 'mover') {
-      const found = findArticle(articleCode, orderFab);
-      if (found.length === 0) {
-        showToast('error', `${articleCode} no encontrado en esta sección`);
+      setProcessing(true);
+      try {
+        const globalLocs = await findArticleGlobal(articleCode, orderFab);
+        if (globalLocs.length === 0) {
+          showToast('error', `${articleCode} ${orderFab} no se encuentra en ninguna estantería`);
+          setScanData(null);
+          setScannerActive(true);
+          setProcessing(false);
+          return;
+        }
+        setSelectedPositions([]);
+        showToast('info', `Artículo encontrado en ${globalLocs.length} ubicación(es). Selecciona destino.`);
+      } catch (err) {
+        showToast('error', `Error buscando artículo: ${err instanceof Error ? err.message : String(err)}`);
         setScanData(null);
-        setScannerActive(true);
-        return;
+      } finally {
+        setProcessing(false);
       }
-      setSelectedPositions([]);
+      return;
     }
   };
 
@@ -799,10 +818,15 @@ export function useOperativeShelf({
     // UBICAR cellFirst (calidad reprocesos): fase 1 de selección múltiple de celdas
     // pendingCell=null significa "todavía eligiendo celdas"; pendingCell set = "en fase escaneo"
     if (action === 'ubicar' && config.reprocesos?.cellFirst && !scanData && !pendingCell) {
-      if (!reprocesosEnabled || !isReprocesosLocation(shelfCode, padPos(loc.position))) {
-        showToast('error', 'Selecciona una celda de reprocesos');
-        return;
+      // cellFirst solo aplica para ubicaciones de reprocesos (001-022)
+      // Para otras ubicaciones (estantería 2+), permitir selección directa
+      if (isReprocesosLocation(shelfCode, padPos(loc.position))) {
+        if (!reprocesosEnabled) {
+          showToast('error', 'No tienes permisos para editar reprocesos');
+          return;
+        }
       }
+      // Permitir seleccionar cualquier ubicación (reprocesos o general)
       toggleSelected(loc.position);
       return;
     }

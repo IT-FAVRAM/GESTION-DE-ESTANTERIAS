@@ -63,13 +63,40 @@ export function validateContiguity(
     };
   }
   
-  // Verificar que todas estén en el mismo bloque
+  // Verificar que todas estén en el mismo bloque O sean contiguas en múltiples bloques
   const blockIds = new Set(gridPositions.map(p => p.grid!.blockId));
-  if (blockIds.size > 1) {
+  const multiBlockShelvesAllowed = ['PLE', 'REP', 'PIN'];
+  const isMultiBlockShelf = multiBlockShelvesAllowed.some(code => shelfDef.code === code);
+
+  // Si hay múltiples bloques y NO es estantería que lo permite, rechazar
+  if (blockIds.size > 1 && !isMultiBlockShelf) {
     return {
       isContiguous: false,
       direction: null,
       message: 'Las posiciones deben estar en el mismo bloque físico',
+    };
+  }
+
+  // Para estanterías multi-bloque, permitir si son numéricamente contiguas
+  if (blockIds.size > 1 && isMultiBlockShelf) {
+    const sortedPositions = numericPositions.sort((a, b) => a - b);
+    const isSequential = sortedPositions.every((pos, i) =>
+      i === 0 || pos === sortedPositions[i - 1] + 1
+    );
+
+    if (!isSequential) {
+      return {
+        isContiguous: false,
+        direction: null,
+        message: 'Las posiciones deben ser consecutivas (ej: 31, 32, 33)',
+      };
+    }
+
+    // Para multi-bloque, permitir pero informar
+    return {
+      isContiguous: true,
+      direction: 'horizontal',
+      message: `${positions.length} posiciones contiguas (multi-bloque)`,
     };
   }
   
