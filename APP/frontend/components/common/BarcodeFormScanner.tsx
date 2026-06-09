@@ -52,6 +52,7 @@ const BarcodeFormScanner: React.FC<BarcodeFormScannerProps> = ({
   }, [active]);
 
   // Cuando cambia el código de barras, completar OF y buscar artículo
+  // IMPORTANTE: Debounce de 1s para no spamear API en cada carácter
   const handleBarcodeChange = async (code: string) => {
     setBarcodeInput(code);
     setError(null);
@@ -64,55 +65,73 @@ const BarcodeFormScanner: React.FC<BarcodeFormScannerProps> = ({
       return;
     }
 
-    // Cancelar búsqueda anterior
+    // Cancelar búsqueda anterior y timeout anterior
     if (abortControllerRef.current) abortControllerRef.current.abort();
-    abortControllerRef.current = new AbortController();
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
 
     // Completar OF con el código escaneado
     const completeOf = `OF26-${code.trim()}`;
     setOfValue(completeOf);
 
-    // Buscar artículo automáticamente
-    setFetching(true);
-    try {
+    // DEBOUNCE: Esperar 1 segundo antes de buscar
+    // Esto evita spamear la API en cada carácter (OF26-0, OF26-03, OF26-033, etc.)
+    timeoutRef.current = setTimeout(async () => {
+      abortControllerRef.current = new AbortController();
       const signal = abortControllerRef.current.signal;
-      const articulo = await getArticuloByOf(completeOf, signal);
 
-      if (signal.aborted) return; // Solicitud cancelada, no procesar
+      // Buscar artículo automáticamente
+      setFetching(true);
+      try {
+        const articulo = await getArticuloByOf(completeOf, signal);
 
-      if (articulo) {
-        setArticleValue(articulo);
-        setError(null);
-        // Auto-submit si se tiene artículo (con pequeño delay para UX)
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        timeoutRef.current = setTimeout(() => {
-          if (signal.aborted) return; // Verificar nuevamente antes de submit
-          onScan({
-            success: true,
-            data: {
-              articleCode: articulo,
-              orderFab: completeOf,
-            },
-          });
-          // Limpiar para el siguiente escaneo
-          setBarcodeInput('');
-          setOfValue('OF26-');
-          setArticleValue('');
+        if (signal.aborted) {
+          setFetching(false);
+          return; // Solicitud cancelada, no procesar
+        }
+
+        if (articulo) {
+          setArticleValue(articulo);
           setError(null);
-          if (inputRef.current) inputRef.current.focus();
-        }, 500);
-      } else {
+          // Auto-submit si se tiene artículo (con pequeño delay para UX)
+          timeoutRef.current = setTimeout(() => {
+            if (signal.aborted) return;
+            onScan({
+              success: true,
+              data: {
+                articleCode: articulo,
+                orderFab: completeOf,
+              },
+            });
+            // Limpiar para el siguiente escaneo
+            setBarcodeInput('');
+            setOfValue('OF26-');
+            setArticleValue('');
+            setError(null);
+            if (inputRef.current) inputRef.current.focus();
+          }, 500);
+        } else {
+          setArticleValue('');
+          setError('Artículo no encontrado para esta OF');
+          setFetching(false);
+        }
+      } catch (err: any) {
+        if (err?.name === 'AbortError') {
+          setFetching(false);
+          return; // Cancelada, ignorar
+        }
+        console.error('Error fetching article:', err);
         setArticleValue('');
-        setError('Artículo no encontrado para esta OF');
+        // Mostrar error más amigable para API caída
+        if (err?.message?.includes('503') || err?.message?.includes('Service Unavailable')) {
+          setError('API no disponible. Intenta de nuevo o ingresa manualmente');
+        } else if (err?.message?.includes('timeout')) {
+          setError('Búsqueda tardó demasiado. Intenta de nuevo');
+        } else {
+          setError('Error al buscar artículo');
+        }
+        setFetching(false);
       }
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return; // Cancelada, ignorar
-      console.error('Error fetching article:', err);
-      setArticleValue('');
-      setError('Error al buscar artículo');
-    } finally {
-      setFetching(false);
-    }
+    }, 1000); // 1 segundo de debounce
   };
 
   // Manejar eventos de teclado (Enter para submit, ESC para limpiar)
