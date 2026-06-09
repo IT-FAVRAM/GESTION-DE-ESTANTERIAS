@@ -992,8 +992,16 @@ export function useOperativeShelf({
       return;
     }
 
+    // ALTO FIX #23: Rollback multi-sección si falla cualquier sección adicional
     if (failedSections.length > 0) {
-      showToast('error', `Error en secciones adicionales: ${failedSections.join(', ')}`);
+      try {
+        // Rollback: retirar de sección principal si alguna sección adicional falló
+        await retirar(articleCode, orderFab, operarioId, displayName);
+        finishAction('error', `No se pudo ubicar en TODAS las secciones (fallaron: ${failedSections.join(', ')}). Operación anulada.`);
+      } catch (rollbackErr) {
+        finishAction('error', `Error crítico: no se pudo completar ni revertir. Contacta a admin. (Secciones fallidas: ${failedSections.join(', ')})`);
+      }
+      return;
     }
 
     const allText = [
@@ -1129,6 +1137,33 @@ export function useOperativeShelf({
   const handleRetirarArticleListConfirm = async (selectedItems: RetirarItem[]) => {
     setShowRetirarArticleList(false);
     setProcessing(true);
+
+    // ALTO FIX #22: Validar que artículos aún existen antes de procesar
+    const missingItems: string[] = [];
+    for (const item of selectedItems) {
+      const itemPos = padPos(item.position);
+      const cell = locations.find(
+        (loc) => padPos(loc.position) === itemPos
+      );
+      if (!cell) {
+        missingItems.push(`${item.articleCode} de posición ${itemPos}`);
+        continue;
+      }
+      const stillExists = cell.items.some(
+        (it) => it.articleCode === item.articleCode && it.orderFab === item.orderFab && it.presenceId === item.presenceId
+      );
+      if (!stillExists) {
+        missingItems.push(`${item.articleCode} ${item.orderFab}`);
+      }
+    }
+
+    if (missingItems.length > 0) {
+      setProcessing(false);
+      showToast('error', `❌ Artículos ya no disponibles: ${missingItems.slice(0, 2).join(', ')}${missingItems.length > 2 ? '...' : ''}`);
+      cancelAction();
+      return;
+    }
+
     let successCount = 0;
     for (const item of selectedItems) {
       const r = await retirarDeUbicacion(item.articleCode, item.orderFab, item.position, operarioId, displayName, item.presenceId);
@@ -1159,6 +1194,36 @@ export function useOperativeShelf({
       onConfirm: async () => {
         setConfirmModal((p) => ({ ...p, open: false }));
         setProcessing(true);
+
+        // ALTO FIX #22: Validar que posiciones aún existen antes de procesar lote
+        const missingPositions: string[] = [];
+        for (const queueItem of updatedQueue) {
+          const queuePos = padPos(queueItem.position);
+          const cell = locations.find(
+            (loc) => padPos(loc.position) === queuePos
+          );
+          if (!cell) {
+            missingPositions.push(`posición ${queuePos}`);
+            continue;
+          }
+          // Validar que los artículos seleccionados aún están en la posición
+          for (const selectedItem of queueItem.items) {
+            const stillExists = cell.items.some(
+              (it) => it.articleCode === selectedItem.articleCode && it.orderFab === selectedItem.orderFab && it.presenceId === selectedItem.presenceId
+            );
+            if (!stillExists) {
+              missingPositions.push(`${selectedItem.articleCode} de pos. ${queuePos}`);
+            }
+          }
+        }
+
+        if (missingPositions.length > 0) {
+          setProcessing(false);
+          showToast('error', `❌ Artículos ya no disponibles: ${missingPositions.slice(0, 3).join(', ')}${missingPositions.length > 3 ? '...' : ''}`);
+          cancelAction();
+          return;
+        }
+
         let successCount = 0;
         for (const queueItem of updatedQueue) {
           for (const item of queueItem.items) {
