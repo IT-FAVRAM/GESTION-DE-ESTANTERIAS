@@ -37,22 +37,36 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
         </div>
 
         <div className="p-4 space-y-2">
+          {/* QR Scanner - Opción principal */}
           <button
             type="button"
             onClick={() => onSelect('barcode')}
-            className="w-full rounded-xl border-2 border-cyan-200 hover:border-cyan-500 bg-cyan-50 px-4 py-3 text-left transition-colors"
+            className="w-full rounded-xl border-2 border-blue-300 hover:border-blue-600 bg-blue-50 px-4 py-3 text-left transition-colors shadow-sm hover:shadow-md"
           >
-            <span className="font-bold text-cyan-900">📝 Texto / Código de barras</span>
-            <span className="block text-xs text-cyan-700/80 mt-0.5">Escribe código o escanea con pistola</span>
+            <span className="font-bold text-blue-900">📱 Escanear Código QR</span>
+            <span className="block text-xs text-blue-700/80 mt-0.5">
+              Lee el QR con tu dispositivo (Artículo + OF)
+            </span>
           </button>
+
+          {/* OCR como opción alternativa */}
           <button
             type="button"
             onClick={() => onSelect('ocr')}
             className="w-full rounded-xl border-2 border-purple-200 hover:border-purple-500 bg-purple-50 px-4 py-3 text-left transition-colors"
           >
             <span className="font-bold text-purple-900">📸 OCR con cámara</span>
-            <span className="block text-xs text-purple-700/80 mt-0.5">Lee la etiqueta automáticamente</span>
+            <span className="block text-xs text-purple-700/80 mt-0.5">
+              Lee etiquetas automáticamente (alternativa)
+            </span>
           </button>
+        </div>
+
+        {/* Información */}
+        <div className="px-4 py-3 bg-slate-50 border-t border-slate-100">
+          <p className="text-xs text-slate-600">
+            💡 <strong>Tip:</strong> Usa el QR para la mejor precisión
+          </p>
         </div>
       </div>
     </div>
@@ -60,5 +74,3 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
 };
 
 export default ScanMethodPicker;
-
-

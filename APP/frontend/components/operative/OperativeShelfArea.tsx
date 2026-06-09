@@ -21,7 +21,7 @@ import ScanMethodPicker from '../common/ScanMethodPicker';
 import ConfirmationModal from '../common/ConfirmationModal';
 import CameraQRScanner from '../common/CameraQRScanner';
 import CameraOCRScanner from '../common/CameraOCRScanner';
-import BarcodeFormScanner from '../common/BarcodeFormScanner';
+import QRScanner from '../common/QRScanner';
 import RetirarArticleList from '../kiosk/RetirarArticleList';
 import RetirarCellModal from '../kiosk/RetirarCellModal';
 import MoverArticleList from '../kiosk/MoverArticleList';
@@ -361,7 +361,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
       )}
 
       {showBarcodeForm && (
-        <BarcodeFormScanner
+        <QRScanner
           active={showBarcodeForm}
           disabled={processing}
           onScan={(result) => { setShowBarcodeForm(false); handleScan(result); }}
