@@ -13,42 +13,46 @@ import * as functions from 'firebase-functions';
 const CONTROL_OF_PRODUCCION_URL = 'http://10.0.0.19:8000/ControlOfProduccion/fichajes/getControlOfProduccion';
 const REQUEST_TIMEOUT = 5000; // 5 segundos
 
-interface ProxyRequest {
-  orderFab: string; // OF26-XXXXX
-}
-
-interface ProxyResponse {
-  success: boolean;
-  articulo?: string;
-  error?: string;
-}
-
 /**
  * Cloud Function proxy para buscar artículo por OF
  *
- * Endpoint: POST /proxyControlOfProduccion
- * Body: { "orderFab": "OF26-02217" }
+ * Endpoint: GET /proxyControlOfProduccion?orderFab=OF26-02217
  * Response: { "success": true, "articulo": "27894-05" } o error
+ *
+ * Usa HTTP con CORS explícito (no onCall) para mayor compatibilidad
  */
-export const proxyControlOfProduccion = functions.https.onCall(
-  async (data: ProxyRequest, context): Promise<ProxyResponse> => {
+export const proxyControlOfProduccion = functions.https.onRequest(
+  async (req, res) => {
+    // Habilitar CORS
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+    // Manejar preflight request
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+    }
+
     try {
-      const { orderFab } = data;
+      const { orderFab } = req.query;
 
       // Validar entrada
       if (!orderFab || typeof orderFab !== 'string') {
-        return {
+        res.status(400).json({
           success: false,
           error: 'orderFab es requerido y debe ser string',
-        };
+        });
+        return;
       }
 
       // Validar formato OF
       if (!/^OF26-\d{5}$/.test(orderFab)) {
-        return {
+        res.status(400).json({
           success: false,
           error: 'Formato de OF inválido. Esperado: OF26-XXXXX',
-        };
+        });
+        return;
       }
 
       // Hacer solicitud con timeout
@@ -71,15 +75,17 @@ export const proxyControlOfProduccion = functions.https.onCall(
         // Manejar respuesta de la API
         if (!response.ok) {
           if (response.status === 404) {
-            return {
+            res.status(404).json({
               success: false,
               error: 'Artículo no encontrado',
-            };
+            });
+            return;
           }
-          return {
+          res.status(502).json({
             success: false,
             error: `API respondió con ${response.status}`,
-          };
+          });
+          return;
         }
 
         const apiData: any = await response.json();
@@ -87,37 +93,39 @@ export const proxyControlOfProduccion = functions.https.onCall(
         // Extraer artículo de la respuesta
         // Esperamos estructura como { "articulo": "27894-05" }
         if (apiData && apiData.articulo) {
-          return {
+          res.json({
             success: true,
             articulo: apiData.articulo,
-          };
+          });
+          return;
         }
 
-        return {
+        res.status(400).json({
           success: false,
           error: 'Respuesta inválida de API',
-        };
+        });
       } catch (err: any) {
         clearTimeout(timeoutId);
 
         if (err?.name === 'AbortError') {
-          return {
+          res.status(504).json({
             success: false,
             error: 'Búsqueda tardó demasiado (timeout)',
-          };
+          });
+          return;
         }
 
-        return {
+        res.status(502).json({
           success: false,
           error: `Error al conectar con API: ${err?.message || 'unknown'}`,
-        };
+        });
       }
     } catch (error: any) {
       console.error('[proxyControlOfProduccion] Error:', error);
-      return {
+      res.status(500).json({
         success: false,
         error: 'Error interno del servidor',
-      };
+      });
     }
   }
 );
