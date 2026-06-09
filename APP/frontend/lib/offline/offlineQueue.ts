@@ -25,7 +25,7 @@ export interface OfflineQueueEntry<T extends OfflineOperationType = OfflineOpera
   session?: OperationalSession;
   createdAt: string;
   attempts: number;
-  status: 'pending' | 'retryable' | 'conflict';
+  status: 'pending' | 'syncing' | 'retryable' | 'conflict';
   lastAttemptAt?: string;
   syncedAt?: string;
   errorCode?: string;
@@ -98,11 +98,16 @@ const emitStorageChange = () => {
 };
 
 const persist = (queue: OfflineQueueEntry[], partial?: Partial<OfflineQueueState>) => {
+  const pendingCount = queue.filter((entry) => entry.status === 'pending').length;
+  const syncingCount = queue.filter((entry) => entry.status === 'syncing').length;
+  const conflictCount = queue.filter((entry) => entry.status === 'conflict').length;
   const nextState: OfflineQueueState = {
     ...loadState(),
     ...partial,
-    pendingCount: queue.filter((entry) => entry.status === 'pending').length,
-    conflictCount: queue.filter((entry) => entry.status === 'conflict').length,
+    pendingCount,
+    conflictCount,
+    // isSyncing should be true if there are any syncing entries OR global syncing flag
+    isSyncing: syncingCount > 0 || syncing,
   };
   saveQueue(queue);
   saveState(nextState);

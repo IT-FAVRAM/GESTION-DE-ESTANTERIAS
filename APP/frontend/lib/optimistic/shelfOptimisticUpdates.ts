@@ -60,11 +60,14 @@ export const applyUbicarMulti = (
     if (index >= 0) {
       next[index] = { ...next[index], items: [...next[index].items, nextItem], isEmpty: false };
     } else {
+      // Si la ubicación no existe en next, buscar si existía en prev para preservar campos (nota, etc)
+      const originalLoc = prev.find((loc) => loc.position === position);
       next.push({
         position,
         items: [nextItem],
         isEmpty: false,
         locationId: getLocationDocId(shelfCode, position),
+        ...(originalLoc?.nota && { nota: originalLoc.nota }),
       });
     }
   }

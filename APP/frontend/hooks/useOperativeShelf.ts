@@ -176,19 +176,28 @@ export function useOperativeShelf({
 
   const reprocesosEnabled = !!config.reprocesos;
 
+  // Crear mapa de locaciones por position para búsquedas O(1) en lugar de O(n)
+  const locationsByPosition = useMemo(() => {
+    const map = new Map<string, ShelfLocationState>();
+    for (const loc of locations) {
+      map.set(loc.position, loc);
+    }
+    return map;
+  }, [locations]);
+
   // Mantener `reprocesosCell` sincronizado con los datos en vivo
   useEffect(() => {
     if (!reprocesosCell) return;
-    const updated = locations.find((l) => l.position === reprocesosCell.position);
+    const updated = locationsByPosition.get(reprocesosCell.position);
     if (updated && updated !== reprocesosCell) setReprocesosCell(updated);
-  }, [locations, reprocesosCell]);
+  }, [locationsByPosition, reprocesosCell]);
 
   // También sincronizar `pendingCell` con los datos en vivo (mantener ambas referencias consistentes)
   useEffect(() => {
     if (!pendingCell) return;
-    const updated = locations.find((l) => l.position === pendingCell.position);
+    const updated = locationsByPosition.get(pendingCell.position);
     if (updated && updated !== pendingCell) setPendingCell(updated);
-  }, [locations, pendingCell]);
+  }, [locationsByPosition, pendingCell]);
 
   useEffect(() => () => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -196,12 +205,11 @@ export function useOperativeShelf({
   }, []);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
-  // Limpiar selectedPositions y scanData cuando cambia la acción
+  // Limpiar selectedPositions y scanData cuando CAMBIA la acción (todas las transiciones)
+  // Previene acumulación de positions de la acción anterior
   useEffect(() => {
-    if (action !== 'idle') {
-      setSelectedPositions([]);
-      setScanData(null);
-    }
+    setSelectedPositions([]);
+    setScanData(null);
   }, [action]);
 
   const showToast = useCallback((type: OperativeFeedback['type'], message: string, ms = 2500) => {
@@ -408,10 +416,10 @@ export function useOperativeShelf({
       showToast('error', 'Selecciona al menos una celda');
       return;
     }
-    const firstLoc = locations.find((l) => l.position === selectedPositions[0]) || null;
+    const firstLoc = locationsByPosition.get(selectedPositions[0]) || null;
     setPendingCell(firstLoc);
     setShowOFQuestion(true);
-  }, [selectedPositions, locations, showToast]);
+  }, [selectedPositions, locationsByPosition, showToast]);
 
   // cellFirst: respuesta a "¿Tiene OF?" → pregunta lote/individual
   const handleOFAnswer = useCallback((hasOF: boolean) => {

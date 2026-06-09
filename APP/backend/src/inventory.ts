@@ -24,6 +24,12 @@ const isSameIdentity = (
   return barcodeMatch && orderMatch && containerMatch;
 };
 
+/**
+ * Deduplica artículos basado en presenceId.
+ * Previene duplicación cuando offline operations se reintenten.
+ * presenceId format: {uid}-{timestamp}-{shelfCode}-{position}
+ * Esto permite al backend deduplicar basado en la operación original.
+ */
 const samePresence = (item: any, presenceId: string, articleCode: string, orderFab: string) => {
   if (item?.presenceId) {
     return item.presenceId === presenceId;

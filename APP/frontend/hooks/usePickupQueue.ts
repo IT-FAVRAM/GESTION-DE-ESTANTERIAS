@@ -74,71 +74,73 @@ export const usePickupQueue = () => {
     let unsubscribe: (() => void) | null = null;
 
     const setup = async () => {
-      const session = await resolveCurrentAuthSession();
-      const canReadQueue =
-        session.authMethod === 'guest' ||
-        session.role === 'CARRETILLERO' ||
-        session.role === 'ADMIN' ||
-        session.role === 'SUPERADMIN';
+      try {
+        const session = await resolveCurrentAuthSession();
+        const canReadQueue =
+          session.authMethod === 'guest' ||
+          session.role === 'CARRETILLERO' ||
+          session.role === 'ADMIN' ||
+          session.role === 'SUPERADMIN';
 
-      if (!canReadQueue) {
-        if (isMounted) {
-          setPendingRequests([]);
-          setCompletedRequests([]);
-          setLoading(false);
-          setError(null);
+        if (!canReadQueue) {
+          if (isMounted) {
+            setPendingRequests([]);
+            setCompletedRequests([]);
+            setLoading(false);
+            setError(null);
+          }
+          return;
         }
-        return;
+
+        const q = query(
+          collection(db, COLLECTIONS.PICKUP_QUEUE),
+          orderBy('createdAt', 'desc'),
+          limit(200)
+        );
+
+        unsubscribe = onSnapshot(
+          q,
+          (snapshot) => {
+            if (!isMounted) return;
+            const pending: PickupRequest[] = [];
+            const completed: PickupRequest[] = [];
+
+            snapshot.forEach((docSnap) => {
+              const data = docSnap.data() as PickupRequestDoc;
+              const request: PickupRequest = { id: docSnap.id, ...data };
+
+              if (data.status === 'COMPLETED') {
+                completed.push(request);
+              } else {
+                pending.push(request);
+              }
+            });
+
+            setPendingRequests(pending);
+            setCompletedRequests(completed);
+            setLoading(false);
+            setError(null);
+          },
+          (err) => {
+            if (!isMounted) return;
+            console.error('[usePickupQueue] Listener error:', err);
+            setError('Error cargando solicitudes');
+            setLoading(false);
+          }
+        );
+      } catch (err) {
+        if (!isMounted) return;
+        console.error('[usePickupQueue] Setup error:', err);
+        setError('Error cargando solicitudes');
+        setLoading(false);
       }
-
-      const q = query(
-        collection(db, COLLECTIONS.PICKUP_QUEUE),
-        orderBy('createdAt', 'desc'),
-        limit(200)
-      );
-
-      unsubscribe = onSnapshot(
-        q,
-        (snapshot) => {
-          if (!isMounted) return;
-          const pending: PickupRequest[] = [];
-          const completed: PickupRequest[] = [];
-
-          snapshot.forEach((docSnap) => {
-            const data = docSnap.data() as PickupRequestDoc;
-            const request: PickupRequest = { id: docSnap.id, ...data };
-
-            if (data.status === 'COMPLETED') {
-              completed.push(request);
-            } else {
-              pending.push(request);
-            }
-          });
-
-          setPendingRequests(pending);
-          setCompletedRequests(completed);
-          setLoading(false);
-          setError(null);
-        },
-        (err) => {
-          if (!isMounted) return;
-          console.error('[usePickupQueue] Listener error:', err);
-          setError('Error cargando solicitudes');
-          setLoading(false);
-        }
-      );
     };
 
-    setup().catch((err) => {
-      if (!isMounted) return;
-      console.error('[usePickupQueue] Setup error:', err);
-      setError('Error cargando solicitudes');
-      setLoading(false);
-    });
+    setup();
 
     return () => {
       isMounted = false;
-      unsubscribe?.();
+      if (unsubscribe) unsubscribe();
     };
   }, []);
 

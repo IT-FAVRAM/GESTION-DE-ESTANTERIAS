@@ -64,16 +64,17 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
   // ── Access validation ────────────────────────────────────────────────────
 
   const validateShelfAccess = useCallback(async (purpose: 'view' | 'operate') => {
+    const { canAccessShelf, canOperateShelf } = await import('../lib/auth/permissionValidator');
     const session = await resolveCurrentAuthSession();
     if (!session.role) {
       setError('No hay una sesion activa para esta operacion.');
       return { ok: false, session };
     }
-    if (!session.capabilities.canAccessShelf(shelfCode)) {
+    if (!canAccessShelf({ role: session.role, assignedShelf: session.assignedShelf, section: session.section }, shelfCode)) {
       setError(`La sesion ${session.role} no puede acceder a la estanteria ${shelfCode}.`);
       return { ok: false, session };
     }
-    if (purpose === 'operate' && !session.capabilities.canOperateShelf) {
+    if (purpose === 'operate' && !canOperateShelf({ role: session.role, assignedShelf: session.assignedShelf, section: session.section }, shelfCode)) {
       setError(`La sesion ${session.role} no puede operar sobre la estanteria ${shelfCode}.`);
       return { ok: false, session };
     }
