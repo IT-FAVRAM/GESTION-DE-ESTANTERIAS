@@ -8,7 +8,7 @@ const push_1 = require("./push");
 const normalize = (value) => String(value || '').trim();
 const normalizeRole = (value) => String(value || '').trim().toUpperCase();
 const ALLOWED_ROLES = new Set(['OPERARIO', 'CARRETILLERO', 'JEFE_SECCION', 'CALIDAD', 'ADMIN', 'SUPERADMIN']);
-const ALLOWED_SECTIONS = new Set(['MECANIZADO', 'PLEGADORA', 'PRENSAS', 'SOLDADURA', 'ROBOT_PLEGADO', 'REPASADO', 'PINTURA', 'LASER', 'CALIDAD', 'OTROS']);
+const ALLOWED_SECTIONS = new Set(['PRENSAS_MECANIZADO', 'PLEGADORA', 'SOLDADURA', 'ROBOT_PLEGADO', 'REPASADO', 'PINTURA', 'LASER', 'CALIDAD', 'OTROS', 'MECANIZADO', 'PRENSAS']);
 exports.adminOperate = functions.https.onCall(async (data, context) => {
     await (0, authz_1.requireAllowedRoles)(context, ['SUPERADMIN']);
     const op = String((data === null || data === void 0 ? void 0 : data.op) || '');

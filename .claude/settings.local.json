@@ -237,7 +237,19 @@
       "PowerShell(Test-Path *)",
       "PowerShell(Get-ChildItem *)",
       "PowerShell($env:GOOGLE_APPLICATION_CREDENTIALS = \"C:\\\\-- APLICACIONES DANI --\\\\APP -- ESTANTERIAS\\\\serviceAccount.json\"; Set-Location \"C:\\\\-- APLICACIONES DANI --\\\\APP -- ESTANTERIAS\\\\APP\\\\backend\"; node lib/scripts/migrate_mec_positions.js)",
-      "PowerShell($env:GOOGLE_APPLICATION_CREDENTIALS = \"C:\\\\-- APLICACIONES DANI --\\\\APP -- ESTANTERIAS\\\\serviceAccount.json\"; Set-Location \"C:\\\\-- APLICACIONES DANI --\\\\APP -- ESTANTERIAS\\\\APP\\\\backend\"; node lib/scripts/migrate_mec_positions.js --apply)"
+      "PowerShell($env:GOOGLE_APPLICATION_CREDENTIALS = \"C:\\\\-- APLICACIONES DANI --\\\\APP -- ESTANTERIAS\\\\serviceAccount.json\"; Set-Location \"C:\\\\-- APLICACIONES DANI --\\\\APP -- ESTANTERIAS\\\\APP\\\\backend\"; node lib/scripts/migrate_mec_positions.js --apply)",
+      "Bash(git reset *)",
+      "Bash(firebase auth:export --format=json)",
+      "Bash(firebase access:token)",
+      "Bash(firebase login:print-token)",
+      "PowerShell($credPath = \"$env:APPDATA\\\\firebase\\\\credentials.json\"; if \\(Test-Path $credPath\\) { Get-Content $credPath | Select-Object -First 3 } else { \"Not found at $credPath\" })",
+      "PowerShell($configPath = \"$env:USERPROFILE\\\\.config\\\\configstore\"; if \\(Test-Path $configPath\\) { Get-ChildItem $configPath | Select-Object Name } else { \"No configstore found\" })",
+      "PowerShell($json = Get-Content \"$env:USERPROFILE\\\\.config\\\\configstore\\\\firebase-tools.json\" | ConvertFrom-Json; $json.tokens.refresh_token | Select-Object -First 1)",
+      "PowerShell($raw = Get-Content \"$env:USERPROFILE\\\\.config\\\\configstore\\\\firebase-tools.json\" -Raw; $idx = $raw.IndexOf\\('\"access_token\"'\\); $raw.Substring\\($idx, 200\\))",
+      "Bash(grep -E \"\\\\.ts$|\\\\.js$\")",
+      "Bash(xargs grep -l \"PINTURA\\\\|ZINCADO\\\\|CARROS\")",
+      "Bash(xargs grep -l \"UBICACIONES\\\\|ubicaciones\\\\|LOCATIONS\\\\|locations\")",
+      "Bash(GOOGLE_APPLICATION_CREDENTIALS=\"../../serviceAccount.json\" node lib/scripts/migrate_repasado_dentro.js --apply)"
     ]
   },
   "enabledMcpjsonServers": [
