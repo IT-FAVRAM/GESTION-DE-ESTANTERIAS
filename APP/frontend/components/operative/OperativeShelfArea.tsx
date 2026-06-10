@@ -198,7 +198,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
               </button>
             )}
           </div>
-          <button onClick={cancelAction} className="text-xs text-slate-400 hover:text-red-500 font-bold flex-shrink-0">Cancelar</button>
+          <button onClick={cancelAction} className="text-xs text-rose-400 hover:text-rose-500 font-bold flex-shrink-0">Cancelar</button>
         </div>
       )}
 
@@ -229,7 +229,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
               >
                 🔄 Cambiar método
               </button>
-              <button onClick={handleStopBatch} className="text-xs text-slate-400 hover:text-red-500 transition-colors">✕ Cancelar</button>
+              <button onClick={handleStopBatch} className="text-xs text-rose-400 hover:text-rose-500 transition-colors">✕ Cancelar</button>
             </div>
           </div>
           {batchArticles.length > 0 && (
@@ -435,7 +435,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             <div className="px-4 py-3 border-t border-slate-100">
               <button
                 onClick={() => { setSectionPicker((p) => ({ ...p, open: false })); cancelAction(); }}
-                className="w-full rounded-xl bg-slate-100 text-slate-700 py-3 text-sm font-bold"
+                className="w-full rounded-xl bg-rose-100 text-rose-700 py-3 text-sm font-bold"
               >
                 Cancelar
               </button>
@@ -548,7 +548,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
                 </span>
                 <button
                   onClick={() => setSelectedCell(null)}
-                  className="text-slate-400 hover:text-white text-2xl leading-none"
+                  className="text-rose-400 hover:text-white text-2xl leading-none"
                   aria-label="Cerrar"
                 >
                   ×

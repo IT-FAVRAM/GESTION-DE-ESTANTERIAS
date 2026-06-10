@@ -194,7 +194,7 @@ const MultiLocationSelector: React.FC<MultiLocationSelectorProps> = ({
                 <footer className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 z-10 flex gap-3 shrink-0 safe-area-inset-bottom shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
                     <button
                         onClick={onClose}
-                        className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                        className="flex-1 py-4 bg-rose-100 dark:bg-rose-800 text-rose-700 dark:text-rose-300 font-bold rounded-xl hover:bg-rose-200 dark:hover:bg-rose-700 transition-colors"
                     >
                         Cancelar
                     </button>

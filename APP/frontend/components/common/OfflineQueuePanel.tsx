@@ -136,7 +136,7 @@ const OfflineQueuePanel: React.FC<OfflineQueuePanelProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="rounded-xl bg-slate-800 px-3 py-2 text-sm font-bold text-slate-300 hover:bg-slate-700"
+            className="rounded-xl bg-rose-600 px-3 py-2 text-sm font-bold text-white hover:bg-rose-500"
           >
             Cerrar
           </button>

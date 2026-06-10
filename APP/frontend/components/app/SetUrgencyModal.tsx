@@ -167,7 +167,7 @@ export const SetUrgencyModal: React.FC<SetUrgencyModalProps> = ({
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-md text-white font-medium transition-colors disabled:opacity-50"
+              className="flex-1 px-4 py-2 bg-rose-700 hover:bg-rose-600 rounded-md text-white font-medium transition-colors disabled:opacity-50"
             >
               Cancelar
             </button>

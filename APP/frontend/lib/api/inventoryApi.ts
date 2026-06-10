@@ -39,6 +39,7 @@ const callInventoryOperate = async ({ op, payload, session, opId }: InventoryOpe
     }
 };
 
+/** @deprecated Legacy inventory operate — usa shelfOperate en su lugar */
 const callLegacyInventoryOperate = async (op: 'assign' | 'remove' | 'move' | 'emptyShelf', payload: Record<string, unknown>, opId?: string) => {
     const callable = httpsCallable(functions, 'inventoryOperate');
     const result = await callable({ op, payload, opId: opId || generateUUID() });
@@ -46,15 +47,21 @@ const callLegacyInventoryOperate = async (op: 'assign' | 'remove' | 'move' | 'em
 };
 
 export const inventoryApi = {
+    // ── v3 (shelfOperate) — usar estas ───────────────────────────────────────
     ubicar: (payload: Record<string, unknown>, session?: SessionPayload, opId?: string) => callInventoryOperate({ op: 'ubicar', payload, session, opId }),
     ubicarMulti: (payload: Record<string, unknown>, session?: SessionPayload, opId?: string) => callInventoryOperate({ op: 'ubicarMulti', payload, session, opId }),
     retirar: (payload: Record<string, unknown>, session?: SessionPayload, opId?: string) => callInventoryOperate({ op: 'retirar', payload, session, opId }),
     retirarDeUbicacion: (payload: Record<string, unknown>, session?: SessionPayload, opId?: string) => callInventoryOperate({ op: 'retirarDeUbicacion', payload, session, opId }),
     mover: (payload: Record<string, unknown>, session?: SessionPayload, opId?: string) => callInventoryOperate({ op: 'mover', payload, session, opId }),
     emptyShelf: (payload: Record<string, unknown>, session?: SessionPayload, opId?: string) => callInventoryOperate({ op: 'emptyShelf', payload, session, opId }),
+    // ── Legacy (inventoryOperate) — deprecated, eliminar en v4 ─────────────
+    /** @deprecated Usa shelfOperate. Solo para AppLegacy. */
     assign: (payload: Record<string, unknown>, opId?: string) => callLegacyInventoryOperate('assign', payload, opId),
+    /** @deprecated Usa shelfOperate. Solo para AppLegacy. */
     remove: (payload: Record<string, unknown>, opId?: string) => callLegacyInventoryOperate('remove', payload, opId),
+    /** @deprecated Usa shelfOperate. Solo para AppLegacy. */
     move: (payload: Record<string, unknown>, opId?: string) => callLegacyInventoryOperate('move', payload, opId),
+    /** @deprecated Usa shelfOperate. Solo para AppLegacy. */
     emptyShelfLegacy: (payload: Record<string, unknown>, opId?: string) => callLegacyInventoryOperate('emptyShelf', payload, opId),
 };
 

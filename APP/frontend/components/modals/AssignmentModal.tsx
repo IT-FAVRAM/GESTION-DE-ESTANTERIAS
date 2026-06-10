@@ -114,7 +114,7 @@ const AssignmentModal: React.FC<AssignmentModalProps> = ({ barcode, orderId, onA
                     {isMultiSlotMode ? 'Multi (ON)' : 'Multi (OFF)'}
                 </button>
             )}
-            <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 rounded-full transition-colors touch-manipulation" aria-label="Cerrar">
+            <button onClick={onClose} className="p-2 text-rose-400 hover:text-rose-900 dark:hover:text-white bg-rose-100 dark:bg-rose-800 rounded-full transition-colors touch-manipulation" aria-label="Cerrar">
                 <CloseIcon className="h-6 w-6" />
             </button>
           </div>
@@ -213,7 +213,7 @@ const AssignmentModal: React.FC<AssignmentModalProps> = ({ barcode, orderId, onA
                  )}
 
                 <div className="flex gap-3">
-                    <button onClick={onClose} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 font-bold text-base transition-colors touch-manipulation">
+                    <button onClick={onClose} className="flex-1 py-3 bg-rose-100 dark:bg-rose-800 text-rose-700 dark:text-rose-300 rounded-xl hover:bg-rose-200 dark:hover:bg-rose-700 font-bold text-base transition-colors touch-manipulation">
                         Cancelar
                     </button>
                     <button

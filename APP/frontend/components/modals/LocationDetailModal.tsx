@@ -82,7 +82,7 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
             </h3>
             <p className="text-sm font-mono text-cyan-600 dark:text-cyan-400 break-all pr-2">{formatLocation(locationId)}</p>
           </div>
-          <button onClick={onClose} className="h-11 w-11 inline-flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full text-slate-500 dark:text-slate-400 transition-colors">
+          <button onClick={onClose} className="h-11 w-11 inline-flex items-center justify-center hover:bg-rose-100 dark:hover:bg-rose-800 rounded-full text-rose-500 dark:text-rose-400 transition-colors">
             <CloseIcon className="h-5 w-5" />
           </button>
         </header>

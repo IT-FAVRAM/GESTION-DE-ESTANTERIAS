@@ -19,7 +19,7 @@ const DuplicateItemModal: React.FC<DuplicateItemModalProps> = ({ item, onMove, o
         
         <button 
             onClick={onCancel} 
-            className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 rounded-full transition-colors"
+            className="absolute top-4 right-4 p-2 text-rose-400 hover:text-rose-900 dark:hover:text-white bg-rose-100 dark:bg-rose-800 rounded-full transition-colors"
         >
           <CloseIcon className="h-5 w-5" />
         </button>

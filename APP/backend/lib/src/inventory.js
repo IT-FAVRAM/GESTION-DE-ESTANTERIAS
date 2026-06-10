@@ -163,6 +163,11 @@ exports.onShelfLocationWrite = functions.firestore
     if (hasBatchUpdates)
         await inboundBatch.commit();
 });
+/**
+ * @deprecated Legacy inventory operate. Usa shelfOperate en su lugar.
+ * Esta función opera sobre la colección legacy `assignments/`.
+ * Mantener solo para backward compatibility; eliminar en v4.
+ */
 exports.inventoryOperate = functions.https.onCall(async (data, context) => {
     const userCtx = await (0, authz_1.requireAllowedRoles)(context, ['ADMIN', 'SUPERADMIN', 'JEFE_SECCION', 'CARRETILLERO', 'CALIDAD']);
     const uid = userCtx.uid;
@@ -1086,10 +1091,12 @@ exports.updateReproceso = functions.https.onCall(async (data, context) => {
     const db = firebaseAdmin_1.admin.firestore();
     const locRef = db.collection('shelves').doc('CAL').collection('locations').doc(position);
     await db.runTransaction(async (tx) => {
+        // Todas las lecturas antes que las escrituras
         const locSnap = await tx.get(locRef);
         const locData = locSnap.exists ? locSnap.data() : { position, items: [], isEmpty: true };
         let found = false;
         let foundPresenceId = '';
+        let foundAggregateKey = '';
         const items = (locData.items || []).map((item) => {
             var _a, _b;
             // ✅ FIX #1: Validar presenceId no esté vacío antes de usar para matching
@@ -1100,6 +1107,7 @@ exports.updateReproceso = functions.https.onCall(async (data, context) => {
             if (matchByPresence || matchByCode) {
                 found = true;
                 foundPresenceId = item.presenceId;
+                foundAggregateKey = item.aggregateKey || '';
                 return Object.assign(Object.assign({}, item), { quantity, unitCost });
             }
             return item;
@@ -1107,6 +1115,13 @@ exports.updateReproceso = functions.https.onCall(async (data, context) => {
         if (!found) {
             throw new functions.https.HttpsError('not-found', 'Artículo no encontrado en la ubicación CAL indicada. Ubícalo primero con shelfOperate.');
         }
+        // Lectura adicional para aggregate si se encontró el item
+        let aggregateSnap = null;
+        if (foundAggregateKey) {
+            const aggregateRef = db.collection('itemAggregates').doc(foundAggregateKey);
+            aggregateSnap = await tx.get(aggregateRef);
+        }
+        // Escrituras
         tx.set(locRef, {
             position,
             isEmpty: items.length === 0,
@@ -1116,6 +1131,20 @@ exports.updateReproceso = functions.https.onCall(async (data, context) => {
         if (foundPresenceId) {
             const itemRef = db.collection('items').doc(foundPresenceId);
             tx.update(itemRef, { quantity, unitCost });
+        }
+        // ✅ FIX #3: Sincronizar aggregate
+        if (foundAggregateKey && aggregateSnap && aggregateSnap.exists) {
+            const aggregateRef = db.collection('itemAggregates').doc(foundAggregateKey);
+            const aggregate = aggregateSnap.data();
+            tx.set(aggregateRef, {
+                aggregateKey: foundAggregateKey,
+                articleCode: aggregate.articleCode || articleCode,
+                orderFab: aggregate.orderFab || orderFab,
+                activePresenceIds: aggregate.activePresenceIds || [],
+                totalActivePresences: aggregate.totalActivePresences || 0,
+                totalPlacements: aggregate.totalPlacements || 0,
+                updatedAt: new Date().toISOString(),
+            }, { merge: true });
         }
     });
     return { ok: true };

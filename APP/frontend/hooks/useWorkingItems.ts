@@ -51,11 +51,18 @@ export const useWorkingItems = () => {
 
     const locateItem = useCallback(async (item: WorkingItem, toLocation: LocationId) => {
         try {
+            // Parse legacy locationId (e.g. "PRE-E1-01") into shelfCode + position for v3 backend
+            const dashIdx = toLocation.indexOf('-');
+            const toShelfCode = dashIdx > 0 ? toLocation.substring(0, dashIdx) : undefined;
+            const toPosition = dashIdx > 0 ? toLocation.substring(dashIdx + 1) : undefined;
+
             await productionApi.locateWorking({
                 itemKey: item.itemKey || item.barcode,
                 barcode: item.barcode,
                 orderId: item.orderId,
                 toLocation,
+                toShelfCode,
+                toPosition,
                 packageType: item.packageType,
                 quantity: 1,
                 containerId: item.containerId,

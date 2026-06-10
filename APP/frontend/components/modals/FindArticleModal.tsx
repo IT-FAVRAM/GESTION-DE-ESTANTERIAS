@@ -23,7 +23,7 @@ const FindArticleModal: React.FC<FindArticleModalProps> = ({ onClose, onPredict 
             <div className="relative w-full max-w-md bg-slate-900 rounded-2xl shadow-2xl p-6 border border-slate-800">
                 <button 
                     onClick={onClose} 
-                    className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white bg-slate-800 rounded-full transition-colors"
+                    className="absolute top-4 right-4 p-2 text-rose-400 hover:text-white bg-rose-800 rounded-full transition-colors"
                 >
                     <CloseIcon className="h-6 w-6" />
                 </button>

@@ -161,7 +161,7 @@ const EmptyLocationsModal: React.FC<EmptyLocationsModalProps> = ({
                     <div className="flex gap-3">
                         <button
                             onClick={onClose}
-                            className="px-6 py-3 text-sm font-bold text-slate-600 hover:text-slate-800 transition-colors"
+                            className="px-6 py-3 text-sm font-bold text-rose-600 hover:text-rose-800 transition-colors"
                         >
                             Cancelar
                         </button>

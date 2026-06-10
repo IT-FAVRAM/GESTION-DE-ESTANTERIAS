@@ -137,7 +137,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, currentRol
                 </div>
 
                 <footer className="p-4 border-t border-slate-800 bg-slate-900 rounded-b-2xl flex justify-center shrink-0">
-                    <button onClick={onClose} className="w-full px-6 py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 border border-slate-700 transition-colors">
+                    <button onClick={onClose} className="w-full px-6 py-3 bg-rose-800 text-white font-bold rounded-xl hover:bg-rose-700 border border-rose-700 transition-colors">
                         Cerrar
                     </button>
                 </footer>

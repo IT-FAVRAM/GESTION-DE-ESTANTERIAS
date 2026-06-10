@@ -125,8 +125,8 @@ const IdEntryModal: React.FC<IdEntryModalProps> = ({ open, initialValue, onConfi
           </button>
           <button
             onClick={onClose}
-            className="w-full h-12 rounded-2xl text-sm font-bold bg-slate-700 hover:bg-slate-600
-              text-slate-200 hover:text-white border border-slate-600 transition-all active:scale-[0.98]"
+            className="w-full h-12 rounded-2xl text-sm font-bold bg-rose-600 hover:bg-rose-500
+              text-rose-100 hover:text-white border border-rose-500 transition-all active:scale-[0.98]"
           >
             Cancelar
           </button>

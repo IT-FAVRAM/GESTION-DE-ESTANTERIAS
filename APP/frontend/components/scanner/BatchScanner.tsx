@@ -71,7 +71,7 @@ const BatchScanner: React.FC<BatchScannerProps> = ({ onComplete, onClose, mode =
             className="w-full px-4 py-3 bg-slate-900 border border-slate-600 text-white font-bold rounded-xl uppercase outline-none focus:border-purple-500"
           />
           <div className="flex gap-3">
-            <button onClick={() => setIsFormOpen(false)} className="flex-1 py-3 bg-slate-700 text-slate-300 font-bold rounded-xl hover:bg-slate-600">
+            <button onClick={() => setIsFormOpen(false)} className="flex-1 py-3 bg-rose-700 text-rose-300 font-bold rounded-xl hover:bg-rose-600">
               Cancelar
             </button>
             <button
@@ -140,7 +140,7 @@ const BatchScanner: React.FC<BatchScannerProps> = ({ onComplete, onClose, mode =
 
       {/* Footer Actions */}
       <div className="absolute bottom-0 left-0 right-0 p-4 bg-slate-900 border-t border-slate-800 flex gap-3 z-30 safe-area-inset-bottom">
-        <button onClick={onClose} className="flex-1 py-3 rounded-xl font-bold text-slate-400 bg-slate-800 hover:bg-slate-700 border border-slate-700">
+        <button onClick={onClose} className="flex-1 py-3 rounded-xl font-bold text-rose-400 bg-rose-800 hover:bg-rose-700 border border-rose-700">
           Cancelar
         </button>
         <button

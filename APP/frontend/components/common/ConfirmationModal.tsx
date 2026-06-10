@@ -134,7 +134,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
               disabled={loading}
               className={`
                 w-full h-14 rounded-2xl text-lg font-bold 
-                bg-slate-100 text-slate-700 hover:bg-slate-200 
+                bg-rose-100 text-rose-700 hover:bg-rose-200 
                 transition-all active:scale-[0.98] disabled:opacity-50
               `}
             >
@@ -147,8 +147,8 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="w-full h-12 rounded-xl text-base font-bold text-slate-600 hover:text-slate-800
-              bg-slate-100 hover:bg-slate-200 border border-slate-200 hover:border-slate-300
+            className="w-full h-12 rounded-xl text-base font-bold text-white
+              bg-rose-500 hover:bg-rose-600 border border-rose-600
               transition-all active:scale-[0.98] disabled:opacity-50"
           >
             {cancelText}

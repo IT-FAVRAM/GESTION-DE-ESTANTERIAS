@@ -168,7 +168,7 @@ const OccupiedLocationModal: React.FC<OccupiedLocationModalProps> = ({
             {/* Opción 3: Cancelar / Mover */}
             <button 
                 onClick={onCancel}
-                className="w-full py-3 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                className="w-full py-3 text-rose-500 hover:text-rose-800 dark:hover:text-rose-200 font-bold text-sm transition-colors flex items-center justify-center gap-2"
             >
                 <MoveIcon className="h-4 w-4" />
                 Cambiar Ubicación / Cancelar

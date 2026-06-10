@@ -345,7 +345,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               <button
                 onClick={onClose}
                 aria-label="Cerrar chat"
-                className="h-9 w-9 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="h-9 w-9 rounded-full flex items-center justify-center text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-800 transition-colors"
               >
                 ✕
               </button>

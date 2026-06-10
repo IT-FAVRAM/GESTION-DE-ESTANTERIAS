@@ -240,7 +240,7 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
             <div className="px-6 pb-6 pt-2">
               <button
                 onClick={() => { setShowShelfPicker(false); setPendingShelfAction(null); }}
-                className="w-full h-12 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 hover:text-white text-sm font-bold border border-slate-600 transition-all active:scale-[0.98]"
+                className="w-full h-12 rounded-xl bg-rose-700 hover:bg-rose-600 text-rose-200 hover:text-white text-sm font-bold border border-rose-600 transition-all active:scale-[0.98]"
               >
                 Cancelar
               </button>

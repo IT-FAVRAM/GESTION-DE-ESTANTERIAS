@@ -128,7 +128,12 @@ export async function processMessage(text: string, apiKey: string): Promise<stri
       results.push(result);
     }
 
-    // Segunda llamada para que el modelo formatee la respuesta
+    const toolMessages = choice.message.tool_calls.map((tc: any, i: number) => ({
+      role: 'tool' as const,
+      content: results[i],
+      tool_call_id: tc.id,
+    }));
+
     const finalResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -141,7 +146,7 @@ export async function processMessage(text: string, apiKey: string): Promise<stri
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: text },
           choice.message,
-          { role: 'tool', content: results.join('\n\n'), tool_call_id: choice.message.tool_calls[0].id },
+          ...toolMessages,
         ],
         max_tokens: 500,
       }),

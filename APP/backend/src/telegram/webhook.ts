@@ -1,6 +1,5 @@
+import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import { onRequest } from 'firebase-functions/v2/https';
-import { TELEGRAM_BOT_TOKEN, OPENAI_API_KEY, TELEGRAM_WEBHOOK_SECRET } from './secrets';
 import { processMessage, transcribeAudio } from './ai';
 
 const TELEGRAM_API = 'https://api.telegram.org/bot';
@@ -42,7 +41,7 @@ async function isAuthorized(chatId: number): Promise<boolean> {
   const configDoc = await db.collection('config').doc('telegram').get();
 
   if (!configDoc.exists) {
-    console.warn('config/telegram document not found');
+    functions.logger.warn('config/telegram document not found');
     return false;
   }
 
@@ -50,12 +49,10 @@ async function isAuthorized(chatId: number): Promise<boolean> {
   return allowedChatIds.includes(chatId);
 }
 
-export const telegramWebhook = onRequest({
-  secrets: [TELEGRAM_BOT_TOKEN, OPENAI_API_KEY, TELEGRAM_WEBHOOK_SECRET],
-}, async (req, res) => {
+export const telegramWebhook = functions.https.onRequest(async (req, res) => {
   // Validar secret token
   const secretToken = req.headers['x-telegram-bot-api-secret-token'];
-  const webhookSecret = TELEGRAM_WEBHOOK_SECRET.value();
+  const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
 
   if (webhookSecret && secretToken !== webhookSecret) {
     res.status(403).send('Forbidden');
@@ -67,8 +64,14 @@ export const telegramWebhook = onRequest({
     return;
   }
 
-  const token = TELEGRAM_BOT_TOKEN.value();
-  const openaiKey = OPENAI_API_KEY.value();
+  const token = process.env.TELEGRAM_BOT_TOKEN || '';
+  const openaiKey = process.env.OPENAI_API_KEY || '';
+
+  if (!token || !openaiKey) {
+    functions.logger.error('Missing TELEGRAM_BOT_TOKEN or OPENAI_API_KEY');
+    res.status(500).send('Missing secrets');
+    return;
+  }
 
   const update = req.body;
 
@@ -149,7 +152,7 @@ export const telegramWebhook = onRequest({
     await sendMessage(chatId, response, token);
 
   } catch (err) {
-    console.error('Telegram webhook error:', err);
+    functions.logger.error('Telegram webhook error:', err);
     await sendMessage(chatId, '❌ Error al procesar. Intenta de nuevo.', token);
   }
 

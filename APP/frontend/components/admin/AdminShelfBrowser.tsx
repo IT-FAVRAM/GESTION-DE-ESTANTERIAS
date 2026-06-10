@@ -767,7 +767,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
               {articleInput.trim()} <span className="text-slate-400 font-normal">· OF {ofInput.trim()}</span>
             </span>
             <span className="text-sm font-black text-slate-600 hidden sm:block">{shelfDef?.name || selectedShelf}</span>
-            <button onClick={resetAction} className="px-3 py-1.5 bg-slate-200 hover:bg-red-100 text-slate-700 hover:text-red-700 text-xs font-bold rounded-lg border border-slate-300 hover:border-red-200 shrink-0 transition-all active:scale-95">
+            <button onClick={resetAction} className="px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-700 hover:text-rose-700 text-xs font-bold rounded-lg border border-rose-300 hover:border-rose-200 shrink-0 transition-all active:scale-95">
               ✕ Cancelar
             </button>
           </div>
@@ -932,7 +932,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
                   )}
                 </>
               )}
-              <button onClick={resetAction} className="px-3 py-1.5 bg-slate-700/60 hover:bg-slate-600 text-slate-300 hover:text-white text-xs font-bold rounded-lg border border-slate-600/80 transition-all active:scale-95">
+              <button onClick={resetAction} className="px-3 py-1.5 bg-rose-700/60 hover:bg-rose-600 text-rose-300 hover:text-white text-xs font-bold rounded-lg border border-rose-600/80 transition-all active:scale-95">
                 ✕ Cancelar
               </button>
             </div>
@@ -1007,7 +1007,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
                 </button>
                 <button
                   onClick={resetAction}
-                  className="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 hover:text-red-300 text-xs font-bold rounded-lg border border-red-600/30 transition-all active:scale-95"
+                  className="px-3 py-2 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 hover:text-rose-300 text-xs font-bold rounded-lg border border-rose-600/30 transition-all active:scale-95"
                 >
                   ✕ Cancelar
                 </button>
@@ -1067,7 +1067,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
               </div>
               <button
                 onClick={resetAction}
-                className="px-3 py-1.5 bg-slate-700/60 hover:bg-slate-600 text-slate-300 hover:text-white text-xs font-bold rounded-lg border border-slate-600/80 shrink-0 transition-all active:scale-95"
+                className="px-3 py-1.5 bg-rose-700/60 hover:bg-rose-600 text-rose-300 hover:text-white text-xs font-bold rounded-lg border border-rose-600/80 shrink-0 transition-all active:scale-95"
               >
                 ✕ Cancelar
               </button>
@@ -1259,7 +1259,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
             <div className="flex gap-3">
               <button
                 onClick={() => { setShowManualEntry(false); setManualArticle(''); setManualOf(''); }}
-                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 font-bold rounded-xl border border-slate-300 hover:border-slate-400 transition-all active:scale-[0.98]"
+                className="flex-1 py-3 bg-rose-100 hover:bg-rose-200 text-rose-700 hover:text-rose-900 font-bold rounded-xl border border-rose-300 hover:border-rose-400 transition-all active:scale-[0.98]"
               >
                 Cancelar
               </button>

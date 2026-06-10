@@ -178,8 +178,8 @@ const RetirarCellModal: React.FC<RetirarCellModalProps> = ({
           <button
             onClick={onClose}
             disabled={loading}
-            className="w-full h-10 rounded-xl text-sm font-bold text-slate-400
-              hover:text-white hover:bg-slate-800 transition-all disabled:opacity-50"
+            className="w-full h-10 rounded-xl text-sm font-bold text-rose-400
+              hover:text-white hover:bg-rose-800 transition-all disabled:opacity-50"
           >
             Cancelar
           </button>

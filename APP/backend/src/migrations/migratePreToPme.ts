@@ -1,9 +1,9 @@
 /**
- * Cloud Function: Migra PRE → PME
- * Endpoint: /migratPreToPme
+ * @deprecated ESTA MIGRACIÓN YA FUE EJECUTADA. NO VOLVER A EJECUTAR.
+ * Cloud Function deshabilitada — eliminada de index.ts exports.
+ * Archivo mantenido solo como referencia histórica.
  *
- * URGENTE: Los datos están en shelves/PRE pero el frontend busca en shelves/PME
- * Esto debe ejecutarse UNA SOLA VEZ para copiar los datos.
+ * Uso original: Copiar datos de shelves/PRE → shelves/PME (una sola vez).
  */
 
 import * as functions from 'firebase-functions';

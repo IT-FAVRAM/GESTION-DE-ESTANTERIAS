@@ -166,12 +166,13 @@ export const resolveDeviceConfig = functions.https.onCall(async (data: any, cont
 
   let deviceSnap = await admin.firestore().collection('dispositivos').doc(deviceId).get();
 
-  // Auto-registrar dispositivos desconocidos (ordenador desarrollo, móvil, etc.)
-  // como tipo CARRETILLERO para que puedan operar sin estar pre-registrados.
+  // Auto-registrar dispositivos desconocidos como KIOSK (lectura/consulta).
+  // Los dispositivos CARRETILLERO deben ser pre-registrados por un admin
+  // para evitar que dispositivos no autorizados obtengan permisos de operación.
   if (!deviceSnap.exists) {
     const now = new Date().toISOString();
     await admin.firestore().collection('dispositivos').doc(deviceId).set({
-      type: 'CARRETILLERO',
+      type: 'KIOSK',
       name: `Auto-${deviceId.slice(-8)}`,
       active: true,
       assignedShelf: null,

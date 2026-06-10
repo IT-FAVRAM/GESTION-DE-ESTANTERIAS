@@ -16,7 +16,7 @@ const AddMethodModal: React.FC<AddMethodModalProps> = ({ title = "Seleccionar MÃ
       <div className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6 border border-slate-200 dark:border-slate-800">
         <button 
             onClick={onClose} 
-            className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 rounded-full transition-colors"
+            className="absolute top-4 right-4 p-2 text-rose-400 hover:text-rose-900 dark:hover:text-white bg-rose-100 dark:bg-rose-800 rounded-full transition-colors"
         >
           <CloseIcon className="h-5 w-5" />
         </button>

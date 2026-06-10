@@ -46,7 +46,7 @@ const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ onSubmit, onClose, 
       <div className="relative w-full md:max-w-md bg-slate-900 md:rounded-2xl rounded-t-2xl shadow-2xl p-5 md:p-8 border border-slate-800 max-h-[90dvh] overflow-y-auto pb-safe">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 h-11 w-11 inline-flex items-center justify-center text-slate-400 hover:text-white bg-slate-800/50 rounded-full transition-colors"
+          className="absolute top-4 right-4 h-11 w-11 inline-flex items-center justify-center text-rose-400 hover:text-white bg-rose-800/50 rounded-full transition-colors"
         >
           <CloseIcon className="h-6 w-6" />
         </button>

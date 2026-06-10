@@ -112,7 +112,7 @@ export const InboundManagement: React.FC<InboundManagementProps> = ({ role }) =>
                         </div>
                     </div>
                     <div className="flex justify-end gap-2">
-                        <button onClick={() => setIsCreating(false)} className="text-slate-400 hover:text-white px-4 py-2">Cancelar</button>
+                        <button onClick={() => setIsCreating(false)} className="text-rose-400 hover:text-rose-100 px-4 py-2">Cancelar</button>
                         <button onClick={handleCreate} className="bg-cyan-600 text-white px-6 py-2 rounded font-bold hover:bg-cyan-500">Guardar</button>
                     </div>
                 </div>

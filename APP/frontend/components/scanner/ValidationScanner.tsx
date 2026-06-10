@@ -65,7 +65,7 @@ const ValidationScanner: React.FC<ValidationScannerProps> = ({ targetLocation, o
               className="w-full px-4 py-3 bg-slate-800 border border-slate-700 text-white font-bold rounded-xl text-center uppercase outline-none focus:border-cyan-500 mb-4"
             />
             <div className="flex gap-3">
-              <button onClick={onClose} className="flex-1 py-3 bg-slate-800 text-slate-300 font-bold rounded-xl hover:bg-slate-700">
+              <button onClick={onClose} className="flex-1 py-3 bg-rose-800 text-rose-300 font-bold rounded-xl hover:bg-rose-700">
                 Cancelar
               </button>
               <button
@@ -104,7 +104,7 @@ const ValidationScanner: React.FC<ValidationScannerProps> = ({ targetLocation, o
             <h3 className="text-white font-bold text-xl mb-2">Error de Validación</h3>
             <p className="text-slate-300 text-sm mb-6">{errorMsg}</p>
             <div className="flex gap-3">
-              <button onClick={onClose} className="flex-1 py-3 bg-slate-800 text-slate-300 font-bold rounded-xl hover:bg-slate-700">
+              <button onClick={onClose} className="flex-1 py-3 bg-rose-800 text-rose-300 font-bold rounded-xl hover:bg-rose-700">
                 Cancelar
               </button>
               <button onClick={handleRetry} className="flex-1 py-3 bg-white text-slate-900 font-bold rounded-xl hover:bg-slate-200">

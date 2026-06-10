@@ -16,7 +16,7 @@ const PushToast: React.FC<PushToastProps> = ({ notification, onClose }) => {
           <p className="font-bold text-slate-900 text-sm">{notification.title}</p>
           <p className="text-slate-600 text-xs mt-1">{notification.body}</p>
         </div>
-        <button onClick={onClose} className="text-slate-400 text-sm ml-auto hover:text-slate-200 transition-colors duration-200">✕</button>
+        <button onClick={onClose} className="text-rose-400 text-sm ml-auto hover:text-rose-200 transition-colors duration-200">✕</button>
       </div>
     </div>
   );

@@ -44,7 +44,7 @@ const PackageTypeModal: React.FC<PackageTypeModalProps> = ({ onSelect, onClose }
 
                 <button
                     onClick={onClose}
-                    className="w-full mt-6 py-3 text-slate-500 dark:text-slate-400 font-bold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    className="w-full mt-6 py-3 text-rose-500 dark:text-rose-400 font-bold rounded-xl hover:bg-rose-100 dark:hover:bg-rose-800 transition-colors"
                 >
                     Cancelar
                 </button>

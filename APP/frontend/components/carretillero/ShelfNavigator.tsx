@@ -613,7 +613,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
                 />
               </div>
               <div className="flex gap-3">
-                <button onClick={() => setShowAddShelfModal(false)} className="flex-1 py-3 rounded-2xl bg-slate-100 text-slate-700 font-bold text-sm">Cancelar</button>
+                <button onClick={() => setShowAddShelfModal(false)} className="flex-1 py-3 rounded-2xl bg-rose-100 text-rose-700 font-bold text-sm">Cancelar</button>
                 <button
                   onClick={() => {
                     if (!addShelfCode || !addShelfPositionText.trim()) return;
@@ -657,7 +657,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
                 </span>
               )}
             </div>
-            <button onClick={resetOperative} className="text-xs text-slate-400 hover:text-red-500 transition-colors">✕ Cancelar</button>
+            <button onClick={resetOperative} className="text-xs text-rose-400 hover:text-rose-500 transition-colors">✕ Cancelar</button>
           </div>
           {batchArticles.length > 0 && (
             <div className="max-h-14 overflow-y-auto bg-slate-50 rounded-lg p-2 mb-2">

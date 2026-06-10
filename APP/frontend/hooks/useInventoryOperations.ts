@@ -419,10 +419,17 @@ export const useInventoryOperations = (
             const item = assignments[location]?.find(i => i.barcode === barcode && i.orderId === orderId);
             if (!item) return false;
 
+            // Parse legacy locationId (e.g. "PRE-E1-01") into shelfCode + position for v3 backend
+            const dashIdx = location.indexOf('-');
+            const shelfCode = dashIdx > 0 ? location.substring(0, dashIdx) : undefined;
+            const position = dashIdx > 0 ? location.substring(dashIdx + 1) : undefined;
+
             await productionApi.withdrawToWorking({
                 barcode,
                 orderId,
                 fromLocationId: location,
+                shelfCode,
+                position,
                 itemKey: item.itemKey,
                 containerId: item.containerId
             });

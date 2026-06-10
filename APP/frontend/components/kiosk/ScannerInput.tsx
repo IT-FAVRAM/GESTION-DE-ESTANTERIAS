@@ -231,7 +231,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
             inputRef.current?.focus();
           }}
           disabled={disabled || !input}
-          className="px-3 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-lg font-bold transition-colors"
+          className="px-3 py-2 bg-rose-700 hover:bg-rose-600 disabled:opacity-50 text-white rounded-lg font-bold transition-colors"
         >
           ✕
         </button>

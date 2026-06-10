@@ -181,7 +181,7 @@ const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ onClose, role, initia
           <button
             type="button"
             onClick={onClose}
-            className="rounded-2xl bg-slate-800 px-4 py-2 text-sm font-bold text-slate-300 transition hover:bg-slate-700"
+            className="rounded-2xl bg-rose-800 px-4 py-2 text-sm font-bold text-rose-300 transition hover:bg-rose-700"
           >
             Cerrar
           </button>

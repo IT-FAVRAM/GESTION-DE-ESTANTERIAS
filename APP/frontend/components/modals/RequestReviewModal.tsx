@@ -64,7 +64,7 @@ const RequestReviewModal: React.FC<RequestReviewModalProps> = ({ items, onConfir
         <footer className="p-4 md:p-5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-b-2xl flex gap-3 justify-end flex-shrink-0 safe-area-inset-bottom">
           <button 
             onClick={onClose}
-            className="flex-1 md:flex-none px-4 md:px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-sm md:text-base"
+            className="flex-1 md:flex-none px-4 md:px-6 py-3 bg-rose-100 dark:bg-rose-800 text-rose-700 dark:text-rose-300 font-bold rounded-xl hover:bg-rose-200 dark:hover:bg-rose-700 transition-colors text-sm md:text-base"
           >
             Cancelar
           </button>

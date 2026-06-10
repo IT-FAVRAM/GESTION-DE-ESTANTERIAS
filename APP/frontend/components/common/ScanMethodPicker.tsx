@@ -29,7 +29,7 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 text-2xl leading-none"
+            className="text-rose-400 hover:text-rose-700 text-2xl leading-none"
             aria-label="Cerrar"
           >
             ×

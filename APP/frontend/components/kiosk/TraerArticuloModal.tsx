@@ -349,7 +349,7 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-950/95 backdrop-blur-sm">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-4 border-b border-slate-800">
-        <button onClick={onClose} disabled={loading} className="text-slate-400 hover:text-white transition-colors p-1">
+        <button onClick={onClose} disabled={loading} className="text-rose-400 hover:text-white transition-colors p-1">
           ← Cancelar
         </button>
         <h2 className="text-lg font-black text-white flex-1 text-center">📦 Traer artículo</h2>
@@ -406,7 +406,7 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
                 />
                 {query && (
                   <button onClick={() => { setQuery(''); setDebouncedQuery(''); setSelected(null); inputRef.current?.focus(); }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-lg"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-rose-500 hover:text-white text-lg"
                   >
                     ✕
                   </button>

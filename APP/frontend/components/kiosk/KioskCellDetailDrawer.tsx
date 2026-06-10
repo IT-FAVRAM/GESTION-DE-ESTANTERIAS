@@ -25,7 +25,7 @@ const KioskCellDetailDrawer: React.FC<KioskCellDetail> = ({ selectedCell, onClos
             </div>
           ))}
         </div>
-        <button onClick={onClose} className="w-full mt-4 py-3 bg-slate-700 hover:bg-slate-600 text-slate-200 hover:text-white font-bold rounded-xl border border-slate-600 transition-all active:scale-[0.98]">Cerrar</button>
+        <button onClick={onClose} className="w-full mt-4 py-3 bg-rose-700 hover:bg-rose-600 text-rose-200 hover:text-white font-bold rounded-xl border border-rose-600 transition-all active:scale-[0.98]">Cerrar</button>
       </div>
     </div>
   );

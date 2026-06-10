@@ -214,7 +214,7 @@ const BatchAssignmentModal: React.FC<BatchAssignmentModalProps> = ({ items, onAs
         </div>
 
         <footer className="p-5 border-t border-slate-800 bg-slate-900 rounded-b-2xl flex justify-end gap-3">
-          <button onClick={onClose} className="px-6 py-3 bg-slate-800 text-slate-300 font-bold rounded-xl hover:bg-slate-700 transition-colors border border-slate-700">
+          <button onClick={onClose} className="px-6 py-3 bg-rose-800 text-rose-300 font-bold rounded-xl hover:bg-rose-700 transition-colors border border-rose-700">
             Cancelar
           </button>
           <button

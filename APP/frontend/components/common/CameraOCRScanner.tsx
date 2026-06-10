@@ -420,7 +420,7 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
         </div>
         <button
           onClick={handleClose}
-          className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors text-xl"
+          className="w-9 h-9 rounded-full bg-rose-500/20 flex items-center justify-center text-white hover:bg-rose-500/30 transition-colors text-xl"
         >
           ×
         </button>
@@ -562,7 +562,7 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
                   🔄 Reintentar
                 </button>
               )}
-              <button onClick={handleClose} className="px-6 py-3 bg-slate-700 text-white rounded-xl font-bold hover:bg-slate-600">Cerrar</button>
+              <button onClick={handleClose} className="px-6 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-500">Cerrar</button>
             </div>
           </div>
         )}
@@ -573,7 +573,7 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
         {phase === 'live' && (
           <>
             <button onClick={handleClose}
-              className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors text-sm font-bold">
+              className="w-14 h-14 rounded-full bg-rose-500/20 flex items-center justify-center text-white hover:bg-rose-500/30 transition-colors text-sm font-bold">
               Dejar de escanear
             </button>
             <button

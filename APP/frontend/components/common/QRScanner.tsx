@@ -184,7 +184,7 @@ const QRScanner: React.FC<QRScannerProps> = ({
               onClose?.();
             }}
             disabled={disabled}
-            className="w-full px-3 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold disabled:opacity-50 transition-colors"
+            className="w-full px-3 py-2 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 text-xs font-bold disabled:opacity-50 transition-colors"
           >
             ✕ Cerrar Scanner
           </button>

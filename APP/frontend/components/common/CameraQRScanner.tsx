@@ -169,7 +169,7 @@ const CameraQRScanner: React.FC<CameraQRScannerProps> = ({ onScan, onError, onCl
         </div>
         <button
           onClick={handleClose}
-          className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors text-xl"
+          className="w-9 h-9 rounded-full bg-rose-500/20 flex items-center justify-center text-white hover:bg-rose-500/30 transition-colors text-xl"
         >
           ×
         </button>
@@ -261,7 +261,7 @@ const CameraQRScanner: React.FC<CameraQRScannerProps> = ({ onScan, onError, onCl
             <p className="text-slate-400 text-sm text-center mb-6">{errorMsg}</p>
             <button
               onClick={handleClose}
-              className="px-6 py-3 bg-slate-700 text-white rounded-xl font-bold hover:bg-slate-600"
+              className="px-6 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-500"
             >
               Cerrar
             </button>
@@ -296,7 +296,7 @@ const CameraQRScanner: React.FC<CameraQRScannerProps> = ({ onScan, onError, onCl
         {/* Cancel */}
         <button
           onClick={handleClose}
-          className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors font-bold text-sm"
+          className="w-14 h-14 rounded-full bg-rose-500/20 flex items-center justify-center text-white hover:bg-rose-500/30 transition-colors font-bold text-sm"
         >
           Cerrar
         </button>

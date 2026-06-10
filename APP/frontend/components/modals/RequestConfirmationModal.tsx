@@ -53,7 +53,7 @@ const RequestConfirmationModal: React.FC<RequestConfirmationModalProps> = ({ ite
         <div className="grid grid-cols-2 gap-4 mt-2">
           <button
             onClick={onCancel}
-            className="min-h-[44px] py-3.5 px-4 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
+            className="min-h-[44px] py-3.5 px-4 bg-rose-100 dark:bg-rose-800 text-rose-700 dark:text-rose-300 font-bold rounded-xl hover:bg-rose-200 dark:hover:bg-rose-700 transition-colors"
           >
             Cancelar
           </button>

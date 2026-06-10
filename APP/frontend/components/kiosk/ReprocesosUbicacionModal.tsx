@@ -182,8 +182,8 @@ const ReprocesosUbicacionModal: React.FC<ReprocesosUbicacionModalProps> = ({
           </button>
           <button
             onClick={handleClose}
-            className="w-full h-12 rounded-2xl text-sm font-bold bg-slate-700 hover:bg-slate-600
-              text-slate-200 hover:text-white border border-slate-600 transition-all active:scale-[0.98]"
+            className="w-full h-12 rounded-2xl text-sm font-bold bg-rose-700 hover:bg-rose-600
+              text-rose-200 hover:text-white border border-rose-600 transition-all active:scale-[0.98]"
           >
             Cancelar
           </button>

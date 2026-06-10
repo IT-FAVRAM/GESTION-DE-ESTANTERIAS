@@ -101,7 +101,7 @@ const AddShelfPositionModal: React.FC<AddShelfPositionModalProps> = ({
         <div className="flex gap-3">
           <button
             onClick={handleClose}
-            className="flex-1 py-3 rounded-2xl bg-slate-100 text-slate-700 font-bold text-sm"
+            className="flex-1 py-3 rounded-2xl bg-rose-100 text-rose-700 font-bold text-sm"
           >
             Cancelar
           </button>

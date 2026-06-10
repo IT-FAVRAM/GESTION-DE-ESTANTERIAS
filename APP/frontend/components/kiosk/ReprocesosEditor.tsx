@@ -165,7 +165,7 @@ const ReprocesosEditor: React.FC<ReprocesosEditorProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-700 text-slate-300 hover:bg-slate-600 flex items-center justify-center text-sm font-bold"
+            className="w-8 h-8 rounded-full bg-rose-700 text-rose-300 hover:bg-rose-600 flex items-center justify-center text-sm font-bold"
           >
             ✕
           </button>

@@ -6,9 +6,12 @@ type ProductionOp = 'withdrawToWorking' | 'finishWorking' | 'locateWorking';
 interface WithdrawToWorkingPayload {
   barcode: string;
   orderId: string;
-  fromLocationId: string;
+  fromLocationId?: string;
+  shelfCode?: string;
+  position?: string;
   itemKey?: string;
   containerId?: string;
+  presenceId?: string;
 }
 
 interface FinishWorkingPayload {
@@ -22,7 +25,9 @@ interface LocateWorkingPayload {
   itemKey: string;
   barcode: string;
   orderId: string;
-  toLocation: string;
+  toLocation?: string;
+  toShelfCode?: string;
+  toPosition?: string;
   packageType?: string;
   quantity?: number;
   containerId?: string;
@@ -53,5 +58,3 @@ export const productionApi = {
   locateWorking: (payload: LocateWorkingPayload) =>
     callProductionOperate('locateWorking', payload),
 };
-
-

@@ -27,6 +27,17 @@ const WMS_SHELF_SECTION = {
     RPL: 'AUTOPLEGADORA',
     LASER: 'LASER',
 };
+const SECTION_COVERS = {
+    PRENSAS_MECANIZADO: ['MECANIZADO', 'PRENSAS'],
+};
+const sectionCoversShelf = (actorSection, shelfCode) => {
+    const covers = SECTION_COVERS[actorSection];
+    if (covers) {
+        const shelfSection = normalize((0, exports.getWmsSectionForShelf)(shelfCode));
+        return covers.includes(shelfSection);
+    }
+    return false;
+};
 const getWmsSectionForShelf = (shelfCode) => {
     const code = normalize(shelfCode);
     return WMS_SHELF_SECTION[code] || 'OTROS';
@@ -44,7 +55,8 @@ const assertActorMayOperateShelf = (actor, shelfCode) => {
     if (actor.role === 'JEFE_SECCION') {
         const actorSection = normalize(actor.section);
         const shelfSection = normalize((0, exports.getWmsSectionForShelf)(shelf));
-        if (!actorSection || actorSection !== shelfSection) {
+        const coversCheck = sectionCoversShelf(actorSection, shelf);
+        if (!actorSection || (actorSection !== shelfSection && !coversCheck)) {
             throw new functions.https.HttpsError('permission-denied', 'No puedes operar estanterías fuera de tu sección.');
         }
     }

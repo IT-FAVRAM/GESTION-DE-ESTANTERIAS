@@ -29,7 +29,7 @@ const DeviceInfoModal: React.FC<DeviceInfoModalProps> = ({ deviceId, onClose }) 
           </h2>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white text-2xl"
+            className="text-rose-400 hover:text-white text-2xl"
           >
             ×
           </button>
@@ -82,7 +82,7 @@ const DeviceInfoModal: React.FC<DeviceInfoModalProps> = ({ deviceId, onClose }) 
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="w-full mt-6 py-2 bg-slate-700 text-white rounded font-bold hover:bg-slate-600 transition-colors"
+          className="w-full mt-6 py-2 bg-rose-600 text-white rounded font-bold hover:bg-rose-500 transition-colors"
         >
           Cerrar
         </button>

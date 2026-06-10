@@ -191,7 +191,7 @@ const RecogidaModal: React.FC<RecogidaModalProps> = ({
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-950/95 backdrop-blur-sm">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-4 border-b border-slate-800">
-        <button onClick={onClose} disabled={processing} className="text-slate-400 hover:text-white transition-colors p-1 text-sm font-bold">
+        <button onClick={onClose} disabled={processing} className="text-rose-400 hover:text-white transition-colors p-1 text-sm font-bold">
           ← Cancelar
         </button>
         <h2 className="text-lg font-black text-white flex-1 text-center">🔔 ¿Qué hay que recoger?</h2>
@@ -223,7 +223,7 @@ const RecogidaModal: React.FC<RecogidaModalProps> = ({
             <button
               onClick={handleClearSelection}
               disabled={processing}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-full bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm transition-all"
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-full bg-rose-700 hover:bg-rose-600 text-rose-300 text-sm transition-all"
             >
               ✕
             </button>

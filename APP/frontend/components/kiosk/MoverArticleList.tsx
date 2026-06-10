@@ -49,7 +49,7 @@ const MoverArticleList: React.FC<MoverArticleListProps> = ({ locations, shelfCod
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-950/95 backdrop-blur-sm">
       <div className="flex items-center justify-between px-4 py-4 border-b border-slate-800">
         <h2 className="text-lg font-black text-white">🔄 Mover artículo</h2>
-        <button onClick={onClose} className="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 hover:text-white text-sm font-bold rounded-xl border border-slate-600 active:scale-95 transition-all">
+        <button onClick={onClose} className="px-4 py-1.5 bg-rose-700 hover:bg-rose-600 text-rose-200 hover:text-white text-sm font-bold rounded-xl border border-rose-600 active:scale-95 transition-all">
           ✕ Cancelar
         </button>
       </div>
