@@ -250,40 +250,45 @@ export const useAuth = () => {
       }
 
       const isKiosk = deviceConfig.type === 'KIOSK';
-      let shelfUpdate: { assignedShelf: string | null; role?: UserRole | null } | undefined;
 
       if (isKiosk) {
         const potentialShelf = resolveAssignedShelfForRole('OPERARIO', null, deviceConfig.kioskId, deviceConfig.assignedShelf);
 
         if (potentialShelf) {
+          // Build or migrate to a confirmed session
+          let confirmedSession: GuestSession;
           if (!existingSession || existingSession.role !== 'OPERARIO' || existingSession.assignedShelf !== potentialShelf) {
             const session = buildGuestSession('OPERARIO', undefined, deviceConfig.kioskId, deviceConfig.assignedShelf);
-            // Mark as backend-confirmed so future loads skip credential check for this kiosk
-            writeGuestSession({ ...session, confirmedKiosk: true });
-            shelfUpdate = { assignedShelf: potentialShelf, role: 'OPERARIO' };
+            confirmedSession = { ...session, confirmedKiosk: true };
           } else {
-            // Migrate old sessions that don't have the confirmedKiosk flag yet
-            if (!existingSession.confirmedKiosk) {
-              writeGuestSession({ ...existingSession, confirmedKiosk: true });
-            }
-            shelfUpdate = { assignedShelf: existingSession.assignedShelf };
+            confirmedSession = { ...existingSession, confirmedKiosk: true };
           }
-        } else {
-          // Kiosk without assigned shelf: clear any operario session
-          if (existingSession?.role === 'OPERARIO') {
-            clearAllSessionData();
-            shelfUpdate = { assignedShelf: null, role: null };
-          }
-        }
-      } else {
-        // Non-kiosk device: clear any stale guest/operario session so the login is shown.
-        // Email-authenticated users are not affected (auth.currentUser is not anonymous).
-        if (existingSession && (!auth.currentUser || auth.currentUser.isAnonymous)) {
-          clearAllSessionData();
+          writeGuestSession(confirmedSession);
+          // Full kiosk state — onAuthStateChanged already ran and cleared role/isKioskSession
+          // for sessions that lacked confirmedKiosk, so all auth fields must be set here.
           setState((prev) => ({
             ...prev,
             loading: false,
-            deviceMode: (deviceConfig.type?.toLowerCase() as AuthMode) || 'admin',
+            deviceMode: 'kiosk',
+            role: 'OPERARIO',
+            isKioskSession: true,
+            authMethod: 'guest',
+            assignedShelf: potentialShelf,
+            kioskId: deviceConfig.kioskId || null,
+            operarioId: confirmedSession.operarioId,
+            operario: confirmedSession.operario,
+            displayName: confirmedSession.displayName || prev.displayName,
+            section: confirmedSession.section || null,
+            error: null,
+          }));
+          return;
+        } else {
+          // Kiosk without assigned shelf: clear operario session
+          if (existingSession?.role === 'OPERARIO') clearAllSessionData();
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            deviceMode: 'kiosk',
             role: null,
             isKioskSession: false,
             authMethod: null,
@@ -293,12 +298,30 @@ export const useAuth = () => {
           }));
           return;
         }
-        // Non-kiosk with email session: sync role from device config if needed
-        if (existingSession && !auth.currentUser?.isAnonymous) {
-          const serverRole = deviceConfig.type as UserRole;
-          if (serverRole && existingSession.role !== serverRole) {
-            writeGuestSession({ ...existingSession, role: serverRole });
-          }
+      }
+
+      // Non-kiosk device: clear any stale guest/operario session so the login is shown.
+      // Email-authenticated users are not affected (auth.currentUser is not anonymous).
+      if (existingSession && (!auth.currentUser || auth.currentUser.isAnonymous)) {
+        clearAllSessionData();
+        setState((prev) => ({
+          ...prev,
+          loading: false,
+          deviceMode: (deviceConfig.type?.toLowerCase() as AuthMode) || 'admin',
+          role: null,
+          isKioskSession: false,
+          authMethod: null,
+          assignedShelf: null,
+          kioskId: null,
+          error: null,
+        }));
+        return;
+      }
+      // Non-kiosk with email session: sync role from device config if needed
+      if (existingSession && !auth.currentUser?.isAnonymous) {
+        const serverRole = deviceConfig.type as UserRole;
+        if (serverRole && existingSession.role !== serverRole) {
+          writeGuestSession({ ...existingSession, role: serverRole });
         }
       }
 
@@ -306,8 +329,6 @@ export const useAuth = () => {
         ...prev,
         loading: false,
         deviceMode: (deviceConfig.type?.toLowerCase() as AuthMode) || 'admin',
-        ...(shelfUpdate ?? {}),
-        kioskId: isKiosk ? (deviceConfig.kioskId || null) : prev.kioskId,
         error: null,
       }));
     };
