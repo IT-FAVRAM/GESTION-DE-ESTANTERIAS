@@ -52,7 +52,7 @@ export const useKiosk = (kioskId: string | null | undefined): UseKioskReturn => 
             'kiosko-mecanizado': {
               id: 'kiosko-mecanizado',
               name: 'Prensas - Mecanizado',
-              shelves: ['MEC', 'PRE'],
+              shelves: ['PRE'],
               location: 'Zona Mecanizado y Prensas',
               isActive: true,
               createdAt: new Date().toISOString(),
@@ -80,7 +80,7 @@ export const useKiosk = (kioskId: string | null | undefined): UseKioskReturn => 
           'kiosko-mecanizado': {
             id: 'kiosko-mecanizado',
             name: 'Prensas-Mecanizado',
-            shelves: ['MEC', 'PRE'],
+            shelves: ['PRE'],
             location: 'Zona Mecanizado y Prensas',
             isActive: true,
             createdAt: new Date().toISOString(),
