@@ -191,7 +191,7 @@ const AppV3: React.FC = () => {
     );
   }
 
-  if ((role === 'CALIDAD' || role === 'ADMIN' || role === 'SUPERADMIN') && capabilities.canAccessShelf('CAL')) {
+  if (role === 'CALIDAD' && capabilities.canAccessShelf('CAL')) {
     return (
       <Suspense fallback={<AppLoadingScreen />}>
         <>
