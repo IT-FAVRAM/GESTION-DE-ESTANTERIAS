@@ -123,6 +123,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
     return (
       <button
         type="button"
+        data-position={position}
         onClick={handleClick}
         title={`${shelfCode} ${displayNum}${isEmpty ? ' · Vacía' : ` · ${itemCount} artículo(s)${itemCount > 1 ? ' · Arrastra en vista completa' : ''}`}`}
         className={`w-11 h-11 rounded-xl border-2 flex flex-col items-center justify-center relative
@@ -181,6 +182,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
 
     return (
       <div
+        data-position={position}
         onClick={onPress ? handleClick : undefined}
         className={`rounded-2xl border transition-all duration-200 overflow-hidden w-full relative
           hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20 ${onPress ? 'cursor-pointer' : 'cursor-default'}
@@ -288,6 +290,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
 
   return (
     <div
+      data-position={position}
       className={`rounded-2xl border transition-all duration-200 overflow-hidden w-full relative
         hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/25
         ${isHighlighted ? 'animate-pulse' : ''}

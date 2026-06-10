@@ -171,6 +171,7 @@ export function useOperativeShelf({
 
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cellFirstTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const reprocesosEnabled = !!config.reprocesos;
 
@@ -197,11 +198,6 @@ export function useOperativeShelf({
     if (updated && updated !== pendingCell) setPendingCell(updated);
   }, [locationsByPosition, pendingCell]);
 
-  useEffect(() => () => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    if (finishTimerRef.current) clearTimeout(finishTimerRef.current);
-  }, []);
-
   // ── Helpers ────────────────────────────────────────────────────────────────
   // Limpiar selectedPositions y scanData cuando CAMBIA la acción (todas las transiciones)
   // Previene acumulación de positions de la acción anterior
@@ -217,6 +213,35 @@ export function useOperativeShelf({
       setFeedback(null);
       toastTimerRef.current = null;
     }, ms);
+  }, []);
+
+  // BA6: Timeout para cellFirst — si el usuario no completa en 5 min, limpiar pendingCell
+  useEffect(() => {
+    if (!pendingCell) {
+      if (cellFirstTimerRef.current) {
+        clearTimeout(cellFirstTimerRef.current);
+        cellFirstTimerRef.current = null;
+      }
+      return;
+    }
+    cellFirstTimerRef.current = setTimeout(() => {
+      setPendingCell(null);
+      setShowOFQuestion(false);
+      setScanArticleOnly(false);
+      showToast('info', '⏱️ Tiempo de espera agotado. Vuelve a seleccionar una celda.');
+    }, 5 * 60 * 1000); // 5 minutos
+    return () => {
+      if (cellFirstTimerRef.current) {
+        clearTimeout(cellFirstTimerRef.current);
+        cellFirstTimerRef.current = null;
+      }
+    };
+  }, [pendingCell, showToast]);
+
+  useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    if (finishTimerRef.current) clearTimeout(finishTimerRef.current);
+    if (cellFirstTimerRef.current) clearTimeout(cellFirstTimerRef.current);
   }, []);
 
   const resetFlow = useCallback(() => {

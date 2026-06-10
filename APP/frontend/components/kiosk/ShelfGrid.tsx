@@ -3,7 +3,7 @@
  * Colapso individual por sección mediante chevron animado.
  */
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import {
   type Shelf,
@@ -431,9 +431,20 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
 }) => {
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [activeMobileBlockIdx, setActiveMobileBlockIdx] = useState(0);
+  const gridContainerRef = useRef<HTMLDivElement>(null);
 
   // Reset navigation index when the shelf changes
   useEffect(() => { setActiveMobileBlockIdx(0); }, [shelfDef?.code]);
+
+  // BA7: Auto-scroll al primer highlight cuando cambian las posiciones destacadas
+  useEffect(() => {
+    if (highlightedPositions.length === 0 || !gridContainerRef.current) return;
+    const firstHighlight = highlightedPositions[0];
+    const cell = gridContainerRef.current.querySelector(`[data-position="${firstHighlight}"]`);
+    if (cell) {
+      cell.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    }
+  }, [highlightedPositions]);
 
   const toggleSection = useCallback((id: string) => {
     setCollapsedSections((prev) => {
@@ -541,8 +552,8 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
 
    // ── Full mode ───────────────────────────────────────────────────────────────
    return (
-     <div className="w-full min-w-0">
-       {!fullscreenMode && (
+      <div ref={gridContainerRef} className="w-full min-w-0">
+        {!fullscreenMode && (
          <>
            <div className="hidden sm:block">
              <ShelfGridStats

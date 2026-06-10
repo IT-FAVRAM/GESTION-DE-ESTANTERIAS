@@ -60,6 +60,18 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
               Lee etiquetas automáticamente (alternativa)
             </span>
           </button>
+
+          {/* Entrada manual */}
+          <button
+            type="button"
+            onClick={() => onSelect('manual')}
+            className="w-full rounded-xl border-2 border-slate-200 hover:border-slate-400 bg-white px-4 py-3 text-left transition-colors"
+          >
+            <span className="font-bold text-slate-800">⌨️ Escribir manualmente</span>
+            <span className="block text-xs text-slate-500 mt-0.5">
+              Introduce el código del artículo a mano
+            </span>
+          </button>
         </div>
 
         {/* Información */}

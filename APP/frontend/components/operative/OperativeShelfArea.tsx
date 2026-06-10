@@ -367,6 +367,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
           active={showBarcodeForm}
           disabled={processing}
           onScan={(result) => { setShowBarcodeForm(false); handleScan(result); }}
+          onClose={() => { setShowBarcodeForm(false); setScannerActive(true); }}
         />
       )}
 

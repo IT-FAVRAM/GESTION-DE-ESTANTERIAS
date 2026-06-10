@@ -16,12 +16,14 @@ interface QRScannerProps {
   active: boolean;
   disabled: boolean;
   onScan: (result: ScanParseResult) => void;
+  onClose?: () => void;
 }
 
 const QRScanner: React.FC<QRScannerProps> = ({
   active,
   disabled,
   onScan,
+  onClose,
 }) => {
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -179,6 +181,7 @@ const QRScanner: React.FC<QRScannerProps> = ({
               setScanning(false);
               setError(null);
               setLastScan(null);
+              onClose?.();
             }}
             disabled={disabled}
             className="w-full px-3 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold disabled:opacity-50 transition-colors"
