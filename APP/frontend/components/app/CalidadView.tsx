@@ -38,10 +38,14 @@ const CalidadView: React.FC = () => {
   const { locations } = engine;
 
   // Totales de reprocesos (cabecera)
+  // Solo incluir CAL 001-022 con items que tengan quantity > 0
   const reprocesosItems = useMemo(
     () => locations
-      .filter((l) => isReprocesosLocation(SHELF, parseInt(l.position, 10)))
-      .flatMap((l) => l.items || []),
+      .filter((l) => {
+        const posNum = parseInt(l.position, 10);
+        return !isNaN(posNum) && posNum >= 1 && posNum <= 22;
+      })
+      .flatMap((l) => (l.items || []).filter((item) => item.quantity != null && item.quantity > 0)),
     [locations],
   );
   const { totalImporte, totalPiezas } = calcReprocesosTotal(reprocesosItems);

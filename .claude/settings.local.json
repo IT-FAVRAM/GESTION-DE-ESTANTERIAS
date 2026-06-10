@@ -259,7 +259,8 @@
       "Bash(ls functions/src)",
       "Bash(grep -v \"node_modules\\\\|//\")",
       "Bash(dir APPfrontend *)",
-      "PowerShell(tree .claude *)"
+      "PowerShell(tree .claude *)",
+      "Bash(xargs grep -l \"isReprocesosLocation\")"
     ]
   },
   "enabledMcpjsonServers": [

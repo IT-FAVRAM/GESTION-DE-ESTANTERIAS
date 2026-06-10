@@ -42,6 +42,7 @@ export const updateReproceso = async (
 
 /**
  * Calcula el total de dinero en reprocesos a partir de los items de las ubicaciones.
+ * Solo cuenta items que tengan quantity > 0 (reprocesos registrados).
  */
 export const calcReprocesosTotal = (
   locationItems: Array<{ quantity?: number; unitCost?: number }>
@@ -49,8 +50,11 @@ export const calcReprocesosTotal = (
   let totalImporte = 0;
   let totalPiezas = 0;
   for (const item of locationItems) {
-    const qty = item.quantity || 0;
-    const cost = item.unitCost || 0;
+    // Solo contar items con quantity registrada y > 0
+    const qty = item.quantity ?? 0;
+    if (qty <= 0) continue;
+
+    const cost = item.unitCost ?? 0;
     totalImporte += qty * cost;
     totalPiezas += qty;
   }
