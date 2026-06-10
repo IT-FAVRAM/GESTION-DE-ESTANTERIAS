@@ -94,6 +94,7 @@ type GuestSession = {
   assignedShelf: string | null;
   kioskId: string | null;
   displayName: string;
+  confirmedKiosk?: boolean; // set to true only by detectMode after backend confirmation
 };
 
 const buildGuestSession = (role: UserRole, section?: WarehouseSection, kioskId?: string | null, deviceAssignedShelf?: string | null): GuestSession => {
@@ -193,24 +194,26 @@ export const useAuth = () => {
   const deviceId = getOrCreateDeviceId();
 
   const initialGuestSession = readGuestSession<GuestSession>();
-  const initialAuthCache = !initialGuestSession ? readAuthResolvedCache() : null;
+  // Only trust a guest session that was explicitly confirmed by detectMode via the
+  // backend (confirmedKiosk: true). Stale sessions from old dev quick-access buttons
+  // do NOT have this flag and are ignored, forcing users to authenticate properly.
+  const isConfirmedKiosk = initialGuestSession?.confirmedKiosk === true;
+  const initialAuthCache = !isConfirmedKiosk ? readAuthResolvedCache() : null;
 
-  // Pre-populate display fields from cache so they're ready when Firebase resolves.
-  // Never set loading:false here — that would cause a flash to the login screen.
   const [state, setState] = useState<AuthState>({
-    loading: initialGuestSession ? false : true,
+    loading: isConfirmedKiosk ? false : true,
     firebaseUser: null,
-    role: initialGuestSession?.role ?? null,
-    section: initialGuestSession?.section ?? null,
-    operario: initialGuestSession?.operario ?? null,
-    operarioId: initialGuestSession?.operarioId ?? null,
-    displayName: initialGuestSession?.displayName ?? initialAuthCache?.displayName ?? '',
+    role: isConfirmedKiosk ? initialGuestSession!.role : null,
+    section: isConfirmedKiosk ? (initialGuestSession!.section ?? null) : null,
+    operario: isConfirmedKiosk ? initialGuestSession!.operario : null,
+    operarioId: isConfirmedKiosk ? initialGuestSession!.operarioId : null,
+    displayName: isConfirmedKiosk ? initialGuestSession!.displayName : (initialAuthCache?.displayName ?? ''),
     email: initialAuthCache?.email ?? null,
-    isKioskSession: !!initialGuestSession,
-    assignedShelf: initialGuestSession?.assignedShelf ?? null,
-    kioskId: initialGuestSession?.kioskId ?? null,
-    deviceMode: initialGuestSession ? 'carretillero' : 'loading',
-    authMethod: initialGuestSession ? 'guest' : null,
+    isKioskSession: isConfirmedKiosk,
+    assignedShelf: isConfirmedKiosk ? (initialGuestSession!.assignedShelf ?? null) : null,
+    kioskId: isConfirmedKiosk ? (initialGuestSession!.kioskId ?? null) : null,
+    deviceMode: isConfirmedKiosk ? 'kiosk' : 'loading',
+    authMethod: isConfirmedKiosk ? 'guest' : null,
     error: null,
   });
 
@@ -221,18 +224,32 @@ export const useAuth = () => {
     if (!authResolved) return;
 
     const detectMode = async () => {
+      const existingSession = readGuestSession<GuestSession>();
       const deviceConfig = await getDeviceConfig(deviceId);
+
       if (!deviceConfig) {
-        // Dispositivo no registrado: se asume modo administración/email (sin auto-login)
-        setState((prev) => ({ ...prev, deviceMode: 'admin', error: null }));
+        // Device not registered: if there's a stale guest session (anonymous user),
+        // clear it so the login screen is shown. Email-authenticated users are unaffected.
+        if (existingSession && (!auth.currentUser || auth.currentUser.isAnonymous)) {
+          clearAllSessionData();
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            deviceMode: 'admin',
+            role: null,
+            isKioskSession: false,
+            authMethod: null,
+            assignedShelf: null,
+            kioskId: null,
+            error: null,
+          }));
+          return;
+        }
+        setState((prev) => ({ ...prev, loading: false, deviceMode: 'admin', error: null }));
         return;
       }
 
       const isKiosk = deviceConfig.type === 'KIOSK';
-
-      // Auto-login como OPERARIO para kioskos solo si tienen estantería asignada.
-      // Si no tienen asignación, mostramos el login normal para que un admin pueda entrar.
-      const existingSession = readGuestSession<GuestSession>();
       let shelfUpdate: { assignedShelf: string | null; role?: UserRole | null } | undefined;
 
       if (isKiosk) {
@@ -241,29 +258,53 @@ export const useAuth = () => {
         if (potentialShelf) {
           if (!existingSession || existingSession.role !== 'OPERARIO' || existingSession.assignedShelf !== potentialShelf) {
             const session = buildGuestSession('OPERARIO', undefined, deviceConfig.kioskId, deviceConfig.assignedShelf);
-            writeGuestSession(session);
+            // Mark as backend-confirmed so future loads skip credential check for this kiosk
+            writeGuestSession({ ...session, confirmedKiosk: true });
             shelfUpdate = { assignedShelf: potentialShelf, role: 'OPERARIO' };
           } else {
+            // Migrate old sessions that don't have the confirmedKiosk flag yet
+            if (!existingSession.confirmedKiosk) {
+              writeGuestSession({ ...existingSession, confirmedKiosk: true });
+            }
             shelfUpdate = { assignedShelf: existingSession.assignedShelf };
           }
         } else {
-          // Si es un kiosko sin estantería, nos aseguramos de que NO haya sesión de operario activa.
+          // Kiosk without assigned shelf: clear any operario session
           if (existingSession?.role === 'OPERARIO') {
             clearAllSessionData();
             shelfUpdate = { assignedShelf: null, role: null };
           }
         }
-      } else if (existingSession) {
-        // El rol de dispositivos no-kiosk se sincroniza con el valor del servidor para
-        // evitar elevación de privilegios por manipulación de localStorage.
-        const serverRole = deviceConfig.type as UserRole;
-        if (serverRole && existingSession.role !== serverRole) {
-          writeGuestSession({ ...existingSession, role: serverRole });
+      } else {
+        // Non-kiosk device: clear any stale guest/operario session so the login is shown.
+        // Email-authenticated users are not affected (auth.currentUser is not anonymous).
+        if (existingSession && (!auth.currentUser || auth.currentUser.isAnonymous)) {
+          clearAllSessionData();
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            deviceMode: (deviceConfig.type?.toLowerCase() as AuthMode) || 'admin',
+            role: null,
+            isKioskSession: false,
+            authMethod: null,
+            assignedShelf: null,
+            kioskId: null,
+            error: null,
+          }));
+          return;
+        }
+        // Non-kiosk with email session: sync role from device config if needed
+        if (existingSession && !auth.currentUser?.isAnonymous) {
+          const serverRole = deviceConfig.type as UserRole;
+          if (serverRole && existingSession.role !== serverRole) {
+            writeGuestSession({ ...existingSession, role: serverRole });
+          }
         }
       }
 
       setState((prev) => ({
         ...prev,
+        loading: false,
         deviceMode: (deviceConfig.type?.toLowerCase() as AuthMode) || 'admin',
         ...(shelfUpdate ?? {}),
         kioskId: isKiosk ? (deviceConfig.kioskId || null) : prev.kioskId,
@@ -278,7 +319,9 @@ export const useAuth = () => {
       setAuthResolved(true);
       if (!user || user.isAnonymous) {
         const session = readGuestSession<GuestSession>();
-        if (session) {
+        // Only apply a guest session that has been confirmed by detectMode via backend.
+        // Unconfirmed / stale sessions are ignored — the user must log in with credentials.
+        if (session?.confirmedKiosk === true) {
           setState((prev) => ({
             ...prev,
             loading: false,
