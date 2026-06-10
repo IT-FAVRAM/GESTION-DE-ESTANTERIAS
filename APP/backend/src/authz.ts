@@ -41,6 +41,19 @@ const WMS_SHELF_SECTION: Record<string, string> = {
   LASER: 'LASER',
 };
 
+const SECTION_COVERS: Record<string, string[]> = {
+  PRENSAS_MECANIZADO: ['MECANIZADO', 'PRENSAS'],
+};
+
+const sectionCoversShelf = (actorSection: string, shelfCode: string): boolean => {
+  const covers = SECTION_COVERS[actorSection];
+  if (covers) {
+    const shelfSection = normalize(getWmsSectionForShelf(shelfCode));
+    return covers.includes(shelfSection);
+  }
+  return false;
+};
+
 export const getWmsSectionForShelf = (shelfCode?: string | null) => {
   const code = normalize(shelfCode);
   return WMS_SHELF_SECTION[code] || 'OTROS';
@@ -66,7 +79,8 @@ export const assertActorMayOperateShelf = (
   if (actor.role === 'JEFE_SECCION') {
     const actorSection = normalize(actor.section);
     const shelfSection = normalize(getWmsSectionForShelf(shelf));
-    if (!actorSection || actorSection !== shelfSection) {
+    const coversCheck = sectionCoversShelf(actorSection, shelf);
+    if (!actorSection || (actorSection !== shelfSection && !coversCheck)) {
       throw new functions.https.HttpsError(
         'permission-denied',
         'No puedes operar estanterías fuera de tu sección.',

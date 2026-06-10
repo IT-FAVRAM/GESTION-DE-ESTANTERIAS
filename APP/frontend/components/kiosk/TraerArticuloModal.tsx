@@ -3,7 +3,7 @@ import { useGlobalSearchWithCache, type GlobalSearchResult } from '../../hooks/u
 import { SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
 import { parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
 import CameraQRScanner from '../common/CameraQRScanner';
-import CameraOCRScanner from '../common/CameraOCRScanner';
+const CameraOCRScanner = React.lazy(() => import('../common/CameraOCRScanner'));
 
 interface TraerArticuloModalProps {
   open: boolean;
@@ -520,7 +520,9 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
         <CameraQRScanner onScan={handleCameraQRScan} onClose={() => setShowCameraQR(false)} />
       )}
       {showCameraOCR && (
-        <CameraOCRScanner onResult={handleCameraOCRResult} onClose={() => setShowCameraOCR(false)} />
+        <React.Suspense fallback={<div className="p-4 text-center">Cargando escáner OCR...</div>}>
+          <CameraOCRScanner onResult={handleCameraOCRResult} onClose={() => setShowCameraOCR(false)} />
+        </React.Suspense>
       )}
     </div>
   );

@@ -186,6 +186,11 @@ export const onShelfLocationWrite = functions.firestore
     if (hasBatchUpdates) await inboundBatch.commit();
   });
 
+/**
+ * @deprecated Legacy inventory operate. Usa shelfOperate en su lugar.
+ * Esta función opera sobre la colección legacy `assignments/`.
+ * Mantener solo para backward compatibility; eliminar en v4.
+ */
 export const inventoryOperate = functions.https.onCall(async (data: any, context: any) => {
   const userCtx = await requireAllowedRoles(context, ['ADMIN', 'SUPERADMIN', 'JEFE_SECCION', 'CARRETILLERO', 'CALIDAD']);
   const uid = userCtx.uid;
@@ -1165,10 +1170,13 @@ export const updateReproceso = functions.https.onCall(async (data: any, context:
   const locRef = db.collection('shelves').doc('CAL').collection('locations').doc(position);
 
   await db.runTransaction(async (tx) => {
+    // Todas las lecturas antes que las escrituras
     const locSnap = await tx.get(locRef);
     const locData = locSnap.exists ? (locSnap.data() as any) : { position, items: [], isEmpty: true };
+    
     let found = false;
     let foundPresenceId = '';
+    let foundAggregateKey = '';
     const items = (locData.items || []).map((item: any) => {
       // ✅ FIX #1: Validar presenceId no esté vacío antes de usar para matching
       const matchByPresence = presenceId.length > 0 && item.presenceId === presenceId;
@@ -1178,6 +1186,7 @@ export const updateReproceso = functions.https.onCall(async (data: any, context:
       if (matchByPresence || matchByCode) {
         found = true;
         foundPresenceId = item.presenceId;
+        foundAggregateKey = item.aggregateKey || '';
         return { ...item, quantity, unitCost };
       }
       return item;
@@ -1187,6 +1196,14 @@ export const updateReproceso = functions.https.onCall(async (data: any, context:
       throw new functions.https.HttpsError('not-found', 'Artículo no encontrado en la ubicación CAL indicada. Ubícalo primero con shelfOperate.');
     }
 
+    // Lectura adicional para aggregate si se encontró el item
+    let aggregateSnap = null;
+    if (foundAggregateKey) {
+      const aggregateRef = db.collection('itemAggregates').doc(foundAggregateKey);
+      aggregateSnap = await tx.get(aggregateRef);
+    }
+
+    // Escrituras
     tx.set(locRef, {
       position,
       isEmpty: items.length === 0,
@@ -1197,6 +1214,21 @@ export const updateReproceso = functions.https.onCall(async (data: any, context:
     if (foundPresenceId) {
       const itemRef = db.collection('items').doc(foundPresenceId);
       tx.update(itemRef, { quantity, unitCost });
+    }
+
+    // ✅ FIX #3: Sincronizar aggregate
+    if (foundAggregateKey && aggregateSnap && aggregateSnap.exists) {
+      const aggregateRef = db.collection('itemAggregates').doc(foundAggregateKey);
+      const aggregate = aggregateSnap.data() as any;
+      tx.set(aggregateRef, {
+        aggregateKey: foundAggregateKey,
+        articleCode: aggregate.articleCode || articleCode,
+        orderFab: aggregate.orderFab || orderFab,
+        activePresenceIds: aggregate.activePresenceIds || [],
+        totalActivePresences: aggregate.totalActivePresences || 0,
+        totalPlacements: aggregate.totalPlacements || 0,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
     }
   });
 

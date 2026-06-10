@@ -19,7 +19,7 @@ import { validateContiguity } from '../../lib/contiguityValidator';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import type { CellDragData } from '../kiosk/ShelfGridCell';
 import CameraQRScanner from '../common/CameraQRScanner';
-import CameraOCRScanner from '../common/CameraOCRScanner';
+const CameraOCRScanner = React.lazy(() => import('../common/CameraOCRScanner'));
 import ScanMethodPicker from '../common/ScanMethodPicker';
 import type { ScanMethod } from '../../lib/types/scan';
 import { httpsCallable } from 'firebase/functions';
@@ -1224,10 +1224,12 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
         />
       )}
       {showCameraOCR && (
-        <CameraOCRScanner
-          onResult={(text) => { setShowCameraOCR(false); handleCameraScan(text, true); }}
-          onClose={() => setShowCameraOCR(false)}
-        />
+        <React.Suspense fallback={<div className="p-4 text-center">Cargando escáner OCR...</div>}>
+          <CameraOCRScanner
+            onResult={(text) => { setShowCameraOCR(false); handleCameraScan(text, true); }}
+            onClose={() => setShowCameraOCR(false)}
+          />
+        </React.Suspense>
       )}
 
       {/* Manual entry modal */}

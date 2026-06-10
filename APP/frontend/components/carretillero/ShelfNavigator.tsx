@@ -13,7 +13,7 @@ import ShelfGrid from '../kiosk/ShelfGrid';
 import KioskSearchBar from '../kiosk/KioskSearchBar';
 import ScannerInput from '../kiosk/ScannerInput';
 import CameraQRScanner from '../common/CameraQRScanner';
-import CameraOCRScanner from '../common/CameraOCRScanner';
+const CameraOCRScanner = React.lazy(() => import('../common/CameraOCRScanner'));
 import ScanMethodPicker from '../common/ScanMethodPicker';
 import type { ScanMethod } from '../../lib/types/scan';
 import { parseCallableError } from '../../lib/callableError';
@@ -751,10 +751,12 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
         />
       )}
       {showCameraOCR && (
-        <CameraOCRScanner
-          onResult={(text) => { setShowCameraOCR(false); handleScan(parseScanInputLenient(text)); }}
-          onClose={() => { setShowCameraOCR(false); setScannerActive(true); }}
-        />
+        <React.Suspense fallback={<div className="p-4 text-center">Cargando escáner OCR...</div>}>
+          <CameraOCRScanner
+            onResult={(text) => { setShowCameraOCR(false); handleScan(parseScanInputLenient(text)); }}
+            onClose={() => { setShowCameraOCR(false); setScannerActive(true); }}
+          />
+        </React.Suspense>
       )}
 
       {showMoverArticleList && (

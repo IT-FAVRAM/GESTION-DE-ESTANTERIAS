@@ -42,7 +42,7 @@ export const useKiosk = (kioskId: string | null | undefined): UseKioskReturn => 
 
           // Cargar estantería actual desde localStorage o usar primera
           const savedShelf = localStorage.getItem(`kiosk-${kioskId}-shelf`);
-          const defaultShelf = savedShelf || kioskData.shelves[0] || null;
+          const defaultShelf = (savedShelf && kioskData.shelves.includes(savedShelf)) ? savedShelf : kioskData.shelves[0] ?? null;
           setCurrentShelfState(defaultShelf);
 
           setError(null);
@@ -52,7 +52,7 @@ export const useKiosk = (kioskId: string | null | undefined): UseKioskReturn => 
             'kiosko-mecanizado': {
               id: 'kiosko-mecanizado',
               name: 'Prensas - Mecanizado',
-              shelves: ['PME'],
+              shelves: ['MEC', 'PRE'],
               location: 'Zona Mecanizado y Prensas',
               isActive: true,
               createdAt: new Date().toISOString(),
@@ -64,7 +64,7 @@ export const useKiosk = (kioskId: string | null | undefined): UseKioskReturn => 
             const fallbackKiosk = fallbackMap[kioskId];
             setKiosk(fallbackKiosk);
             const savedShelf = localStorage.getItem(`kiosk-${kioskId}-shelf`);
-            const defaultShelf = savedShelf || fallbackKiosk.shelves[0] || null;
+            const defaultShelf = (savedShelf && fallbackKiosk.shelves.includes(savedShelf)) ? savedShelf : fallbackKiosk.shelves[0] ?? null;
             setCurrentShelfState(defaultShelf);
             setError(null);
           } else {
@@ -92,7 +92,7 @@ export const useKiosk = (kioskId: string | null | undefined): UseKioskReturn => 
           const fallbackKiosk = fallbackMap[kioskId];
           setKiosk(fallbackKiosk);
           const savedShelf = localStorage.getItem(`kiosk-${kioskId}-shelf`);
-          const defaultShelf = savedShelf || fallbackKiosk.shelves[0] || null;
+          const defaultShelf = (savedShelf && fallbackKiosk.shelves.includes(savedShelf)) ? savedShelf : fallbackKiosk.shelves[0] ?? null;
           setCurrentShelfState(defaultShelf);
           setError(null);
         } else {
@@ -109,7 +109,7 @@ export const useKiosk = (kioskId: string | null | undefined): UseKioskReturn => 
   const setCurrentShelf = (shelf: string) => {
     if (kioskId) {
       const allowedShelves = kiosk?.shelves || [];
-      const isAllowed = allowedShelves.includes(shelf) || (kioskId === 'kiosko-mecanizado' && ['PME'].includes(shelf));
+      const isAllowed = allowedShelves.includes(shelf);
       if (isAllowed) {
         setCurrentShelfState(shelf);
         localStorage.setItem(`kiosk-${kioskId}-shelf`, shelf);
@@ -119,7 +119,7 @@ export const useKiosk = (kioskId: string | null | undefined): UseKioskReturn => 
 
   return {
     kiosk,
-    shelves: kiosk?.shelves || (kioskId === 'kiosko-mecanizado' ? ['PME'] : []),
+    shelves: kiosk?.shelves || [],
     currentShelf,
     setCurrentShelf,
     loading,

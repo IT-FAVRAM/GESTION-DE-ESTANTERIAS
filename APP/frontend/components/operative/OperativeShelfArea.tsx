@@ -20,7 +20,7 @@ import ScannerInput from '../kiosk/ScannerInput';
 import ScanMethodPicker from '../common/ScanMethodPicker';
 import ConfirmationModal from '../common/ConfirmationModal';
 import CameraQRScanner from '../common/CameraQRScanner';
-import CameraOCRScanner from '../common/CameraOCRScanner';
+const CameraOCRScanner = React.lazy(() => import('../common/CameraOCRScanner'));
 import QRScanner from '../common/QRScanner';
 import RetirarArticleList from '../kiosk/RetirarArticleList';
 import RetirarCellModal from '../kiosk/RetirarCellModal';
@@ -354,10 +354,12 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         />
       )}
       {showCameraOCR && (
-        <CameraOCRScanner
-          onResult={(text) => { setShowCameraOCR(false); handleScan(parseScanInputLenient(text)); }}
-          onClose={() => { setShowCameraOCR(false); setScannerActive(true); }}
-        />
+        <React.Suspense fallback={<div className="p-4 text-center">Cargando escáner OCR...</div>}>
+          <CameraOCRScanner
+            onResult={(text) => { setShowCameraOCR(false); handleScan(parseScanInputLenient(text)); }}
+            onClose={() => { setShowCameraOCR(false); setScannerActive(true); }}
+          />
+        </React.Suspense>
       )}
 
       {showBarcodeForm && (

@@ -1,33 +1,38 @@
 import * as functions from 'firebase-functions';
 import { admin } from './firebaseAdmin';
-import { normalizeRole } from './authz';
+import { normalizeRole, getWmsSectionForShelf, getUserContext, assertActorMayOperateShelf } from './authz';
 
-const isSameIdentity = (
-  item: any,
-  barcode: string,
-  orderId?: string,
-  itemKey?: string,
-  containerId?: string,
-) => {
-  const normalize = (value?: string | null) => (value || '').trim().toUpperCase();
-  const byKey = normalize(itemKey || item?.itemKey);
-  if (byKey) return normalize(item?.itemKey) === byKey;
-  const barcodeMatch = normalize(item?.barcode) === normalize(barcode);
-  const orderMatch = !orderId || normalize(item?.orderId) === normalize(orderId);
-  const containerMatch = !containerId || normalize(item?.containerId) === normalize(containerId);
-  return barcodeMatch && orderMatch && containerMatch;
+const normalize = (value?: string | null) => (value || '').trim().toUpperCase();
+
+/**
+ * Parsea un locationId legacy (formato "SHELF-POSITION") en shelfCode y position.
+ * Ejemplos: "PRE-E1-01" → { shelfCode: "PRE", position: "E1-01" }
+ *           "PRE-001" → { shelfCode: "PRE", position: "001" }
+ */
+const parseLegacyLocationId = (locationId: string): { shelfCode: string; position: string } => {
+  const dashIdx = locationId.indexOf('-');
+  if (dashIdx < 0) {
+    throw new functions.https.HttpsError('invalid-argument', `locationId invalido: '${locationId}'`);
+  }
+  return {
+    shelfCode: locationId.substring(0, dashIdx),
+    position: locationId.substring(dashIdx + 1),
+  };
 };
 
-const getSectionFromLocation = (locationId: string): string => {
-  const parts = locationId.split('-');
-  const warehouse = parts[0];
-  if (warehouse === 'MEC') return 'MECANIZADO';
-  if (warehouse === 'PLE') return 'PLEGADORA';
-  if (warehouse === 'RPL') return 'ROBOT_PLEGADO';
-  if (['SOL', 'RSO', 'SXP'].includes(warehouse)) return 'SOLDADURA';
-  if (['REP', 'ZIN'].includes(warehouse)) return 'REPASADO';
-  if (warehouse === 'PIN') return 'PINTURA';
-  return 'OTROS';
+/** Extrae shelfCode y position de los parámetros (soporta v3 y legacy). */
+const resolveShelfPosition = (
+  shelfCode?: string,
+  position?: string,
+  locationId?: string,
+): { shelfCode: string; position: string } => {
+  if (shelfCode && position) {
+    return { shelfCode: normalize(shelfCode), position: position.trim() };
+  }
+  if (locationId) {
+    return parseLegacyLocationId(locationId);
+  }
+  throw new functions.https.HttpsError('invalid-argument', 'Se requiere shelfCode+position o locationId.');
 };
 
 export const productionOperate = functions.https.onCall(async (data: any, context: any) => {
@@ -41,60 +46,105 @@ export const productionOperate = functions.https.onCall(async (data: any, contex
   const payload = data?.payload || {};
   const opId = (data?.opId as string) || admin.firestore().collection('_ops').doc().id;
   const now = new Date().toISOString();
+  const db = admin.firestore();
 
   if (!['ADMIN', 'SUPERADMIN', 'JEFE_SECCION', 'CALIDAD'].includes(role)) {
     throw new functions.https.HttpsError('permission-denied', `Role ${role} cannot perform production operations`);
   }
 
-  // WITHDRAW_TO_WORKING: Quita de assignments, añade a workingItems (transacción atómica)
+  // WITHDRAW_TO_WORKING: Quita de shelves/items, añade a workingItems (transacción atómica)
   if (op === 'withdrawToWorking') {
-    const { barcode, orderId, fromLocationId, itemKey, containerId } = payload;
-    if (!barcode || !orderId || !fromLocationId) {
-      throw new functions.https.HttpsError('invalid-argument', 'Missing barcode, orderId, or fromLocationId');
+    const { barcode, orderId, itemKey, containerId, presenceId } = payload;
+    const { shelfCode, position } = resolveShelfPosition(
+      payload.shelfCode,
+      payload.position,
+      payload.fromLocationId,
+    );
+
+    if (!barcode || !orderId) {
+      throw new functions.https.HttpsError('invalid-argument', 'Missing barcode or orderId');
     }
 
-    const computedItemKey = itemKey || `${barcode.trim().toUpperCase()}__${orderId.trim().toUpperCase()}${containerId ? `__${containerId.trim().toUpperCase()}` : ''}`;
-    const section = getSectionFromLocation(fromLocationId);
-    const warehouse = fromLocationId.split('-')[0];
+    // Validar que el actor pueda operar la estantería
+    const actorContext = await getUserContext(context as any);
+    assertActorMayOperateShelf(actorContext, shelfCode);
 
-    const sourceRef = admin.firestore().collection('assignments').doc(warehouse).collection('locations').doc(fromLocationId);
-    const workingRef = admin.firestore().collection('workingItems').doc(computedItemKey);
-    const historyRef = admin.firestore().collection('history').doc();
+    const aggregateKey = `${normalize(barcode)}__${normalize(orderId)}`;
+    const computedItemKey = itemKey || `${normalize(barcode)}__${normalize(orderId)}${containerId ? `__${normalize(containerId)}` : ''}`;
+    const section = getWmsSectionForShelf(shelfCode);
+    const locationId = `${shelfCode}-${position}`;
 
-    await admin.firestore().runTransaction(async (tx: any) => {
-      const [sourceDoc, workingDoc] = await Promise.all([tx.get(sourceRef), tx.get(workingRef)]);
+    const locRef = db.collection('shelves').doc(shelfCode).collection('locations').doc(position);
+    const aggregateRef = db.collection('itemAggregates').doc(aggregateKey);
+    const workingRef = db.collection('workingItems').doc(computedItemKey);
+    const historyRef = db.collection('history').doc();
+
+    await db.runTransaction(async (tx) => {
+      const [locSnap, aggregateSnap, workingDoc] = await Promise.all([
+        tx.get(locRef),
+        tx.get(aggregateRef),
+        tx.get(workingRef),
+      ]);
 
       if (workingDoc.exists) {
         throw new functions.https.HttpsError('already-exists', 'Item is already in workingItems');
       }
 
-      const sourceItems = (sourceDoc.data()?.items || []) as any[];
-      const itemIndex = sourceItems.findIndex((i) =>
-        isSameIdentity(i, barcode, orderId, itemKey, containerId)
-      );
+      const locItems = (locSnap.data()?.items || []) as any[];
+      // Buscar item por presenceId (preferido) o por articleCode+orderFab
+      const itemIndex = locItems.findIndex((i: any) => {
+        if (presenceId && i.presenceId) return i.presenceId === presenceId;
+        return normalize(i.articleCode) === normalize(barcode) && normalize(i.orderFab) === normalize(orderId);
+      });
 
       if (itemIndex < 0) {
-        throw new functions.https.HttpsError('not-found', 'Item not found in location');
+        throw new functions.https.HttpsError('not-found', 'Item not found in shelf location');
       }
 
-      const item = sourceItems[itemIndex];
-      const updatedItems = sourceItems.filter((_, idx) => idx !== itemIndex);
+      const item = locItems[itemIndex];
+      const removedPresenceId = item.presenceId;
+      const updatedItems = locItems.filter((_: any, idx: number) => idx !== itemIndex);
 
-      if (updatedItems.length === 0) {
-        tx.delete(sourceRef);
-      } else {
-        tx.set(sourceRef, { items: updatedItems, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      // Actualizar ubicación: eliminar item del array
+      tx.set(locRef, { position, items: updatedItems, isEmpty: updatedItems.length === 0 }, { merge: true });
+
+      // Desactivar presencia en items/
+      if (removedPresenceId) {
+        const presenceRef = db.collection('items').doc(removedPresenceId);
+        tx.update(presenceRef, { active: false, removedAt: now, removedBy: uid, locationIds: [] });
       }
 
+      // Actualizar aggregate: remover presenceId del array activo
+      if (aggregateSnap.exists) {
+        const aggregate = aggregateSnap.data() as any;
+        const remainingIds = (aggregate.activePresenceIds || []).filter((id: string) => id !== removedPresenceId);
+        tx.set(aggregateRef, {
+          activePresenceIds: remainingIds,
+          totalActivePresences: remainingIds.length,
+          totalPlacements: aggregate.totalPlacements,
+          updatedAt: now,
+        }, { merge: true });
+      }
+
+      // Crear workingItem con datos de la ubicación v3
       const workingItem = {
-        ...item,
+        barcode,
+        orderId,
+        articleCode: barcode,
+        orderFab: orderId,
         status: 'EN_TRABAJO',
         section,
-        fromLocationId,
+        fromLocationId: locationId,
+        shelfCode,
+        position,
         withdrawnAt: now,
         withdrawnBy: displayName,
         itemKey: computedItemKey,
-        assignedAt: item.assignedAt || now,
+        presenceId: removedPresenceId,
+        aggregateKey,
+        assignedAt: item.locatedAt || now,
+        quantity: item.quantity ?? 1,
+        containerId: containerId || null,
       };
 
       tx.set(workingRef, workingItem, { merge: true });
@@ -102,9 +152,12 @@ export const productionOperate = functions.https.onCall(async (data: any, contex
         id: historyRef.id,
         barcode,
         orderId,
+        articleCode: barcode,
+        orderFab: orderId,
         action: 'moved_to_working',
-        fromLocation: fromLocationId,
+        fromLocation: locationId,
         toLocation: 'EN_TRABAJO',
+        shelfCode,
         timestamp: now,
         uid,
         role,
@@ -114,6 +167,7 @@ export const productionOperate = functions.https.onCall(async (data: any, contex
       });
     });
 
+    console.log(`[productionOperate] withdrawToWorking SUCCESS: ${barcode} ${orderId} from ${shelfCode}-${position}`);
     return { ok: true, opId, itemKey: computedItemKey };
   }
 
@@ -124,26 +178,35 @@ export const productionOperate = functions.https.onCall(async (data: any, contex
       throw new functions.https.HttpsError('invalid-argument', 'Missing itemKey, barcode, or orderId');
     }
 
-    const workingRef = admin.firestore().collection('workingItems').doc(itemKey);
-    const finishedRef = admin.firestore().collection('finishedItems').doc(itemKey);
-    const historyRef = admin.firestore().collection('history').doc();
+    const workingRef = db.collection('workingItems').doc(itemKey);
+    const finishedRef = db.collection('finishedItems').doc(itemKey);
+    const historyRef = db.collection('history').doc();
 
-    await admin.firestore().runTransaction(async (tx: any) => {
+    await db.runTransaction(async (tx) => {
       const workingDoc = await tx.get(workingRef);
       if (!workingDoc.exists) {
         throw new functions.https.HttpsError('not-found', 'Item not in workingItems');
       }
 
+      const workingData = workingDoc.data() as any;
+
       const finishedItem = {
         id: itemKey,
         barcode,
         orderId,
+        articleCode: barcode,
+        orderFab: orderId,
         timestamp: now,
         finishedAt: now,
         finishedBy: displayName,
         status: 'FINALIZADO',
         previousStatus: 'EN_TRABAJO',
         packageType: packageType || null,
+        shelfCode: workingData.shelfCode || null,
+        position: workingData.position || null,
+        fromLocationId: workingData.fromLocationId || null,
+        presenceId: workingData.presenceId || null,
+        aggregateKey: workingData.aggregateKey || null,
       };
 
       tx.set(finishedRef, finishedItem);
@@ -152,9 +215,12 @@ export const productionOperate = functions.https.onCall(async (data: any, contex
         id: historyRef.id,
         barcode,
         orderId,
+        articleCode: barcode,
+        orderFab: orderId,
         action: 'process_finished',
         fromLocation: 'EN_TRABAJO',
         toLocation: 'FINALIZADO',
+        shelfCode: workingData.shelfCode || null,
         timestamp: now,
         uid,
         role,
@@ -164,57 +230,125 @@ export const productionOperate = functions.https.onCall(async (data: any, contex
       });
     });
 
+    console.log(`[productionOperate] finishWorking SUCCESS: ${itemKey}`);
     return { ok: true, opId, itemKey };
   }
 
-  // LOCATE_WORKING: Quita de workingItems, añade a assignments
+  // LOCATE_WORKING: Quita de workingItems, añade a shelves/ + items/ (v3)
   if (op === 'locateWorking') {
-    const { itemKey, barcode, orderId, toLocation, packageType, quantity, containerId, notes } = payload;
-    if (!itemKey || !barcode || !orderId || !toLocation) {
+    const { itemKey, barcode, orderId, toShelfCode, toPosition } = payload;
+    const { shelfCode: targetShelfCode, position: targetPosition } = resolveShelfPosition(
+      toShelfCode,
+      toPosition,
+      payload.toLocation,
+    );
+
+    if (!itemKey || !barcode || !orderId) {
       throw new functions.https.HttpsError('invalid-argument', 'Missing required fields');
     }
 
-    const toWarehouse = toLocation.split('-')[0];
-    const targetRef = admin.firestore().collection('assignments').doc(toWarehouse).collection('locations').doc(toLocation);
-    const workingRef = admin.firestore().collection('workingItems').doc(itemKey);
-    const historyRef = admin.firestore().collection('history').doc();
+    // Validar que el actor pueda operar la estantería destino
+    const actorContext = await getUserContext(context as any);
+    assertActorMayOperateShelf(actorContext, targetShelfCode);
 
-    await admin.firestore().runTransaction(async (tx: any) => {
-      const [targetDoc, workingDoc] = await Promise.all([tx.get(targetRef), tx.get(workingRef)]);
+    const aggregateKey = `${normalize(barcode)}__${normalize(orderId)}`;
+    const locationId = `${targetShelfCode}-${targetPosition}`;
+    const locRef = db.collection('shelves').doc(targetShelfCode).collection('locations').doc(targetPosition);
+    const aggregateRef = db.collection('itemAggregates').doc(aggregateKey);
+    const presenceRef = db.collection('items').doc();
+    const workingRef = db.collection('workingItems').doc(itemKey);
+    const historyRef = db.collection('history').doc();
+
+    await db.runTransaction(async (tx) => {
+      const [locSnap, aggregateSnap, workingDoc] = await Promise.all([
+        tx.get(locRef),
+        tx.get(aggregateRef),
+        tx.get(workingRef),
+      ]);
 
       if (!workingDoc.exists) {
         throw new functions.https.HttpsError('not-found', 'Item not in workingItems');
       }
 
-      const currentItems = (targetDoc.data()?.items || []) as any[];
-      const alreadyExists = currentItems.some((i) => i.barcode === barcode && i.orderId === orderId);
+      const currentItems = (locSnap.data()?.items || []) as any[];
 
-      if (!alreadyExists) {
-        const assignedItem = {
-          barcode,
-          orderId,
-          timestamp: now,
-          assignedAt: workingDoc.data().assignedAt || now,
-          movedAt: now,
-          packageType: packageType || null,
-          itemKey,
-          quantity: quantity ?? 1,
-          containerId: containerId || null,
-          notes: notes || null,
-          status: 'UBICADO',
-        };
+      // Verificar que no exista ya el mismo artículo en la ubicación destino
+      const alreadyExists = currentItems.some((i: any) =>
+        normalize(i.articleCode) === normalize(barcode) && normalize(i.orderFab) === normalize(orderId)
+      );
 
-        tx.set(targetRef, { items: [...currentItems, assignedItem], updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      if (alreadyExists) {
+        throw new functions.https.HttpsError('already-exists',
+          `El artículo ${barcode} | ${orderId} ya existe en ${locationId}`);
       }
 
+      // Crear presencia en items/
+      const newItem = {
+        presenceId: presenceRef.id,
+        articleCode: barcode,
+        orderFab: orderId,
+        locatedBy: uid,
+        locatedByName: displayName,
+        locatedAt: now,
+      };
+
+      // Actualizar ubicación: añadir item al array
+      tx.set(locRef, {
+        position: targetPosition,
+        items: [...currentItems, newItem],
+        isEmpty: false,
+      }, { merge: true });
+
+      // Crear documento de presencia
+      tx.set(presenceRef, {
+        presenceId: presenceRef.id,
+        aggregateKey,
+        articleCode: barcode,
+        orderFab: orderId,
+        locationIds: [locationId],
+        shelfCode: targetShelfCode,
+        shelfCodes: [targetShelfCode],
+        locatedBy: uid,
+        locatedByName: displayName,
+        locatedAt: now,
+        active: true,
+      });
+
+      // Actualizar aggregate
+      if (aggregateSnap.exists) {
+        const aggregate = aggregateSnap.data() as any;
+        const currentIds: string[] = aggregate.activePresenceIds || [];
+        tx.set(aggregateRef, {
+          activePresenceIds: [...currentIds, presenceRef.id],
+          totalActivePresences: (aggregate.totalActivePresences || 0) + 1,
+          totalPlacements: (aggregate.totalPlacements || 0) + 1,
+          updatedAt: now,
+        }, { merge: true });
+      } else {
+        tx.set(aggregateRef, {
+          aggregateKey,
+          articleCode: barcode,
+          orderFab: orderId,
+          activePresenceIds: [presenceRef.id],
+          totalActivePresences: 1,
+          totalPlacements: 1,
+          updatedAt: now,
+        });
+      }
+
+      // Eliminar de workingItems
       tx.delete(workingRef);
+
       tx.set(historyRef, {
         id: historyRef.id,
         barcode,
         orderId,
+        articleCode: barcode,
+        orderFab: orderId,
         action: 'relocated',
         fromLocation: 'EN_TRABAJO',
-        toLocation,
+        toLocation: locationId,
+        shelfCode: targetShelfCode,
         timestamp: now,
         uid,
         role,
@@ -224,6 +358,7 @@ export const productionOperate = functions.https.onCall(async (data: any, contex
       });
     });
 
+    console.log(`[productionOperate] locateWorking SUCCESS: ${itemKey} → ${targetShelfCode}-${targetPosition}`);
     return { ok: true, opId, itemKey };
   }
 
