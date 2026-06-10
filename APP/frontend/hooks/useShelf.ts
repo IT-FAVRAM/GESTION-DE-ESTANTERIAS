@@ -135,7 +135,9 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
               });
 
               // Combinar y ordenar
-              const combined = [...preLocs, ...mecLocs];
+              // URG MEC-PRE se refleja en ambas colecciones; conservar solo la entrada de PRE.
+              const filteredMecLocs = mecLocs.filter(l => !l.position.startsWith('URG MEC-PRE'));
+              const combined = [...preLocs, ...filteredMecLocs];
               combined.sort((a, b) => {
                 const numA = parseInt(a.position, 10);
                 const numB = parseInt(b.position, 10);

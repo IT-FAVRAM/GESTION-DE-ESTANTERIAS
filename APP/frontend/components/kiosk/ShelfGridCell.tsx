@@ -63,7 +63,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
   onCellDrop,
 }) => {
   const posNum = parseInt(position, 10);
-  const displayNum = posNum.toString().padStart(3, '0');
+  const displayNum = Number.isNaN(posNum) ? position : posNum.toString().padStart(3, '0');
   const itemCount = location?.items.length ?? 0;
   const isEmpty = itemCount === 0;
   const isReproces = isReprocesosLocation(shelfCode, posNum);

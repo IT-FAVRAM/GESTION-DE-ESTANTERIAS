@@ -78,6 +78,7 @@ export interface UseOperativeShelfParams {
 }
 
 const padPos = (p: string) => parseInt(p, 10);
+const displayPos = (p: string) => { const n = parseInt(p, 10); return Number.isNaN(n) ? p : String(n); };
 
 // Clave versionada para persistir un lote en curso (tolerancia a desconexión/recarga).
 const BATCH_STORAGE_KEY = 'wms.batch.v1';
@@ -723,7 +724,7 @@ export function useOperativeShelf({
       try {
         const globalLocs = await findArticleGlobal(articleCode, orderFab);
         if (globalLocs.length > 0) {
-          const locationText = globalLocs.map((l) => `• ${l.shelfName} — pos. ${padPos(l.position)}`).join('\n');
+          const locationText = globalLocs.map((l) => `• ${l.shelfName} — pos. ${displayPos(l.position)}`).join('\n');
           setConfirmModal({
             open: true,
             title: '⚠️ Artículo ya ubicado',
@@ -901,7 +902,7 @@ export function useOperativeShelf({
       }
 
       if (!loc.isEmpty && loc.items.length > 0 && !selectedPositions.includes(position)) {
-        showToast('info', `⚠️ Pos. ${padPos(position)} ocupada — se añadirá igualmente`);
+        showToast('info', `⚠️ Pos. ${displayPos(position)} ocupada — se añadirá igualmente`);
       }
 
       setSelectedPositions(newPositions);
@@ -931,7 +932,7 @@ export function useOperativeShelf({
       }
       
       if (!loc.isEmpty && loc.items.length > 0 && !selectedPositions.includes(position)) {
-        showToast('info', `⚠️ Pos. ${padPos(position)} ya tiene ${loc.items.length} artículo(s) — se añadirá igualmente`);
+        showToast('info', `⚠️ Pos. ${displayPos(position)} ya tiene ${loc.items.length} artículo(s) — se añadirá igualmente`);
       }
       
       setSelectedPositions(newPositions);
@@ -1037,8 +1038,8 @@ export function useOperativeShelf({
     }
 
     const allText = [
-      `${shelfCode}: pos. ${positions.map(padPos).join(', ')}`,
-      ...extras.map((e) => `${e.shelfName}: pos. ${e.positions.map(padPos).join(', ')}`),
+      `${shelfCode}: pos. ${positions.map(displayPos).join(', ')}`,
+      ...extras.map((e) => `${e.shelfName}: pos. ${e.positions.map(displayPos).join(', ')}`),
     ].join(' · ');
     setAdditionalShelfPositions([]);
 
@@ -1220,7 +1221,7 @@ export function useOperativeShelf({
     setConfirmModal({
       open: true,
       title: '¿Retirar algo más?',
-      message: `${selectedItems.length} artículo(s) de posición ${padPos(position)} añadido(s) a la cola`,
+      message: `${selectedItems.length} artículo(s) de posición ${displayPos(position)} añadido(s) a la cola`,
       icon: '📤',
       variant: 'info',
       confirmText: 'NO, finalizar retirada',

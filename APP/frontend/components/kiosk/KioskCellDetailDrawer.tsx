@@ -8,7 +8,7 @@ const KioskCellDetailDrawer: React.FC<KioskCellDetail> = ({ selectedCell, onClos
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-lg bg-slate-900 rounded-t-3xl border-t border-slate-700 p-6 animate-slide-up" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-black text-white">Posicion {parseInt(selectedCell.position, 10)}</h3>
+          <h3 className="text-lg font-black text-white">Posicion {selectedCell.position}</h3>
           <span className="text-sm text-slate-400">{selectedCell.items.length} articulo(s)</span>
         </div>
         <div className="space-y-2 max-h-60 overflow-y-auto">
