@@ -45,6 +45,9 @@ export interface OfflineQueueState {
 const QUEUE_KEY = 'wms-offline-queue-v1';
 const STATE_KEY = 'wms-offline-state-v1';
 const EVENT_NAME = 'wms-offline-queue-changed';
+// BA8: Versionado del schema de cola offline para permitir migraciones futuras
+const CURRENT_VERSION = 1;
+const VERSION_KEY = 'wms-offline-schema-version';
 
 let syncing = false;
 
@@ -58,8 +61,27 @@ const defaultState = (): OfflineQueueState => ({
   lastError: null,
 });
 
+// BA8: Migrar schema de cola offline a versión actual
+const migrateQueueSchema = (): void => {
+  if (!hasBrowser()) return;
+  try {
+    const storedVersion = parseInt(localStorage.getItem(VERSION_KEY) || '0', 10);
+    if (storedVersion >= CURRENT_VERSION) return;
+
+    // Migración de v0 a v1: schema inicial, no requiere cambios
+    if (storedVersion === 0) {
+      // schema inicial — sin cambios estructurales
+    }
+
+    localStorage.setItem(VERSION_KEY, String(CURRENT_VERSION));
+  } catch {
+    // Si falla la migración, continuar con datos existentes
+  }
+};
+
 const loadQueue = (): OfflineQueueEntry[] => {
   if (!hasBrowser()) return [];
+  migrateQueueSchema();
   try {
     const raw = localStorage.getItem(QUEUE_KEY);
     return raw ? JSON.parse(raw) as OfflineQueueEntry[] : [];

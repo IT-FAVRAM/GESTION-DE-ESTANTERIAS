@@ -154,7 +154,7 @@ service cloud.firestore {
     }
 
     match /config/{document=**} {
-      allow read:  if canReadWarehouseState();
+      allow read:  if isAdminLike() || isOperationalUser();
       allow write: if isSuperAdmin();
     }
 
@@ -209,9 +209,8 @@ service cloud.firestore {
       allow write: if false;  // solo vía Cloud Function productionOperate
     }
 
-    // ── LEGACY: carts / supplies_soldadura ───────────────────────────────────
-    // El WMS v3 usa `shelves` para carros. Estas colecciones son legacy.
-    // Lectura permitida para compatibilidad; escritura bloqueada (migrar a CF).
+    // ── LEGACY: carts / supplies_soldadura / supplies_carts ───────────────────
+    // Lectura permitida para compatibilidad; escritura bloqueada (solo Cloud Functions).
 
     match /carts/{document=**} {
       allow read:  if isRegisteredUser();
@@ -219,6 +218,11 @@ service cloud.firestore {
     }
 
     match /supplies_soldadura/{document=**} {
+      allow read:  if isAdminLike() || userRole() == 'JEFE_SECCION';
+      allow write: if false;
+    }
+
+    match /supplies_carts/{document=**} {
       allow read:  if isAdminLike() || userRole() == 'JEFE_SECCION';
       allow write: if false;
     }

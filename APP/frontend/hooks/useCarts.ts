@@ -1,13 +1,12 @@
-
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { db, auth } from '../legacy/firebaseCompat';
-import firebase from 'firebase/compat/app';
+import { cartsApi } from '../lib/api/cartsApi';
 
 export interface CartItem {
     id: string;
-    shelfId: string; // "1", "2", etc.
+    shelfId: string;
     type: 'article' | 'plain';
-    description: string; // "Tornillos" or "ART: ABC - OF: 123"
+    description: string;
     barcode?: string;
     orderId?: string;
     addedBy: string;
@@ -31,7 +30,6 @@ export const useCarts = (cartId: string | null) => {
         }
 
         setLoading(true);
-        // Subscribe to items subcollection of the specific cart
         const unsubscribe = db.collection('carts').doc(cartId).collection('items')
             .onSnapshot(snapshot => {
                 const loadedItems = snapshot.docs.map(doc => ({
@@ -50,40 +48,29 @@ export const useCarts = (cartId: string | null) => {
 
     const addItem = async (shelfId: string, type: 'article' | 'plain', data: { description: string, barcode?: string, orderId?: string }) => {
         if (!cartId || !auth.currentUser) return;
-
-        const newItem: Omit<CartItem, 'id'> = {
-            shelfId,
-            type,
-            description: data.description,
-            barcode: data.barcode,
-            orderId: data.orderId,
-            addedBy: auth.currentUser.uid,
-            createdAt: new Date().toISOString()
-        };
-
-        await db.collection('carts').doc(cartId).collection('items').add(newItem);
+        try {
+            await cartsApi.addItem(cartId, shelfId, type, data);
+        } catch (e: any) {
+            console.error("Error adding item to cart:", e);
+        }
     };
 
     const removeItems = async (itemIds: string[]) => {
         if (!cartId || itemIds.length === 0) return;
-
-        const batch = db.batch();
-        itemIds.forEach(id => {
-            const ref = db.collection('carts').doc(cartId).collection('items').doc(id);
-            batch.delete(ref);
-        });
-        await batch.commit();
+        try {
+            await cartsApi.removeItems(cartId, itemIds);
+        } catch (e: any) {
+            console.error("Error removing items from cart:", e);
+        }
     };
 
     const moveItems = async (itemIds: string[], targetShelfId: string) => {
         if (!cartId || itemIds.length === 0) return;
-
-        const batch = db.batch();
-        itemIds.forEach(id => {
-            const ref = db.collection('carts').doc(cartId).collection('items').doc(id);
-            batch.update(ref, { shelfId: targetShelfId });
-        });
-        await batch.commit();
+        try {
+            await cartsApi.moveItems(cartId, itemIds, targetShelfId);
+        } catch (e: any) {
+            console.error("Error moving items in cart:", e);
+        }
     };
 
     return {
@@ -94,5 +81,3 @@ export const useCarts = (cartId: string | null) => {
         moveItems
     };
 };
-
-

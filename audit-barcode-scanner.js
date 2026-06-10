@@ -77,11 +77,6 @@ const { chromium } = require('playwright');
 
     // Capturar console errors y network errors
     const networkErrors = [];
-    page.on('response', (response) => {
-      if (!response.ok() && response.url().includes('proxyControlOfProduccion')) {
-        networkErrors.push(`❌ Response error: ${response.status()} - ${response.url()}`);
-      }
-    });
 
     page.on('console', (msg) => {
       if (msg.type() === 'error') {

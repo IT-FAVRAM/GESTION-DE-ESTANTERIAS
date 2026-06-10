@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '../legacy/firebaseCompat';
 import { InboundOrder } from '../lib/warehouseData';
-import firebase from 'firebase/compat/app';
+import { inboundOrdersApi } from '../lib/api/inboundOrdersApi';
 
 export const useInboundOrders = (limitCount: number = 100) => {
     const [orders, setOrders] = useState<InboundOrder[]>([]);
@@ -26,7 +26,7 @@ export const useInboundOrders = (limitCount: number = 100) => {
 
     const createOrder = async (order: InboundOrder) => {
         try {
-            await db.collection('inboundOrders').doc(order.orderNumber).set(order);
+            await inboundOrdersApi.create(order);
             return { success: true };
         } catch (e: any) {
             console.error(e);
@@ -36,10 +36,7 @@ export const useInboundOrders = (limitCount: number = 100) => {
 
     const updateOrder = async (orderId: string, updates: Partial<InboundOrder>) => {
         try {
-            await db.collection('inboundOrders').doc(orderId).update({
-                ...updates,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            await inboundOrdersApi.update(orderId, updates);
             return { success: true };
         } catch (e: any) {
             console.error(e);
@@ -49,7 +46,7 @@ export const useInboundOrders = (limitCount: number = 100) => {
 
     const deleteOrder = async (orderId: string) => {
         try {
-            await db.collection('inboundOrders').doc(orderId).delete();
+            await inboundOrdersApi.delete(orderId);
             return { success: true };
         } catch (e: any) {
             console.error(e);
@@ -59,5 +56,3 @@ export const useInboundOrders = (limitCount: number = 100) => {
 
     return { orders, loading, error, createOrder, updateOrder, deleteOrder };
 };
-
-

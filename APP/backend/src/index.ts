@@ -50,14 +50,22 @@ export {
 } from './conversations';
 
 export {
-  proxyControlOfProduccion,
-} from './controlOfProduccionProxy';
-
-export {
   createUrgentAlert,
   resolveUrgentAlert,
   deleteUrgentAlert,
 } from './urgentAlerts';
+
+export {
+  inboundOrdersOperate,
+} from './inboundOrders';
+
+export {
+  cartsOperate,
+} from './carts';
+
+export {
+  suppliesOperate,
+} from './supplies';
 
 export {
   ocrImage,

@@ -1,10 +1,10 @@
-
 import { useState, useEffect } from 'react';
 import { db, auth } from '../legacy/firebaseCompat';
+import { suppliesApi } from '../lib/api/suppliesApi';
 
 export interface SupplyItem {
     id: string;
-    shelfId: string; // "1" to "8"
+    shelfId: string;
     type: 'article' | 'plain';
     description: string;
     barcode?: string;
@@ -14,6 +14,7 @@ export interface SupplyItem {
 }
 
 const DOC_ID = 'REPUESTOS_SOLDADURA';
+const COLLECTION = 'supplies_soldadura';
 
 export const useWeldingSupplies = () => {
     const [items, setItems] = useState<SupplyItem[]>([]);
@@ -21,8 +22,7 @@ export const useWeldingSupplies = () => {
 
     useEffect(() => {
         setLoading(true);
-        // Subscribe to items subcollection of the welding supplies document
-        const unsubscribe = db.collection('supplies_soldadura').doc(DOC_ID).collection('items')
+        const unsubscribe = db.collection(COLLECTION).doc(DOC_ID).collection('items')
             .onSnapshot(snapshot => {
                 const loadedItems = snapshot.docs.map(doc => ({
                     id: doc.id,
@@ -40,40 +40,29 @@ export const useWeldingSupplies = () => {
 
     const addItem = async (shelfId: string, type: 'article' | 'plain', data: { description: string, barcode?: string, orderId?: string }) => {
         if (!auth.currentUser) return;
-
-        const newItem: Omit<SupplyItem, 'id'> = {
-            shelfId,
-            type,
-            description: data.description,
-            barcode: data.barcode,
-            orderId: data.orderId,
-            addedBy: auth.currentUser.uid,
-            createdAt: new Date().toISOString()
-        };
-
-        await db.collection('supplies_soldadura').doc(DOC_ID).collection('items').add(newItem);
+        try {
+            await suppliesApi.addItem(COLLECTION, DOC_ID, shelfId, type, data);
+        } catch (e: any) {
+            console.error("Error adding welding supply:", e);
+        }
     };
 
     const removeItems = async (itemIds: string[]) => {
         if (itemIds.length === 0) return;
-
-        const batch = db.batch();
-        itemIds.forEach(id => {
-            const ref = db.collection('supplies_soldadura').doc(DOC_ID).collection('items').doc(id);
-            batch.delete(ref);
-        });
-        await batch.commit();
+        try {
+            await suppliesApi.removeItems(COLLECTION, DOC_ID, itemIds);
+        } catch (e: any) {
+            console.error("Error removing welding supplies:", e);
+        }
     };
 
     const moveItems = async (itemIds: string[], targetShelfId: string) => {
         if (itemIds.length === 0) return;
-
-        const batch = db.batch();
-        itemIds.forEach(id => {
-            const ref = db.collection('supplies_soldadura').doc(DOC_ID).collection('items').doc(id);
-            batch.update(ref, { shelfId: targetShelfId });
-        });
-        await batch.commit();
+        try {
+            await suppliesApi.moveItems(COLLECTION, DOC_ID, itemIds, targetShelfId);
+        } catch (e: any) {
+            console.error("Error moving welding supplies:", e);
+        }
     };
 
     return {
@@ -84,5 +73,3 @@ export const useWeldingSupplies = () => {
         moveItems
     };
 };
-
-

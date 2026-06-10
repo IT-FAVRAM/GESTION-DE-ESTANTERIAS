@@ -1,10 +1,10 @@
-
 import { useState, useEffect } from 'react';
 import { db, auth } from '../legacy/firebaseCompat';
+import { suppliesApi } from '../lib/api/suppliesApi';
 
 export interface SupplyItem {
     id: string;
-    shelfId: string; // "1" to "8"
+    shelfId: string;
     type: 'article' | 'plain';
     description: string;
     barcode?: string;
@@ -13,7 +13,6 @@ export interface SupplyItem {
     createdAt: string;
 }
 
-// Usamos una colección genérica para los carros nuevos
 const COLLECTION_NAME = 'supplies_carts';
 
 export const useGenericSupplies = (docId: string) => {
@@ -22,9 +21,8 @@ export const useGenericSupplies = (docId: string) => {
 
     useEffect(() => {
         if (!docId) return;
-        
+
         setLoading(true);
-        // Subscribe to items subcollection of the specific document
         const unsubscribe = db.collection(COLLECTION_NAME).doc(docId).collection('items')
             .onSnapshot(snapshot => {
                 const loadedItems = snapshot.docs.map(doc => ({
@@ -43,40 +41,29 @@ export const useGenericSupplies = (docId: string) => {
 
     const addItem = async (shelfId: string, type: 'article' | 'plain', data: { description: string, barcode?: string, orderId?: string }) => {
         if (!auth.currentUser || !docId) return;
-
-        const newItem: Omit<SupplyItem, 'id'> = {
-            shelfId,
-            type,
-            description: data.description,
-            barcode: data.barcode,
-            orderId: data.orderId,
-            addedBy: auth.currentUser.uid,
-            createdAt: new Date().toISOString()
-        };
-
-        await db.collection(COLLECTION_NAME).doc(docId).collection('items').add(newItem);
+        try {
+            await suppliesApi.addItem(COLLECTION_NAME, docId, shelfId, type, data);
+        } catch (e: any) {
+            console.error("Error adding supply item:", e);
+        }
     };
 
     const removeItems = async (itemIds: string[]) => {
         if (itemIds.length === 0 || !docId) return;
-
-        const batch = db.batch();
-        itemIds.forEach(id => {
-            const ref = db.collection(COLLECTION_NAME).doc(docId).collection('items').doc(id);
-            batch.delete(ref);
-        });
-        await batch.commit();
+        try {
+            await suppliesApi.removeItems(COLLECTION_NAME, docId, itemIds);
+        } catch (e: any) {
+            console.error("Error removing supply items:", e);
+        }
     };
 
     const moveItems = async (itemIds: string[], targetShelfId: string) => {
         if (itemIds.length === 0 || !docId) return;
-
-        const batch = db.batch();
-        itemIds.forEach(id => {
-            const ref = db.collection(COLLECTION_NAME).doc(docId).collection('items').doc(id);
-            batch.update(ref, { shelfId: targetShelfId });
-        });
-        await batch.commit();
+        try {
+            await suppliesApi.moveItems(COLLECTION_NAME, docId, itemIds, targetShelfId);
+        } catch (e: any) {
+            console.error("Error moving supply items:", e);
+        }
     };
 
     return {
@@ -87,5 +74,3 @@ export const useGenericSupplies = (docId: string) => {
         moveItems
     };
 };
-
-
