@@ -994,91 +994,145 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
       throw new functions.https.HttpsError('permission-denied', 'No tienes permisos para vaciar esta estanteria.');
     }
 
-    // 1. Delete all location documents (+ clear items[] mirror in URG twin)
-    const locSnapshot = await db.collection('shelves').doc(shelfCode).collection('locations').get();
-    const CHUNK = 30;
-
-    // Identify URG MEC-PRE positions being deleted and clear their twin mirror
-    const urgPositions = locSnapshot.docs.map((d) => d.id).filter((id) => id.startsWith('URG MEC-PRE'));
-    if (urgPositions.length > 0) {
-      const twinShelf = URG_TWIN[normalize(shelfCode)];
-      if (twinShelf) {
-        for (let i = 0; i < urgPositions.length; i += CHUNK) {
-          const twinBatch = db.batch();
-          urgPositions.slice(i, i + CHUNK).forEach((pos) => {
-            const twinRef = db.collection('shelves').doc(twinShelf).collection('locations').doc(pos);
-            twinBatch.set(twinRef, { position: pos, items: [], isEmpty: true }, { merge: true });
-          });
-          await twinBatch.commit();
-        }
-      }
-    }
-
-    for (let i = 0; i < locSnapshot.docs.length; i += CHUNK) {
-      const batchWrite = db.batch();
-      locSnapshot.docs.slice(i, i + CHUNK).forEach((d) => batchWrite.delete(d.ref));
-      await batchWrite.commit();
-    }
-
-    // 2. Deactivate all active item presences for this shelf
-    const presenceSnapshot = await db.collection('items')
-      .where('shelfCode', '==', shelfCode)
-      .where('active', '==', true)
-      .get();
-
-    // Group presences by aggregateKey to update aggregates
-    const aggregateMap = new Map<string, string[]>();
-    for (const presDoc of presenceSnapshot.docs) {
-      const data = presDoc.data() as any;
-      const key = String(data.aggregateKey || '');
-      if (!aggregateMap.has(key)) aggregateMap.set(key, []);
-      aggregateMap.get(key)!.push(presDoc.id);
-    }
-
-    // Deactivate presences in batches
-    for (let i = 0; i < presenceSnapshot.docs.length; i += CHUNK) {
-      const batchWrite = db.batch();
-      presenceSnapshot.docs.slice(i, i + CHUNK).forEach((d) =>
-        batchWrite.update(d.ref, { active: false, removedAt: now, removedBy: operarioId, locationIds: [] }),
-      );
-      await batchWrite.commit();
-    }
-
-    // 3. Update itemAggregates — parallel reads then batched writes (avoids N+1)
-    const aggEntries = Array.from(aggregateMap.entries());
-    if (aggEntries.length > 0) {
-      const aggRefs = aggEntries.map(([key]) => db.collection('itemAggregates').doc(key));
-      const aggSnaps = await Promise.all(aggRefs.map((ref) => ref.get()));
-      for (let i = 0; i < aggEntries.length; i += CHUNK) {
-        const aggBatch = db.batch();
-        for (let j = i; j < Math.min(i + CHUNK, aggEntries.length); j++) {
-          if (!aggSnaps[j].exists) continue;
-          const [, removedIds] = aggEntries[j];
-          const aggData = aggSnaps[j].data() as any;
-          const remaining = (aggData.activePresenceIds || []).filter((id: string) => !removedIds.includes(id));
-          aggBatch.update(aggRefs[j], { activePresenceIds: remaining, totalActivePresences: remaining.length, updatedAt: now });
-        }
-        await aggBatch.commit();
-      }
-    }
-
-    await db.collection('history').add({
-      action: 'VACIAR_ESTANTERIA',
-      articleCode: 'ALL',
-      orderFab: 'ALL',
-      fromLocation: shelfCode,
-      toLocation: null,
+    // Control doc para detectar fallos a medio camino y permitir compensación
+    const controlRef = db.collection('_ops').doc(`emptyShelf_${shelfCode}_${Date.now()}`);
+    await controlRef.set({
+      op: 'emptyShelf',
       shelfCode,
       operarioId,
       operarioName,
-      timestamp: now,
       uid: actor.uid,
       role: actor.role,
-      user: operarioName,
-      source: 'shelfOperate',
+      startedAt: now,
+      stepsCompleted: [],
+      status: 'in_progress',
     });
 
-    return { ok: true, deleted: locSnapshot.docs.length, deactivatedPresences: presenceSnapshot.docs.length };
+    const CHUNK = 30;
+    let locSnapshot: FirebaseFirestore.QuerySnapshot;
+    let presenceSnapshot: FirebaseFirestore.QuerySnapshot;
+    let aggregateMap = new Map<string, string[]>();
+
+    try {
+      // 1. Delete all location documents (+ clear items[] mirror in URG twin)
+      locSnapshot = await db.collection('shelves').doc(shelfCode).collection('locations').get();
+      const urgPositions = locSnapshot.docs.map((d) => d.id).filter((id) => id.startsWith('URG MEC-PRE'));
+      if (urgPositions.length > 0) {
+        const twinShelf = URG_TWIN[normalize(shelfCode)];
+        if (twinShelf) {
+          for (let i = 0; i < urgPositions.length; i += CHUNK) {
+            const twinBatch = db.batch();
+            urgPositions.slice(i, i + CHUNK).forEach((pos) => {
+              const twinRef = db.collection('shelves').doc(twinShelf).collection('locations').doc(pos);
+              twinBatch.set(twinRef, { position: pos, items: [], isEmpty: true }, { merge: true });
+            });
+            await twinBatch.commit();
+          }
+        }
+      }
+      await controlRef.update({ stepsCompleted: admin.firestore.FieldValue.arrayUnion('urg_twins_cleared') });
+
+      for (let i = 0; i < locSnapshot.docs.length; i += CHUNK) {
+        const batchWrite = db.batch();
+        locSnapshot.docs.slice(i, i + CHUNK).forEach((d) => batchWrite.delete(d.ref));
+        await batchWrite.commit();
+      }
+      await controlRef.update({ stepsCompleted: admin.firestore.FieldValue.arrayUnion('locations_deleted') });
+
+      // 2. Deactivate all active item presences for this shelf
+      presenceSnapshot = await db.collection('items')
+        .where('shelfCode', '==', shelfCode)
+        .where('active', '==', true)
+        .get();
+
+      aggregateMap = new Map<string, string[]>();
+      for (const presDoc of presenceSnapshot.docs) {
+        const data = presDoc.data() as any;
+        const key = String(data.aggregateKey || '');
+        if (!aggregateMap.has(key)) aggregateMap.set(key, []);
+        aggregateMap.get(key)!.push(presDoc.id);
+      }
+
+      for (let i = 0; i < presenceSnapshot.docs.length; i += CHUNK) {
+        const batchWrite = db.batch();
+        presenceSnapshot.docs.slice(i, i + CHUNK).forEach((d) =>
+          batchWrite.update(d.ref, { active: false, removedAt: now, removedBy: operarioId, locationIds: [] }),
+        );
+        await batchWrite.commit();
+      }
+      await controlRef.update({ stepsCompleted: admin.firestore.FieldValue.arrayUnion('presences_deactivated') });
+
+      // 3. Update itemAggregates
+      const aggEntries = Array.from(aggregateMap.entries());
+      if (aggEntries.length > 0) {
+        const aggRefs = aggEntries.map(([key]) => db.collection('itemAggregates').doc(key));
+        const aggSnaps = await Promise.all(aggRefs.map((ref) => ref.get()));
+        for (let i = 0; i < aggEntries.length; i += CHUNK) {
+          const aggBatch = db.batch();
+          for (let j = i; j < Math.min(i + CHUNK, aggEntries.length); j++) {
+            if (!aggSnaps[j].exists) continue;
+            const [, removedIds] = aggEntries[j];
+            const aggData = aggSnaps[j].data() as any;
+            const remaining = (aggData.activePresenceIds || []).filter((id: string) => !removedIds.includes(id));
+            aggBatch.update(aggRefs[j], { activePresenceIds: remaining, totalActivePresences: remaining.length, updatedAt: now });
+          }
+          await aggBatch.commit();
+        }
+      }
+      await controlRef.update({ stepsCompleted: admin.firestore.FieldValue.arrayUnion('aggregates_updated') });
+
+      await db.collection('history').add({
+        action: 'VACIAR_ESTANTERIA',
+        articleCode: 'ALL',
+        orderFab: 'ALL',
+        fromLocation: shelfCode,
+        toLocation: null,
+        shelfCode,
+        operarioId,
+        operarioName,
+        timestamp: now,
+        uid: actor.uid,
+        role: actor.role,
+        user: operarioName,
+        source: 'shelfOperate',
+      });
+
+      await controlRef.update({ status: 'completed', completedAt: new Date().toISOString() });
+      return { ok: true, deleted: locSnapshot.docs.length, deactivatedPresences: presenceSnapshot.docs.length };
+    } catch (err) {
+      // Compensación: intentar revertir pasos completados
+      console.error(`[emptyShelf] Falló en shelf ${shelfCode}:`, err);
+      await controlRef.update({ status: 'failed', error: String(err) });
+
+      // Intentar compensación parcial
+      try {
+        const controlDoc = await controlRef.get();
+        const completed = (controlDoc.data() as any)?.stepsCompleted || [];
+
+        if (completed.includes('aggregates_updated') && aggregateMap.size > 0) {
+          const aggEntries = Array.from(aggregateMap.entries());
+          const aggRefs = aggEntries.map(([key]) => db.collection('itemAggregates').doc(key));
+          const aggSnaps = await Promise.all(aggRefs.map((ref) => ref.get()));
+          for (let i = 0; i < aggEntries.length; i += CHUNK) {
+            const aggBatch = db.batch();
+            for (let j = i; j < Math.min(i + CHUNK, aggEntries.length); j++) {
+              if (!aggSnaps[j].exists) continue;
+              const aggData = aggSnaps[j].data() as any;
+              const restoredIds = aggData.activePresenceIds || [];
+              aggBatch.update(aggRefs[j], { totalActivePresences: restoredIds.length });
+            }
+            await aggBatch.commit();
+          }
+        }
+      } catch (compensationErr) {
+        console.error(`[emptyShelf] Compensación falló para shelf ${shelfCode}:`, compensationErr);
+      }
+
+      throw new functions.https.HttpsError(
+        'internal',
+        `Error al vaciar estantería ${shelfCode}. Algunos cambios pudieron aplicarse. Contacta a administración. (Error: ${err instanceof Error ? err.message : String(err)})`,
+      );
+    }
   }
 
   throw new functions.https.HttpsError('invalid-argument', `Operacion desconocida: ${op}`);

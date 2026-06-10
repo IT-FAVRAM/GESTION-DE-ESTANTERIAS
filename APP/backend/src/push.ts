@@ -94,42 +94,49 @@ export const sendPushToUsers = async (
     return { successCount: 0, failureCount: 0 };
   }
 
-  const response = await admin.messaging().sendEachForMulticast({
-    tokens,
-    notification: { title: payload.title, body: payload.body },
-    data: payload.data,
-    android: { priority: 'high' },
-    webpush: { headers: { Urgency: 'high' } },
-  });
+  const FCM_BATCH_LIMIT = 500;
+  let totalSuccess = 0;
+  let totalFailure = 0;
+  const allCleanupTasks: Array<Promise<unknown>> = [];
 
-  const cleanupTasks: Array<Promise<unknown>> = [];
-  let cleanedTokens = 0;
+  for (let i = 0; i < tokens.length; i += FCM_BATCH_LIMIT) {
+    const tokenBatch = tokens.slice(i, i + FCM_BATCH_LIMIT);
+    const response = await admin.messaging().sendEachForMulticast({
+      tokens: tokenBatch,
+      notification: { title: payload.title, body: payload.body },
+      data: payload.data,
+      android: { priority: 'high' },
+      webpush: { headers: { Urgency: 'high' } },
+    });
 
-  response.responses.forEach((item, index) => {
-    if (item.success || !item.error) return;
-    if (TRANSIENT_FCM_ERRORS.has(item.error.code)) return;
-    const token = tokens[index];
-    const ownerId = tokenOwners.get(token);
-    if (!ownerId) return;
-    cleanupTasks.push(
-      admin.firestore().collection('usuarios').doc(ownerId).update({
-        fcmTokens: admin.firestore.FieldValue.arrayRemove(token),
-      }),
-    );
-    cleanedTokens++;
-  });
+    totalSuccess += response.successCount;
+    totalFailure += response.failureCount;
 
-  await Promise.all(cleanupTasks);
+    response.responses.forEach((item, index) => {
+      if (item.success || !item.error) return;
+      if (TRANSIENT_FCM_ERRORS.has(item.error.code)) return;
+      const token = tokenBatch[index];
+      const ownerId = tokenOwners.get(token);
+      if (!ownerId) return;
+      allCleanupTasks.push(
+        admin.firestore().collection('usuarios').doc(ownerId).update({
+          fcmTokens: admin.firestore.FieldValue.arrayRemove(token),
+        }),
+      );
+    });
+  }
+
+  await Promise.all(allCleanupTasks);
 
   const result = {
-    successCount: response.successCount,
-    failureCount: response.failureCount,
+    successCount: totalSuccess,
+    failureCount: totalFailure,
     totalTokens: tokens.length,
   };
 
   if (result.successCount === 0 && result.failureCount > 0) {
     console.warn(
-      `[sendPushToUsers] All sends failed: ${result.failureCount}/${result.totalTokens} tokens failed. Cleaned ${cleanedTokens} invalid tokens.`,
+      `[sendPushToUsers] All sends failed: ${result.failureCount}/${result.totalTokens} tokens failed.`,
       { payload: { title: payload.title, body: payload.body } },
     );
   }

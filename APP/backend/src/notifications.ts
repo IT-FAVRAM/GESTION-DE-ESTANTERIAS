@@ -407,17 +407,20 @@ export const pickupQueueOperate = functions.https.onCall(async (data: any, conte
       throw new functions.https.HttpsError('invalid-argument', 'requestId requerido.');
     }
     const reqRef = admin.firestore().collection('pickupQueue').doc(requestId);
-    const reqSnap = await reqRef.get();
-    if (!reqSnap.exists) {
-      throw new functions.https.HttpsError('not-found', 'Solicitud no encontrada.');
-    }
-    if (reqSnap.data()?.status !== 'PENDING') {
-      throw new functions.https.HttpsError('failed-precondition', 'La solicitud no está pendiente.');
-    }
-    await reqRef.update({
-      status: 'COMPLETED',
-      completedAt: new Date().toISOString(),
-      completedBy: actor.uid,
+    // Usar transacción para evitar race condition si dos carretilleros completan la misma solicitud
+    await admin.firestore().runTransaction(async (tx) => {
+      const reqSnap = await tx.get(reqRef);
+      if (!reqSnap.exists) {
+        throw new functions.https.HttpsError('not-found', 'Solicitud no encontrada.');
+      }
+      if (reqSnap.data()?.status !== 'PENDING') {
+        throw new functions.https.HttpsError('failed-precondition', 'La solicitud no está pendiente.');
+      }
+      tx.update(reqRef, {
+        status: 'COMPLETED',
+        completedAt: new Date().toISOString(),
+        completedBy: actor.uid,
+      });
     });
     return { ok: true };
   }
