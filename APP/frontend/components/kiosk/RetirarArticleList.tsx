@@ -15,6 +15,11 @@ interface RetirarArticleListProps {
   onClose: () => void;
 }
 
+interface ItemGroup {
+  position: string;
+  items: RetirarItem[];
+}
+
 const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shelfCode, onConfirm, onClose }) => {
   const items = useMemo<RetirarItem[]>(() => {
     const result: RetirarItem[] = [];
@@ -29,8 +34,25 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
         });
       }
     }
-    return result.sort((a, b) => a.articleCode.localeCompare(b.articleCode) || a.position.localeCompare(b.position));
+    // Ordenar: primero por ubicación, luego alfabético por artículo
+    return result.sort((a, b) => {
+      const posCompare = a.position.localeCompare(b.position);
+      return posCompare !== 0 ? posCompare : a.articleCode.localeCompare(b.articleCode);
+    });
   }, [locations]);
+
+  // Agrupar items por ubicación para mostrar encabezados
+  const groupedItems = useMemo<ItemGroup[]>(() => {
+    const groups: Record<string, RetirarItem[]> = {};
+    for (const item of items) {
+      if (!groups[item.position]) groups[item.position] = [];
+      groups[item.position].push(item);
+    }
+    return Object.entries(groups).map(([position, groupItems]) => ({
+      position,
+      items: groupItems,
+    }));
+  }, [items]);
 
   const makeKey = (item: RetirarItem) =>
     `${item.articleCode}__${item.orderFab}__${item.position}__${item.presenceId ?? ''}`;
@@ -87,39 +109,49 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-            {items.map((item) => {
-              const key = makeKey(item);
-              const isSelected = selected.has(key);
-              return (
-                <button
-                  key={key}
-                  onClick={() => toggle(key)}
-                  className={`w-full text-left rounded-2xl border p-4 transition-all active:scale-[0.98] ${
-                    isSelected
-                      ? 'border-red-500/60 bg-red-900/20'
-                      : 'border-slate-700 bg-slate-900 hover:border-red-500/30 hover:bg-slate-800'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
-                      isSelected ? 'border-red-500 bg-red-500' : 'border-slate-600'
-                    }`}>
-                      {isSelected && <span className="text-white text-xs font-black">✓</span>}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-black text-white text-lg font-mono leading-tight truncate">
-                        {item.articleCode}
-                      </p>
-                      <p className="text-sm text-slate-400 font-mono mt-0.5">OF: {item.orderFab}</p>
-                    </div>
-                    <span className="shrink-0 text-xs bg-slate-700 text-slate-300 border border-slate-600 rounded-full px-2.5 py-1 font-bold">
-                      pos. {parseInt(item.position, 10)}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+            {groupedItems.map((group) => (
+              <div key={group.position}>
+                {/* Encabezado de ubicación */}
+                <div className="mb-2 px-2 py-1">
+                  <p className="text-sm font-bold text-slate-300 uppercase tracking-wide">
+                    📍 Posición {parseInt(group.position, 10) || group.position}
+                  </p>
+                </div>
+                {/* Artículos en esta ubicación */}
+                <div className="space-y-2">
+                  {group.items.map((item) => {
+                    const key = makeKey(item);
+                    const isSelected = selected.has(key);
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => toggle(key)}
+                        className={`w-full text-left rounded-2xl border p-4 transition-all active:scale-[0.98] ${
+                          isSelected
+                            ? 'border-red-500/60 bg-red-900/20'
+                            : 'border-slate-700 bg-slate-900 hover:border-red-500/30 hover:bg-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
+                            isSelected ? 'border-red-500 bg-red-500' : 'border-slate-600'
+                          }`}>
+                            {isSelected && <span className="text-white text-xs font-black">✓</span>}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-black text-white text-lg font-mono leading-tight truncate">
+                              {item.articleCode}
+                            </p>
+                            <p className="text-sm text-slate-400 font-mono mt-0.5">OF: {item.orderFab}</p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
 
           <div className="px-4 py-4 border-t border-slate-800 bg-slate-950">
