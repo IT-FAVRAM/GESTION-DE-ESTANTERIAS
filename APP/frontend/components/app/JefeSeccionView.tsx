@@ -25,10 +25,10 @@ const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack }) => {
   // Determina las estanterías accesibles para la sección del usuario
   const sectionKey = section ? getSectionForShelf(assignedShelf ?? '') || (section as ReturnType<typeof getSectionForShelf>) : null;
   const sectionShelfCodes = useMemo(() => {
-    if (!section) return [assignedShelf ?? SHELF_DEFINITIONS[0]?.code ?? 'MEC'];
+    if (!section) return [assignedShelf ?? SHELF_DEFINITIONS[0]?.code ?? 'PRE'];
     const codesFromSection = getShelvesForSection(section as Parameters<typeof getShelvesForSection>[0]);
     if (codesFromSection.length > 0) return codesFromSection;
-    return [assignedShelf ?? SHELF_DEFINITIONS[0]?.code ?? 'MEC'];
+    return [assignedShelf ?? SHELF_DEFINITIONS[0]?.code ?? 'PRE'];
   }, [section, assignedShelf]);
 
   // Estantería activa (por defecto la primera, o la assignedShelf si pertenece a la sección)

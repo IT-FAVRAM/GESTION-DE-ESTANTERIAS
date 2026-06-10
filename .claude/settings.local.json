@@ -254,7 +254,10 @@
       "Bash(grep -E \"\\\\.\\(tsx?|jsx?\\)$\")",
       "Bash(grep -rn \"showToast.*error\\\\|throw.*Error\\\\|return;\\\\s*$\" APP/frontend/hooks/useOperativeShelf.ts)",
       "Bash(grep -v \"//\")",
-      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")"
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(ls src *)",
+      "Bash(ls functions/src)",
+      "Bash(grep -v \"node_modules\\\\|//\")"
     ]
   },
   "enabledMcpjsonServers": [

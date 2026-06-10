@@ -73,7 +73,9 @@ const mirrorAppend = (tx, twinLocRef, twinSnap, position, item, pendingItemsByPa
 const getShelfCodesForPosition = (shelfCode, position) => {
     const isTwin = position && position.startsWith('URG MEC-PRE');
     if (isTwin) {
-        return ['PRE', 'MEC', 'PME'];
+        // Los datos de las ubicaciones URG compartidas viven en PRE y MEC (espejo
+        // vía URG_TWIN). No hay colección 'PME', así que no debe figurar aquí.
+        return ['PRE', 'MEC'];
     }
     return [shelfCode];
 };

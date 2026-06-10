@@ -337,12 +337,12 @@ export const useAuth = () => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setAuthResolved(true);
       if (!user || user.isAnonymous) {
         const session = readGuestSession<GuestSession>();
         // Only apply a guest session that has been confirmed by detectMode via backend.
         // Unconfirmed / stale sessions are ignored — the user must log in with credentials.
         if (session?.confirmedKiosk === true) {
+          setAuthResolved(true);
           setState((prev) => ({
             ...prev,
             loading: false,
@@ -361,15 +361,24 @@ export const useAuth = () => {
           return;
         }
 
-        // No user and no guest session: try anonymous sign-in so Cloud Functions get auth
+        // No user yet: trigger anonymous sign-in so Firestore reads and Cloud
+        // Functions get an auth token. CRUCIAL: do NOT mark auth as resolved here —
+        // wait for onAuthStateChanged to re-fire with the anonymous user, so that
+        // detectMode runs WITH a valid token. resolveDeviceConfig throws
+        // 'unauthenticated' without it, which previously left fresh kiosks stuck on
+        // the login screen until a manual reload (race: detectMode ran before the
+        // anonymous sign-in completed and never re-ran).
         if (!user) {
           try {
             await signInAnonymously(auth);
+            return; // re-fires onAuthStateChanged with the anonymous user
           } catch {
-            // Non-fatal: will show device_not_found if anonymous auth is disabled
+            // Anonymous auth disabled: fall through and mark resolved so the app
+            // can degrade to the login screen.
           }
         }
 
+        setAuthResolved(true);
         setState((prev) => ({
           ...prev,
           loading: false,
@@ -384,6 +393,7 @@ export const useAuth = () => {
         return;
       }
 
+      setAuthResolved(true);
       const userData = await resolveUserProfile(user);
 
       // If Firestore returned nothing (cold cache + offline), fall back to localStorage cache
@@ -430,7 +440,11 @@ export const useAuth = () => {
   useEffect(() => {
     const syncGuestSession = () => {
       const session = readGuestSession<GuestSession>();
-      if (session) {
+      // Only restore sessions confirmed by detectMode (confirmedKiosk). Without this
+      // check a stale/unconfirmed session arriving via a cross-tab `storage` event
+      // would silently re-authenticate, bypassing the mandatory-auth guard enforced
+      // in onAuthStateChanged.
+      if (session?.confirmedKiosk === true) {
         setState((prev) => ({
           ...prev,
           loading: false,

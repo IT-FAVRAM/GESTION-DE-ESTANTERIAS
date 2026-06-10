@@ -96,77 +96,73 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
       return;
     }
 
-    // HOTFIX: PRE y MEC están separados. Cuando sea PRE, combina datos de ambos
+    // HOTFIX: PRE y MEC están separados. Cuando sea PRE, combina datos de ambos.
+    // Dos suscripciones INDEPENDIENTES (no anidadas): anidar onSnapshot creaba un
+    // nuevo listener de MEC en cada cambio de PRE, acumulándolos sin desuscribir.
     if (shelfCode === 'PRE') {
-      const unsubscribers: Array<() => void> = [];
+      let preLocs: ShelfLocationState[] = [];
+      let mecLocs: ShelfLocationState[] = [];
+      let preReady = false;
+      let mecReady = false;
 
-      // Leer desde PRE (PRENSAS 1-9)
+      const mapSnapshot = (snapshot: import('firebase/firestore').QuerySnapshot, code: string): ShelfLocationState[] => {
+        const out: ShelfLocationState[] = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data() as LocationDoc;
+          out.push({
+            position: data.position || docSnap.id,
+            items: data.items || [],
+            isEmpty: data.isEmpty ?? (data.items?.length === 0),
+            locationId: getLocationDocId(code, data.position || docSnap.id),
+            nota: data.nota,
+          });
+        });
+        return out;
+      };
+
+      const recombine = () => {
+        // URG MEC-PRE se refleja en ambas colecciones; conservar solo la entrada de PRE.
+        const filteredMecLocs = mecLocs.filter((l) => !l.position.startsWith('URG MEC-PRE'));
+        const combined = [...preLocs, ...filteredMecLocs];
+        combined.sort((a, b) => {
+          const numA = parseInt(a.position, 10);
+          const numB = parseInt(b.position, 10);
+          if (!Number.isNaN(numA) && !Number.isNaN(numB)) return numA - numB;
+          return a.position.localeCompare(b.position);
+        });
+        setLocations(combined);
+        if (preReady && mecReady) {
+          setLoading(false);
+          setError(null);
+        }
+      };
+
       const preRef = collection(db, COLLECTIONS.SHELVES, 'PRE', COLLECTIONS.LOCATIONS);
+      const mecRef = collection(db, COLLECTIONS.SHELVES, 'MEC', COLLECTIONS.LOCATIONS);
+
       const preUnsub = onSnapshot(
         preRef,
-        (snapshot) => {
-          const preLocs: ShelfLocationState[] = [];
-          snapshot.forEach((docSnap) => {
-            const data = docSnap.data() as LocationDoc;
-            preLocs.push({
-              position: data.position || docSnap.id,
-              items: data.items || [],
-              isEmpty: data.isEmpty ?? (data.items?.length === 0),
-              locationId: getLocationDocId('PRE', data.position || docSnap.id),
-              nota: data.nota,
-            });
-          });
-
-          // Leer desde MEC (MECANIZADO 14-46)
-          const mecRef = collection(db, COLLECTIONS.SHELVES, 'MEC', COLLECTIONS.LOCATIONS);
-          const mecUnsub = onSnapshot(
-            mecRef,
-            (mecSnapshot) => {
-              const mecLocs: ShelfLocationState[] = [];
-              mecSnapshot.forEach((docSnap) => {
-                const data = docSnap.data() as LocationDoc;
-                mecLocs.push({
-                  position: data.position || docSnap.id,
-                  items: data.items || [],
-                  isEmpty: data.isEmpty ?? (data.items?.length === 0),
-                  locationId: getLocationDocId('MEC', data.position || docSnap.id),
-                  nota: data.nota,
-                });
-              });
-
-              // Combinar y ordenar
-              // URG MEC-PRE se refleja en ambas colecciones; conservar solo la entrada de PRE.
-              const filteredMecLocs = mecLocs.filter(l => !l.position.startsWith('URG MEC-PRE'));
-              const combined = [...preLocs, ...filteredMecLocs];
-              combined.sort((a, b) => {
-                const numA = parseInt(a.position, 10);
-                const numB = parseInt(b.position, 10);
-                if (!Number.isNaN(numA) && !Number.isNaN(numB)) return numA - numB;
-                return a.position.localeCompare(b.position);
-              });
-
-              setLocations(combined);
-              setLoading(false);
-              setError(null);
-            },
-            (err) => {
-              console.error(`[useShelf] Error on shelf MEC:`, err);
-              setError('Error cargando datos de MECANIZADO');
-              setLoading(false);
-            },
-          );
-          unsubscribers.push(mecUnsub);
-        },
+        (snapshot) => { preLocs = mapSnapshot(snapshot, 'PRE'); preReady = true; recombine(); },
         (err) => {
           console.error(`[useShelf] Error on shelf PRE:`, err);
           setError('Error cargando datos de PRENSAS');
           setLoading(false);
         },
       );
-      unsubscribers.push(preUnsub);
+
+      const mecUnsub = onSnapshot(
+        mecRef,
+        (snapshot) => { mecLocs = mapSnapshot(snapshot, 'MEC'); mecReady = true; recombine(); },
+        (err) => {
+          console.error(`[useShelf] Error on shelf MEC:`, err);
+          setError('Error cargando datos de MECANIZADO');
+          setLoading(false);
+        },
+      );
 
       return () => {
-        unsubscribers.forEach((unsub) => unsub());
+        preUnsub();
+        mecUnsub();
       };
     }
 
