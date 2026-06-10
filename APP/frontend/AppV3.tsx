@@ -176,6 +176,29 @@ const AppV3: React.FC = () => {
     );
   }
 
+  // ADMIN/SUPERADMIN FIRST — highest priority
+  if (role === 'ADMIN' || role === 'SUPERADMIN') {
+    return (
+      <Suspense fallback={<AppLoadingScreen />}>
+        {urgencyBar}
+        {chatFab}
+        {showCarrosAdminMode ? (
+          <CarrosView onBack={() => setShowCarrosAdminMode(false)} />
+        ) : showOperativeMode ? (
+          <CarretilleroView onBack={() => { setShowOperativeMode(false); setOperativeInitialTab('shelves'); }} initialTab={operativeInitialTab} />
+        ) : showShelfBrowser ? (
+          <AdminShelfBrowser onBack={() => setShowShelfBrowser(false)} onOpenCarros={() => { setShowShelfBrowser(false); setShowCarrosAdminMode(true); }} />
+        ) : showTimeline ? (
+          <ArticleTimeline onBack={() => setShowTimeline(false)} />
+        ) : showAdminPanel ? (
+          <SuperAdminPanel onClose={() => setShowAdminPanel(false)} role={role} initialTab={adminPanelTab} currentDeviceId={deviceId} isolatedTab />
+        ) : (
+          <AdminHomeView role={role} displayName={displayName} notification={pushNotif} onCloseNotification={() => setPushNotif(null)} onOpenPanel={openAdminPanel} onOpenShelfBrowser={() => setShowShelfBrowser(true)} onOpenTimeline={() => setShowTimeline(true)} onOpenOperativeMode={() => setShowOperativeMode(true)} onLogout={logout} />
+        )}
+      </Suspense>
+    );
+  }
+
   if (role === 'JEFE_SECCION') {
     return (
       <Suspense fallback={<AppLoadingScreen />}>
@@ -201,28 +224,6 @@ const AppV3: React.FC = () => {
           <CalidadView />
           {chatFab}
         </>
-      </Suspense>
-    );
-  }
-
-  if (role === 'ADMIN' || role === 'SUPERADMIN') {
-    return (
-      <Suspense fallback={<AppLoadingScreen />}>
-        {urgencyBar}
-        {chatFab}
-        {showCarrosAdminMode ? (
-          <CarrosView onBack={() => setShowCarrosAdminMode(false)} />
-        ) : showOperativeMode ? (
-          <CarretilleroView onBack={() => { setShowOperativeMode(false); setOperativeInitialTab('shelves'); }} initialTab={operativeInitialTab} />
-        ) : showShelfBrowser ? (
-          <AdminShelfBrowser onBack={() => setShowShelfBrowser(false)} onOpenCarros={() => { setShowShelfBrowser(false); setShowCarrosAdminMode(true); }} />
-        ) : showTimeline ? (
-          <ArticleTimeline onBack={() => setShowTimeline(false)} />
-        ) : showAdminPanel ? (
-          <SuperAdminPanel onClose={() => setShowAdminPanel(false)} role={role} initialTab={adminPanelTab} currentDeviceId={deviceId} isolatedTab />
-        ) : (
-          <AdminHomeView role={role} displayName={displayName} notification={pushNotif} onCloseNotification={() => setPushNotif(null)} onOpenPanel={openAdminPanel} onOpenShelfBrowser={() => setShowShelfBrowser(true)} onOpenTimeline={() => setShowTimeline(true)} onOpenOperativeMode={() => setShowOperativeMode(true)} onLogout={logout} />
-        )}
       </Suspense>
     );
   }
