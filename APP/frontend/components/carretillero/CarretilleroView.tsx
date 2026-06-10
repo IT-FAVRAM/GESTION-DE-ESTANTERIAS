@@ -33,7 +33,7 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
 
   const [activeTab, setActiveTab] = useState<CarretilleroTab>(initialTab);
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
-  const [selectedShelf, setSelectedShelf] = useState<string>(SHELF_DEFINITIONS[0]?.code ?? 'MEC');
+  const [selectedShelf, setSelectedShelf] = useState<string>(SHELF_DEFINITIONS[0]?.code ?? 'PRE');
 
   const effectiveRole = role ?? 'CARRETILLERO';
   const config = useMemo(

@@ -35,7 +35,7 @@ export const useAssignments = (activeWarehouse?: string) => {
     // We use a local variable to merge updates before setting the state
     let globalAssignments: Assignments = { ...assignments };
 
-    const warehousesToSubscribe = activeWarehouse ? [activeWarehouse] : ['MEC'];
+    const warehousesToSubscribe = activeWarehouse ? [activeWarehouse] : ['PRE'];
 
     warehousesToSubscribe.forEach(whCode => {
       const ref = db.collection("assignments").doc(whCode).collection("locations");

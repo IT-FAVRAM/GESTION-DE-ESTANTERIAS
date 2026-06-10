@@ -45,7 +45,7 @@ interface ShelfNavigatorProps {
 }
 
 const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf, onActionChange, externalActionTrigger, onExternalActionConsumed, externalShelfTrigger, onExternalShelfConsumed }) => {
-  const [selectedShelf, setSelectedShelf] = useState(lockedShelf ?? SHELF_DEFINITIONS[0]?.code ?? 'MEC');
+  const [selectedShelf, setSelectedShelf] = useState(lockedShelf ?? SHELF_DEFINITIONS[0]?.code ?? 'PRE');
   const [highlightedSearch, setHighlightedSearch] = useState<string[]>([]);
   const { locations, loading, shelfDef, ubicar, ubicarMulti, retirar, retirarDeUbicacion, mover, findArticle, totalOccupied, totalEmpty, totalArticles } = useShelf(selectedShelf);
   const { operarioId, firebaseUser, displayName } = useAuth();

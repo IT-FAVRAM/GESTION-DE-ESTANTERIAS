@@ -80,7 +80,7 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
-    activeWarehouse: localStorage.getItem('active_warehouse') || 'MEC',
+    activeWarehouse: localStorage.getItem('active_warehouse') || 'PRE',
     setActiveWarehouse: (code) => {
         localStorage.setItem('active_warehouse', code);
         set({ activeWarehouse: code });
