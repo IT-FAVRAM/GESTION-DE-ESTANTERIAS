@@ -323,7 +323,6 @@ exports.notifyLongDisconnection = functions.pubsub
     return { checked: offlineDevices.length, critical: criticalDevices.length };
 });
 exports.pickupQueueOperate = functions.https.onCall(async (data, context) => {
-    var _a;
     const actor = await (0, authz_1.resolveOperationalActor)(context, data === null || data === void 0 ? void 0 : data.session);
     const op = String((data === null || data === void 0 ? void 0 : data.op) || '');
     const payload = (data === null || data === void 0 ? void 0 : data.payload) || {};
@@ -386,17 +385,21 @@ exports.pickupQueueOperate = functions.https.onCall(async (data, context) => {
             throw new functions.https.HttpsError('invalid-argument', 'requestId requerido.');
         }
         const reqRef = firebaseAdmin_1.admin.firestore().collection('pickupQueue').doc(requestId);
-        const reqSnap = await reqRef.get();
-        if (!reqSnap.exists) {
-            throw new functions.https.HttpsError('not-found', 'Solicitud no encontrada.');
-        }
-        if (((_a = reqSnap.data()) === null || _a === void 0 ? void 0 : _a.status) !== 'PENDING') {
-            throw new functions.https.HttpsError('failed-precondition', 'La solicitud no está pendiente.');
-        }
-        await reqRef.update({
-            status: 'COMPLETED',
-            completedAt: new Date().toISOString(),
-            completedBy: actor.uid,
+        // Usar transacción para evitar race condition si dos carretilleros completan la misma solicitud
+        await firebaseAdmin_1.admin.firestore().runTransaction(async (tx) => {
+            var _a;
+            const reqSnap = await tx.get(reqRef);
+            if (!reqSnap.exists) {
+                throw new functions.https.HttpsError('not-found', 'Solicitud no encontrada.');
+            }
+            if (((_a = reqSnap.data()) === null || _a === void 0 ? void 0 : _a.status) !== 'PENDING') {
+                throw new functions.https.HttpsError('failed-precondition', 'La solicitud no está pendiente.');
+            }
+            tx.update(reqRef, {
+                status: 'COMPLETED',
+                completedAt: new Date().toISOString(),
+                completedBy: actor.uid,
+            });
         });
         return { ok: true };
     }

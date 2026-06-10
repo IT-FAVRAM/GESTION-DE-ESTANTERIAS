@@ -70,9 +70,14 @@ const mirrorAppend = (
   twinSnap: FirebaseFirestore.DocumentSnapshot | undefined,
   position: string,
   item: any,
+  pendingItemsByPath?: Map<string, any[]>,
 ) => {
   if (!twinLocRef) return;
-  const cur = twinSnap?.exists ? ((twinSnap.data()?.items || []) as any[]) : [];
+  const twinData = twinSnap?.exists ? twinSnap.data() : {};
+  let cur = twinSnap?.exists ? ((twinData?.items || []) as any[]) : [];
+  if (pendingItemsByPath?.has(twinLocRef.path)) {
+    cur = pendingItemsByPath.get(twinLocRef.path)!;
+  }
 
   // CRITICAL FIX: Validar que presenceId NO exista ya en ubicación gemela (evita duplicación)
   const presenceIdExists = cur.some((it) => it?.presenceId === item?.presenceId);
@@ -81,17 +86,19 @@ const mirrorAppend = (
     return;
   }
 
+  const newItems = [...cur, item];
+  if (pendingItemsByPath) pendingItemsByPath.set(twinLocRef.path, newItems);
+
   // ✅ FIX #9: Copiar `nota` y otros campos de la ubicación gemela
-  const twinData = twinSnap?.exists ? twinSnap.data() : {};
   const notaToPreserve = twinData?.nota;
-  tx.set(twinLocRef, { position, items: [...cur, item], isEmpty: false, ...(notaToPreserve ? { nota: notaToPreserve } : {}) }, { merge: true });
+  tx.set(twinLocRef, { position, items: newItems, isEmpty: false, ...(notaToPreserve ? { nota: notaToPreserve } : {}) }, { merge: true });
 };
 
 /** ✅ FIX #6: Determina los shelfCodes para una posición (soporta ubicaciones compartidas). */
 const getShelfCodesForPosition = (shelfCode: string, position: string): string[] => {
   const isTwin = position && position.startsWith('URG MEC-PRE');
   if (isTwin) {
-    return ['PRE', 'MEC'];
+    return ['PRE', 'MEC', 'PME'];
   }
   return [shelfCode];
 };
@@ -105,10 +112,18 @@ const mirrorRemove = (
   presenceId: string,
   articleCode: string,
   orderFab: string,
+  pendingItemsByPath?: Map<string, any[]>,
 ) => {
   if (!twinLocRef || !twinSnap?.exists) return;
-  const cur = (twinSnap.data()?.items || []) as any[];
+  
+  let cur = (twinSnap.data()?.items || []) as any[];
+  if (pendingItemsByPath?.has(twinLocRef.path)) {
+    cur = pendingItemsByPath.get(twinLocRef.path)!;
+  }
+  
   const updated = cur.filter((it) => !samePresence(it, presenceId, articleCode, orderFab));
+  if (pendingItemsByPath) pendingItemsByPath.set(twinLocRef.path, updated);
+  
   tx.set(twinLocRef, { position, items: updated, isEmpty: updated.length === 0 }, { merge: true });
 };
 
@@ -465,6 +480,7 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
 
       let totalPresencesAdded = 0;
       const presenceIdsToAdd: string[] = [];
+      const pendingItemsByPath = new Map<string, any[]>();
 
       for (let i = 0; i < positions.length; i++) {
         const position = positions[i];
@@ -473,17 +489,25 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         const locSnap = locSnaps[i];
         const presenceRef = presenceRefs[i];
 
-        const currentItems = locSnap.exists ? ((locSnap.data()?.items || []) as any[]) : [];
+        let currentItems = locSnap.exists ? ((locSnap.data()?.items || []) as any[]) : [];
+        if (pendingItemsByPath.has(locRef.path)) {
+          currentItems = pendingItemsByPath.get(locRef.path)!;
+        }
+
         const locationItem: any = { presenceId: presenceRef.id, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now };
         if (importe !== undefined) locationItem.unitCost = importe;
         if (cantidad !== undefined) locationItem.quantity = cantidad;
+        
+        const newItems = [...currentItems, locationItem];
+        pendingItemsByPath.set(locRef.path, newItems);
+        
         tx.set(locRef, {
           position,
-          items: [...currentItems, locationItem],
+          items: newItems,
           isEmpty: false,
         }, { merge: true });
         // Espejo a la estantería gemela (urgentes compartidas).
-        mirrorAppend(tx, twinLocRefs[i], twinSnapsByIndex[i] as any, position, locationItem);
+        mirrorAppend(tx, twinLocRefs[i], twinSnapsByIndex[i] as any, position, locationItem, pendingItemsByPath);
 
         // ✅ FIX #6: Usar shelfCodes array para soportar ubicaciones compartidas
         const shelfCodes = getShelfCodesForPosition(shelfCode, position);
@@ -556,6 +580,7 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
       const twinSnaps = restSnaps.slice(presenceLocData.length);
       const aggregate = aggregateSnap.exists ? (aggregateSnap.data() as any) : null;
       const removedPresenceIds: string[] = [];
+      const pendingItemsByPath = new Map<string, any[]>();
 
       for (let i = 0; i < presenceLocData.length; i++) {
         const { presence, position, locRef, twinLocRef } = presenceLocData[i];
@@ -563,11 +588,18 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         positions.push(position);
         if (locSnap?.exists) {
           const locData = locSnap.data() as any;
-          const updatedItems = (locData.items || []).filter((item: any) => !samePresence(item, presence.data.presenceId, articleCode, orderFab));
+          let currentItems = (locData.items || []) as any[];
+          if (pendingItemsByPath.has(locRef.path)) {
+            currentItems = pendingItemsByPath.get(locRef.path)!;
+          }
+          
+          const updatedItems = currentItems.filter((item: any) => !samePresence(item, presence.data.presenceId, articleCode, orderFab));
+          pendingItemsByPath.set(locRef.path, updatedItems);
+          
           tx.set(locRef, { position, items: updatedItems, isEmpty: updatedItems.length === 0 }, { merge: true });
         }
         // Espejo de la baja en la estantería gemela (urgentes compartidas).
-        mirrorRemove(tx, twinLocRef, twinSnaps[i] as any, position, presence.data.presenceId, articleCode, orderFab);
+        mirrorRemove(tx, twinLocRef, twinSnaps[i] as any, position, presence.data.presenceId, articleCode, orderFab, pendingItemsByPath);
         tx.update(presence.ref, { active: false, removedAt: now, removedBy: operarioId, locationIds: [] });
         removedPresenceIds.push(presence.ref.id);
       }
@@ -721,34 +753,55 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         }
       }
 
+      const pendingItemsByPath = new Map<string, any[]>();
+
       // Remove article from old positions
       for (const { presence, locationId, position, locRef } of oldLocData) {
         oldLocationIds.push(locationId);
         const locSnap = snapByPath.get(locRef.path);
         if (locSnap?.exists) {
           const locData = locSnap.data() as any;
-          const updatedItems = (locData.items || []).filter((item: any) => !samePresence(item, presence.data.presenceId, articleCode, orderFab));
+          let currentItems = (locData.items || []) as any[];
+          if (pendingItemsByPath.has(locRef.path)) {
+            currentItems = pendingItemsByPath.get(locRef.path)!;
+          }
+          
+          const updatedItems = currentItems.filter((item: any) => !samePresence(item, presence.data.presenceId, articleCode, orderFab));
+          pendingItemsByPath.set(locRef.path, updatedItems);
+          
           tx.set(locRef, { position, items: updatedItems, isEmpty: updatedItems.length === 0 }, { merge: true });
         }
         // Espejo de la baja si la posición de origen es urgente compartida.
         const twinRef = twinLocRefFor(db, shelfCode, position);
-        mirrorRemove(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, presence.data.presenceId, articleCode, orderFab);
+        mirrorRemove(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, presence.data.presenceId, articleCode, orderFab, pendingItemsByPath);
       }
 
       // Add article to new positions
       for (const { position, locationId, locRef, presence } of newLocData) {
         newLocationIds.push(locationId);
         const locSnap = snapByPath.get(locRef.path);
-        const currentItems = locSnap?.exists ? ((locSnap.data()?.items || []) as any[]) : [];
+        
+        let currentItems = locSnap?.exists ? ((locSnap.data()?.items || []) as any[]) : [];
+        if (pendingItemsByPath.has(locRef.path)) {
+          currentItems = pendingItemsByPath.get(locRef.path)!;
+        }
+
         const pf = preservedFields.get(presence.ref.id) ?? {};
         const movedItem: Record<string, unknown> = { presenceId: presence.data.presenceId, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now };
         if (pf.unitCost !== undefined) movedItem.unitCost = pf.unitCost;
         if (pf.quantity !== undefined) movedItem.quantity = pf.quantity;
-        tx.set(locRef, { position, items: [...currentItems, movedItem], isEmpty: false }, { merge: true });
+        
+        const newItems = [...currentItems, movedItem];
+        pendingItemsByPath.set(locRef.path, newItems);
+
+        tx.set(locRef, { position, items: newItems, isEmpty: false }, { merge: true });
         // Espejo del alta si la posición de destino es urgente compartida.
         const twinRef = twinLocRefFor(db, shelfCode, position);
-        mirrorAppend(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, movedItem);
-        tx.update(presence.ref, { locationIds: [locationId], shelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now });
+        mirrorAppend(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, movedItem, pendingItemsByPath);
+        
+        // ✅ FIX #6: Usar shelfCodes array para soportar ubicaciones compartidas
+        const shelfCodes = getShelfCodesForPosition(shelfCode, position);
+        tx.update(presence.ref, { locationIds: [locationId], shelfCode, shelfCodes, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now });
       }
 
       if (aggregateSnap?.exists) {
@@ -837,33 +890,51 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         }
       }
 
+      const pendingItemsByPath = new Map<string, any[]>();
+
       // Quitar de las posiciones de origen
       for (const { presence, locationId, position, locRef } of oldLocData) {
         oldLocationIds.push(locationId);
         const locSnap = snapByPath.get(locRef.path);
         if (locSnap?.exists) {
           const locData = locSnap.data() as any;
-          const updatedItems = (locData.items || []).filter((item: any) => !samePresence(item, presence.data.presenceId, articleCode, orderFab));
+          let currentItems = (locData.items || []) as any[];
+          if (pendingItemsByPath.has(locRef.path)) {
+            currentItems = pendingItemsByPath.get(locRef.path)!;
+          }
+          
+          const updatedItems = currentItems.filter((item: any) => !samePresence(item, presence.data.presenceId, articleCode, orderFab));
+          pendingItemsByPath.set(locRef.path, updatedItems);
+          
           tx.set(locRef, { position, items: updatedItems, isEmpty: updatedItems.length === 0 }, { merge: true });
         }
         // Espejo de la baja si el origen es urgente compartida.
         const twinRef = twinLocRefFor(db, fromShelfCode, position);
-        mirrorRemove(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, presence.data.presenceId, articleCode, orderFab);
+        mirrorRemove(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, presence.data.presenceId, articleCode, orderFab, pendingItemsByPath);
       }
 
       // Añadir en las posiciones de destino (otra sección) + reasignar presencia
       for (const { position, locationId, locRef, presence } of newLocData) {
         newLocationIds.push(locationId);
         const locSnap = snapByPath.get(locRef.path);
-        const currentItems = locSnap?.exists ? ((locSnap.data()?.items || []) as any[]) : [];
+        
+        let currentItems = locSnap?.exists ? ((locSnap.data()?.items || []) as any[]) : [];
+        if (pendingItemsByPath.has(locRef.path)) {
+          currentItems = pendingItemsByPath.get(locRef.path)!;
+        }
+
         const pfR = preservedFieldsR.get(presence.ref.id) ?? {};
         const movedItem: Record<string, unknown> = { presenceId: presence.data.presenceId, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now };
         if (pfR.unitCost !== undefined) movedItem.unitCost = pfR.unitCost;
         if (pfR.quantity !== undefined) movedItem.quantity = pfR.quantity;
-        tx.set(locRef, { position, items: [...currentItems, movedItem], isEmpty: false }, { merge: true });
+        
+        const newItems = [...currentItems, movedItem];
+        pendingItemsByPath.set(locRef.path, newItems);
+
+        tx.set(locRef, { position, items: newItems, isEmpty: false }, { merge: true });
         // Espejo del alta si el destino es urgente compartida.
         const twinRef = twinLocRefFor(db, toShelfCode, position);
-        mirrorAppend(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, movedItem);
+        mirrorAppend(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, movedItem, pendingItemsByPath);
         tx.update(presence.ref, { locationIds: [locationId], shelfCode: toShelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now });
       }
 
@@ -950,21 +1021,30 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         twinSnapByPath.set(twinLocData[i].twinLocRef!.path, twinSnaps[i]);
       }
 
+      const pendingItemsByPath = new Map<string, any[]>();
+
       // All writes
       for (const { presSnap, presData, locId, pos, locRef, twinLocRef } of presLocData) {
         if (locRef) {
           const locSnap = locSnapByPath.get(locRef.path);
           if (locSnap?.exists) {
             const locData = locSnap.data() as any;
-            const updatedItems = (locData.items || []).filter((item: any) =>
+            let currentItems = (locData.items || []) as any[];
+            if (pendingItemsByPath.has(locRef.path)) {
+              currentItems = pendingItemsByPath.get(locRef.path)!;
+            }
+            
+            const updatedItems = currentItems.filter((item: any) =>
               !samePresence(item, presData.presenceId, articleCode, orderFab)
             );
+            pendingItemsByPath.set(locRef.path, updatedItems);
+            
             tx.set(locRef, { position: pos, items: updatedItems, isEmpty: updatedItems.length === 0 }, { merge: true });
           }
           removedFromLocations.push(locId);
         }
         // Espejo de la baja si la posición es urgente compartida.
-        mirrorRemove(tx, twinLocRef, twinLocRef ? twinSnapByPath.get(twinLocRef.path) : undefined, pos, presData.presenceId, articleCode, orderFab);
+        mirrorRemove(tx, twinLocRef, twinLocRef ? twinSnapByPath.get(twinLocRef.path) : undefined, pos, presData.presenceId, articleCode, orderFab, pendingItemsByPath);
         tx.update(presSnap.ref, { active: false, removedAt: now, removedBy: operarioId, locationIds: [], sentToWarehouse: true });
       }
 

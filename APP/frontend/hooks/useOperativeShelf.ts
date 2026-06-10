@@ -1174,9 +1174,9 @@ export function useOperativeShelf({
     // ALTO FIX #22: Validar que artículos aún existen antes de procesar
     const missingItems: string[] = [];
     for (const item of selectedItems) {
-      const itemPos = padPos(item.position);
+      const itemPos = item.position;
       const cell = locations.find(
-        (loc) => padPos(loc.position) === itemPos
+        (loc) => loc.position === itemPos
       );
       if (!cell) {
         missingItems.push(`${item.articleCode} de posición ${itemPos}`);
@@ -1231,9 +1231,9 @@ export function useOperativeShelf({
         // ALTO FIX #22: Validar que posiciones aún existen antes de procesar lote
         const missingPositions: string[] = [];
         for (const queueItem of updatedQueue) {
-          const queuePos = padPos(queueItem.position);
+          const queuePos = queueItem.position;
           const cell = locations.find(
-            (loc) => padPos(loc.position) === queuePos
+            (loc) => loc.position === queuePos
           );
           if (!cell) {
             missingPositions.push(`posición ${queuePos}`);

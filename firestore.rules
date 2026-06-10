@@ -117,7 +117,7 @@ service cloud.firestore {
     }
 
     match /dispositivos/{deviceId} {
-      allow get, list: if isSuperAdmin();
+      allow get, list: if isAdminLike();
       allow write:     if false;
     }
 

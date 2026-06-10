@@ -54,6 +54,8 @@ const AppV3: React.FC = () => {
     authMethod,
     firebaseUser,
     deviceMode,
+    assignedShelf,
+    kioskId,
   } = state;
 
   const connDeviceType = deviceMode === 'kiosk' ? 'KIOSK'
@@ -133,7 +135,9 @@ const AppV3: React.FC = () => {
   if (loading) return <AppLoadingScreen />;
 
   // ─── Not Authenticated ───
-  if (!isAuthenticated) {
+  // También redirigimos al login si el rol es OPERARIO pero no tiene estantería ni kioskId
+  // (evita que dispositivos móviles no registrados se queden en el estado vacío de kiosko).
+  if (!isAuthenticated || (role === 'OPERARIO' && !assignedShelf && !kioskId)) {
     return (
       <Suspense fallback={<AppLoadingScreen />}>
         <UnifiedLogin />

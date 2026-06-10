@@ -15,6 +15,7 @@ exports.normalizeRole = normalizeRole;
 const WMS_SHELF_SECTION = {
     MEC: 'MECANIZADO',
     PRE: 'PRENSAS',
+    PME: 'PRENSAS_MECANIZADO',
     PLE: 'PLEGADORA',
     SOL: 'SOLDADURA',
     RSO: 'SOLDADURA',
@@ -28,7 +29,9 @@ const WMS_SHELF_SECTION = {
     LASER: 'LASER',
 };
 const SECTION_COVERS = {
-    PRENSAS_MECANIZADO: ['MECANIZADO', 'PRENSAS'],
+    PRENSAS_MECANIZADO: ['MECANIZADO', 'PRENSAS', 'PRENSAS_MECANIZADO'],
+    PRENSAS: ['PRENSAS_MECANIZADO'],
+    MECANIZADO: ['PRENSAS_MECANIZADO'],
 };
 const sectionCoversShelf = (actorSection, shelfCode) => {
     const covers = SECTION_COVERS[actorSection];

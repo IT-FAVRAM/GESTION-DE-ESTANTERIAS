@@ -223,28 +223,36 @@ export const useAuth = () => {
     const detectMode = async () => {
       const deviceConfig = await getDeviceConfig(deviceId);
       if (!deviceConfig) {
-        // Dispositivo no registrado: el modo más restrictivo, no admin.
-        setState((prev) => ({ ...prev, deviceMode: 'unassigned', error: 'device_not_found' }));
+        // Dispositivo no registrado: se asume modo administración/email (sin auto-login)
+        setState((prev) => ({ ...prev, deviceMode: 'admin', error: null }));
         return;
       }
 
       const isKiosk = deviceConfig.type === 'KIOSK';
 
-      // Auto-login como OPERARIO para kioskos, sobrescribiendo sesiones obsoletas o sin estantería.
-      // Para dispositivos no-KIOSK (CARRETILLERO, ADMIN), el rol viene del servidor y sobrescribe
-      // cualquier valor que el usuario pudiera haber manipulado en localStorage.
+      // Auto-login como OPERARIO para kioskos solo si tienen estantería asignada.
+      // Si no tienen asignación, mostramos el login normal para que un admin pueda entrar.
       const existingSession = readGuestSession<GuestSession>();
-      let shelfUpdate: { assignedShelf: string | null } | undefined;
+      let shelfUpdate: { assignedShelf: string | null; role?: UserRole | null } | undefined;
+
       if (isKiosk) {
-        let resolvedShelf = deviceConfig.assignedShelf || null;
-        if (!existingSession || existingSession.role !== 'OPERARIO' || !existingSession.assignedShelf) {
-          const session = buildGuestSession('OPERARIO', existingSession?.section, deviceConfig.kioskId, deviceConfig.assignedShelf);
-          writeGuestSession(session);
-          resolvedShelf = session.assignedShelf || resolvedShelf;
+        const potentialShelf = resolveAssignedShelfForRole('OPERARIO', null, deviceConfig.kioskId, deviceConfig.assignedShelf);
+
+        if (potentialShelf) {
+          if (!existingSession || existingSession.role !== 'OPERARIO' || existingSession.assignedShelf !== potentialShelf) {
+            const session = buildGuestSession('OPERARIO', undefined, deviceConfig.kioskId, deviceConfig.assignedShelf);
+            writeGuestSession(session);
+            shelfUpdate = { assignedShelf: potentialShelf, role: 'OPERARIO' };
+          } else {
+            shelfUpdate = { assignedShelf: existingSession.assignedShelf };
+          }
         } else {
-          resolvedShelf = existingSession.assignedShelf;
+          // Si es un kiosko sin estantería, nos aseguramos de que NO haya sesión de operario activa.
+          if (existingSession?.role === 'OPERARIO') {
+            clearAllSessionData();
+            shelfUpdate = { assignedShelf: null, role: null };
+          }
         }
-        shelfUpdate = { assignedShelf: resolvedShelf };
       } else if (existingSession) {
         // El rol de dispositivos no-kiosk se sincroniza con el valor del servidor para
         // evitar elevación de privilegios por manipulación de localStorage.

@@ -205,6 +205,21 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
 
   // ── Operations ───────────────────────────────────────────────────────────
 
+  /** Resolves the physical shelf code for a position (handling combined views like PRE) */
+  const getTargetShelf = useCallback((position: string): string => {
+    const loc = locations.find((l) => l.position === position);
+    if (loc) {
+      const dashIdx = loc.locationId.indexOf('-');
+      if (dashIdx !== -1) return loc.locationId.substring(0, dashIdx);
+    }
+    // Fallback for new positions in PRE combined view
+    if (shelfCode === 'PRE') {
+      const posNum = parseInt(position, 10);
+      if (posNum >= 14 && posNum <= 46) return 'MEC';
+    }
+    return shelfCode;
+  }, [locations, shelfCode]);
+
   const ubicar = useCallback(async (
     articleCode: string,
     orderFab: string,
@@ -218,7 +233,8 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     try {
       const access = await validateShelfAccess('operate');
       if (!access.ok) return false;
-      if (!shelfCode || !position.trim()) {
+      const targetShelf = getTargetShelf(position);
+      if (!targetShelf || !position.trim()) {
         setError('No hay estanteria o posicion valida para ubicar.');
         return false;
       }
@@ -227,26 +243,26 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
         return false;
       }
       // CALIDAD (CAL): Permite ubicar sin OF en cualquier posición
-      const isCalidadShelf = shelfCode === 'CAL';
+      const isCalidadShelf = targetShelf === 'CAL';
       if (!orderFab.trim() && !isCalidadShelf) {
         setError('OF (Orden de Fabricación) es obligatoria para ubicar.');
         return false;
       }
       const session = getOperationalSession();
       if (!navigator.onLine) {
-        enqueueOfflineOperation('UBICAR', { shelfCode, articleCode, orderFab, position, operarioId, operarioName }, session);
-        setLocations((prev) => applyUbicar(prev, shelfCode, articleCode, orderFab, position, operarioId, operarioName));
+        enqueueOfflineOperation('UBICAR', { shelfCode: targetShelf, articleCode, orderFab, position, operarioId, operarioName }, session);
+        setLocations((prev) => applyUbicar(prev, targetShelf, articleCode, orderFab, position, operarioId, operarioName));
         return true;
       }
 
       // CRITICAL: Validate API response BEFORE optimistic update to prevent phantom data
-      const ubicarResult = await inventoryApi.ubicar({ shelfCode, articleCode, orderFab, position, operarioId, operarioName }, session);
+      const ubicarResult = await inventoryApi.ubicar({ shelfCode: targetShelf, articleCode, orderFab, position, operarioId, operarioName }, session);
       if (!ubicarResult?.ok) {
         throw new Error(`Fallo al guardar artículo en Firestore: ${ubicarResult?.ok === false ? 'backend rechazó la operación' : 'sin respuesta del servidor'}`);
       }
 
       // Only apply optimistic update AFTER confirming success
-      setLocations((prev) => applyUbicar(prev, shelfCode, articleCode, orderFab, position, operarioId, operarioName));
+      setLocations((prev) => applyUbicar(prev, targetShelf, articleCode, orderFab, position, operarioId, operarioName));
       return true;
     } catch (err: any) {
       console.error('[useShelf] Ubicar error:', err);
@@ -255,7 +271,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
       setLocations(previousLocations);
       return false;
     }
-  }, [shelfCode, validateShelfAccess, locations]);
+  }, [getTargetShelf, validateShelfAccess, locations]);
 
   const ubicarMulti = useCallback(async (
     articleCode: string,
@@ -270,43 +286,41 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     try {
       const access = await validateShelfAccess('operate');
       if (!access.ok) return false;
-      if (!shelfCode || positions.length === 0) {
-        setError('No hay estanteria o posiciones validas para ubicar.');
-        return false;
-      }
-      const normalizedPositions = positions.map((p) => p.trim()).filter(Boolean);
-      if (normalizedPositions.length === 0) {
+      if (positions.length === 0) {
         setError('Debe seleccionar al menos una posicion.');
         return false;
       }
-      // ✅ FIX #4: Validar importe y cantidad ANTES de optimistic update
-      if (importe !== undefined) {
-        if (!Number.isFinite(importe) || importe < 0) {
-          setError('Importe debe ser un número válido ≥ 0.');
-          return false;
-        }
-      }
-      if (cantidad !== undefined) {
-        if (!Number.isFinite(cantidad) || cantidad < 0) {
-          setError('Cantidad debe ser un número válido ≥ 0.');
-          return false;
-        }
-      }
+      const normalizedPositions = positions.map((p) => p.trim()).filter(Boolean);
+      
+      // ✅ FIX: Group positions by target shelf for multi-shelf support
+      const positionsByShelf: Record<string, string[]> = {};
+      normalizedPositions.forEach(pos => {
+        const s = getTargetShelf(pos);
+        if (!positionsByShelf[s]) positionsByShelf[s] = [];
+        positionsByShelf[s].push(pos);
+      });
+
       const session = getOperationalSession();
 
       if (!navigator.onLine) {
-        enqueueOfflineOperation('UBICAR_MULTI', { shelfCode, articleCode, orderFab, positions: normalizedPositions, operarioId, operarioName, importe, cantidad }, session);
-        setLocations((prev) => applyUbicarMulti(prev, shelfCode, articleCode, orderFab, normalizedPositions, operarioId, operarioName, importe, cantidad));
+        Object.entries(positionsByShelf).forEach(([s, ps]) => {
+          enqueueOfflineOperation('UBICAR_MULTI', { shelfCode: s, articleCode, orderFab, positions: ps, operarioId, operarioName, importe, cantidad }, session);
+          setLocations((prev) => applyUbicarMulti(prev, s, articleCode, orderFab, ps, operarioId, operarioName, importe, cantidad));
+        });
         return true;
       }
 
-      // Optimistic update: apply all positions at once
-      setLocations((prev) => applyUbicarMulti(prev, shelfCode, articleCode, orderFab, normalizedPositions, operarioId, operarioName, importe, cantidad));
+      // Optimistic update
+      Object.entries(positionsByShelf).forEach(([s, ps]) => {
+        setLocations((prev) => applyUbicarMulti(prev, s, articleCode, orderFab, ps, operarioId, operarioName, importe, cantidad));
+      });
 
-      // Single API call with all positions
-      const ubicarMultiResult = await inventoryApi.ubicarMulti({ shelfCode, articleCode, orderFab, positions: normalizedPositions, operarioId, operarioName, importe, cantidad }, session);
-      if (!ubicarMultiResult?.ok) {
-        throw new Error(`Fallo al ubicar múltiple en Firestore: ${ubicarMultiResult?.ok === false ? 'backend rechazó la operación' : 'sin respuesta del servidor'}`);
+      // API calls
+      for (const [s, ps] of Object.entries(positionsByShelf)) {
+        const ubicarMultiResult = await inventoryApi.ubicarMulti({ shelfCode: s, articleCode, orderFab, positions: ps, operarioId, operarioName, importe, cantidad }, session);
+        if (!ubicarMultiResult?.ok) {
+          throw new Error(`Fallo al ubicar múltiple en ${s}: ${ubicarMultiResult?.ok === false ? 'backend rechazó la operación' : 'sin respuesta del servidor'}`);
+        }
       }
       return true;
     } catch (err: any) {
@@ -316,7 +330,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
       setLocations(previousLocations);
       return false;
     }
-  }, [shelfCode, validateShelfAccess, locations]);
+  }, [getTargetShelf, validateShelfAccess, locations]);
 
   const retirar = useCallback(async (
     articleCode: string,
@@ -330,15 +344,23 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
       if (!access.ok) return { success: false, positions: [], error: 'Sin permiso para operar en esta estantería' };
       const session = getOperationalSession();
       
+      // ✅ FIX: Resolve all shelves where this article exists in the current view
+      const activeLocs = locations.filter(l => l.items.some(it => sameItem(it, articleCode, orderFab)));
+      if (activeLocs.length === 0) {
+        return { success: false, positions: [], error: 'Articulo no encontrado' };
+      }
+
+      const shelves = [...new Set(activeLocs.map(l => {
+        const dashIdx = l.locationId.indexOf('-');
+        return dashIdx !== -1 ? l.locationId.substring(0, dashIdx) : shelfCode;
+      }))];
+
       if (!navigator.onLine) {
         const offlineResult = applyRetirar(previousLocations, articleCode, orderFab);
-        if (offlineResult.positions.length === 0) {
-          const msg = 'Articulo no encontrado';
-          setError(msg);
-          return { success: false, positions: [], error: msg };
-        }
         setLocations(offlineResult.next);
-        enqueueOfflineOperation('RETIRAR', { shelfCode, articleCode, orderFab, operarioId, operarioName }, session);
+        shelves.forEach(s => {
+          enqueueOfflineOperation('RETIRAR', { shelfCode: s, articleCode, orderFab, operarioId, operarioName }, session);
+        });
         return { success: true, positions: offlineResult.positions };
       }
 
@@ -350,12 +372,16 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
         return result.next;
       });
 
-      const retirarResult = await inventoryApi.retirar({ shelfCode, articleCode, orderFab, operarioId, operarioName }, session);
-      if (!retirarResult?.ok) {
-        throw new Error(`Fallo al retirar artículo de Firestore: ${retirarResult?.ok === false ? 'backend rechazó la operación' : 'sin respuesta del servidor'}`);
+      let totalPositions: string[] = [];
+      for (const s of shelves) {
+        const retirarResult = await inventoryApi.retirar({ shelfCode: s, articleCode, orderFab, operarioId, operarioName }, session);
+        if (!retirarResult?.ok) {
+          throw new Error(`Fallo al retirar artículo de ${s}: ${retirarResult?.ok === false ? 'backend rechazó la operación' : 'sin respuesta del servidor'}`);
+        }
+        if (retirarResult.positions) totalPositions = [...totalPositions, ...retirarResult.positions];
       }
-      const { positions = [] } = retirarResult;
-      return { success: true, positions: positions.length > 0 ? positions : optimisticPositions };
+
+      return { success: true, positions: totalPositions.length > 0 ? totalPositions : optimisticPositions };
     } catch (err: unknown) {
       const msg = parseCallableError(err);
       console.error('[useShelf] Retirar error:', msg);
@@ -377,19 +403,21 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     try {
       const access = await validateShelfAccess('operate');
       if (!access.ok) return { success: false, position: '', error: 'Sin permiso para operar en esta estantería' };
+      
+      const targetShelf = getTargetShelf(position);
       const session = getOperationalSession();
       const optimisticResult = applyRetirarDeUbicacion(previousLocations, articleCode, orderFab, position, presenceId);
 
       if (!navigator.onLine) {
         setLocations(optimisticResult.next);
-        enqueueOfflineOperation('RETIRAR_DE_UBICACION', { shelfCode, articleCode, orderFab, position, operarioId, operarioName }, session);
+        enqueueOfflineOperation('RETIRAR_DE_UBICACION', { shelfCode: targetShelf, articleCode, orderFab, position, operarioId, operarioName }, session);
         return { success: true, position };
       }
 
       // Online: apply optimistic update before API call
       setLocations(optimisticResult.next);
 
-      const retirarUbicResult = await inventoryApi.retirarDeUbicacion({ shelfCode, articleCode, orderFab, position, operarioId, operarioName, ...(presenceId ? { presenceId } : {}) }, session);
+      const retirarUbicResult = await inventoryApi.retirarDeUbicacion({ shelfCode: targetShelf, articleCode, orderFab, position, operarioId, operarioName, ...(presenceId ? { presenceId } : {}) }, session);
       if (!retirarUbicResult?.ok) {
         throw new Error(`Fallo al retirar artículo de ubicación en Firestore: ${retirarUbicResult?.ok === false ? 'backend rechazó la operación' : 'sin respuesta del servidor'}`);
       }
@@ -401,7 +429,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
       setLocations(previousLocations);
       return { success: false, position: '', error: msg };
     }
-  }, [shelfCode, validateShelfAccess, locations]);
+  }, [getTargetShelf, validateShelfAccess, locations]);
 
   const mover = useCallback(async (
     articleCode: string,

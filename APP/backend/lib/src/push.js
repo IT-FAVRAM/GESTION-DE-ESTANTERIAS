@@ -78,37 +78,43 @@ const sendPushToUsers = async (userDocs, payload) => {
     if (tokens.length === 0) {
         return { successCount: 0, failureCount: 0 };
     }
-    const response = await firebaseAdmin_1.admin.messaging().sendEachForMulticast({
-        tokens,
-        notification: { title: payload.title, body: payload.body },
-        data: payload.data,
-        android: { priority: 'high' },
-        webpush: { headers: { Urgency: 'high' } },
-    });
-    const cleanupTasks = [];
-    let cleanedTokens = 0;
-    response.responses.forEach((item, index) => {
-        if (item.success || !item.error)
-            return;
-        if (TRANSIENT_FCM_ERRORS.has(item.error.code))
-            return;
-        const token = tokens[index];
-        const ownerId = tokenOwners.get(token);
-        if (!ownerId)
-            return;
-        cleanupTasks.push(firebaseAdmin_1.admin.firestore().collection('usuarios').doc(ownerId).update({
-            fcmTokens: firebaseAdmin_1.admin.firestore.FieldValue.arrayRemove(token),
-        }));
-        cleanedTokens++;
-    });
-    await Promise.all(cleanupTasks);
+    const FCM_BATCH_LIMIT = 500;
+    let totalSuccess = 0;
+    let totalFailure = 0;
+    const allCleanupTasks = [];
+    for (let i = 0; i < tokens.length; i += FCM_BATCH_LIMIT) {
+        const tokenBatch = tokens.slice(i, i + FCM_BATCH_LIMIT);
+        const response = await firebaseAdmin_1.admin.messaging().sendEachForMulticast({
+            tokens: tokenBatch,
+            notification: { title: payload.title, body: payload.body },
+            data: payload.data,
+            android: { priority: 'high' },
+            webpush: { headers: { Urgency: 'high' } },
+        });
+        totalSuccess += response.successCount;
+        totalFailure += response.failureCount;
+        response.responses.forEach((item, index) => {
+            if (item.success || !item.error)
+                return;
+            if (TRANSIENT_FCM_ERRORS.has(item.error.code))
+                return;
+            const token = tokenBatch[index];
+            const ownerId = tokenOwners.get(token);
+            if (!ownerId)
+                return;
+            allCleanupTasks.push(firebaseAdmin_1.admin.firestore().collection('usuarios').doc(ownerId).update({
+                fcmTokens: firebaseAdmin_1.admin.firestore.FieldValue.arrayRemove(token),
+            }));
+        });
+    }
+    await Promise.all(allCleanupTasks);
     const result = {
-        successCount: response.successCount,
-        failureCount: response.failureCount,
+        successCount: totalSuccess,
+        failureCount: totalFailure,
         totalTokens: tokens.length,
     };
     if (result.successCount === 0 && result.failureCount > 0) {
-        console.warn(`[sendPushToUsers] All sends failed: ${result.failureCount}/${result.totalTokens} tokens failed. Cleaned ${cleanedTokens} invalid tokens.`, { payload: { title: payload.title, body: payload.body } });
+        console.warn(`[sendPushToUsers] All sends failed: ${result.failureCount}/${result.totalTokens} tokens failed.`, { payload: { title: payload.title, body: payload.body } });
     }
     // Save to notification history asynchronously (don't block the response)
     saveNotificationHistory(payload, result, recipientUserIds).catch(console.warn);

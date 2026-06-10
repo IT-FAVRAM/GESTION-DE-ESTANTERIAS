@@ -349,19 +349,36 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        const XLSX = await import('xlsx');
         const buf = e.target?.result as ArrayBuffer;
-        const wb = XLSX.read(buf, { type: 'array' });
+        const wb = new ExcelJS.Workbook();
+        await wb.xlsx.load(buf);
 
         const sheetName = 'INVENTARIO_GLOBAL';
-        if (!wb.SheetNames.includes(sheetName)) {
+        const ws = wb.getWorksheet(sheetName);
+        if (!ws) {
           showMessage('error', 'No se encontró la hoja "INVENTARIO_GLOBAL"');
           setImporting(false);
           return;
         }
 
-        const ws = wb.Sheets[sheetName];
-        const data = XLSX.utils.sheet_to_json(ws) as Array<any>;
+        // Convertir ExcelJS worksheet a JSON array
+        const data: any[] = [];
+        const headers: string[] = [];
+        ws.getRow(1).eachCell((cell, colNumber) => {
+          headers[colNumber] = cell.text;
+        });
+
+        ws.eachRow((row, rowNumber) => {
+          if (rowNumber === 1) return; // saltar cabecera
+          const rowData: any = {};
+          row.eachCell((cell, colNumber) => {
+            const header = headers[colNumber];
+            if (header) {
+              rowData[header] = cell.value;
+            }
+          });
+          data.push(rowData);
+        });
 
         if (data.length === 0) {
           showMessage('error', 'La hoja está vacía');

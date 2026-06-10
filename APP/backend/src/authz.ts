@@ -28,6 +28,7 @@ export type OperationalActor = UserContext & {
 const WMS_SHELF_SECTION: Record<string, string> = {
   MEC: 'MECANIZADO',
   PRE: 'PRENSAS',
+  PME: 'PRENSAS_MECANIZADO',
   PLE: 'PLEGADORA',
   SOL: 'SOLDADURA',
   RSO: 'SOLDADURA',
@@ -42,7 +43,9 @@ const WMS_SHELF_SECTION: Record<string, string> = {
 };
 
 const SECTION_COVERS: Record<string, string[]> = {
-  PRENSAS_MECANIZADO: ['MECANIZADO', 'PRENSAS'],
+  PRENSAS_MECANIZADO: ['MECANIZADO', 'PRENSAS', 'PRENSAS_MECANIZADO'],
+  PRENSAS: ['PRENSAS_MECANIZADO'],
+  MECANIZADO: ['PRENSAS_MECANIZADO'],
 };
 
 const sectionCoversShelf = (actorSection: string, shelfCode: string): boolean => {

@@ -4,6 +4,7 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
+import ExcelJS from 'exceljs';
 import { useAnalytics } from '../../hooks/useAnalytics';
 import { db } from '../../lib/firebase';
 import { COLLECTIONS, SHELF_DEFINITIONS, type LocationDoc } from '../../lib/firestoreSchema';
@@ -96,8 +97,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ onClose }) => {
     setExporting(true);
 
     try {
-      const XLSX = await import('xlsx');
-      const wb = XLSX.utils.book_new();
+      const wb = new ExcelJS.Workbook();
       const today = new Date().toISOString().split('T')[0];
       const dateStr = new Date().toLocaleDateString('es-ES', {
         year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
@@ -116,39 +116,41 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ onClose }) => {
 
       // ── 2. Construir hoja RESUMEN GLOBAL (primero) ────────────────────────
       setProgress('Construyendo resumen global...');
+      const globalWs = wb.addWorksheet('RESUMEN GLOBAL');
+      globalWs.addRow([`INVENTARIO GLOBAL — ${dateStr}`]);
+      globalWs.addRow([`Total estanterías: ${SHELF_DEFINITIONS.length}`]);
+      globalWs.addRow([]);
+      globalWs.addRow(['Sección', 'Estantería', 'Código', 'Posición', 'Artículo', 'OF', 'Ubicado por', 'Fecha entrada', 'Días en almacén']);
+      
       const globalRows: Array<Array<string | number>> = [];
-      globalRows.push([`INVENTARIO GLOBAL — ${dateStr}`, '', '', '', '', '', '', '', '']);
-      globalRows.push([`Total estanterías: ${SHELF_DEFINITIONS.length}`, '', '', '', '', '', '', '', '']);
-      globalRows.push([]);
-      globalRows.push(['Sección', 'Estantería', 'Código', 'Posición', 'Artículo', 'OF', 'Ubicado por', 'Fecha entrada', 'Días en almacén']);
 
       // ── 3. Generar hojas por estantería + acumular resumen ─────────────────
-      const shelfSheets: Array<{ name: string; ws: ReturnType<(typeof XLSX)['utils']['aoa_to_sheet']> }> = [];
       for (const { shelf, locationMap } of shelfDataList) {
         const { sheetRows } = buildShelfRows(shelf, locationMap, dateStr, globalRows);
-
-        const ws = XLSX.utils.aoa_to_sheet(sheetRows);
-        ws['!cols'] = [
-          { wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 35 }, { wch: 25 }, { wch: 16 }, { wch: 16 },
+        const ws = wb.addWorksheet(shelf.name.substring(0, 31));
+        sheetRows.forEach(row => ws.addRow(row));
+        ws.columns = [
+          { width: 12 }, { width: 10 }, { width: 14 }, { width: 35 }, { width: 25 }, { width: 16 }, { width: 16 },
         ];
-        shelfSheets.push({ name: shelf.name.substring(0, 31), ws });
       }
 
-      // ── 4. Añadir RESUMEN GLOBAL como primera hoja ─────────────────────────
-      const globalWs = XLSX.utils.aoa_to_sheet(globalRows);
-      globalWs['!cols'] = [
-        { wch: 16 }, { wch: 22 }, { wch: 10 }, { wch: 10 },
-        { wch: 20 }, { wch: 16 }, { wch: 20 }, { wch: 14 }, { wch: 16 },
+      // ── 4. Añadir datos al RESUMEN GLOBAL ─────────────────────────
+      globalRows.forEach(row => globalWs.addRow(row));
+      globalWs.columns = [
+        { width: 16 }, { width: 22 }, { width: 10 }, { width: 10 },
+        { width: 20 }, { width: 16 }, { width: 20 }, { width: 14 }, { width: 16 },
       ];
-      XLSX.utils.book_append_sheet(wb, globalWs, 'RESUMEN GLOBAL');
-
-      // ── 5. Añadir hojas por estantería ─────────────────────────────────────
-      for (const { name, ws } of shelfSheets) {
-        XLSX.utils.book_append_sheet(wb, ws, name);
-      }
 
       setProgress('Generando archivo...');
-      XLSX.writeFile(wb, `Inventario_Global_${today}.xlsx`);
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Inventario_Global_${today}.xlsx`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      
       setProgress('Completado');
       window.setTimeout(() => {
         setProgress('');
@@ -169,8 +171,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ onClose }) => {
     setExporting(true);
 
     try {
-      const XLSX = await import('xlsx');
-      const wb = XLSX.utils.book_new();
+      const wb = new ExcelJS.Workbook();
       const today = new Date().toISOString().split('T')[0];
       const dateStr = new Date().toLocaleDateString('es-ES', {
         year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
@@ -179,13 +180,11 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ onClose }) => {
       const sectionShelves = SHELF_DEFINITIONS.filter((s) => (s.section || 'OTROS') === sectionName);
 
       // ── Recoger datos ──────────────────────────────────────────────────────
-      const summaryRows: Array<Array<string | number>> = [];
-      summaryRows.push([`INVENTARIO SECCIÓN: ${sectionName} — ${dateStr}`, '', '', '', '', '', '', '']);
-      summaryRows.push([`${sectionShelves.length} estantería(s)`, '', '', '', '', '', '', '']);
-      summaryRows.push([]);
-      summaryRows.push(['Estantería', 'Código', 'Posición', 'Artículo', 'OF', 'Ubicado por', 'Fecha entrada', 'Días en almacén']);
-
-      const shelfSheets: Array<{ name: string; ws: ReturnType<(typeof XLSX)['utils']['aoa_to_sheet']> }> = [];
+      const summaryWs = wb.addWorksheet(`RESUMEN ${sectionName}`.substring(0, 31));
+      summaryWs.addRow([`INVENTARIO SECCIÓN: ${sectionName} — ${dateStr}`]);
+      summaryWs.addRow([`${sectionShelves.length} estantería(s)`]);
+      summaryWs.addRow([]);
+      summaryWs.addRow(['Estantería', 'Código', 'Posición', 'Artículo', 'OF', 'Ubicado por', 'Fecha entrada', 'Días en almacén']);
 
       for (const shelf of sectionShelves) {
         setProgress(`${sectionName}: ${shelf.name}...`);
@@ -202,7 +201,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ onClose }) => {
             const daysInStorage = item.locatedAt
               ? Math.floor((Date.now() - new Date(item.locatedAt).getTime()) / (1000 * 60 * 60 * 24))
               : '-';
-            summaryRows.push([
+            summaryWs.addRow([
               shelf.name,
               shelf.code,
               parseInt(pos, 10),
@@ -216,26 +215,27 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ onClose }) => {
         }
 
         const { sheetRows } = buildShelfRows(shelf, locationMap, dateStr);
-        const ws = XLSX.utils.aoa_to_sheet(sheetRows);
-        ws['!cols'] = [
-          { wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 35 }, { wch: 25 }, { wch: 16 }, { wch: 16 },
+        const ws = wb.addWorksheet(shelf.name.substring(0, 31));
+        sheetRows.forEach(row => ws.addRow(row));
+        ws.columns = [
+          { width: 12 }, { width: 10 }, { width: 14 }, { width: 35 }, { width: 25 }, { width: 16 }, { width: 16 },
         ];
-        shelfSheets.push({ name: shelf.name.substring(0, 31), ws });
       }
 
-      // RESUMEN SECCIÓN primero
-      const summaryWs = XLSX.utils.aoa_to_sheet(summaryRows);
-      summaryWs['!cols'] = [
-        { wch: 22 }, { wch: 10 }, { wch: 10 }, { wch: 20 }, { wch: 16 }, { wch: 20 }, { wch: 14 }, { wch: 16 },
+      summaryWs.columns = [
+        { width: 22 }, { width: 10 }, { width: 10 }, { width: 20 }, { width: 16 }, { width: 20 }, { width: 14 }, { width: 16 },
       ];
-      XLSX.utils.book_append_sheet(wb, summaryWs, `RESUMEN ${sectionName}`.substring(0, 31));
-
-      for (const { name, ws } of shelfSheets) {
-        XLSX.utils.book_append_sheet(wb, ws, name);
-      }
 
       setProgress('Generando archivo...');
-      XLSX.writeFile(wb, `Inventario_${sectionName}_${today}.xlsx`);
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Inventario_${sectionName}_${today}.xlsx`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+
       setProgress('Completado');
       window.setTimeout(() => {
         setProgress('');

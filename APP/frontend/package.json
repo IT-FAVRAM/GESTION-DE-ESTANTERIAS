@@ -1,6 +1,10 @@
 {
   "name": "desarrollo2----p2----gestor-de-estanterias",
   "private": true,
+  "overrides": {
+    "esbuild": "^0.25.0",
+    "uuid": "^11.1.1"
+  },
   "version": "0.0.0",
   "type": "module",
   "scripts": {
@@ -22,7 +26,6 @@
     "react-router-dom": "^7.13.0",
     "sharp": "^0.34.5",
     "tesseract.js": "^7.0.0",
-    "xlsx": "^0.18.5",
     "zustand": "^5.0.10"
   },
   "devDependencies": {
@@ -37,6 +40,6 @@
     "tailwindcss": "^3.4.19",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
-    "vitest": "^2.1.9"
+    "vitest": "^4.1.8"
   }
 }
