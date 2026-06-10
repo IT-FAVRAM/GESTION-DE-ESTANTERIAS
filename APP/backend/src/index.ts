@@ -54,10 +54,6 @@ export {
 } from './controlOfProduccionProxy';
 
 export {
-  migratPreToPme,
-} from './migrations/migratePreToPme';
-
-export {
   createUrgentAlert,
   resolveUrgentAlert,
   deleteUrgentAlert,
@@ -66,3 +62,11 @@ export {
 export {
   ocrImage,
 } from './ocr';
+
+export {
+  telegramWebhook,
+} from './telegram/webhook';
+
+export {
+  telegramWeeklyReport,
+} from './telegram/report';
