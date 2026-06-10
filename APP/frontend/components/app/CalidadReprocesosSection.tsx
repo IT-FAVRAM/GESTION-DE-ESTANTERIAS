@@ -18,18 +18,27 @@ const CalidadReprocesosSection: React.FC<CalidadReprocesosSectionProps> = ({
 }) => (
   <>
     {canViewReprocessCosts && (
-      <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-amber-300/60 font-bold uppercase">Total Reprocesos</p>
-            <p className="text-xs text-slate-400">{totalPiezas} piezas en CAL 001-022</p>
+      <div className="px-4 py-3 bg-gradient-to-r from-amber-50 to-amber-100/60 border-b-2 border-amber-500 shadow-sm">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1">
+            <p className="text-xs text-amber-700 font-black uppercase tracking-wider">💰 Total Reprocesos</p>
+            <p className="text-xs text-amber-600 mt-0.5">{totalPiezas} piezas en CAL 001-022</p>
           </div>
-          <p className="text-xl font-black text-amber-300">{formatEuros(totalImporte)}</p>
+          <div className="flex-shrink-0 text-right">
+            <p className="text-3xl font-black text-amber-700 leading-none">{formatEuros(totalImporte)}</p>
+            <p className="text-[10px] text-amber-600 font-bold mt-1">Dinero en reproceso</p>
+          </div>
         </div>
         {oldestDays !== undefined && oldestDays > 0 && (
-          <p className={`mt-1 text-xs font-bold ${oldestDays > 30 ? 'text-red-400' : oldestDays > 7 ? 'text-amber-400' : 'text-slate-500'}`}>
+          <p className={`mt-2 text-xs font-bold px-3 py-2 rounded-lg inline-block ${
+            oldestDays > 30
+              ? 'bg-red-100 text-red-700'
+              : oldestDays > 7
+              ? 'bg-amber-200 text-amber-800'
+              : 'bg-amber-100 text-amber-700'
+          }`}>
             ⏱ Artículo más antiguo: {oldestDays} día{oldestDays !== 1 ? 's' : ''} sin mover
-            {oldestDays > 30 ? ' — dinero parado' : ''}
+            {oldestDays > 30 ? ' — dinero parado ⚠️' : ''}
           </p>
         )}
       </div>

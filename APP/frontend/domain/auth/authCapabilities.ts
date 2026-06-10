@@ -45,12 +45,12 @@ export const resolveCapabilities = (
         return userSection === targetSection;
       }
       // ADMIN con section asignado (ej: juanma como jefe de plegadora)
-      // → también respeta esa sección en ciertos contextos
+      // → ADMIN siempre accede a todo, incluyendo CAL para ver reprocesos
       if (role === 'ADMIN' && assignedShelf) {
         const userSection = getSectionForShelf(assignedShelf);
         const targetSection = getSectionForShelf(shelfCode);
-        // ADMIN accede a todo, pero si hay section → puede filtrar opciones de UI
-        return userSection === targetSection || true; // siempre true para ADMIN
+        // ADMIN accede a todo, incluyendo CAL
+        return userSection === targetSection || true;
       }
       return true;
     },

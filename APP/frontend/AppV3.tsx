@@ -191,7 +191,7 @@ const AppV3: React.FC = () => {
     );
   }
 
-  if (role === 'CALIDAD' && capabilities.canAccessShelf('CAL')) {
+  if ((role === 'CALIDAD' || role === 'ADMIN') && capabilities.canAccessShelf('CAL')) {
     return (
       <Suspense fallback={<AppLoadingScreen />}>
         <>
@@ -199,6 +199,7 @@ const AppV3: React.FC = () => {
           <OfflineDebugPanel />
           <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
           <CalidadView />
+          {chatFab}
         </>
       </Suspense>
     );

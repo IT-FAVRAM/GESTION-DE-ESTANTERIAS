@@ -257,7 +257,9 @@
       "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
       "Bash(ls src *)",
       "Bash(ls functions/src)",
-      "Bash(grep -v \"node_modules\\\\|//\")"
+      "Bash(grep -v \"node_modules\\\\|//\")",
+      "Bash(dir APPfrontend *)",
+      "PowerShell(tree .claude *)"
     ]
   },
   "enabledMcpjsonServers": [

@@ -6,6 +6,7 @@
 import React from 'react';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import { isReprocesosLocation } from '../../lib/firestoreSchema';
+import { formatEuros } from '../../lib/api/reprocesosApi';
 
 export interface CellDragData {
   articleCode: string;
@@ -302,13 +303,27 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
       {...dropProps}
     >
       {location?.nota && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 z-10 pointer-events-none" />}
-      {/* CALIDAD REPROCESOS: Total de cantidad en esquina superior derecha */}
-      {isReproces && location && (() => {
+      {/* REPROCESOS: Importe total en esquina superior derecha (si showReprocessCosts) */}
+      {isReproces && showReprocessCosts && location && (() => {
+        const totalImporte = location.items.reduce((sum, item) => {
+          const qty = item.quantity ?? 0;
+          const cost = item.unitCost ?? 0;
+          return sum + (qty * cost);
+        }, 0);
         const totalQuantity = location.items.reduce((sum, item) => sum + (item.quantity ?? 0), 0);
-        return totalQuantity > 0 ? (
-          <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-purple-500/30 text-purple-300 text-[10px] font-black border border-purple-400/40 z-10">
-            {totalQuantity} ud
-          </span>
+        return totalImporte > 0 || totalQuantity > 0 ? (
+          <div className="absolute top-2 right-2 flex flex-col items-end gap-1 z-10">
+            {totalImporte > 0 && (
+              <div className="px-2 py-1 rounded-lg bg-amber-500 text-amber-950 text-[11px] font-black shadow-lg border border-amber-300/50">
+                {formatEuros(totalImporte)}
+              </div>
+            )}
+            {totalQuantity > 0 && (
+              <span className="px-1.5 py-0.5 rounded-md bg-purple-600/40 text-purple-200 text-[9px] font-bold border border-purple-400/50">
+                {totalQuantity} ud
+              </span>
+            )}
+          </div>
         ) : null;
       })()}
       {/* Header */}
