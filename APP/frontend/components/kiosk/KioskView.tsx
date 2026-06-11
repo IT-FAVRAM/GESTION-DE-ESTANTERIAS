@@ -29,7 +29,10 @@ const KioskView: React.FC = () => {
   const shelfCode = currentShelf || assignedShelf || '';
 
   const [showDeviceInfo, setShowDeviceInfo] = useState(false);
-  const [showShelf, setShowShelf] = useState(false);
+  // Mostrar la estantería directamente al entrar (los kioskos de sección deben
+  // ver su(s) estantería(s) sin pasar por la pantalla de acciones). Las acciones
+  // (UBICAR/RETIRAR/...) quedan accesibles en la cabecera vía OperativeActionButtons.
+  const [showShelf, setShowShelf] = useState(true);
 
   const config = useMemo(
     () => buildOperativeConfig('OPERARIO', { lockedShelfCode: shelfCode, section }),
