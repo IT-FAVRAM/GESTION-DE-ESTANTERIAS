@@ -27,7 +27,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, currentRol
         },
         {
             id: 'JEFE',
-            label: 'JEFE DE SECCIÓN',
+            label: 'SUPERVISOR',
             desc: 'Gestor: Retirar (su zona), Solicitar, Ver Historial.'
         },
         {

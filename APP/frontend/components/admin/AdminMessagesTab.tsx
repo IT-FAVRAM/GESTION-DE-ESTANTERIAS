@@ -18,7 +18,7 @@ interface SentMessage {
 
 const TARGET_OPTIONS: Array<{ value: TargetRole; label: string; desc: string }> = [
   { value: 'ALL',          label: 'Todos',            desc: 'Todos los usuarios con sesión activa' },
-  { value: 'JEFE_SECCION', label: 'Jefes de Sección', desc: 'Solo jefes de sección' },
+  { value: 'JEFE_SECCION', label: 'Supervisores', desc: 'Solo supervisores' },
   { value: 'CALIDAD',      label: 'Calidad',           desc: 'Solo usuarios de calidad' },
   { value: 'CARRETILLERO', label: 'Carretilleros',     desc: 'Solo carretilleros' },
   { value: 'ADMIN',        label: 'Admins',            desc: 'Solo administradores' },

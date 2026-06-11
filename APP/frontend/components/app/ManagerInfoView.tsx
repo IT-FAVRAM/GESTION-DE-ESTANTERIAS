@@ -98,7 +98,7 @@ const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, se
             <div className="flex items-center gap-3">
               <span className="text-xl">{role === 'CALIDAD' ? '🔍' : '👷'}</span>
               <div>
-                <h1 className="text-lg font-black text-white">{role === 'CALIDAD' ? 'Calidad' : 'Jefe de Sección'}</h1>
+                <h1 className="text-lg font-black text-white">{role === 'CALIDAD' ? 'Calidad' : 'Supervisor'}</h1>
                 <p className="text-xs text-slate-400">
                   {displayName}
                   {role === 'JEFE_SECCION' && section && (
@@ -114,7 +114,7 @@ const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, se
         <main className="flex-1 overflow-y-auto overscroll-contain p-6 pb-20">
           <div className="max-w-2xl mx-auto space-y-6">
             <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-              <h2 className="text-xl font-black text-white mb-1">🎯 Tu Rol: {role === 'CALIDAD' ? 'Control de Calidad' : 'Jefe de Sección'}</h2>
+              <h2 className="text-xl font-black text-white mb-1">🎯 Tu Rol: {role === 'CALIDAD' ? 'Control de Calidad' : 'Supervisor'}</h2>
               {role === 'JEFE_SECCION' && section && (
                 <div className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 bg-cyan-900/40 border border-cyan-700/50 rounded-xl">
                   <span className="text-cyan-300 text-sm font-black tracking-wide">{SECTION_LABEL[section]}</span>

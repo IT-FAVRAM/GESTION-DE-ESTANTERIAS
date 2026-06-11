@@ -36,7 +36,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onSelectRole }) => {
                     </div>
                 </button>
 
-                {/* Botón Jefe de Sección */}
+                {/* Botón Supervisor */}
                 <button 
                     onClick={() => onSelectRole('JEFE')}
                     className="group relative w-full md:w-64 h-48 md:h-64 rounded-3xl bg-white dark:bg-slate-900 border-4 border-slate-200 dark:border-slate-800 shadow-xl flex flex-col items-center justify-center gap-4 transition-all duration-300 hover:scale-105 hover:border-purple-500 active:scale-95"

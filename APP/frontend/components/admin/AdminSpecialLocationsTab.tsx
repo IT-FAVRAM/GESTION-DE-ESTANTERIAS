@@ -211,7 +211,7 @@ const AdminSpecialLocationsTab: React.FC<AdminSpecialLocationsTabProps> = ({ con
         <div className="rounded-3xl border border-red-500/20 bg-red-500/5 p-5 space-y-4">
           <div>
             <h2 className="text-lg font-black text-white">Ubicaciones Urgentes</h2>
-            <p className="text-sm text-red-100/70">Notifican a jefe de sección y calidad cuando se ubica un artículo aquí.</p>
+            <p className="text-sm text-red-100/70">Notifican a supervisores y calidad cuando se ubica un artículo aquí.</p>
           </div>
 
           {/* Añadir nuevo */}

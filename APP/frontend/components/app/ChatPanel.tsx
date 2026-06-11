@@ -30,7 +30,7 @@ interface ChatPanelProps {
 const ROLE_LABEL: Partial<Record<UserRole, string>> = {
   SUPERADMIN: 'Superadmin',
   ADMIN: 'Admin',
-  JEFE_SECCION: 'Jefe',
+  JEFE_SECCION: 'Supervisor',
   CARRETILLERO: 'Carretillero',
   CALIDAD: 'Calidad',
 };
