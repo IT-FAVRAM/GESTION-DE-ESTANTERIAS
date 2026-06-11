@@ -29,6 +29,7 @@ export {
   deviceHeartbeat,
   resolveDeviceConfig,
   sendAdminMessage,
+  setupUser,
 } from './admin';
 
 export {

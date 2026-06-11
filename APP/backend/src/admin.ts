@@ -293,3 +293,63 @@ export const deviceHeartbeat = functions.https.onCall(async (data: any, context:
   await deviceRef.set({ lastSeen: new Date().toISOString() }, { merge: true });
   return { ok: true, exists: true };
 });
+
+/** Setup: Crear usuario, documento de usuario y dispositivo (SOLO SUPERADMIN) */
+export const setupUser = functions.https.onCall(async (data: any, context: any) => {
+  await requireAllowedRoles(context, ['SUPERADMIN']);
+  const db = admin.firestore();
+  const auth = admin.auth();
+
+  const email = normalize(data?.email);
+  const password = String(data?.password || '').trim();
+  const displayName = normalize(data?.displayName);
+  const role = normalizeRole(data?.role);
+  const section = normalizeRole(data?.section);
+  const deviceId = normalize(data?.deviceId);
+  const deviceName = normalize(data?.deviceName) || 'Dispositivo';
+  const assignedShelf = normalize(data?.assignedShelf);
+
+  if (!email || !password || !displayName) {
+    throw new functions.https.HttpsError('invalid-argument', 'email, password y displayName son requeridos.');
+  }
+
+  try {
+    // 1. Crear usuario en Firebase Auth
+    const user = await auth.createUser({
+      email,
+      password,
+      displayName,
+    });
+    console.log(`[setupUser] Usuario creado: ${user.uid} (${email})`);
+
+    // 2. Crear documento de usuario en Firestore
+    await db.collection('usuarios').doc(user.uid).set({
+      email,
+      displayName,
+      role: ALLOWED_ROLES.has(role) ? role : 'OPERARIO',
+      section: ALLOWED_SECTIONS.has(section) ? section : null,
+      fcmTokens: [],
+      lastLoginAt: new Date().toISOString(),
+    });
+    console.log(`[setupUser] Documento de usuario creado`);
+
+    // 3. Crear dispositivo si se proporciona
+    if (deviceId && assignedShelf) {
+      await db.collection('devices').doc(deviceId).set({
+        deviceId,
+        type: 'CARRETILLERO',
+        name: deviceName,
+        assignedShelf,
+        active: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      console.log(`[setupUser] Dispositivo creado: ${deviceId}`);
+    }
+
+    return { ok: true, uid: user.uid };
+  } catch (error: any) {
+    console.error('[setupUser] Error:', error.message);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+});

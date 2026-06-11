@@ -186,9 +186,6 @@ const ThreadView: React.FC<ThreadViewProps> = ({
                   {!isOwn && (
                     <div className="flex items-center gap-1.5 mb-0.5 px-1">
                       <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{m.senderName}</span>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${ROLE_BADGE[m.senderRole] || 'bg-slate-100 text-slate-600'}`}>
-                        {ROLE_LABEL[m.senderRole] || m.senderRole}
-                      </span>
                     </div>
                   )}
                   <div
