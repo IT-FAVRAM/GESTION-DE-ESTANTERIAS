@@ -9,6 +9,13 @@ import {
 
 const normalize = (value?: string | null) => (value || '').trim().toUpperCase();
 
+/** Normaliza shelfCode para búsqueda: MEC/PME → PRE (consolidación PRE+MEC) */
+const normalizeShelfCodeForSearch = (shelfCode: string): string => {
+  const normalized = shelfCode.toUpperCase().trim();
+  if (normalized === 'MEC' || normalized === 'PME') return 'PRE';
+  return normalized;
+};
+
 const isSameIdentity = (
   item: any,
   barcode: string,
@@ -390,7 +397,8 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
       mirrorAppend(tx, twinLocRef, twinSnap, position, newItem);
       // ✅ FIX #6: Usar shelfCodes array para soportar ubicaciones compartidas
       const shelfCodes = getShelfCodesForPosition(shelfCode, position);
-      tx.set(presenceRef, { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode, shelfCodes, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true });
+      const normalizedShelfCode = normalizeShelfCodeForSearch(shelfCode);
+      tx.set(presenceRef, { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode: normalizedShelfCode, shelfCodes, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true });
       if (aggregateSnap.exists) {
         const aggregate = aggregateSnap.data() as any;
         const currentIds: string[] = aggregate.activePresenceIds || [];
@@ -513,7 +521,8 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
 
         // ✅ FIX #6: Usar shelfCodes array para soportar ubicaciones compartidas
         const shelfCodes = getShelfCodesForPosition(shelfCode, position);
-        const presenceDoc: any = { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode, shelfCodes, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true };
+        const normalizedShelfCode = normalizeShelfCodeForSearch(shelfCode);
+        const presenceDoc: any = { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode: normalizedShelfCode, shelfCodes, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true };
         if (importe !== undefined) presenceDoc.unitCost = importe;
         if (cantidad !== undefined) presenceDoc.quantity = cantidad;
         tx.set(presenceRef, presenceDoc);
@@ -803,7 +812,8 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         
         // ✅ FIX #6: Usar shelfCodes array para soportar ubicaciones compartidas
         const shelfCodes = getShelfCodesForPosition(shelfCode, position);
-        tx.update(presence.ref, { locationIds: [locationId], shelfCode, shelfCodes, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now });
+        const normalizedShelfCode = normalizeShelfCodeForSearch(shelfCode);
+        tx.update(presence.ref, { locationIds: [locationId], shelfCode: normalizedShelfCode, shelfCodes, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now });
       }
 
       if (aggregateSnap?.exists) {
@@ -937,7 +947,8 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         // Espejo del alta si el destino es urgente compartida.
         const twinRef = twinLocRefFor(db, toShelfCode, position);
         mirrorAppend(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, movedItem, pendingItemsByPath);
-        tx.update(presence.ref, { locationIds: [locationId], shelfCode: toShelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now });
+        const normalizedToShelfCode = normalizeShelfCodeForSearch(toShelfCode);
+        tx.update(presence.ref, { locationIds: [locationId], shelfCode: normalizedToShelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now });
       }
 
       if (aggregateSnap?.exists) {

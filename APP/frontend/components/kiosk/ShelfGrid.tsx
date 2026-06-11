@@ -387,7 +387,7 @@ const Block = React.memo(({
       <CollapsibleContent isCollapsed={isCollapsed}>
         <div className="pt-1 pb-2 min-w-0">
           {/* Scroll horizontal solo en este contenedor; la estantería mantiene su ancho mínimo */}
-          <div className="w-full max-w-full overflow-x-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
+          <div className="w-full max-w-full overflow-x-auto overscroll-x-contain [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
             <ShelfRackView
               block={block as ShelfPhysicalBlock}
               shelfCode={shelfDef.code}

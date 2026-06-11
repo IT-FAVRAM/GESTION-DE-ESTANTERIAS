@@ -219,6 +219,7 @@ const RackSlot: React.FC<RackSlotProps> = ({
         boxShadow: isDragOver ? '0 0 0 2px rgba(52,211,153,0.4)' : wrapShadow,
         cursor: isDraggable ? 'grab' : (onPress ? 'pointer' : 'default'),
         transition: 'filter 0.12s, transform 0.1s, background 0.1s, border 0.1s',
+        touchAction: 'pan-y',
       }}
       onMouseEnter={e => { if (onPress || isDraggable) (e.currentTarget as HTMLDivElement).style.filter = 'brightness(1.15)'; }}
       onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.filter = 'brightness(1)'; }}
