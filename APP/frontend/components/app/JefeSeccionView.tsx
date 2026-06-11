@@ -8,7 +8,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { SHELF_DEFINITIONS, getSectionForShelf, getShelvesForSection } from '../../lib/firestoreSchema';
+import { SHELF_DEFINITIONS, getShelvesForSection } from '../../lib/firestoreSchema';
 import { buildOperativeConfig } from '../../lib/operative/operativeConfig';
 import { useOperativeShelf } from '../../hooks/useOperativeShelf';
 import OperativeShelfArea from '../operative/OperativeShelfArea';
@@ -18,22 +18,15 @@ interface JefeSeccionViewProps {
   onBack?: () => void;
 }
 
-const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack }) => {
-  const { displayName, operarioId, firebaseUser, section, assignedShelf, logout } = useAuth();
+/** Componente interno que se renderiza solo cuando hay shelfCode válido */
+const JefeSeccionOperativo: React.FC<{
+  shelfCode: string;
+  onShelfChange: (code: string) => void;
+  sectionShelfCodes: string[];
+  onBack?: () => void;
+}> = ({ shelfCode, onShelfChange, sectionShelfCodes, onBack }) => {
+  const { displayName, operarioId, firebaseUser, section, logout } = useAuth();
   const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? '';
-
-  // Determina las estanterías accesibles para la sección del usuario
-  const sectionKey = section ? getSectionForShelf(assignedShelf ?? '') || (section as ReturnType<typeof getSectionForShelf>) : null;
-  const sectionShelfCodes = useMemo(() => {
-    if (!section) return [assignedShelf ?? SHELF_DEFINITIONS[0]?.code ?? 'PRE'];
-    const codesFromSection = getShelvesForSection(section as Parameters<typeof getShelvesForSection>[0]);
-    if (codesFromSection.length > 0) return codesFromSection;
-    return [assignedShelf ?? SHELF_DEFINITIONS[0]?.code ?? 'PRE'];
-  }, [section, assignedShelf]);
-
-  // Estantería activa (por defecto la primera, o la assignedShelf si pertenece a la sección)
-  const defaultShelf = sectionShelfCodes.includes(assignedShelf ?? '') ? (assignedShelf ?? sectionShelfCodes[0]) : sectionShelfCodes[0];
-  const [shelfCode, setShelfCode] = useState<string>(defaultShelf);
 
   const shelfDef = SHELF_DEFINITIONS.find((s) => s.code === shelfCode);
 
@@ -45,14 +38,14 @@ const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack }) => {
   const engine = useOperativeShelf({
     config,
     shelfCode,
-    setShelfCode,
+    setShelfCode: onShelfChange,
     operarioId: effectiveOperarioId,
     displayName,
   });
 
   const handleShelfChange = (code: string) => {
     engine.cancelAction();
-    setShelfCode(code);
+    onShelfChange(code);
   };
 
   return (
@@ -105,6 +98,62 @@ const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack }) => {
         <OperativeShelfArea engine={engine} config={config} fullscreenGrid />
       </main>
     </div>
+  );
+};
+
+const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack }) => {
+  const { section, assignedShelf, logout } = useAuth();
+
+  // Determina las estanterías accesibles para la sección del usuario
+  const sectionShelfCodes = useMemo(() => {
+    if (!section) return [];
+    const codesFromSection = getShelvesForSection(section as Parameters<typeof getShelvesForSection>[0]);
+    return codesFromSection;
+  }, [section]);
+
+  // Si no hay sección o no tiene estanterías, mostrar error
+  const hasValidSection = section && sectionShelfCodes.length > 0;
+
+  // Estantería activa: usar assignedShelf si pertenece a la sección, si no la primera
+  const initialShelf = useMemo(() => {
+    if (!hasValidSection) return null;
+    if (assignedShelf && sectionShelfCodes.includes(assignedShelf)) return assignedShelf;
+    return sectionShelfCodes[0];
+  }, [assignedShelf, sectionShelfCodes, hasValidSection]);
+
+  const [shelfCode, setShelfCode] = useState<string | null>(initialShelf);
+
+  // Si no tiene sección válida, mostrar error
+  if (!hasValidSection || !shelfCode) {
+    return (
+      <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col items-center justify-center p-6">
+        <div className="text-center max-w-md">
+          <span className="text-5xl block mb-4">⚠️</span>
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Sección no configurada</h2>
+          <p className="text-slate-600 mb-4">
+            Tu cuenta no tiene una sección asignada. Contacta con el administrador para que te asigne una sección.
+          </p>
+          <p className="text-sm text-slate-500 mb-6">
+            Sección actual: {section || 'No asignada'}
+          </p>
+          <button
+            onClick={logout}
+            className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold"
+          >
+            Cerrar Sesión
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <JefeSeccionOperativo
+      shelfCode={shelfCode}
+      onShelfChange={setShelfCode}
+      sectionShelfCodes={sectionShelfCodes}
+      onBack={onBack}
+    />
   );
 };
 

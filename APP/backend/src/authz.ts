@@ -3,6 +3,16 @@ import * as functions from 'firebase-functions';
 
 const normalize = (value?: string | null) => (value || '').trim().toUpperCase();
 
+/** Normaliza valores de sección legacy al nombre unificado */
+const normalizeLegacySection = (section: string | null | undefined): string | null => {
+  if (!section) return null;
+  const normalized = normalize(section);
+  if (normalized === 'MECANIZADO' || normalized === 'PRENSAS') {
+    return 'PRENSAS_MECANIZADO';
+  }
+  return normalized;
+};
+
 export const normalizeRole = (role?: string | null) => {
   const normalized = normalize(role);
   if (normalized === 'JEFE') {
@@ -26,8 +36,8 @@ export type OperationalActor = UserContext & {
 };
 
 const WMS_SHELF_SECTION: Record<string, string> = {
-  MEC: 'MECANIZADO',
-  PRE: 'PRENSAS',
+  MEC: 'PRENSAS_MECANIZADO',
+  PRE: 'PRENSAS_MECANIZADO',
   PME: 'PRENSAS_MECANIZADO',
   PLE: 'PLEGADORA',
   SOL: 'SOLDADURA',
@@ -80,10 +90,9 @@ export const assertActorMayOperateShelf = (
   }
 
   if (actor.role === 'JEFE_SECCION') {
-    const actorSection = normalize(actor.section);
+    const actorSection = normalizeLegacySection(actor.section) || normalize(actor.section);
     const shelfSection = normalize(getWmsSectionForShelf(shelf));
-    const coversCheck = sectionCoversShelf(actorSection, shelf);
-    if (!actorSection || (actorSection !== shelfSection && !coversCheck)) {
+    if (!actorSection || actorSection !== shelfSection) {
       throw new functions.https.HttpsError(
         'permission-denied',
         'No puedes operar estanterías fuera de tu sección.',
