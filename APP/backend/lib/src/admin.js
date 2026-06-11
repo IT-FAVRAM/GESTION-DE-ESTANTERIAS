@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deviceHeartbeat = exports.sendAdminMessage = exports.resolveDeviceConfig = exports.adminOperate = void 0;
+exports.setupUser = exports.deviceHeartbeat = exports.sendAdminMessage = exports.resolveDeviceConfig = exports.adminOperate = void 0;
 const functions = require("firebase-functions");
 const firebaseAdmin_1 = require("./firebaseAdmin");
 const authz_1 = require("./authz");
@@ -260,5 +260,59 @@ exports.deviceHeartbeat = functions.https.onCall(async (data, context) => {
     }
     await deviceRef.set({ lastSeen: new Date().toISOString() }, { merge: true });
     return { ok: true, exists: true };
+});
+/** Setup: Crear usuario, documento de usuario y dispositivo (SOLO SUPERADMIN) */
+exports.setupUser = functions.https.onCall(async (data, context) => {
+    await (0, authz_1.requireAllowedRoles)(context, ['SUPERADMIN']);
+    const db = firebaseAdmin_1.admin.firestore();
+    const auth = firebaseAdmin_1.admin.auth();
+    const email = normalize(data === null || data === void 0 ? void 0 : data.email);
+    const password = String((data === null || data === void 0 ? void 0 : data.password) || '').trim();
+    const displayName = normalize(data === null || data === void 0 ? void 0 : data.displayName);
+    const role = normalizeRole(data === null || data === void 0 ? void 0 : data.role);
+    const section = normalizeRole(data === null || data === void 0 ? void 0 : data.section);
+    const deviceId = normalize(data === null || data === void 0 ? void 0 : data.deviceId);
+    const deviceName = normalize(data === null || data === void 0 ? void 0 : data.deviceName) || 'Dispositivo';
+    const assignedShelf = normalize(data === null || data === void 0 ? void 0 : data.assignedShelf);
+    if (!email || !password || !displayName) {
+        throw new functions.https.HttpsError('invalid-argument', 'email, password y displayName son requeridos.');
+    }
+    try {
+        // 1. Crear usuario en Firebase Auth
+        const user = await auth.createUser({
+            email,
+            password,
+            displayName,
+        });
+        console.log(`[setupUser] Usuario creado: ${user.uid} (${email})`);
+        // 2. Crear documento de usuario en Firestore
+        await db.collection('usuarios').doc(user.uid).set({
+            email,
+            displayName,
+            role: ALLOWED_ROLES.has(role) ? role : 'OPERARIO',
+            section: ALLOWED_SECTIONS.has(section) ? section : null,
+            fcmTokens: [],
+            lastLoginAt: new Date().toISOString(),
+        });
+        console.log(`[setupUser] Documento de usuario creado`);
+        // 3. Crear dispositivo si se proporciona
+        if (deviceId && assignedShelf) {
+            await db.collection('devices').doc(deviceId).set({
+                deviceId,
+                type: 'CARRETILLERO',
+                name: deviceName,
+                assignedShelf,
+                active: true,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            });
+            console.log(`[setupUser] Dispositivo creado: ${deviceId}`);
+        }
+        return { ok: true, uid: user.uid };
+    }
+    catch (error) {
+        console.error('[setupUser] Error:', error.message);
+        throw new functions.https.HttpsError('internal', error.message);
+    }
 });
 //# sourceMappingURL=admin.js.map

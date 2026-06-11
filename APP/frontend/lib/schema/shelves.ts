@@ -555,7 +555,12 @@ export const isUrgentLocation = (
     if (!parsed) return false;
     shelfCode = parsed.shelfCode;
     const posNum = parseInt(parsed.position, 10);
-    if (isNaN(posNum)) return false;
+    if (isNaN(posNum)) {
+      // String position (e.g. 'URG MEC-PRE 001'): urgent by name convention
+      if (parsed.position.toUpperCase().startsWith('URG')) return true;
+      const locationId = getLocationDocId(parsed.shelfCode, parsed.position);
+      return finalConfig?.urgentLocations?.includes(locationId) ?? false;
+    }
     position = posNum;
   }
 

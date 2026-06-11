@@ -52,21 +52,6 @@ const WMS_SHELF_SECTION: Record<string, string> = {
   LASER: 'LASER',
 };
 
-const SECTION_COVERS: Record<string, string[]> = {
-  PRENSAS_MECANIZADO: ['MECANIZADO', 'PRENSAS', 'PRENSAS_MECANIZADO'],
-  PRENSAS: ['PRENSAS_MECANIZADO'],
-  MECANIZADO: ['PRENSAS_MECANIZADO'],
-};
-
-const sectionCoversShelf = (actorSection: string, shelfCode: string): boolean => {
-  const covers = SECTION_COVERS[actorSection];
-  if (covers) {
-    const shelfSection = normalize(getWmsSectionForShelf(shelfCode));
-    return covers.includes(shelfSection);
-  }
-  return false;
-};
-
 export const getWmsSectionForShelf = (shelfCode?: string | null) => {
   const code = normalize(shelfCode);
   return WMS_SHELF_SECTION[code] || 'OTROS';

@@ -8,7 +8,8 @@
 
 import React, { useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { SHELF_DEFINITIONS, getShelvesForSection } from '../../lib/firestoreSchema';
+import { SHELF_DEFINITIONS, getShelvesForSection, type WarehouseSection } from '../../lib/firestoreSchema';
+import { SECTION_TO_SHELF, normalizeLegacySection } from '../../domain/auth/sectionShelf';
 import { buildOperativeConfig } from '../../lib/operative/operativeConfig';
 import { useOperativeShelf } from '../../hooks/useOperativeShelf';
 import OperativeShelfArea from '../operative/OperativeShelfArea';
@@ -107,21 +108,38 @@ const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack }) => {
   // Determina las estanterías accesibles para la sección del usuario
   const sectionShelfCodes = useMemo(() => {
     if (!section) return [];
-    const codesFromSection = getShelvesForSection(section as Parameters<typeof getShelvesForSection>[0]);
-    return codesFromSection;
+    const normalized = (normalizeLegacySection(section) ?? section) as WarehouseSection;
+    const codesFromSection = getShelvesForSection(normalized as Parameters<typeof getShelvesForSection>[0]);
+    if (codesFromSection.length > 0) return codesFromSection;
+    // Fallback: algunas secciones (p.ej. PUNZONADO) comparten su estantería
+    // canónica con otra sección (PUNZONADO → PLE) y no aparecen en el mapa
+    // inverso de getShelvesForSection. Usamos el mapa canónico sección→estantería
+    // (el mismo que resuelve assignedShelf en useAuth) para no dejar al jefe sin vista.
+    const canonical = SECTION_TO_SHELF[normalized];
+    return canonical ? [canonical] : [];
   }, [section]);
 
   // Si no hay sección o no tiene estanterías, mostrar error
   const hasValidSection = section && sectionShelfCodes.length > 0;
 
-  // Estantería activa: usar assignedShelf si pertenece a la sección, si no la primera
+  // Estantería por defecto de la sección: assignedShelf si pertenece a la sección,
+  // si no la primera navegable.
   const initialShelf = useMemo(() => {
     if (!hasValidSection) return null;
     if (assignedShelf && sectionShelfCodes.includes(assignedShelf)) return assignedShelf;
     return sectionShelfCodes[0];
   }, [assignedShelf, sectionShelfCodes, hasValidSection]);
 
-  const [shelfCode, setShelfCode] = useState<string | null>(initialShelf);
+  // Solo guardamos la selección EXPLÍCITA del usuario (cambio de pestaña). La
+  // estantería activa se deriva de forma reactiva: si el usuario no ha elegido
+  // nada (o su elección no aplica a la sección actual), se usa `initialShelf`.
+  // IMPORTANTE: no inicializamos el estado con `initialShelf` vía useState porque
+  // `section` llega de forma asíncrona (auth/Firestore); congelar el valor del
+  // primer render dejaba `shelfCode` en null para siempre y mostraba
+  // "Sección no configurada" aunque la sección sí estuviera asignada (regresión b8e661a).
+  const [selectedShelf, setSelectedShelf] = useState<string | null>(null);
+  const shelfCode =
+    selectedShelf && sectionShelfCodes.includes(selectedShelf) ? selectedShelf : initialShelf;
 
   // Si no tiene sección válida, mostrar error
   if (!hasValidSection || !shelfCode) {
@@ -150,7 +168,7 @@ const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack }) => {
   return (
     <JefeSeccionOperativo
       shelfCode={shelfCode}
-      onShelfChange={setShelfCode}
+      onShelfChange={setSelectedShelf}
       sectionShelfCodes={sectionShelfCodes}
       onBack={onBack}
     />

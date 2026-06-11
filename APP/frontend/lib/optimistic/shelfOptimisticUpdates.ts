@@ -72,7 +72,14 @@ export const applyUbicarMulti = (
     }
   }
 
-  return next.sort((a, b) => Number.parseInt(a.position, 10) - Number.parseInt(b.position, 10));
+  return next.sort((a, b) => {
+    const na = Number.parseInt(a.position, 10);
+    const nb = Number.parseInt(b.position, 10);
+    if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+    if (!Number.isNaN(na)) return -1;
+    if (!Number.isNaN(nb)) return 1;
+    return a.position.localeCompare(b.position);
+  });
 };
 
 export const applyRetirar = (
@@ -177,7 +184,14 @@ export const applyMover = (
     });
   }
 
-  return result.sort((a, b) => Number.parseInt(a.position, 10) - Number.parseInt(b.position, 10));
+  return result.sort((a, b) => {
+    const na = Number.parseInt(a.position, 10);
+    const nb = Number.parseInt(b.position, 10);
+    if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+    if (!Number.isNaN(na)) return -1;
+    if (!Number.isNaN(nb)) return 1;
+    return a.position.localeCompare(b.position);
+  });
 };
 
 

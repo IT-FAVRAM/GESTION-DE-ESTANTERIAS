@@ -4,6 +4,16 @@ exports.resolveOperationalActor = exports.requireAllowedRoles = exports.getUserC
 const admin = require("firebase-admin");
 const functions = require("firebase-functions");
 const normalize = (value) => (value || '').trim().toUpperCase();
+/** Normaliza valores de sección legacy al nombre unificado */
+const normalizeLegacySection = (section) => {
+    if (!section)
+        return null;
+    const normalized = normalize(section);
+    if (normalized === 'MECANIZADO' || normalized === 'PRENSAS') {
+        return 'PRENSAS_MECANIZADO';
+    }
+    return normalized;
+};
 const normalizeRole = (role) => {
     const normalized = normalize(role);
     if (normalized === 'JEFE') {
@@ -13,8 +23,8 @@ const normalizeRole = (role) => {
 };
 exports.normalizeRole = normalizeRole;
 const WMS_SHELF_SECTION = {
-    MEC: 'MECANIZADO',
-    PRE: 'PRENSAS',
+    MEC: 'PRENSAS_MECANIZADO',
+    PRE: 'PRENSAS_MECANIZADO',
     PME: 'PRENSAS_MECANIZADO',
     PLE: 'PLEGADORA',
     SOL: 'SOLDADURA',
@@ -27,19 +37,6 @@ const WMS_SHELF_SECTION = {
     COM: 'OTROS',
     RPL: 'AUTOPLEGADORA',
     LASER: 'LASER',
-};
-const SECTION_COVERS = {
-    PRENSAS_MECANIZADO: ['MECANIZADO', 'PRENSAS', 'PRENSAS_MECANIZADO'],
-    PRENSAS: ['PRENSAS_MECANIZADO'],
-    MECANIZADO: ['PRENSAS_MECANIZADO'],
-};
-const sectionCoversShelf = (actorSection, shelfCode) => {
-    const covers = SECTION_COVERS[actorSection];
-    if (covers) {
-        const shelfSection = normalize((0, exports.getWmsSectionForShelf)(shelfCode));
-        return covers.includes(shelfSection);
-    }
-    return false;
 };
 const getWmsSectionForShelf = (shelfCode) => {
     const code = normalize(shelfCode);
@@ -56,10 +53,9 @@ const assertActorMayOperateShelf = (actor, shelfCode) => {
         throw new functions.https.HttpsError('permission-denied', 'Calidad solo puede operar la estantería CAL.');
     }
     if (actor.role === 'JEFE_SECCION') {
-        const actorSection = normalize(actor.section);
+        const actorSection = normalizeLegacySection(actor.section) || normalize(actor.section);
         const shelfSection = normalize((0, exports.getWmsSectionForShelf)(shelf));
-        const coversCheck = sectionCoversShelf(actorSection, shelf);
-        if (!actorSection || (actorSection !== shelfSection && !coversCheck)) {
+        if (!actorSection || actorSection !== shelfSection) {
             throw new functions.https.HttpsError('permission-denied', 'No puedes operar estanterías fuera de tu sección.');
         }
     }

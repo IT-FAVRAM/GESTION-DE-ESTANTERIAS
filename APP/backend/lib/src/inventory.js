@@ -5,6 +5,13 @@ const functions = require("firebase-functions");
 const firebaseAdmin_1 = require("./firebaseAdmin");
 const authz_1 = require("./authz");
 const normalize = (value) => (value || '').trim().toUpperCase();
+/** Normaliza shelfCode para búsqueda: MEC/PME → PRE (consolidación PRE+MEC) */
+const normalizeShelfCodeForSearch = (shelfCode) => {
+    const normalized = shelfCode.toUpperCase().trim();
+    if (normalized === 'MEC' || normalized === 'PME')
+        return 'PRE';
+    return normalized;
+};
 const isSameIdentity = (item, barcode, orderId, itemKey, containerId) => {
     const byKey = normalize(itemKey || (item === null || item === void 0 ? void 0 : item.itemKey));
     if (byKey)
@@ -363,7 +370,8 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
             mirrorAppend(tx, twinLocRef, twinSnap, position, newItem);
             // ✅ FIX #6: Usar shelfCodes array para soportar ubicaciones compartidas
             const shelfCodes = getShelfCodesForPosition(shelfCode, position);
-            tx.set(presenceRef, { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode, shelfCodes, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true });
+            const normalizedShelfCode = normalizeShelfCodeForSearch(shelfCode);
+            tx.set(presenceRef, { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode: normalizedShelfCode, shelfCodes, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true });
             if (aggregateSnap.exists) {
                 const aggregate = aggregateSnap.data();
                 const currentIds = aggregate.activePresenceIds || [];
@@ -472,7 +480,8 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
                 mirrorAppend(tx, twinLocRefs[i], twinSnapsByIndex[i], position, locationItem, pendingItemsByPath);
                 // ✅ FIX #6: Usar shelfCodes array para soportar ubicaciones compartidas
                 const shelfCodes = getShelfCodesForPosition(shelfCode, position);
-                const presenceDoc = { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode, shelfCodes, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true };
+                const normalizedShelfCode = normalizeShelfCodeForSearch(shelfCode);
+                const presenceDoc = { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode: normalizedShelfCode, shelfCodes, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true };
                 if (importe !== undefined)
                     presenceDoc.unitCost = importe;
                 if (cantidad !== undefined)
@@ -739,7 +748,8 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
                 mirrorAppend(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, movedItem, pendingItemsByPath);
                 // ✅ FIX #6: Usar shelfCodes array para soportar ubicaciones compartidas
                 const shelfCodes = getShelfCodesForPosition(shelfCode, position);
-                tx.update(presence.ref, { locationIds: [locationId], shelfCode, shelfCodes, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now });
+                const normalizedShelfCode = normalizeShelfCodeForSearch(shelfCode);
+                tx.update(presence.ref, { locationIds: [locationId], shelfCode: normalizedShelfCode, shelfCodes, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now });
             }
             if (aggregateSnap === null || aggregateSnap === void 0 ? void 0 : aggregateSnap.exists) {
                 tx.set(aggregateRef, { updatedAt: now }, { merge: true });
@@ -867,7 +877,8 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
                 // Espejo del alta si el destino es urgente compartida.
                 const twinRef = twinLocRefFor(db, toShelfCode, position);
                 mirrorAppend(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, movedItem, pendingItemsByPath);
-                tx.update(presence.ref, { locationIds: [locationId], shelfCode: toShelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now });
+                const normalizedToShelfCode = normalizeShelfCodeForSearch(toShelfCode);
+                tx.update(presence.ref, { locationIds: [locationId], shelfCode: normalizedToShelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now });
             }
             if (aggregateSnap === null || aggregateSnap === void 0 ? void 0 : aggregateSnap.exists) {
                 tx.set(aggregateRef, { updatedAt: now }, { merge: true });

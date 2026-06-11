@@ -154,7 +154,10 @@ service cloud.firestore {
     }
 
     match /config/{document=**} {
-      allow read:  if isAdminLike() || isOperationalUser();
+      // Los kioskos (dispositivos validados) precachean config/app al arrancar
+      // (useInitializeCriticalData). canReadWarehouseState() incluye dispositivos
+      // validados y usuarios registrados, evitando el error "permisos insuficientes".
+      allow read:  if canReadWarehouseState() || isOperationalUser();
       allow write: if isSuperAdmin();
     }
 

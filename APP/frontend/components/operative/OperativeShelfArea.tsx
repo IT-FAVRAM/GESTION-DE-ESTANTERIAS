@@ -48,6 +48,7 @@ interface OperativeShelfAreaProps {
 }
 
 const padPos = (p: string) => parseInt(p, 10);
+const displayPos = (p: string) => { const n = parseInt(p, 10); return Number.isNaN(n) ? p : String(n); };
 
 const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config, setShelfCode, fullscreenGrid = true, forceSingleBlock = false }) => {
   const {
@@ -141,13 +142,13 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
                   ? '👇 Toca las celdas donde ubicar'
                   : (() => {
                       const validation = validateContiguity(selectedPositions, shelfDef);
-                      return validation.isContiguous 
-                        ? `${shelfCode}: pos. ${selectedPositions.map(padPos).join(', ')}`
+                      return validation.isContiguous
+                        ? `${shelfCode}: pos. ${selectedPositions.map(displayPos).join(', ')}`
                         : `❌ ${validation.message}`;
                     })()
                 }
                 {additionalShelfPositions.map((e) => (
-                  <span key={e.shelfCode} className="ml-1 text-blue-600">· {e.shelfName}: pos. {e.positions.map(padPos).join(', ')}</span>
+                  <span key={e.shelfCode} className="ml-1 text-blue-600">· {e.shelfName}: pos. {e.positions.map(displayPos).join(', ')}</span>
                 ))}
               </span>
             )}

@@ -27,12 +27,14 @@ export const resolveCapabilities = (
   }
 
   const isAdminLevel = role === 'ADMIN' || role === 'SUPERADMIN';
-  const isCalidadEmail = role === 'CALIDAD' && authMethod === 'email';
+  // Reprocesos = trabajo del rol CALIDAD (no depende del método de login).
+  // El backend valida por rol; aquí no exigimos authMethod==='email'.
+  const isCalidad = role === 'CALIDAD';
   const canOperate = OPERATIVE_ROLES.includes(role);
 
   return {
-    canViewReprocessCosts: isCalidadEmail || isAdminLevel,
-    canEditReprocesses: isCalidadEmail || isAdminLevel,
+    canViewReprocessCosts: isCalidad || isAdminLevel,
+    canEditReprocesses: isCalidad || isAdminLevel,
     canBrowseAllShelves: role === 'CARRETILLERO' || isAdminLevel || role === 'JEFE_SECCION',
     canOperateShelf: canOperate,
     canAccessShelf: (shelfCode: string) => {

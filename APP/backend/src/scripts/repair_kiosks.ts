@@ -18,15 +18,19 @@ import { admin } from '../firebaseAdmin';
 const KIOSK_MECANIZADO_ID = 'kiosko-mecanizado';
 const KIOSK_PRENSAS_ID = 'kiosko-prensas';
 
+// Tras la consolidación PRENSAS-MECANIZADO (2026-06-10), MEC se fusionó en la
+// vista combinada 'PRE'. Los kioskos deben exponer SOLO ['PRE']; incluir 'MEC'
+// hace que el kiosko arranque en una estantería no navegable y muestre un
+// selector espurio. Ver lib/schema/sections.ts (DATA_ONLY_SHELVES).
 const KIOSK_MECANIZADO_EXPECTED = {
   name: 'Prensas-Mecanizado',
   description: 'Kiosko sección Prensas-Mecanizado',
-  shelves: ['MEC', 'PRE'],
+  shelves: ['PRE'],
   isActive: true,
 };
 
 const KIOSK_PRENSAS_EXPECTED = {
-  shelves: ['MEC', 'PRE'],
+  shelves: ['PRE'],
 };
 
 const KIOSK_DEVICES = [
