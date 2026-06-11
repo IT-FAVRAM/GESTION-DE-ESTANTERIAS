@@ -44,12 +44,15 @@ export interface OfflineQueueState {
 
 const QUEUE_KEY = 'wms-offline-queue-v1';
 const STATE_KEY = 'wms-offline-state-v1';
+const LOCK_KEY = 'wms-offline-lock-v1';
 const EVENT_NAME = 'wms-offline-queue-changed';
 // BA8: Versionado del schema de cola offline para permitir migraciones futuras
 const CURRENT_VERSION = 1;
 const VERSION_KEY = 'wms-offline-schema-version';
 
 let syncing = false;
+const LOCK_TTL_MS = 30_000; // 30s max lock duration
+const lockId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
 const hasBrowser = () => typeof window !== 'undefined' && typeof localStorage !== 'undefined';
 
@@ -74,8 +77,8 @@ const migrateQueueSchema = (): void => {
     }
 
     localStorage.setItem(VERSION_KEY, String(CURRENT_VERSION));
-  } catch {
-    // Si falla la migración, continuar con datos existentes
+  } catch (e) {
+    console.warn('[offlineQueue] Schema migration failed, continuing with existing data:', e);
   }
 };
 
@@ -85,7 +88,8 @@ const loadQueue = (): OfflineQueueEntry[] => {
   try {
     const raw = localStorage.getItem(QUEUE_KEY);
     return raw ? JSON.parse(raw) as OfflineQueueEntry[] : [];
-  } catch {
+  } catch (e) {
+    console.warn('[offlineQueue] Failed to load queue from localStorage, starting empty:', e);
     return [];
   }
 };
@@ -100,7 +104,8 @@ const loadState = (): OfflineQueueState => {
   try {
     const raw = localStorage.getItem(STATE_KEY);
     return raw ? { ...defaultState(), ...JSON.parse(raw) as OfflineQueueState } : defaultState();
-  } catch {
+  } catch (e) {
+    console.warn('[offlineQueue] Failed to load state from localStorage, using defaults:', e);
     return defaultState();
   }
 };
@@ -108,6 +113,49 @@ const loadState = (): OfflineQueueState => {
 const saveState = (state: OfflineQueueState) => {
   if (!hasBrowser()) return;
   localStorage.setItem(STATE_KEY, JSON.stringify(state));
+};
+
+// Cross-tab lock: prevent two tabs from draining the queue simultaneously
+const acquireLock = (): boolean => {
+  if (!hasBrowser()) return true;
+  try {
+    const raw = localStorage.getItem(LOCK_KEY);
+    if (raw) {
+      const { id, ts } = JSON.parse(raw) as { id: string; ts: number };
+      // If another tab holds the lock and it hasn't expired, skip
+      if (id !== lockId && Date.now() - ts < LOCK_TTL_MS) return false;
+    }
+    localStorage.setItem(LOCK_KEY, JSON.stringify({ id: lockId, ts: Date.now() }));
+    return true;
+  } catch {
+    return true; // localStorage failure: proceed without lock
+  }
+};
+
+const releaseLock = () => {
+  if (!hasBrowser()) return;
+  try {
+    const raw = localStorage.getItem(LOCK_KEY);
+    if (raw) {
+      const { id } = JSON.parse(raw) as { id: string };
+      if (id === lockId) localStorage.removeItem(LOCK_KEY);
+    }
+  } catch { /* ignore */ }
+};
+
+const refreshLock = (): boolean => {
+  if (!hasBrowser()) return true;
+  try {
+    const raw = localStorage.getItem(LOCK_KEY);
+    if (raw) {
+      const { id } = JSON.parse(raw) as { id: string };
+      if (id !== lockId) return false;
+    }
+    localStorage.setItem(LOCK_KEY, JSON.stringify({ id: lockId, ts: Date.now() }));
+    return true;
+  } catch {
+    return true;
+  }
 };
 
 // MEDIO FIX #13: Preserve original timestamp from offline operation, don't use sync time
@@ -290,6 +338,7 @@ export const clearResolvedOfflineErrors = () => {
 
 export const drainOfflineQueue = async () => {
   if (!hasBrowser() || syncing || !navigator.onLine) return;
+  if (!acquireLock()) return; // Another tab is already draining
   syncing = true;
   persist(loadQueue(), { isSyncing: true, lastError: null });
 
@@ -299,6 +348,12 @@ export const drainOfflineQueue = async () => {
 
     for (const entry of [...queue]) {
       if (entry.status !== 'pending' && entry.status !== 'retryable') continue;
+
+      // Refresh lock every entry to prevent expiry during long drains
+      if (!refreshLock()) {
+        console.warn('[offlineQueue] Lost cross-tab lock, stopping drain');
+        break;
+      }
 
       // Si es retryable, esperar backoff exponencial
       if (entry.status === 'retryable') {
@@ -378,6 +433,7 @@ export const drainOfflineQueue = async () => {
     }
   } finally {
     syncing = false;
+    releaseLock();
     persist(loadQueue(), { isSyncing: false });
   }
 };

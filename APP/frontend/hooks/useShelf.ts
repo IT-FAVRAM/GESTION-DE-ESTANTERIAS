@@ -249,18 +249,17 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
       const session = getOperationalSession();
       if (!navigator.onLine) {
         enqueueOfflineOperation('UBICAR', { shelfCode: targetShelf, articleCode, orderFab, position, operarioId, operarioName }, session);
+        // Offline: apply optimistic update since onSnapshot won't fire
         setLocations((prev) => applyUbicar(prev, targetShelf, articleCode, orderFab, position, operarioId, operarioName));
         return true;
       }
 
-      // CRITICAL: Validate API response BEFORE optimistic update to prevent phantom data
+      // Online: NO optimistic update — onSnapshot fires automatically and is the single source of truth.
+      // Applying a manual setLocations here would add the item twice (once optimistically, once from snapshot).
       const ubicarResult = await inventoryApi.ubicar({ shelfCode: targetShelf, articleCode, orderFab, position, operarioId, operarioName }, session);
       if (!ubicarResult?.ok) {
         throw new Error(`Fallo al guardar artículo en Firestore: ${ubicarResult?.ok === false ? 'backend rechazó la operación' : 'sin respuesta del servidor'}`);
       }
-
-      // Only apply optimistic update AFTER confirming success
-      setLocations((prev) => applyUbicar(prev, targetShelf, articleCode, orderFab, position, operarioId, operarioName));
       return true;
     } catch (err: any) {
       console.error('[useShelf] Ubicar error:', err);
@@ -303,17 +302,14 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
       if (!navigator.onLine) {
         Object.entries(positionsByShelf).forEach(([s, ps]) => {
           enqueueOfflineOperation('UBICAR_MULTI', { shelfCode: s, articleCode, orderFab, positions: ps, operarioId, operarioName, importe, cantidad }, session);
+          // Offline: apply optimistic update since onSnapshot won't fire
           setLocations((prev) => applyUbicarMulti(prev, s, articleCode, orderFab, ps, operarioId, operarioName, importe, cantidad));
         });
         return true;
       }
 
-      // Optimistic update
-      Object.entries(positionsByShelf).forEach(([s, ps]) => {
-        setLocations((prev) => applyUbicarMulti(prev, s, articleCode, orderFab, ps, operarioId, operarioName, importe, cantidad));
-      });
-
-      // API calls
+      // Online: NO optimistic update — onSnapshot fires automatically and is the single source of truth.
+      // Applying setLocations here would add items twice (once optimistically, once from snapshot).
       for (const [s, ps] of Object.entries(positionsByShelf)) {
         const ubicarMultiResult = await inventoryApi.ubicarMulti({ shelfCode: s, articleCode, orderFab, positions: ps, operarioId, operarioName, importe, cantidad }, session);
         if (!ubicarMultiResult?.ok) {
@@ -362,14 +358,8 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
         return { success: true, positions: offlineResult.positions };
       }
 
-      // Optimistic update
-      let optimisticPositions: string[] = [];
-      setLocations((prev) => {
-        const result = applyRetirar(prev, articleCode, orderFab);
-        optimisticPositions = result.positions;
-        return result.next;
-      });
-
+      // Online: NO optimistic update — onSnapshot fires automatically and is the single source of truth.
+      // Applying setLocations here would remove items twice (once optimistically, once from snapshot).
       let totalPositions: string[] = [];
       for (const s of shelves) {
         const retirarResult = await inventoryApi.retirar({ shelfCode: s, articleCode, orderFab, operarioId, operarioName }, session);
@@ -379,7 +369,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
         if (retirarResult.positions) totalPositions = [...totalPositions, ...retirarResult.positions];
       }
 
-      return { success: true, positions: totalPositions.length > 0 ? totalPositions : optimisticPositions };
+      return { success: true, positions: totalPositions };
     } catch (err: unknown) {
       const msg = parseCallableError(err);
       console.error('[useShelf] Retirar error:', msg);
@@ -397,24 +387,23 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     operarioName: string,
     presenceId?: string,
   ): Promise<{ success: boolean; position: string; error?: string }> => {
-    const previousLocations = JSON.parse(JSON.stringify(locations));
     try {
       const access = await validateShelfAccess('operate');
       if (!access.ok) return { success: false, position: '', error: 'Sin permiso para operar en esta estantería' };
       
       const targetShelf = getTargetShelf(position);
       const session = getOperationalSession();
-      const optimisticResult = applyRetirarDeUbicacion(previousLocations, articleCode, orderFab, position, presenceId);
 
       if (!navigator.onLine) {
-        setLocations(optimisticResult.next);
+        // Offline: apply optimistic update since onSnapshot won't fire
+        const offlineResult = applyRetirarDeUbicacion(locations, articleCode, orderFab, position, presenceId);
+        setLocations(offlineResult.next);
         enqueueOfflineOperation('RETIRAR_DE_UBICACION', { shelfCode: targetShelf, articleCode, orderFab, position, operarioId, operarioName }, session);
         return { success: true, position };
       }
 
-      // Online: apply optimistic update before API call
-      setLocations(optimisticResult.next);
-
+      // Online: NO optimistic update — onSnapshot fires automatically and is the single source of truth.
+      // The item would disappear twice (once optimistically, once from snapshot) causing ghost selections.
       const retirarUbicResult = await inventoryApi.retirarDeUbicacion({ shelfCode: targetShelf, articleCode, orderFab, position, operarioId, operarioName, ...(presenceId ? { presenceId } : {}) }, session);
       if (!retirarUbicResult?.ok) {
         throw new Error(`Fallo al retirar artículo de ubicación en Firestore: ${retirarUbicResult?.ok === false ? 'backend rechazó la operación' : 'sin respuesta del servidor'}`);
@@ -424,7 +413,6 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
       const msg = parseCallableError(err);
       console.error('[useShelf] RetirarDeUbicacion error:', msg);
       setError(msg);
-      setLocations(previousLocations);
       return { success: false, position: '', error: msg };
     }
   }, [getTargetShelf, validateShelfAccess, locations]);
@@ -471,9 +459,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
         return true;
       }
 
-      // Optimistic update
-      setLocations((prev) => applyMover(prev, shelfCode, articleCode, orderFab, normalizedPositions, operarioId, operarioName));
-
+      // Online: NO optimistic update — onSnapshot fires automatically and is the single source of truth.
       const moverResult = await inventoryApi.mover({ shelfCode, articleCode, orderFab, newPositions: normalizedPositions, operarioId, operarioName }, session);
       if (!moverResult?.ok) {
         throw new Error(`Fallo al mover artículo en Firestore: ${moverResult?.ok === false ? 'backend rechazó la operación' : 'sin respuesta del servidor'}`);

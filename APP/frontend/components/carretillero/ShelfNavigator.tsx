@@ -200,7 +200,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
     setProcessing(true);
     let successCount = 0;
     for (const item of selectedItems) {
-      const result = await retirarDeUbicacion(item.articleCode, item.orderFab, item.position, effectiveOperarioId, displayName);
+      const result = await retirarDeUbicacion(item.articleCode, item.orderFab, item.position, effectiveOperarioId, displayName, item.presenceId);
       if (result.success) successCount++;
     }
     setProcessing(false);
@@ -502,7 +502,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
         let successCount = 0;
         for (const queueItem of updatedQueue) {
           for (const item of queueItem.items) {
-            const result = await retirarDeUbicacion(item.articleCode, item.orderFab, queueItem.position, effectiveOperarioId, displayName);
+            const result = await retirarDeUbicacion(item.articleCode, item.orderFab, queueItem.position, effectiveOperarioId, displayName, item.presenceId);
             if (result.success) successCount++;
           }
         }

@@ -136,7 +136,9 @@ export const useInitializeCriticalData = (): InitializationStatus => {
 
     return () => {
       isMounted = false;
-      cleanup.then((fn) => fn?.());
+      cleanup.then((fn) => fn?.()).catch((e) => {
+        console.warn('[useInitializeCriticalData] Cleanup error:', e);
+      });
     };
   }, []);
 

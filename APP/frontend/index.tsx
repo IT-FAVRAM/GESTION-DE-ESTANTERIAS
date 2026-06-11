@@ -28,15 +28,11 @@ class AppErrorBoundary extends React.Component<
           <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
           <h1 style={{ fontSize: 20, fontWeight: 900, marginBottom: 8, color: '#ef4444' }}>Error de la aplicación</h1>
           <p style={{ fontSize: 13, color: '#94a3b8', marginBottom: 16, textAlign: 'center', maxWidth: 480 }}>
-            {this.state.error.message}
+            {this.state.error.message || 'Error inesperado de la aplicación'}
           </p>
-          <pre style={{
-            fontSize: 10, color: '#64748b', background: '#0f172a',
-            padding: 12, borderRadius: 8, maxWidth: 480, overflow: 'auto',
-            maxHeight: 200, width: '100%',
-          }}>
-            {this.state.error.stack}
-          </pre>
+          <p style={{ fontSize: 11, color: '#475569', marginBottom: 16, textAlign: 'center', maxWidth: 400 }}>
+            Si el problema persiste, contacta con el administrador.
+          </p>
           <button
             onClick={() => window.location.reload()}
             style={{

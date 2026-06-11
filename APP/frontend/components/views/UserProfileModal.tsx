@@ -42,7 +42,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, currentRol
     const [pushState, setPushState] = useState<PushStatus | null>(null);
 
     React.useEffect(() => {
-        checkPushStatus().then(setPushState);
+        checkPushStatus().then(setPushState).catch(() => {
+            // Push status check failed — default to null (unsupported)
+        });
     }, []);
 
     const handleEnablePush = async () => {
@@ -51,7 +53,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose, currentRol
             setPushState({ isSupported: true, permission: 'granted', token });
         } else {
             // Re-check status
-            checkPushStatus().then(setPushState);
+            checkPushStatus().then(setPushState).catch(() => {});
         }
     };
 

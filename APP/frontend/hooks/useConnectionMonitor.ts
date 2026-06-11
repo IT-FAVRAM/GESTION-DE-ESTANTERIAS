@@ -127,7 +127,11 @@ export const useConnectionMonitor = ({
       }
 
       // Drain any queued offline operations now that we're back online
-      try { await drainOfflineQueue(); } catch {}
+      try {
+        await drainOfflineQueue();
+      } catch (drainErr) {
+        console.error('[useConnectionMonitor] Failed to drain offline queue on reconnect:', drainErr);
+      }
     };
 
     window.addEventListener('offline', handleOffline);

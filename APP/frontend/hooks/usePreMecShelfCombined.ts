@@ -18,43 +18,35 @@ export function usePreMecShelfCombined() {
 
   useEffect(() => {
     setLoading(true);
-    const unsubscribe: (() => void)[] = [];
+    let preReady = false;
+    let mecReady = false;
 
-    // Leer desde PRE (PRENSAS 1-9)
+    const mapSnapshot = (snap: import('firebase/firestore').QuerySnapshot): ShelfLocationState[] =>
+      snap.docs.map((d) => ({
+        ...(d.data() as ShelfLocationState),
+        position: d.id,
+      }));
+
+    const recombine = (preLocs: ShelfLocationState[], mecLocs: ShelfLocationState[]) => {
+      const combined = [...preLocs, ...mecLocs].sort((a, b) => {
+        const posA = parseInt(a.position, 10);
+        const posB = parseInt(b.position, 10);
+        return posA - posB;
+      });
+      setLocations(combined);
+      if (preReady && mecReady) setLoading(false);
+    };
+
+    let preLocations: ShelfLocationState[] = [];
+    let mecLocations: ShelfLocationState[] = [];
+
+    // PRE and MEC listeners in PARALLEL (not nested)
     const preUnsub = onSnapshot(
       collection(db, 'shelves', 'PRE', 'locations'),
       (snap) => {
-        const preLocations: ShelfLocationState[] = snap.docs.map((doc) => ({
-          ...(doc.data() as any),
-          position: doc.id,
-        }));
-
-        // Leer desde MEC (MECANIZADO 14-46)
-        const mecUnsub = onSnapshot(
-          collection(db, 'shelves', 'MEC', 'locations'),
-          (mecSnap) => {
-            const mecLocations: ShelfLocationState[] = mecSnap.docs.map((doc) => ({
-              ...(doc.data() as any),
-              position: doc.id,
-            }));
-
-            // Combinar y ordenar por posición numérica
-            const combined = [...preLocations, ...mecLocations].sort((a, b) => {
-              const posA = parseInt(a.position, 10);
-              const posB = parseInt(b.position, 10);
-              return posA - posB;
-            });
-
-            setLocations(combined);
-            setLoading(false);
-          },
-          (error) => {
-            console.error('[usePreMecShelfCombined] Error reading MEC:', error);
-            setLoading(false);
-          }
-        );
-
-        unsubscribe.push(mecUnsub);
+        preLocations = mapSnapshot(snap);
+        preReady = true;
+        recombine(preLocations, mecLocations);
       },
       (error) => {
         console.error('[usePreMecShelfCombined] Error reading PRE:', error);
@@ -62,10 +54,22 @@ export function usePreMecShelfCombined() {
       }
     );
 
-    unsubscribe.push(preUnsub);
+    const mecUnsub = onSnapshot(
+      collection(db, 'shelves', 'MEC', 'locations'),
+      (snap) => {
+        mecLocations = mapSnapshot(snap);
+        mecReady = true;
+        recombine(preLocations, mecLocations);
+      },
+      (error) => {
+        console.error('[usePreMecShelfCombined] Error reading MEC:', error);
+        setLoading(false);
+      }
+    );
 
     return () => {
-      unsubscribe.forEach((unsub) => unsub());
+      preUnsub();
+      mecUnsub();
     };
   }, []);
 

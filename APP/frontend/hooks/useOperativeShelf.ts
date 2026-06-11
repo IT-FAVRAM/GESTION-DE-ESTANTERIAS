@@ -115,6 +115,7 @@ export function useOperativeShelf({
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
   const [scannerActive, setScannerActive] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const processingRef = useRef(false);
   const [feedback, setFeedback] = useState<OperativeFeedback | null>(null);
   const [selectedCell, setSelectedCell] = useState<ShelfLocationState | null>(null);
   const [highlightedSearch, setHighlightedSearch] = useState<string[]>([]);
@@ -246,6 +247,8 @@ export function useOperativeShelf({
   }, []);
 
   const resetFlow = useCallback(() => {
+    processingRef.current = false;
+    setProcessing(false);
     setAction('idle');
     setScanData(null);
     setSelectedCell(null);
@@ -1009,7 +1012,8 @@ export function useOperativeShelf({
   };
 
   const handleUbicarConfirm = async (importe?: number, cantidad?: number) => {
-    if (!scanData || selectedPositions.length === 0 || processing) return;
+    if (!scanData || selectedPositions.length === 0 || processingRef.current) return;
+    processingRef.current = true;
     setProcessing(true);
     setShowAddShelfModal(false);
     const { articleCode, orderFab } = scanData;
@@ -1018,6 +1022,7 @@ export function useOperativeShelf({
 
     const ok = await doUbicarCurrentShelf(articleCode, orderFab, positions, importe, cantidad);
     const failedSections = ok ? await ubicarAdditionalSections(articleCode, orderFab) : [];
+    processingRef.current = false;
     setProcessing(false);
 
     if (!ok) {
@@ -1070,7 +1075,8 @@ export function useOperativeShelf({
   };
 
   const handleUbicarBatchConfirm = async (importe?: number, cantidad?: number) => {
-    if (selectedPositions.length === 0 || batchArticles.length === 0) return;
+    if (selectedPositions.length === 0 || batchArticles.length === 0 || processingRef.current) return;
+    processingRef.current = true;
     setScannerActive(false);
     setProcessing(true);
 
@@ -1092,6 +1098,7 @@ export function useOperativeShelf({
         break;
       }
     }
+    processingRef.current = false;
     setProcessing(false);
 
     if (failedAt === -1) {
@@ -1325,9 +1332,11 @@ export function useOperativeShelf({
   };
 
   const handleMoverConfirm = async () => {
-    if (!scanData || selectedPositions.length === 0 || processing) return;
+    if (!scanData || selectedPositions.length === 0 || processingRef.current) return;
+    processingRef.current = true;
     setProcessing(true);
     const ok = await mover(scanData.articleCode, scanData.orderFab, selectedPositions, operarioId, displayName);
+    processingRef.current = false;
     setProcessing(false);
     const { articleCode } = scanData;
     if (ok) {

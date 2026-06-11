@@ -176,7 +176,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
     setProcessing(true);
     let successCount = 0;
     for (const item of selectedItems) {
-      const result = await retirarDeUbicacion(item.articleCode, item.orderFab, item.position, effectiveOperarioId, displayName);
+      const result = await retirarDeUbicacion(item.articleCode, item.orderFab, item.position, effectiveOperarioId, displayName, item.presenceId);
       if (result.success) successCount++;
     }
     setProcessing(false);
@@ -687,7 +687,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
         setProcessing(true);
         for (const queueItem of updatedQueue) {
           for (const item of queueItem.items) {
-            const result = await retirarDeUbicacion(item.articleCode, item.orderFab, queueItem.position, effectiveOperarioId, displayName);
+            const result = await retirarDeUbicacion(item.articleCode, item.orderFab, queueItem.position, effectiveOperarioId, displayName, item.presenceId);
             if (result.success) successCount++;
           }
         }

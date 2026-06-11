@@ -6,6 +6,8 @@ interface RetirarItem {
   orderFab: string;
   position: string;
   presenceId?: string;
+  /** Índice único dentro del array de items (garantiza clave única aunque haya duplicados) */
+  itemIndex: number;
 }
 
 interface RetirarArticleListProps {
@@ -23,6 +25,7 @@ interface ItemGroup {
 const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shelfCode, onConfirm, onClose }) => {
   const items = useMemo<RetirarItem[]>(() => {
     const result: RetirarItem[] = [];
+    let globalIndex = 0;
     for (const loc of locations) {
       if (loc.isEmpty) continue;
       for (const item of loc.items) {
@@ -31,6 +34,7 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
           orderFab: item.orderFab,
           position: loc.position,
           presenceId: item.presenceId,
+          itemIndex: globalIndex++,
         });
       }
     }
@@ -54,8 +58,10 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
     }));
   }, [items]);
 
+  // La clave incluye itemIndex para garantizar unicidad aunque dos ítems tengan
+  // el mismo artículo/OF/posición/presenceId (p.ej. tras duplicación en Firestore).
   const makeKey = (item: RetirarItem) =>
-    `${item.articleCode}__${item.orderFab}__${item.position}__${item.presenceId ?? ''}`;
+    `${item.articleCode}__${item.orderFab}__${item.position}__${item.presenceId ?? ''}__${item.itemIndex}`;
 
   const [selected, setSelected] = useState<Set<string>>(() =>
     items.length === 1 ? new Set([makeKey(items[0])]) : new Set()
