@@ -33,9 +33,9 @@ describe('parseLocationId', () => {
     expect(parseLocationId('')).toBeNull();
   });
 
-  it('handles multi-segment codes (RSOL-001)', () => {
-    const result = parseLocationId('RSOL-001');
-    expect(result?.shelfCode).toBe('RSOL');
+  it('handles multi-segment codes (CS-001)', () => {
+    const result = parseLocationId('CS-001');
+    expect(result?.shelfCode).toBe('CS');
     expect(result?.position).toBe('001');
   });
 });
@@ -199,7 +199,7 @@ describe('getShelfDefinition', () => {
   });
 
   it('returns cart definitions', () => {
-    const cart = getShelfDefinition('RSOL');
+    const cart = getShelfDefinition('CS');
     expect(cart).toBeDefined();
     expect(cart?.type).toBe('cart');
   });

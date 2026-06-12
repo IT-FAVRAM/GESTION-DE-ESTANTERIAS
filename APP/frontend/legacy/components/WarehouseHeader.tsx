@@ -111,22 +111,10 @@ export const WarehouseHeader: React.FC<WarehouseHeaderProps> = ({
                             {wh.code === 'ZIN' && (
                                 <>
                                     <button
-                                        onClick={() => handleTabChange('REP_SOL')}
+                                        onClick={() => handleTabChange('CS')}
                                         className={`
         snap-start px-4 py-2.5 md:py-3 font-bold text-xs md:text-sm rounded-lg transition-all whitespace-nowrap flex-shrink-0 border flex items-center gap-2
-                                                ${activeWarehouse === 'REP_SOL'
-                                                ? 'bg-purple-600 text-white border-purple-700 shadow-md transform scale-105 z-10'
-                                                : 'bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800/30 hover:bg-purple-50 dark:hover:bg-purple-900/10'
-                                            }
-        `}
-                                    >
-                                        <BoxIcon className="h-4 w-4" /> Repuestos Soldadura
-                                    </button>
-                                    <button
-                                        onClick={() => handleTabChange('CARRO_SOL')}
-                                        className={`
-        snap-start px-4 py-2.5 md:py-3 font-bold text-xs md:text-sm rounded-lg transition-all whitespace-nowrap flex-shrink-0 border flex items-center gap-2
-                                                ${activeWarehouse === 'CARRO_SOL'
+                                                ${activeWarehouse === 'CS'
                                                 ? 'bg-orange-600 text-white border-orange-700 shadow-md transform scale-105 z-10'
                                                 : 'bg-white dark:bg-slate-900 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-800/30 hover:bg-orange-50 dark:hover:bg-orange-900/10'
                                             }
@@ -135,28 +123,40 @@ export const WarehouseHeader: React.FC<WarehouseHeaderProps> = ({
                                         <ShoppingCartIcon className="h-4 w-4" /> Carro Soldadura
                                     </button>
                                     <button
-                                        onClick={() => handleTabChange('CARRO_SXP')}
+                                        onClick={() => handleTabChange('CP1')}
                                         className={`
         snap-start px-4 py-2.5 md:py-3 font-bold text-xs md:text-sm rounded-lg transition-all whitespace-nowrap flex-shrink-0 border flex items-center gap-2
-                                                ${activeWarehouse === 'CARRO_SXP'
+                                                ${activeWarehouse === 'CP1'
                                                 ? 'bg-indigo-600 text-white border-indigo-700 shadow-md transform scale-105 z-10'
                                                 : 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/30 hover:bg-indigo-50 dark:hover:bg-indigo-900/10'
                                             }
         `}
                                     >
-                                        <ShoppingCartIcon className="h-4 w-4" /> Carro SXP
+                                        <ShoppingCartIcon className="h-4 w-4" /> Carro Plegado 1
                                     </button>
                                     <button
-                                        onClick={() => handleTabChange('CARRO_RPL')}
+                                        onClick={() => handleTabChange('CP2')}
                                         className={`
         snap-start px-4 py-2.5 md:py-3 font-bold text-xs md:text-sm rounded-lg transition-all whitespace-nowrap flex-shrink-0 border flex items-center gap-2
-                                                ${activeWarehouse === 'CARRO_RPL'
+                                                ${activeWarehouse === 'CP2'
+                                                ? 'bg-indigo-600 text-white border-indigo-700 shadow-md transform scale-105 z-10'
+                                                : 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/30 hover:bg-indigo-50 dark:hover:bg-indigo-900/10'
+                                            }
+        `}
+                                    >
+                                        <ShoppingCartIcon className="h-4 w-4" /> Carro Plegado 2
+                                    </button>
+                                    <button
+                                        onClick={() => handleTabChange('CRP')}
+                                        className={`
+        snap-start px-4 py-2.5 md:py-3 font-bold text-xs md:text-sm rounded-lg transition-all whitespace-nowrap flex-shrink-0 border flex items-center gap-2
+                                                ${activeWarehouse === 'CRP'
                                                 ? 'bg-pink-600 text-white border-pink-700 shadow-md transform scale-105 z-10'
                                                 : 'bg-white dark:bg-slate-900 text-pink-600 dark:text-pink-400 border-pink-200 dark:border-pink-800/30 hover:bg-pink-50 dark:hover:bg-pink-900/10'
                                             }
         `}
                                     >
-                                        <ShoppingCartIcon className="h-4 w-4" /> Carro Rob. Plegado
+                                        <ShoppingCartIcon className="h-4 w-4" /> Carro Robot Plegado
                                     </button>
                                 </>
                             )}
@@ -174,7 +174,7 @@ export const WarehouseHeader: React.FC<WarehouseHeaderProps> = ({
                 </button>
             </div>
 
-            {!['REP_SOL', 'CARRO_SOL', 'CARRO_SXP', 'CARRO_RPL'].includes(activeWarehouse) && (
+            {!['CS', 'CP1', 'CP2', 'CRP'].includes(activeWarehouse) && (
                 <div className="bg-white dark:bg-slate-900/50 p-3 md:p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3 md:space-y-4">
                     <div className="relative w-full">
                         <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />

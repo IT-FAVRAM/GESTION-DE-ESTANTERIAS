@@ -38,6 +38,10 @@ export const SHELF_TO_SECTION: Record<string, WarehouseSection> = {
   ZIN: 'REPASADO',
   CAL: 'CALIDAD',
   COM: 'OTROS',
+  CS: 'SOLDADURA',
+  CP1: 'PLEGADORA',
+  CP2: 'PLEGADORA',
+  CRP: 'AUTOPLEGADORA',
 };
 
 /**

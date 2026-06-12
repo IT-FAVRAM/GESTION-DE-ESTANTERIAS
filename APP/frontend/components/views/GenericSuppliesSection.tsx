@@ -8,7 +8,7 @@ import { GenericShelfListView } from './GenericShelfListView';
 interface GenericSuppliesSectionProps {
     userRole: any;
     title: string;
-    docId: string; // ID del documento en Firebase (ej: CARRO_SOLDADURA)
+    docId: string; // ID del documento en Firebase (ej: CS)
     totalShelves?: number;
 }
 
