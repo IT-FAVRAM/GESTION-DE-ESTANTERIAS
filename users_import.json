@@ -1,0 +1,11 @@
+[
+  {
+    "localId": "jjimenez_autoplegadora_001",
+    "email": "j.jimenez@favram.com",
+    "emailVerified": false,
+    "passwordHash": "fakeHashThatWillBeReplacedByFirebase",
+    "salt": "fakeSalt",
+    "displayName": "José Jiménez",
+    "disabled": false
+  }
+]

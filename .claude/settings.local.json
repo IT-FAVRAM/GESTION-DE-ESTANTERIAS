@@ -260,7 +260,11 @@
       "Bash(grep -v \"node_modules\\\\|//\")",
       "Bash(dir APPfrontend *)",
       "PowerShell(tree .claude *)",
-      "Bash(xargs grep -l \"isReprocesosLocation\")"
+      "Bash(xargs grep -l \"isReprocesosLocation\")",
+      "Bash(chmod +x /tmp/create_user.sh)",
+      "Bash(/tmp/create_user.sh)",
+      "Bash(firebase auth:create-user *)",
+      "mcp__plugin_firebase_firebase__firebase_deploy_status"
     ]
   },
   "enabledMcpjsonServers": [
