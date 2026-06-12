@@ -944,15 +944,15 @@ export function useOperativeShelf({
 
     // MOVER: seleccionar destinos (exactamente moverNeeded)
     if (action === 'mover' && scanData) {
-      // ALTO FIX #3: Validar que posición destino está vacía
-      if (!loc.isEmpty) {
-        showToast('error', `❌ Posición ${loc.position} ocupada. Selecciona una posición vacía.`);
-        return;
-      }
-
       const found = findArticle(scanData.articleCode, scanData.orderFab);
       const needed = found.length || 1;
       const position = loc.position;
+      // Se permite mover a una posición ocupada: el artículo se apila junto a los
+      // existentes (igual que REUBICAR y UBICAR multi-artículo; el backend hace
+      // append). Avisamos sin bloquear cuando el destino ya tiene algo.
+      if (!loc.isEmpty && !selectedPositions.includes(position)) {
+        showToast('info', `⚠️ Pos. ${displayPos(position)} ocupada — se moverá igualmente`);
+      }
       setSelectedPositions((cur) => {
         if (cur.includes(position)) return cur.filter((p) => p !== position);
         if (cur.length >= needed) return [...cur.slice(1), position];

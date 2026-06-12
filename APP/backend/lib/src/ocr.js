@@ -24,6 +24,30 @@ function getClient() {
     return _client;
 }
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB de base64 (~6 MB de imagen)
+function buildVisualLines(words) {
+    if (words.length === 0)
+        return [];
+    const heights = words.map((w) => w.h).filter((h) => h > 0).sort((a, b) => a - b);
+    const medianH = heights.length > 0 ? heights[Math.floor(heights.length / 2)] : 12;
+    // Tolerancia: palabras cuyo centro vertical cae dentro de ~media altura de
+    // letra pertenecen al mismo renglón.
+    const tolerance = Math.max(6, medianH * 0.6);
+    const sorted = [...words].sort((a, b) => a.yc - b.yc);
+    const groups = [];
+    let current = [];
+    let currentY = 0;
+    for (const w of sorted) {
+        if (current.length > 0 && Math.abs(w.yc - currentY) > tolerance) {
+            groups.push(current);
+            current = [];
+        }
+        current.push(w);
+        currentY = current.reduce((s, x) => s + x.yc, 0) / current.length;
+    }
+    if (current.length > 0)
+        groups.push(current);
+    return groups.map((g) => g.sort((a, b) => a.x - b.x).map((w) => w.text).join(' '));
+}
 /**
  * ocrImage — recibe { imageBase64 } (sin el prefijo data:) y devuelve
  * { text, confidence, lines }. Disponible para cualquier sesión autenticada
@@ -32,6 +56,7 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB de base64 (~6 MB de imagen)
 exports.ocrImage = functions
     .runWith({ memory: '512MB', timeoutSeconds: 30 })
     .https.onCall(async (data, context) => {
+    var _a;
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Usuario no autenticado.');
     }
@@ -59,7 +84,8 @@ exports.ocrImage = functions
         // Confianza media a partir de las páginas/bloques detectados.
         let confSum = 0;
         let confCount = 0;
-        const lines = [];
+        const paragraphLines = [];
+        const allWords = [];
         for (const page of (fullText === null || fullText === void 0 ? void 0 : fullText.pages) || []) {
             for (const block of page.blocks || []) {
                 if (typeof block.confidence === 'number') {
@@ -70,14 +96,32 @@ exports.ocrImage = functions
                     const words = [];
                     for (const word of paragraph.words || []) {
                         const w = (word.symbols || []).map((s) => s.text || '').join('');
-                        if (w)
-                            words.push(w);
+                        if (!w)
+                            continue;
+                        words.push(w);
+                        const vertices = ((_a = word.boundingBox) === null || _a === void 0 ? void 0 : _a.vertices) || [];
+                        if (vertices.length >= 3) {
+                            const xs = vertices.map((v) => v.x || 0);
+                            const ys = vertices.map((v) => v.y || 0);
+                            const minY = Math.min(...ys);
+                            const maxY = Math.max(...ys);
+                            allWords.push({
+                                text: w,
+                                x: Math.min(...xs),
+                                yc: (minY + maxY) / 2,
+                                h: maxY - minY,
+                            });
+                        }
                     }
                     if (words.length)
-                        lines.push(words.join(' '));
+                        paragraphLines.push(words.join(' '));
                 }
             }
         }
+        // Líneas en orden de lectura visual; si no hay coordenadas (raro),
+        // se mantienen las líneas por párrafo como antes.
+        const visualLines = buildVisualLines(allWords);
+        const lines = visualLines.length > 0 ? visualLines : paragraphLines;
         const confidence = confCount > 0 ? Math.round((confSum / confCount) * 100) : (rawText ? 70 : 0);
         return {
             ok: true,

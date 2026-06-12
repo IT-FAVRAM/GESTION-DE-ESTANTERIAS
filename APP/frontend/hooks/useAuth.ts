@@ -227,6 +227,21 @@ export const useAuth = () => {
       const existingSession = readGuestSession<GuestSession>();
       const deviceConfig = await getDeviceConfig(deviceId);
 
+      // Un usuario autenticado con email (CALIDAD / JEFE_SECCION / ADMIN / ...) NUNCA
+      // debe ser reclasificado por el tipo de dispositivo. Su rol proviene de su ficha
+      // en `usuarios` (lo resuelve onAuthStateChanged). Aunque el PC esté (auto)
+      // registrado como KIOSK, aquí solo ajustamos el deviceMode para el monitor de
+      // conexión y conservamos intacta la sesión de email. Sin esto, al recargar en el
+      // ordenador de un responsable (p. ej. Calidad), su rol se ponía a null y perdía
+      // acceso (reprocesos, operar la estantería) o lo echaba al login.
+      if (auth.currentUser && !auth.currentUser.isAnonymous) {
+        const mode: AuthMode = deviceConfig && deviceConfig.type !== 'KIOSK'
+          ? ((deviceConfig.type.toLowerCase() as AuthMode) || 'admin')
+          : 'admin';
+        setState((prev) => ({ ...prev, loading: false, deviceMode: mode, error: null }));
+        return;
+      }
+
       if (!deviceConfig) {
         // Device not registered: if there's a stale guest session (anonymous user),
         // clear it so the login screen is shown. Email-authenticated users are unaffected.

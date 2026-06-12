@@ -128,7 +128,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
         onClick={handleClick}
         title={`${shelfCode} ${displayNum}${isEmpty ? ' · Vacía' : ` · ${itemCount} artículo(s)${itemCount > 1 ? ' · Arrastra en vista completa' : ''}`}`}
         className={`w-11 h-11 rounded-xl border-2 flex flex-col items-center justify-center relative
-          transition-all active:scale-95 hover:-translate-y-0.5 [touch-action:pan-y]
+          transition-all active:scale-95 hover:-translate-y-0.5 ${compactDraggable ? '[touch-action:pan-y]' : '[touch-action:pan-x_pan-y]'}
           ${compactDraggable ? 'cursor-grab active:cursor-grabbing' : ''}
           ${dragOverClass} ${cardBase}`}
         {...(compactDraggable ? dragProps : {})}
@@ -185,7 +185,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
       <div
         data-position={position}
         onClick={onPress ? handleClick : undefined}
-        className={`rounded-2xl border transition-all duration-200 overflow-hidden w-full relative [touch-action:pan-y]
+        className={`rounded-2xl border transition-all duration-200 overflow-hidden w-full relative [touch-action:pan-x_pan-y]
           hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20 ${onPress ? 'cursor-pointer' : 'cursor-default'}
           ${isDragOver ? 'ring-2 ring-emerald-300/90 bg-emerald-500/10' : ''}
           ${emptyBorder} ${emptyBg}`}
@@ -292,7 +292,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
   return (
     <div
       data-position={position}
-      className={`rounded-2xl border transition-all duration-200 overflow-hidden w-full relative [touch-action:pan-y]
+      className={`rounded-2xl border transition-all duration-200 overflow-hidden w-full relative ${isDraggable && !multiItem ? '[touch-action:pan-y]' : '[touch-action:pan-x_pan-y]'}
         hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/25
         ${isHighlighted ? 'animate-pulse' : ''}
         ${isDraggable && !multiItem ? 'cursor-grab active:cursor-grabbing' : (onPress ? 'cursor-pointer active:scale-[0.98]' : 'cursor-default')}

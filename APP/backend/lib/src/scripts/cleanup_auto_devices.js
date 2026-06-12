@@ -33,8 +33,10 @@ async function cleanup() {
         const name = data.name || '';
         const type = data.type || '';
         const kioskId = data.kioskId;
-        // Filtrar: nombre "Auto-*", tipo CARRETILLERO, sin kioskId
-        if (name.startsWith('Auto-') && type === 'CARRETILLERO' && !kioskId) {
+        // Filtrar: nombre "Auto-*" SIN estantería asignada NI kioskId (type-agnóstico:
+        // el auto-registro creaba KIOSK o CARRETILLERO). Los kioskos legítimos tienen
+        // assignedShelf y/o kioskId y nombres propios, así que quedan protegidos.
+        if (name.startsWith('Auto-') && !kioskId && !data.assignedShelf) {
             autoDevices.push({
                 id: doc.id,
                 name,
@@ -74,7 +76,7 @@ async function cleanup() {
                 const name = data.name || '';
                 const type = data.type || '';
                 const kioskId = data.kioskId;
-                if (name.startsWith('Auto-') && type === 'CARRETILLERO' && !kioskId) {
+                if (name.startsWith('Auto-') && !kioskId && !data.assignedShelf) {
                     legacyAutoDevices.push({
                         id: doc.id,
                         name,

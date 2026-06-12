@@ -155,21 +155,16 @@ exports.resolveDeviceConfig = functions.https.onCall(async (data, context) => {
     if (!deviceId) {
         throw new functions.https.HttpsError('invalid-argument', 'deviceId requerido.');
     }
-    let deviceSnap = await firebaseAdmin_1.admin.firestore().collection('dispositivos').doc(deviceId).get();
-    // Auto-registrar dispositivos desconocidos como KIOSK (lectura/consulta).
-    // Los dispositivos CARRETILLERO deben ser pre-registrados por un admin
-    // para evitar que dispositivos no autorizados obtengan permisos de operación.
+    const deviceSnap = await firebaseAdmin_1.admin.firestore().collection('dispositivos').doc(deviceId).get();
+    // Dispositivo desconocido: NO se auto-registra. Antes se creaba como KIOSK, lo que
+    // (1) llenaba `dispositivos` de entradas "Auto-N" basura y (2) hacía que CUALQUIER
+    // navegador (p. ej. el PC de un responsable de Calidad) se tratara como kiosko,
+    // interfiriendo con su sesión. Los kioskos y tablets de carretillero se dan de alta
+    // EXPLÍCITAMENTE desde SuperAdmin (AdminDevicesTab → upsertDevice). Un dispositivo
+    // no registrado simplemente cae al login normal en el cliente (mismo comportamiento
+    // que ya tenía un kiosko sin estantería asignada), sin crear ningún documento.
     if (!deviceSnap.exists) {
-        const now = new Date().toISOString();
-        await firebaseAdmin_1.admin.firestore().collection('dispositivos').doc(deviceId).set({
-            type: 'KIOSK',
-            name: `Auto-${deviceId.slice(-8)}`,
-            active: true,
-            assignedShelf: null,
-            lastSeen: now,
-        });
-        // Re-read after creation
-        deviceSnap = await firebaseAdmin_1.admin.firestore().collection('dispositivos').doc(deviceId).get();
+        return { exists: false, claimsUpdated: false };
     }
     const device = deviceSnap.data();
     const result = {
