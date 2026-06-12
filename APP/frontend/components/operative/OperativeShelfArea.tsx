@@ -61,6 +61,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
     batchMode, batchArticles, batchProcessedCount,
     additionalShelfPositions, showAddShelfModal, setShowAddShelfModal,
     showRetirarArticleList, showRetirarCellModal, retirarCellPosition, retirarCellItems,
+    pendingRetirarQueue, finalizeRetirarQueue,
     showMoverArticleList,
     showReprocesosUbicacionModal, reprocesosCell, setReprocesosCell,
     pendingCell,
@@ -134,7 +135,20 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
               <span className="text-xs text-slate-800 font-bold truncate">{scanData.articleCode} · {scanData.orderFab}</span>
             )}
             {action === 'retirar' && (
-              <span className="text-xs text-red-600 font-bold">👇 Toca una celda ocupada para retirar</span>
+              <span className="text-xs text-red-600 font-bold">
+                {pendingRetirarQueue.length === 0
+                  ? '👇 Toca una celda ocupada para retirar'
+                  : `${pendingRetirarQueue.reduce((s, q) => s + q.items.length, 0)} en cola — toca otra celda o finaliza`}
+              </span>
+            )}
+            {action === 'retirar' && pendingRetirarQueue.length > 0 && (
+              <button
+                onClick={finalizeRetirarQueue}
+                disabled={processing}
+                className="px-4 py-2 min-h-[40px] bg-red-600 hover:bg-red-500 active:scale-95 text-white text-xs font-bold rounded-xl disabled:opacity-50 transition-all touch-manipulation"
+              >
+                {processing ? '⏳' : '✓'} Finalizar retirada ({pendingRetirarQueue.reduce((s, q) => s + q.items.length, 0)})
+              </button>
             )}
             {action === 'ubicar' && scanData && (
               <span className="text-xs text-emerald-700 font-bold">
@@ -173,15 +187,19 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             {action === 'mover' && scanData && (
               <span className="text-xs font-bold px-3 py-2 rounded-xl bg-blue-100 text-blue-700 border border-blue-200">
                 {selectedPositions.length}/{moverNeeded} destinos
+                {moverNeeded > 1 && selectedPositions.length === 1 && ' · o apila todo aquí'}
               </span>
             )}
-            {action === 'mover' && scanData && selectedPositions.length === moverNeeded && (
+            {/* Confirmar: destinos exactos (1:1) o un único destino para apilar todas las presencias */}
+            {action === 'mover' && scanData && (selectedPositions.length === moverNeeded || (moverNeeded > 1 && selectedPositions.length === 1)) && (
               <button
                 onClick={handleMoverConfirm}
                 disabled={processing}
                 className="px-4 py-2 min-h-[40px] bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold rounded-xl disabled:opacity-50 transition-all touch-manipulation"
               >
-                {processing ? '⏳' : '🔄'} Confirmar mover
+                {processing ? '⏳' : '🔄'} {moverNeeded > 1 && selectedPositions.length === 1
+                  ? `Apilar ${moverNeeded} aquí`
+                  : 'Confirmar mover'}
               </button>
             )}
             {action === 'reubicar' && scanData && reubicarCtx && (
@@ -199,7 +217,13 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
               </button>
             )}
           </div>
-          <button onClick={cancelAction} className="text-xs text-rose-400 hover:text-rose-500 font-bold flex-shrink-0">Cancelar</button>
+          {/* Estilo de cancelar unificado: sólido, ≥40px de alto (operable con guantes) */}
+          <button
+            onClick={cancelAction}
+            className="px-4 py-2 min-h-[40px] rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold active:scale-95 transition-all touch-manipulation flex-shrink-0"
+          >
+            ✕ Cancelar
+          </button>
         </div>
       )}
 
@@ -226,11 +250,16 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             <div className="flex items-center gap-2">
               <button
                 onClick={prepareChangeMethod}
-                className="text-xs text-sky-600 hover:text-sky-800 font-bold transition-colors"
+                className="px-3 py-2 min-h-[40px] rounded-xl bg-sky-100 hover:bg-sky-200 text-sky-700 text-xs font-bold active:scale-95 transition-all touch-manipulation"
               >
                 🔄 Cambiar método
               </button>
-              <button onClick={handleStopBatch} className="text-xs text-rose-400 hover:text-rose-500 transition-colors">✕ Cancelar</button>
+              <button
+                onClick={handleStopBatch}
+                className="px-4 py-2 min-h-[40px] rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold active:scale-95 transition-all touch-manipulation"
+              >
+                ✕ Cancelar
+              </button>
             </div>
           </div>
           {batchArticles.length > 0 && (
@@ -248,7 +277,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
           {selectedPositions.length === 0 && batchArticles.length > 0 && (
             <p className="text-xs text-slate-500 mb-2">👇 Toca celda(s) en el grid para seleccionar ubicación</p>
           )}
-          {batchProcessedCount > 1 && (
+          {batchProcessedCount > 0 && (
             <button
               onClick={handleStopBatch}
               className="w-full min-h-[40px] mb-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold active:scale-95 transition-all touch-manipulation"
@@ -334,11 +363,19 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
       />
 
       {/* ── Modales ── */}
+      {/* El picker ofrece "Varios artículos (lote)" al ubicar (sustituye a la
+          antigua pregunta previa "¿uno o varios?"). En cellFirst se conservan
+          las celdas ya seleccionadas. */}
       <ScanMethodPicker
         open={scanMethodPickerOpen}
         actionLabel={batchMode ? 'Ubicar en lote' : actionLabel}
         onSelect={applyScanMethod}
-        onBatch={pendingAction === 'ubicar' && !batchMode ? beginBatchMode : undefined}
+        onBatch={
+          !batchMode && config.ubicar.askMultiArticle &&
+          (pendingAction === 'ubicar' || (action === 'ubicar' && !!pendingCell))
+            ? () => beginBatchMode(!!pendingCell)
+            : undefined
+        }
         onClose={handleScanMethodPickerClose}
       />
 
@@ -430,9 +467,9 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             <div className="px-4 py-3 border-t border-slate-100">
               <button
                 onClick={() => { setSectionPicker((p) => ({ ...p, open: false })); cancelAction(); }}
-                className="w-full rounded-xl bg-rose-100 text-rose-700 py-3 text-sm font-bold"
+                className="w-full rounded-xl bg-rose-600 hover:bg-rose-500 text-white py-3 text-sm font-bold active:scale-[0.98] transition-all touch-manipulation"
               >
-                Cancelar
+                ✕ Cancelar
               </button>
             </div>
           </div>
@@ -458,6 +495,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         confirmText="SÍ, tiene OF"
         onConfirm={() => handleOFAnswer(true)}
         extraButton={{ text: 'NO, sin OF', onClick: () => handleOFAnswer(false) }}
+        hideCancel
         loading={false}
       />
 
@@ -516,6 +554,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         confirmText={confirmModal.confirmText}
         onConfirm={confirmModal.onConfirm}
         extraButton={confirmModal.extraButton}
+        hideCancel={confirmModal.hideCancel}
         loading={processing}
       />
 
@@ -527,23 +566,23 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
           onClick={() => setSelectedCell(null)}
         >
           <div
-            className="w-full max-w-md bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 overflow-hidden"
+            className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ubicación</p>
-                <h3 className="text-lg font-black text-white font-mono truncate">
+                <h3 className="text-lg font-black text-slate-900 font-mono truncate">
                   {shelfCode} {padPos(selectedCell.position) || selectedCell.position}
                 </h3>
               </div>
               <div className="flex items-center gap-3 shrink-0">
-                <span className="text-[11px] font-bold font-mono px-2.5 py-1 rounded-full bg-slate-700 text-slate-200">
+                <span className="text-[11px] font-bold font-mono px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
                   {selectedCell.items.length} art.
                 </span>
                 <button
                   onClick={() => setSelectedCell(null)}
-                  className="text-rose-400 hover:text-white text-2xl leading-none"
+                  className="text-rose-500 hover:text-rose-700 text-2xl leading-none"
                   aria-label="Cerrar"
                 >
                   ×
@@ -555,13 +594,13 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
                 <p className="text-center text-sm text-slate-400 py-6">Ubicación vacía</p>
               ) : (
                 selectedCell.items.map((item, idx) => (
-                  <div key={`${item.articleCode}-${item.orderFab}-${idx}`} className="rounded-xl px-3 py-2.5 bg-slate-800 border border-slate-700">
-                    <p className="text-[15px] font-black font-mono text-white leading-tight break-all">{item.articleCode}</p>
-                    <p className="text-[12px] font-bold font-mono text-cyan-300 leading-tight break-all">{item.orderFab}</p>
+                  <div key={`${item.articleCode}-${item.orderFab}-${idx}`} className="rounded-xl px-3 py-2.5 bg-slate-50 border border-slate-200">
+                    <p className="text-[15px] font-black font-mono text-slate-900 leading-tight break-all">{item.articleCode}</p>
+                    <p className="text-[12px] font-bold font-mono text-cyan-700 leading-tight break-all">{item.orderFab}</p>
                     {reprocesosCosts && item.quantity != null && item.unitCost != null && item.unitCost > 0 && (
-                      <p className="text-[11px] text-amber-300 font-mono mt-0.5">{item.quantity} ud · {item.unitCost.toFixed(2)} €/ud</p>
+                      <p className="text-[11px] text-amber-600 font-mono mt-0.5">{item.quantity} ud · {item.unitCost.toFixed(2)} €/ud</p>
                     )}
-                    <p className="text-[11px] text-slate-400 mt-1 break-words">
+                    <p className="text-[11px] text-slate-500 mt-1 break-words">
                       {item.locatedByName}{item.locatedAt ? ` · ${new Date(item.locatedAt).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}` : ''}
                     </p>
                   </div>
@@ -571,7 +610,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Nota</p>
                 <textarea
                   key={selectedCell.locationId}
-                  className="w-full bg-slate-800 border border-slate-600 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 resize-none focus:outline-none focus:border-cyan-500 transition-colors"
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm text-slate-900 placeholder-slate-400 resize-none focus:outline-none focus:border-cyan-500 transition-colors"
                   placeholder="Añadir nota..."
                   rows={2}
                   defaultValue={selectedCell.nota ?? ''}

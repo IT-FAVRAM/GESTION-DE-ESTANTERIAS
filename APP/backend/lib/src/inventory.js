@@ -639,7 +639,12 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
             .where('shelfCode', '==', shelfCode)
             .get();
         const activePresences = presenceSnapshot.docs.map((snap) => ({ ref: snap.ref, data: snap.data() }));
-        if (activePresences.length === 0 || activePresences.length !== newPositions.length) {
+        // Apilado: un único destino acepta todas las presencias (todas se mueven a
+        // la misma posición). Si hay varios destinos, deben coincidir 1:1.
+        const targetPositions = newPositions.length === 1 && activePresences.length > 1
+            ? activePresences.map(() => newPositions[0])
+            : newPositions;
+        if (activePresences.length === 0 || activePresences.length !== targetPositions.length) {
             throw new functions.https.HttpsError('failed-precondition', 'Las presencias activas no coinciden con los destinos.');
         }
         await db.runTransaction(async (tx) => {
@@ -655,7 +660,7 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
                 const locRef = db.collection('shelves').doc(shelfCode).collection('locations').doc(position);
                 return { presence, locationId, position, locRef };
             });
-            const newLocData = newPositions.map((position, index) => ({
+            const newLocData = targetPositions.map((position, index) => ({
                 position,
                 locationId: `${shelfCode}-${position}`,
                 locRef: db.collection('shelves').doc(shelfCode).collection('locations').doc(position),

@@ -114,8 +114,7 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
     } else if (canNavigateToShelf && onShelfNavigate) {
       onShelfNavigate(result.shelfCode);
     }
-    // Cerrar el dropdown
-    setQuery(prev => prev); // mantener el texto pero ocultar dropdown actualizando estado sin cambiar query
+    // El dropdown se oculta solo: showDropdown depende de !selectedResult
   }, [onResultSelect, onHighlight, canNavigateToShelf, onShelfNavigate]);
 
   useEffect(() => {
@@ -127,7 +126,7 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
   return (
     <div className="px-4 pt-2 pb-1">
       <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-lg pointer-events-none">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg pointer-events-none">
           🔍
         </span>
         <input
@@ -140,15 +139,15 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
           autoCorrect="off"
           autoCapitalize="off"
           spellCheck={false}
-          className="w-full pl-10 pr-10 py-2.5 bg-slate-800 border border-slate-700 rounded-xl
-            text-sm text-white placeholder-slate-500
+          className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-300 rounded-xl
+            text-sm text-slate-900 placeholder-slate-400 shadow-sm
             focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none
             transition-all"
         />
         {query && (
           <button
             onClick={handleClear}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors text-lg"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors text-lg"
             aria-label="Limpiar búsqueda"
           >
             ✕
@@ -157,7 +156,7 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
       </div>
 
       {isCached && cacheInfo && (
-        <div className="mt-1 text-xs text-amber-300 flex items-center gap-1">
+        <div className="mt-1 text-xs text-amber-600 flex items-center gap-1">
           📦 Búsqueda en caché {cacheInfo.age !== null && `(${cacheInfo.age.toFixed(1)}h)`}
         </div>
       )}
@@ -165,13 +164,13 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
       {/* Dropdown de resultados */}
       {showDropdown && (
         <div className="mt-1 z-20 relative">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-xl overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
             {results.length === 0 ? (
-              <div className="px-4 py-4 text-sm text-slate-400 text-center">
-                Sin resultados para <span className="text-white font-mono">"{query}"</span>
+              <div className="px-4 py-4 text-sm text-slate-500 text-center">
+                Sin resultados para <span className="text-slate-900 font-mono">"{query}"</span>
               </div>
             ) : (
-              <div className="max-h-72 overflow-y-auto divide-y divide-slate-800">
+              <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
                 {results.map((result, index) => {
                   const shelf = shelfNameFor(result.shelfCode);
                   const positions = result.positions
@@ -184,31 +183,31 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
                     <button
                       key={`${result.aggregateKey}-${result.shelfCode}-${index}`}
                       className={`
-                        w-full text-left px-4 py-3 hover:bg-slate-800 transition-colors
-                        ${result.matchesCurrentShelf ? 'border-l-2 border-emerald-400' : ''}
+                        w-full text-left px-4 py-3 hover:bg-sky-50 transition-colors
+                        ${result.matchesCurrentShelf ? 'border-l-2 border-emerald-500' : ''}
                       `}
                       onClick={() => handleResultClick(result)}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="font-black text-white text-base font-mono leading-tight truncate">
+                          <p className="font-black text-slate-900 text-base font-mono leading-tight truncate">
                             {result.articleCode}
                           </p>
                           {result.orderFab && (
-                            <p className="text-xs text-slate-400 font-mono mt-0.5">OF: {result.orderFab}</p>
+                            <p className="text-xs text-slate-500 font-mono mt-0.5">OF: {result.orderFab}</p>
                           )}
                         </div>
                         {result.matchesCurrentShelf && (
-                          <span className="shrink-0 text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full px-1.5 py-0.5 font-bold mt-0.5">
+                          <span className="shrink-0 text-[9px] bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-full px-1.5 py-0.5 font-bold mt-0.5">
                             Esta
                           </span>
                         )}
                       </div>
                       <div className="mt-1.5 flex items-baseline gap-1.5">
-                        <span className="text-[10px] text-slate-500">📍</span>
-                        <span className="text-xs text-slate-400">
+                        <span className="text-[10px] text-slate-400">📍</span>
+                        <span className="text-xs text-slate-500">
                           {shelf}
-                          <span className="text-slate-600 mx-1">·</span>
+                          <span className="text-slate-300 mx-1">·</span>
                           {positions.length === 1
                             ? `pos. ${positions[0]}`
                             : `pos. ${positions.join(', ')}`}
@@ -226,26 +225,26 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
       {/* Ficha seleccionada — se muestra al hacer click en un resultado */}
       {selectedResult && (
         <div className={`
-          mt-2 rounded-2xl border p-3 relative
+          mt-2 rounded-2xl border p-3 relative shadow-sm
           ${selectedResult.matchesCurrentShelf
-            ? 'bg-emerald-950/30 border-emerald-500/30'
-            : 'bg-slate-900/80 border-slate-700'}
+            ? 'bg-emerald-50 border-emerald-300'
+            : 'bg-white border-slate-200'}
         `}>
           <button
             onClick={handleClear}
-            className="absolute top-2 right-2 text-slate-500 hover:text-white text-sm p-1"
+            className="absolute top-2 right-2 text-slate-400 hover:text-slate-700 text-sm p-1"
           >
             ✕
           </button>
           <div className="pr-6">
-            <p className="font-black text-white text-lg font-mono leading-tight">
+            <p className="font-black text-slate-900 text-lg font-mono leading-tight">
               {selectedResult.articleCode}
             </p>
             {selectedResult.orderFab && (
-              <p className="text-xs text-slate-400 font-mono mt-0.5">OF: {selectedResult.orderFab}</p>
+              <p className="text-xs text-slate-500 font-mono mt-0.5">OF: {selectedResult.orderFab}</p>
             )}
           </div>
-          <div className="mt-2 pt-2 border-t border-slate-700/50 space-y-1">
+          <div className="mt-2 pt-2 border-t border-slate-200 space-y-1">
             {/* Agrupar posiciones por estantería */}
             {(() => {
               // Agrupar: { shelfCode → positions[] }
@@ -259,9 +258,9 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
               }
               return Object.entries(byShelf).map(([sc, nums]) => (
                 <div key={sc} className="flex items-baseline gap-2">
-                  <span className="text-[10px] text-slate-500">📍</span>
+                  <span className="text-[10px] text-slate-400">📍</span>
                   <div>
-                    <span className="text-xs font-bold text-slate-300">{shelfNameFor(sc)}</span>
+                    <span className="text-xs font-bold text-slate-700">{shelfNameFor(sc)}</span>
                     <span className="text-xs text-slate-500 ml-1">
                       {nums.length === 1 ? `— posición ${nums[0]}` : `— posiciones ${nums.sort((a,b)=>a-b).join(', ')}`}
                     </span>
@@ -271,7 +270,7 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
             })()}
           </div>
           {!selectedResult.matchesCurrentShelf && (
-            <div className="mt-2 text-[10px] text-amber-400/80 bg-amber-500/5 rounded-lg px-2 py-1">
+            <div className="mt-2 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
               Artículo fuera de esta estantería
             </div>
           )}

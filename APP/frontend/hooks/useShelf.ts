@@ -448,8 +448,10 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
         setError('Articulo no encontrado o ya retirado');
         return false;
       }
-      if (activePresences.length !== normalizedPositions.length) {
-        setError('El numero de huecos destino no coincide con las presencias activas del articulo.');
+      // Destinos válidos: tantos como presencias (1:1) o UN único destino,
+      // que apila todas las presencias en la misma posición.
+      if (activePresences.length !== normalizedPositions.length && normalizedPositions.length !== 1) {
+        setError('Selecciona un hueco por presencia activa, o un único hueco para apilarlas todas.');
         return false;
       }
       const session = getOperationalSession();

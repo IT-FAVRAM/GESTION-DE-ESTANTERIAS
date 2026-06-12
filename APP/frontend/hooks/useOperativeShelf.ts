@@ -56,8 +56,10 @@ export interface ConfirmModalState {
   variant: 'success' | 'danger' | 'warning' | 'info';
   confirmText?: string;
   onConfirm: () => void;
-  extraButton?: { text: string; onClick: () => void };
+  extraButton?: { text: string; onClick: () => void; variant?: 'success' | 'danger' | 'warning' | 'info' };
   onClose?: () => void;
+  /** Oculta el botón CANCELAR cuando confirm + extraButton ya son las dos únicas opciones. */
+  hideCancel?: boolean;
 }
 
 export type SectionPickerPurpose = 'retirar' | 'reubicar-origen' | 'reubicar-destino';
@@ -277,6 +279,7 @@ export function useOperativeShelf({
     setScanMethodPickerOpen(false);
     setShowCameraQR(false);
     setShowCameraOCR(false);
+    setShowBarcodeForm(false);
     clearBatchStorage();
   }, []);
 
@@ -284,10 +287,15 @@ export function useOperativeShelf({
     if (finishTimerRef.current) clearTimeout(finishTimerRef.current);
     // ALTO FIX #1: Si hay lote en progreso, auto-cancelarlo al cambiar estantería
     if (batchMode && batchArticles.length > 0) {
-      showToast('info', `⚠️ Lote de ${batchArticles.length} artículos cancelado (cambió de estantería)`);
+      showToast('info', `⚠️ Lote de ${batchArticles.length} artículo(s) cancelado`);
+    }
+    // Avisar si se descarta una cola de retirada a medias (no perder trabajo en silencio)
+    if (pendingRetirarQueue.length > 0) {
+      const n = pendingRetirarQueue.reduce((sum, q) => sum + q.items.length, 0);
+      showToast('info', `⚠️ Retirada cancelada — ${n} artículo(s) seleccionados descartados`);
     }
     resetFlow();
-  }, [resetFlow, batchMode, batchArticles, showToast]);
+  }, [resetFlow, batchMode, batchArticles, pendingRetirarQueue, showToast]);
 
   const finishAction = useCallback((type: OperativeFeedback['type'], message: string) => {
     showToast(type, message, 2800);
@@ -351,6 +359,7 @@ export function useOperativeShelf({
         text: 'No, descartar',
         onClick: () => { clearBatchStorage(); setConfirmModal((p) => ({ ...p, open: false })); },
       },
+      hideCancel: true,
     });
   }, [shelfCode, batchMode, showToast]);
 
@@ -420,9 +429,12 @@ export function useOperativeShelf({
   }, [batchMethod, activateMethod]);
 
   /**
-   * Cierre del selector de método. Si estamos arrancando un lote y aún no se ha
-   * elegido método, cerrar = abortar el lote (no dejar un batchMode zombi sin
-   * escáner). En cualquier otro caso, sólo cierra el selector.
+   * Cierre del selector de método.
+   * - Lote sin método elegido: cerrar = abortar el lote (no dejar batchMode zombi).
+   * - cellFirst con celda pendiente: volver a la fase de selección de celdas.
+   * - Sin artículo escaneado: cerrar = cancelar la acción ENTERA. Antes solo se
+   *   cerraba el picker y la acción quedaba viva, obligando a un segundo
+   *   "Cancelar" en la barra de estado.
    */
   const handleScanMethodPickerClose = useCallback(() => {
     if (batchMode && !batchMethod) {
@@ -433,9 +445,15 @@ export function useOperativeShelf({
     if (config.reprocesos?.cellFirst && pendingCell) {
       setPendingCell(null);
       setScanArticleOnly(false);
+      setScanMethodPickerOpen(false);
+      return;
+    }
+    if (!scanData) {
+      cancelAction();
+      return;
     }
     setScanMethodPickerOpen(false);
-  }, [batchMode, batchMethod, cancelAction, config.reprocesos, pendingCell]);
+  }, [batchMode, batchMethod, cancelAction, config.reprocesos, pendingCell, scanData]);
 
   // Abre el selector de método para ubicar (tras decidir lote / no lote)
   const openScanPickerFor = (act: OperativeAction) => {
@@ -454,34 +472,14 @@ export function useOperativeShelf({
     setShowOFQuestion(true);
   }, [selectedPositions, locationsByPosition, showToast]);
 
-  // cellFirst: respuesta a "¿Tiene OF?" → pregunta lote/individual
+  // cellFirst: respuesta a "¿Tiene OF?" → abrir selector de método.
+  // El propio selector ofrece "Varios artículos (lote)", así que ya no hace
+  // falta la pregunta intermedia "¿uno o varios?".
   const handleOFAnswer = useCallback((hasOF: boolean) => {
     setShowOFQuestion(false);
     if (!hasOF) setScanArticleOnly(true);
-    if (config.ubicar.askMultiArticle) {
-      setConfirmModal({
-        open: true,
-        title: '¿Cuántos artículos vas a analizar?',
-        message: '¿Vas a analizar varios artículos en estas posiciones?',
-        icon: '📦',
-        variant: 'info',
-        confirmText: 'Solo UNO',
-        onConfirm: () => {
-          setConfirmModal((p) => ({ ...p, open: false }));
-          setScanMethodPickerOpen(true);
-        },
-        extraButton: {
-          text: 'VARIOS (lote)',
-          onClick: () => {
-            setConfirmModal((p) => ({ ...p, open: false }));
-            beginBatchMode(true);
-          },
-        },
-      });
-    } else {
-      setScanMethodPickerOpen(true);
-    }
-  }, [config.ubicar.askMultiArticle, beginBatchMode]);
+    setScanMethodPickerOpen(true);
+  }, []);
 
   // cellFirst: cerrar el modal "¿Tiene OF?" sin elegir → volver a esperar celda
   const handleOFCancel = useCallback(() => {
@@ -517,7 +515,10 @@ export function useOperativeShelf({
           setConfirmModal((p) => ({ ...p, open: false }));
           setShowTraerModal(true);
         },
+        variant: 'warning',
       },
+      // Cerrar/cancelar = abortar AVISAR del todo (sin dejar la acción zombi)
+      onClose: cancelAction,
     });
   };
 
@@ -606,33 +607,8 @@ export function useOperativeShelf({
         setAction('ubicar');
         return;
       }
-      if (config.ubicar.askMultiArticle) {
-        // Pregunta previa: ¿uno o varios artículos en la misma posición?
-        setAction('ubicar');
-        setConfirmModal({
-          open: true,
-          title: '¿Cuántos artículos vas a ubicar?',
-          message: '¿Vas a ubicar varios artículos en la MISMA posición?',
-          icon: '📦',
-          variant: 'info',
-          confirmText: 'Solo UNO',
-          onConfirm: () => {
-            setConfirmModal((p) => ({ ...p, open: false }));
-            openScanPickerFor('ubicar');
-          },
-          extraButton: {
-            text: 'VARIOS (lote)',
-            onClick: () => {
-              setConfirmModal((p) => ({ ...p, open: false }));
-              // Entrada unificada: abre el selector de método (bloqueante) antes
-              // de empezar a escanear. beginBatchMode usa 'ubicar' por defecto.
-              setPendingAction('ubicar');
-              beginBatchMode();
-            },
-          },
-        });
-        return;
-      }
+      // El selector de método ya ofrece "Varios artículos (lote)"; la pregunta
+      // previa "¿uno o varios?" sobraba (un modal menos en cada UBICAR).
       openScanPickerFor('ubicar');
       return;
     }
@@ -728,6 +704,12 @@ export function useOperativeShelf({
         const globalLocs = await findArticleGlobal(articleCode, orderFab);
         if (globalLocs.length > 0) {
           const locationText = globalLocs.map((l) => `• ${l.shelfName} — pos. ${displayPos(l.position)}`).join('\n');
+          // Descartar este escaneo y volver a esperar el siguiente
+          const discardScan = () => {
+            setScanData(null);
+            setScannerActive(true);
+            setConfirmModal((p) => ({ ...p, open: false }));
+          };
           setConfirmModal({
             open: true,
             title: '⚠️ Artículo ya ubicado',
@@ -740,14 +722,9 @@ export function useOperativeShelf({
               setConfirmModal((p) => ({ ...p, open: false }));
               // Mantener scanData y permitir seleccionar posición
             },
-            extraButton: {
-              text: 'Cancelar',
-              onClick: () => {
-                setScanData(null);
-                setScannerActive(true);
-                setConfirmModal((p) => ({ ...p, open: false }));
-              },
-            },
+            extraButton: { text: 'NO, descartar escaneo', onClick: discardScan },
+            hideCancel: true,
+            onClose: discardScan,
           });
         }
       } catch {
@@ -803,6 +780,9 @@ export function useOperativeShelf({
           variant: 'warning',
           confirmText: 'SÍ, retirar y enviar',
           onConfirm: sendToAlmacen,
+          // Cancelar = abortar ALMACÉN del todo (antes quedaba la acción viva
+          // y había que pulsar un segundo "Cancelar" en la barra)
+          onClose: cancelAction,
         });
       } else {
         setConfirmModal({
@@ -813,6 +793,7 @@ export function useOperativeShelf({
           variant: 'info',
           confirmText: 'SÍ, registrar en almacén',
           onConfirm: sendToAlmacen,
+          onClose: cancelAction,
         });
       }
       return;
@@ -1049,6 +1030,11 @@ export function useOperativeShelf({
     setAdditionalShelfPositions([]);
 
     // Bucle "¿ubicar otro en las mismas posiciones?"
+    // IMPORTANTE: cerrar este modal por cualquier vía que no sea "SÍ" debe
+    // FINALIZAR la acción. Antes, cerrar con el fondo dejaba scanData y
+    // selectedPositions vivos con el botón "✓ Ubicar" activo para un artículo
+    // YA ubicado → riesgo de duplicarlo con un toque accidental.
+    const finalizeUbicar = () => finishAction('success', `✅ ${articleCode} ubicado correctamente`);
     setConfirmModal({
       open: true,
       title: '✅ Artículo ubicado',
@@ -1067,10 +1053,9 @@ export function useOperativeShelf({
         // cellFirst: volver al grid para seleccionar celda; de lo contrario abrir picker
         if (!config.reprocesos?.cellFirst) setScanMethodPickerOpen(true);
       },
-      extraButton: {
-        text: 'NO, finalizar',
-        onClick: () => finishAction('success', `✅ ${articleCode} ubicado correctamente`),
-      },
+      extraButton: { text: 'NO, finalizar', onClick: finalizeUbicar },
+      hideCancel: true,
+      onClose: finalizeUbicar,
     });
   };
 
@@ -1140,6 +1125,9 @@ export function useOperativeShelf({
         text: 'Volver al lote',
         onClick: () => setConfirmModal((p) => ({ ...p, open: false })),
       },
+      hideCancel: true,
+      // Cerrar con el fondo = volver al lote (no descartar nada sin confirmación)
+      onClose: () => setConfirmModal((p) => ({ ...p, open: false })),
     });
   };
 
@@ -1218,77 +1206,82 @@ export function useOperativeShelf({
     }
   };
 
+  /** Procesa toda la cola de retirada acumulada (valida y ejecuta). */
+  const processRetirarQueue = async (queue: Array<{ position: string; items: LocationItem[] }>) => {
+    setConfirmModal((p) => ({ ...p, open: false }));
+    setProcessing(true);
+
+    // ALTO FIX #22: Validar que posiciones aún existen antes de procesar lote
+    const missingPositions: string[] = [];
+    for (const queueItem of queue) {
+      const queuePos = queueItem.position;
+      const cell = locations.find(
+        (loc) => loc.position === queuePos
+      );
+      if (!cell) {
+        missingPositions.push(`posición ${queuePos}`);
+        continue;
+      }
+      // Validar que los artículos seleccionados aún están en la posición
+      for (const selectedItem of queueItem.items) {
+        const stillExists = cell.items.some(
+          (it) => it.articleCode === selectedItem.articleCode && it.orderFab === selectedItem.orderFab && it.presenceId === selectedItem.presenceId
+        );
+        if (!stillExists) {
+          missingPositions.push(`${selectedItem.articleCode} de pos. ${queuePos}`);
+        }
+      }
+    }
+
+    if (missingPositions.length > 0) {
+      setProcessing(false);
+      showToast('error', `❌ Artículos ya no disponibles: ${missingPositions.slice(0, 3).join(', ')}${missingPositions.length > 3 ? '...' : ''}`);
+      cancelAction();
+      return;
+    }
+
+    let successCount = 0;
+    for (const queueItem of queue) {
+      for (const item of queueItem.items) {
+        const r = await retirarDeUbicacion(item.articleCode, item.orderFab, queueItem.position, operarioId, displayName, item.presenceId);
+        if (r.success) successCount++;
+      }
+    }
+    setProcessing(false);
+    const totalItems = queue.reduce((sum, q) => sum + q.items.length, 0);
+    if (successCount === totalItems) {
+      finishAction('success', `✅ ${totalItems} artículo(s) retirado(s) correctamente`);
+    } else {
+      finishAction('error', `Parcial: ${successCount}/${totalItems} artículos retirados`);
+    }
+    setPendingRetirarQueue([]);
+  };
+
   const handleRetirarCellItemsConfirm = (selectedItems: LocationItem[]) => {
     setShowRetirarCellModal(false);
     const position = retirarCellPosition;
     if (selectedItems.length === 0) return;
     const updatedQueue = [...pendingRetirarQueue, { position, items: selectedItems }];
     setPendingRetirarQueue(updatedQueue);
-    // Bucle "¿retirar más?"
+    const totalQueued = updatedQueue.reduce((sum, q) => sum + q.items.length, 0);
+    // Seguir seleccionando: cerrar el modal y conservar la cola (acción RETIRAR sigue viva)
+    const continueSelecting = () => setConfirmModal((p) => ({ ...p, open: false }));
+    // Bucle "¿retirar más?" — botón principal = CONTINUAR (igual que en ubicar/mover);
+    // cerrar con el fondo conserva la cola (antes la descartaba en silencio).
     setConfirmModal({
       open: true,
       title: '¿Retirar algo más?',
-      message: `${selectedItems.length} artículo(s) de posición ${displayPos(position)} añadido(s) a la cola`,
+      message: `${selectedItems.length} artículo(s) de posición ${displayPos(position)} añadido(s) a la cola (${totalQueued} en total)`,
       icon: '📤',
       variant: 'info',
-      confirmText: 'NO, finalizar retirada',
-      onConfirm: async () => {
-        setConfirmModal((p) => ({ ...p, open: false }));
-        setProcessing(true);
-
-        // ALTO FIX #22: Validar que posiciones aún existen antes de procesar lote
-        const missingPositions: string[] = [];
-        for (const queueItem of updatedQueue) {
-          const queuePos = queueItem.position;
-          const cell = locations.find(
-            (loc) => loc.position === queuePos
-          );
-          if (!cell) {
-            missingPositions.push(`posición ${queuePos}`);
-            continue;
-          }
-          // Validar que los artículos seleccionados aún están en la posición
-          for (const selectedItem of queueItem.items) {
-            const stillExists = cell.items.some(
-              (it) => it.articleCode === selectedItem.articleCode && it.orderFab === selectedItem.orderFab && it.presenceId === selectedItem.presenceId
-            );
-            if (!stillExists) {
-              missingPositions.push(`${selectedItem.articleCode} de pos. ${queuePos}`);
-            }
-          }
-        }
-
-        if (missingPositions.length > 0) {
-          setProcessing(false);
-          showToast('error', `❌ Artículos ya no disponibles: ${missingPositions.slice(0, 3).join(', ')}${missingPositions.length > 3 ? '...' : ''}`);
-          cancelAction();
-          return;
-        }
-
-        let successCount = 0;
-        for (const queueItem of updatedQueue) {
-          for (const item of queueItem.items) {
-            const r = await retirarDeUbicacion(item.articleCode, item.orderFab, queueItem.position, operarioId, displayName, item.presenceId);
-            if (r.success) successCount++;
-          }
-        }
-        setProcessing(false);
-        const totalItems = updatedQueue.reduce((sum, q) => sum + q.items.length, 0);
-        if (successCount === totalItems) {
-          finishAction('success', `✅ ${totalItems} artículo(s) retirado(s) correctamente`);
-        } else {
-          finishAction('error', `Parcial: ${successCount}/${totalItems} artículos retirados`);
-        }
-        setPendingRetirarQueue([]);
-      },
+      confirmText: 'SÍ, retirar más',
+      onConfirm: continueSelecting,
       extraButton: {
-        text: 'SÍ, retirar más',
-        onClick: () => setConfirmModal((p) => ({ ...p, open: false })),
+        text: `NO, finalizar (retirar ${totalQueued})`,
+        onClick: () => { void processRetirarQueue(updatedQueue); },
       },
-      onClose: () => {
-        setConfirmModal((p) => ({ ...p, open: false }));
-        cancelAction();
-      },
+      hideCancel: true,
+      onClose: continueSelecting,
     });
   };
 
@@ -1342,6 +1335,7 @@ export function useOperativeShelf({
     if (ok) {
       setSelectedPositions([]);
       if (config.mover.loop) {
+        const finalizeMover = () => finishAction('success', `✅ ${articleCode} movido correctamente`);
         setConfirmModal({
           open: true,
           title: '✅ Movido correctamente',
@@ -1354,10 +1348,9 @@ export function useOperativeShelf({
             setScanData(null);
             setShowMoverArticleList(true);
           },
-          extraButton: {
-            text: 'NO, finalizar',
-            onClick: () => finishAction('success', `✅ ${articleCode} movido correctamente`),
-          },
+          extraButton: { text: 'NO, finalizar', onClick: finalizeMover },
+          hideCancel: true,
+          onClose: finalizeMover,
         });
       } else {
         finishAction('success', `✅ ${articleCode} movido correctamente`);
@@ -1366,6 +1359,9 @@ export function useOperativeShelf({
       finishAction('error', 'Error al mover el artículo');
     }
   };
+
+  /** Finaliza la retirada con la cola actual (botón "Finalizar" de la barra de estado). */
+  const finalizeRetirarQueue = () => { void processRetirarQueue(pendingRetirarQueue); };
 
   // ── Multi-sección ────────────────────────────────────────────────────────────
   const addAdditionalShelf = (entry: AdditionalShelfPosition) => {
@@ -1411,6 +1407,7 @@ export function useOperativeShelf({
     batchMode, batchArticles, batchMethod, batchProcessedCount,
     additionalShelfPositions, showAddShelfModal, setShowAddShelfModal,
     showRetirarArticleList, showRetirarCellModal, retirarCellPosition, retirarCellItems,
+    pendingRetirarQueue, finalizeRetirarQueue,
     showMoverArticleList,
     showReprocesosUbicacionModal, reprocesosCell, setReprocesosCell,
     pendingCell,

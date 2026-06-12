@@ -38,6 +38,12 @@ interface ConfirmationModalProps {
   loading?: boolean;
   /** Si se puede cerrar con el fondo */
   dismissable?: boolean;
+  /**
+   * Oculta el botón CANCELAR inferior. Úsalo cuando confirm + extraButton ya
+   * cubren las dos únicas opciones reales (p.ej. bucles SÍ/NO) — un tercer
+   * botón rojo solo confunde y deja estados a medias.
+   */
+  hideCancel?: boolean;
 }
 
 const VARIANT_STYLES: Record<ConfirmVariant, { bg: string; btn: string }> = {
@@ -72,6 +78,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   extraButton,
   loading = false,
   dismissable = true,
+  hideCancel = false,
 }) => {
   if (!open) return null;
 
@@ -126,33 +133,37 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             </button>
           )}
           
-          {/* Extra button */}
+          {/* Extra button — neutro por defecto (NO es un cancelar); admite variante de color */}
           {extraButton && (
             <button
               type="button"
               onClick={extraButton.onClick}
               disabled={loading}
               className={`
-                w-full h-14 rounded-2xl text-lg font-bold 
-                bg-rose-100 text-rose-700 hover:bg-rose-200 
+                w-full h-14 rounded-2xl text-lg font-bold
                 transition-all active:scale-[0.98] disabled:opacity-50
+                ${extraButton.variant
+                  ? `${VARIANT_STYLES[extraButton.variant].btn} shadow-lg font-black`
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'}
               `}
             >
               {extraButton.text}
             </button>
           )}
-          
+
           {/* Cancel */}
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={loading}
-            className="w-full h-12 rounded-xl text-base font-bold text-white
-              bg-rose-500 hover:bg-rose-600 border border-rose-600
-              transition-all active:scale-[0.98] disabled:opacity-50"
-          >
-            {cancelText}
-          </button>
+          {!hideCancel && (
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="w-full h-12 rounded-xl text-base font-bold text-white
+                bg-rose-600 hover:bg-rose-500 border border-rose-600
+                transition-all active:scale-[0.98] disabled:opacity-50"
+            >
+              {cancelText}
+            </button>
+          )}
         </div>
       </div>
     </div>

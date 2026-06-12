@@ -140,47 +140,42 @@ export const applyMover = (
     }))
     .map((loc) => ({ ...loc, isEmpty: loc.items.length === 0 }));
 
-  let result = cleaned.map((loc) => {
-    const targetIndex = newPositions.findIndex((p) => p === loc.position);
-    if (targetIndex < 0) return loc;
-    const sourceItem = matchedItems[targetIndex] || matchedItems[0];
+  // Apilado: un único destino recibe TODAS las presencias; si no, mapeo 1:1.
+  const stackAll = newPositions.length === 1 && matchedItems.length > 1;
+  const sourcesForPosition = (position: string) => {
+    if (stackAll) return position === newPositions[0] ? matchedItems : [];
+    const targetIndex = newPositions.findIndex((p) => p === position);
+    return targetIndex < 0 ? [] : [matchedItems[targetIndex] || matchedItems[0]];
+  };
+  const movedItem = (sourceItem: (typeof matchedItems)[number] | undefined, key: string) => ({
+    ...sourceItem,
+    presenceId: sourceItem?.presenceId || `offline-${Date.now()}-${key}`,
+    articleCode,
+    orderFab,
+    locatedBy: operarioId,
+    locatedByName: operarioName,
+    locatedAt: now,
+  });
+
+  const result = cleaned.map((loc) => {
+    const sources = sourcesForPosition(loc.position);
+    if (sources.length === 0) return loc;
     return {
       ...loc,
-      items: [
-        ...loc.items,
-        {
-          ...sourceItem,
-          presenceId: sourceItem?.presenceId || `offline-${Date.now()}-${targetIndex}`,
-          articleCode,
-          orderFab,
-          locatedBy: operarioId,
-          locatedByName: operarioName,
-          locatedAt: now,
-        },
-      ],
+      items: [...loc.items, ...sources.map((s, i) => movedItem(s, `${loc.position}-${i}`))],
       isEmpty: false,
     };
   });
 
   const existingPositions = new Set(result.map((loc) => loc.position));
   const missingPositions = newPositions.filter((p) => !existingPositions.has(p));
-  for (let i = 0; i < missingPositions.length; i++) {
-    const sourceItem = matchedItems[newPositions.indexOf(missingPositions[i])] || matchedItems[0];
+  for (const missing of missingPositions) {
+    const sources = sourcesForPosition(missing);
     result.push({
-      position: missingPositions[i],
-      items: [
-        {
-          ...sourceItem,
-          presenceId: sourceItem?.presenceId || `offline-${Date.now()}-${i}`,
-          articleCode,
-          orderFab,
-          locatedBy: operarioId,
-          locatedByName: operarioName,
-          locatedAt: now,
-        },
-      ],
-      isEmpty: false,
-      locationId: `${shelfCode}_${missingPositions[i]}`,
+      position: missing,
+      items: sources.map((s, i) => movedItem(s, `${missing}-${i}`)),
+      isEmpty: sources.length === 0,
+      locationId: `${shelfCode}_${missing}`,
     });
   }
 

@@ -264,7 +264,8 @@
       "Bash(chmod +x /tmp/create_user.sh)",
       "Bash(/tmp/create_user.sh)",
       "Bash(firebase auth:create-user *)",
-      "mcp__plugin_firebase_firebase__firebase_deploy_status"
+      "mcp__plugin_firebase_firebase__firebase_deploy_status",
+      "PowerShell(Get-ChildItem APP\\\\frontend\\\\components, APP\\\\frontend\\\\hooks, APP\\\\frontend\\\\domain, APP\\\\frontend\\\\lib -Recurse -File | Where-Object { $_.FullName -notmatch 'node_modules' } | Select-Object @{N='Path';E={$_.FullName.Replace\\('C:\\\\-- APLICACIONES DANI --\\\\APP -- ESTANTERIAS\\\\APP\\\\frontend\\\\',''\\)}}, Length | Format-Table -AutoSize)"
     ]
   },
   "enabledMcpjsonServers": [

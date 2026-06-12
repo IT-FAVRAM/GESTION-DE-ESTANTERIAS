@@ -91,7 +91,7 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
             )}
             <button onClick={onBack ? onBack : logout}
               className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-[9px] sm:text-[11px] font-bold bg-slate-100 text-slate-700 rounded-lg whitespace-nowrap">
-              {onBack ? '‹' : '⏚'}
+              {onBack ? '‹ Volver' : 'Salir'}
             </button>
           </div>
         </div>

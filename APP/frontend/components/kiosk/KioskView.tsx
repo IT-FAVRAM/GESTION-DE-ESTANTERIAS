@@ -3,7 +3,6 @@ import { useAuth } from '../../hooks/useAuth';
 import { useKiosk } from '../../hooks/useKiosk';
 import ShelfSelector from './ShelfSelector';
 import DeviceInfoModal from '../common/DeviceInfoModal';
-import KioskCellDetailDrawer from './KioskCellDetailDrawer';
 import KioskEmptyState from './KioskEmptyState';
 import KioskHeader from './KioskHeader';
 import { buildOperativeConfig } from '../../lib/operative/operativeConfig';
@@ -46,7 +45,7 @@ const KioskView: React.FC = () => {
     displayName,
   });
 
-  const { action, loading, shelfDef, totalArticles, totalOccupied, totalEmpty, selectedCell, setSelectedCell, cancelAction, startAction } = engine;
+  const { action, loading, shelfDef, totalArticles, totalOccupied, totalEmpty, cancelAction, startAction } = engine;
 
   // Loading state takes priority to avoid race condition with empty state
   if (loading && !shelfCode) {
@@ -124,8 +123,8 @@ const KioskView: React.FC = () => {
         </div>
       )}
 
-      <KioskCellDetailDrawer selectedCell={selectedCell} onClose={() => setSelectedCell(null)} />
-
+      {/* La inspección de celda la renderiza OperativeShelfArea (antes se
+          mostraban DOS overlays apilados: este drawer + el modal del área). */}
       {showDeviceInfo && (
         <DeviceInfoModal deviceId={deviceId} onClose={() => setShowDeviceInfo(false)} />
       )}

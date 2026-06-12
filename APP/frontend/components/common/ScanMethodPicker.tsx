@@ -43,9 +43,9 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
             onClick={() => onSelect('barcode')}
             className="w-full rounded-xl border-2 border-blue-300 hover:border-blue-600 bg-blue-50 px-4 py-3 text-left transition-colors shadow-sm hover:shadow-md"
           >
-            <span className="font-bold text-blue-900">📱 Escanear Código QR</span>
+            <span className="font-bold text-blue-900">📷 Escanear código (QR / barras)</span>
             <span className="block text-xs text-blue-700/80 mt-0.5">
-              Lee el QR con tu dispositivo (Artículo + OF)
+              Lee el código con la cámara o la pistola (Artículo + OF)
             </span>
           </button>
 
@@ -72,6 +72,20 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
               Introduce el código del artículo a mano
             </span>
           </button>
+
+          {/* Lote: varios artículos en las mismas posiciones */}
+          {onBatch && (
+            <button
+              type="button"
+              onClick={onBatch}
+              className="w-full rounded-xl border-2 border-cyan-200 hover:border-cyan-500 bg-cyan-50 px-4 py-3 text-left transition-colors"
+            >
+              <span className="font-bold text-cyan-900">📚 Varios artículos (lote)</span>
+              <span className="block text-xs text-cyan-700/80 mt-0.5">
+                Escanéalos uno tras otro y ubícalos juntos en las mismas posiciones
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Información */}

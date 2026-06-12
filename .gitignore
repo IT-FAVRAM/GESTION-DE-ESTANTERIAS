@@ -39,3 +39,6 @@ serviceAccount.json
 service-account*.json
 firebase-adminsdk*.json
 bot/.env
+
+# Artefacto Windows (redirecciones "> NUL" mal escapadas)
+nul

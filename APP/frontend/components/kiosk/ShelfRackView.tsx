@@ -230,8 +230,8 @@ const RackSlot: React.FC<RackSlotProps> = ({
       {...dropProps}
     >
       {/* Posición + badge */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 5px 0', gap: 3, flexShrink: 0 }}>
-        <span style={{ fontSize: 8, fontWeight: 900, fontFamily: 'monospace', color: posColor, lineHeight: 1 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 5px 2px', gap: 3, flexShrink: 0 }}>
+        <span style={{ fontSize: 14, fontWeight: 900, fontFamily: 'monospace', color: posColor, lineHeight: 1, letterSpacing: '0.05em' }}>
           {position}
         </span>
         {badgeEl}

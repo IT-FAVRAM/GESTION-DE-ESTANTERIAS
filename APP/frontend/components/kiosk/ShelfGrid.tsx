@@ -360,7 +360,7 @@ const Block = React.memo(({
 
           {/* Expand chevron at top (← = "click to expand") */}
           <svg
-            className={`w-3 h-3 -rotate-90 shrink-0 transition-transform duration-200 ${stripChevronCls}`}
+            className={`w-4 h-4 -rotate-90 shrink-0 transition-transform duration-200 ${stripChevronCls}`}
             fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -368,7 +368,7 @@ const Block = React.memo(({
 
           {/* Title reading top → bottom */}
           <span
-            className={`text-[8px] font-mono font-black tracking-widest uppercase flex-1 py-2 leading-none ${stripTitleCls}`}
+            className={`text-[11px] font-mono font-black tracking-widest uppercase flex-1 py-2 leading-none ${stripTitleCls}`}
             style={{ writingMode: 'vertical-lr' }}
           >
             {block.title}
@@ -376,10 +376,10 @@ const Block = React.memo(({
 
           {/* Count + accent dot at bottom */}
           <div className="flex flex-col items-center gap-1 shrink-0">
-            <span className={`text-[7px] font-mono tabular-nums leading-none ${stripStatsCls}`}>
+            <span className={`text-[9px] font-mono tabular-nums leading-none ${stripStatsCls}`}>
               {occupiedCount}/{allPos.length}
             </span>
-            <div className={`w-1 h-1 rounded-full ${stripAccentCls} opacity-50`} />
+            <div className={`w-1.5 h-1.5 rounded-full ${stripAccentCls} opacity-50`} />
           </div>
         </button>
       )}
@@ -429,12 +429,27 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
   onCellDragLeave,
   onCellDrop,
 }) => {
+  // Estado de colapso persistido por estantería: el operario que siempre
+  // colapsa una zona no tiene que rehacerlo en cada recarga/cambio de sección.
+  const collapseStorageKey = shelfDef?.code ? `wms.collapsed.${shelfDef.code}` : null;
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [activeMobileBlockIdx, setActiveMobileBlockIdx] = useState(0);
   const gridContainerRef = useRef<HTMLDivElement>(null);
 
-  // Reset navigation index when the shelf changes
-  useEffect(() => { setActiveMobileBlockIdx(0); }, [shelfDef?.code]);
+  // Reset navigation index when the shelf changes + restaurar colapso guardado
+  useEffect(() => {
+    setActiveMobileBlockIdx(0);
+    if (!collapseStorageKey) {
+      setCollapsedSections(new Set());
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(collapseStorageKey);
+      setCollapsedSections(raw ? new Set(JSON.parse(raw) as string[]) : new Set());
+    } catch {
+      setCollapsedSections(new Set());
+    }
+  }, [collapseStorageKey]);
 
   // BA7: Auto-scroll al primer highlight cuando cambian las posiciones destacadas
   useEffect(() => {
@@ -451,9 +466,12 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      if (collapseStorageKey) {
+        try { window.localStorage.setItem(collapseStorageKey, JSON.stringify([...next])); } catch { /* cuota / modo privado */ }
+      }
       return next;
     });
-  }, []);
+  }, [collapseStorageKey]);
 
   const locationMap = useMemo(() => {
     const map = new Map<string, ShelfLocationState>();
@@ -482,7 +500,8 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
       6: 'grid-cols-6',
       7: 'grid-cols-7',
     };
-    return colMap[maxCols] || `grid-cols-${maxCols}`;
+    // Tailwind no genera clases dinámicas: >7 columnas cae a 7 (no romper el grid)
+    return colMap[maxCols] || 'grid-cols-7';
   }, []);
 
   // ── Compact mode ────────────────────────────────────────────────────────────
@@ -606,7 +625,7 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
                  : forceSingleBlock
                  ? 'w-full min-w-0'
                  : isCollapsed
-                 ? 'flex-1 min-w-0 md:flex-none md:w-8 md:self-stretch md:transition-all md:duration-300'
+                 ? 'flex-1 min-w-0 md:flex-none md:w-12 md:self-stretch md:transition-all md:duration-300'
                  : 'flex-1 min-w-0 md:transition-all md:duration-300';
                return (
                  <div
