@@ -14,7 +14,6 @@ import { buildOperativeConfig } from '../../lib/operative/operativeConfig';
 import { useOperativeShelf } from '../../hooks/useOperativeShelf';
 import OperativeShelfArea from '../operative/OperativeShelfArea';
 import OperativeActionButtons from '../operative/OperativeActionButtons';
-import PieceCounterCamera from '../common/PieceCounterCamera';
 
 interface JefeSeccionViewProps {
   onBack?: () => void;
@@ -31,10 +30,6 @@ const JefeSeccionOperativo: React.FC<{
   const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? '';
 
   const shelfDef = SHELF_DEFINITIONS.find((s) => s.code === shelfCode);
-
-  // Herramienta de conteo de piezas: solo para el jefe de sección de PUNZONADO.
-  const isPunzonado = ((normalizeLegacySection(section ?? '') ?? section) === 'PUNZONADO');
-  const [showCounter, setShowCounter] = useState(false);
 
   const config = useMemo(
     () => buildOperativeConfig('JEFE_SECCION', { lockedShelfCode: shelfCode, section }),
@@ -90,14 +85,6 @@ const JefeSeccionOperativo: React.FC<{
             </div>
           )}
 
-          {isPunzonado && (
-            <button
-              onClick={() => setShowCounter(true)}
-              className="px-2.5 py-1.5 text-xs font-black rounded-lg bg-cyan-600 text-white shadow-sm hover:bg-cyan-500 whitespace-nowrap flex-shrink-0">
-              📐 Contar
-            </button>
-          )}
-
           <OperativeActionButtons engine={engine} config={config} />
 
           <button
@@ -111,8 +98,6 @@ const JefeSeccionOperativo: React.FC<{
       <main className="flex-1 min-h-0 min-w-0 w-full overflow-hidden">
         <OperativeShelfArea engine={engine} config={config} fullscreenGrid />
       </main>
-
-      {showCounter && <PieceCounterCamera onClose={() => setShowCounter(false)} />}
     </div>
   );
 };

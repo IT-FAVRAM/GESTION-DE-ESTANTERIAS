@@ -36,6 +36,7 @@ const AdminShelfBrowser = lazy(() => import('./components/admin/AdminShelfBrowse
 const ArticleTimeline   = lazy(() => import('./components/admin/ArticleTimeline'));
 const ManagerInfoView   = lazy(() => import('./components/app/ManagerInfoView'));
 const JefeSeccionView   = lazy(() => import('./components/app/JefeSeccionView'));
+const PunzonadoView     = lazy(() => import('./components/app/PunzonadoView'));
 const AdminHomeView     = lazy(() => import('./components/app/AdminHomeView'));
 const CalidadView       = lazy(() => import('./components/app/CalidadView'));
 
@@ -207,7 +208,7 @@ const AppV3: React.FC = () => {
           <OfflineIndicator />
           <OfflineDebugPanel />
           <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
-          <JefeSeccionView />
+          {(section || '').toUpperCase() === 'PUNZONADO' ? <PunzonadoView /> : <JefeSeccionView />}
           {chatFab}
         </>
       </Suspense>
