@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.telegramWeeklyReport = exports.telegramWebhook = exports.ocrImage = exports.suppliesOperate = exports.cartsOperate = exports.inboundOrdersOperate = exports.deleteUrgentAlert = exports.resolveUrgentAlert = exports.createUrgentAlert = exports.chatSendConversationMessage = exports.chatCreateConversation = exports.removePinnedUrgency = exports.setPinnedUrgency = exports.chatSendMessage = exports.productionOperate = exports.setupUser = exports.sendAdminMessage = exports.resolveDeviceConfig = exports.deviceHeartbeat = exports.adminOperate = exports.userPushReport = exports.leadTimeDataset = exports.leadTimeReporting = exports.pickupQueueOperate = exports.notifyLongDisconnection = exports.notifyConnectionDisconnect = exports.notifyCarretilleroRequest = exports.notifySpecialLocationOccupancy = exports.notifyPickupQueueCreated = exports.checkStaleItems = exports.updateReproceso = exports.cartOperate = exports.shelfOperate = exports.onShelfLocationWrite = exports.onAssignmentWrite = exports.inventoryOperate = void 0;
+exports.countPieces = exports.ocrImage = exports.suppliesOperate = exports.cartsOperate = exports.inboundOrdersOperate = exports.deleteUrgentAlert = exports.resolveUrgentAlert = exports.createUrgentAlert = exports.chatSendConversationMessage = exports.chatCreateConversation = exports.removePinnedUrgency = exports.setPinnedUrgency = exports.chatSendMessage = exports.productionOperate = exports.setupUser = exports.sendAdminMessage = exports.resolveDeviceConfig = exports.deviceHeartbeat = exports.adminOperate = exports.userPushReport = exports.leadTimeDataset = exports.leadTimeReporting = exports.pickupQueueOperate = exports.notifyLongDisconnection = exports.notifyConnectionDisconnect = exports.notifyCarretilleroRequest = exports.notifySpecialLocationOccupancy = exports.notifyPickupQueueCreated = exports.checkStaleItems = exports.updateReproceso = exports.cartOperate = exports.shelfOperate = exports.onShelfLocationWrite = exports.onAssignmentWrite = exports.inventoryOperate = void 0;
 // runtime: nodejs22
 var inventory_1 = require("./inventory");
 Object.defineProperty(exports, "inventoryOperate", { enumerable: true, get: function () { return inventory_1.inventoryOperate; } });
@@ -49,8 +49,6 @@ var supplies_1 = require("./supplies");
 Object.defineProperty(exports, "suppliesOperate", { enumerable: true, get: function () { return supplies_1.suppliesOperate; } });
 var ocr_1 = require("./ocr");
 Object.defineProperty(exports, "ocrImage", { enumerable: true, get: function () { return ocr_1.ocrImage; } });
-var webhook_1 = require("./telegram/webhook");
-Object.defineProperty(exports, "telegramWebhook", { enumerable: true, get: function () { return webhook_1.telegramWebhook; } });
-var report_1 = require("./telegram/report");
-Object.defineProperty(exports, "telegramWeeklyReport", { enumerable: true, get: function () { return report_1.telegramWeeklyReport; } });
+var pieceCounter_1 = require("./pieceCounter");
+Object.defineProperty(exports, "countPieces", { enumerable: true, get: function () { return pieceCounter_1.countPieces; } });
 //# sourceMappingURL=index.js.map

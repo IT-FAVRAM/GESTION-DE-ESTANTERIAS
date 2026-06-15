@@ -73,9 +73,5 @@ export {
 } from './ocr';
 
 export {
-  telegramWebhook,
-} from './telegram/webhook';
-
-export {
-  telegramWeeklyReport,
-} from './telegram/report';
+  countPieces,
+} from './pieceCounter';
