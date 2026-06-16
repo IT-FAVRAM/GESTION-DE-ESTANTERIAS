@@ -103,6 +103,11 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
   const canSolicitarTraer = config.role !== 'CARRETILLERO';
   const [traerResult, setTraerResult] = React.useState<GlobalSearchResult | null>(null);
 
+  // Resetear el selector de "solicitar traer" al cambiar de estantería
+  React.useEffect(() => {
+    setTraerResult(null);
+  }, [shelfCode]);
+
   // Detector de pistola global (scan-first): activo solo en idle y sin modales abiertos.
   const anyModalOpen =
     confirmModal.open || scanMethodPickerOpen || !!selectedCell || sectionPicker.open ||

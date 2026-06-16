@@ -8,7 +8,7 @@
  * reimplementaba el flujo de forma divergente respecto al kiosko.
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { Suspense, useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { usePickupQueue } from '../../hooks/usePickupQueue';
 import PickupQueue from './PickupQueue';
@@ -18,7 +18,8 @@ import { buildOperativeConfig, canUseScanTray } from '../../lib/operative/operat
 import { useOperativeShelf } from '../../hooks/useOperativeShelf';
 import OperativeShelfArea from '../operative/OperativeShelfArea';
 import OperativeActionButtons from '../operative/OperativeActionButtons';
-import ChaperoView from '../chapero/ChaperoView';
+
+const ChaperoView = React.lazy(() => import('../chapero/ChaperoView'));
 
 type CarretilleroTab = 'shelves' | 'pickups' | 'carts' | 'chapero';
 
@@ -197,7 +198,9 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
               <PickupQueue currentShelf={selectedShelf} />
             </div>
           ) : activeTab === 'chapero' ? (
-            <ChaperoView onClose={() => setActiveTab('shelves')} />
+            <Suspense fallback={<div className="flex items-center justify-center h-full text-slate-500 text-sm">Cargando chapero…</div>}>
+              <ChaperoView onClose={() => setActiveTab('shelves')} />
+            </Suspense>
           ) : (
             <CarrosView />
           )}
