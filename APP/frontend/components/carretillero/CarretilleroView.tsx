@@ -18,15 +18,17 @@ import { buildOperativeConfig } from '../../lib/operative/operativeConfig';
 import { useOperativeShelf } from '../../hooks/useOperativeShelf';
 import OperativeShelfArea from '../operative/OperativeShelfArea';
 import OperativeActionButtons from '../operative/OperativeActionButtons';
+import ChaperoView from '../chapero/ChaperoView';
 
-type CarretilleroTab = 'shelves' | 'pickups' | 'carts';
+type CarretilleroTab = 'shelves' | 'pickups' | 'carts' | 'chapero';
 
 interface CarretilleroViewProps {
   onBack?: () => void;
   initialTab?: CarretilleroTab;
+  chatButton?: React.ReactNode;
 }
 
-const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab = 'shelves' }) => {
+const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab = 'shelves', chatButton }) => {
   const { role, displayName, operarioId, firebaseUser, logout } = useAuth();
   const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? '';
   const { pendingCount } = usePickupQueue();
@@ -60,6 +62,11 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
     setActiveTab('shelves');
   };
 
+  const openChapero = () => {
+    if (!isIdle) engine.cancelAction();
+    setActiveTab('chapero');
+  };
+
   return (
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
       {/* Header — responsive: una línea en escritorio, dos en móvil */}
@@ -75,6 +82,9 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
               <p className="text-[8px] sm:text-[10px] text-slate-500 truncate leading-none mt-0.5">{displayName} · {operarioId}</p>
             </div>
           </div>
+
+          {/* Chat inline */}
+          {chatButton}
 
           {/* Botones derechos (RECOGIDAS + Salir) */}
           <div className="flex gap-0.5 sm:gap-1 flex-shrink-0">
@@ -100,6 +110,11 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
         {activeTab === 'shelves' && (
           <div className="flex items-center justify-center pt-1 mt-0.5 border-t border-slate-100 flex-wrap gap-0.5">
             <OperativeActionButtons engine={engine} config={config} size="compact" />
+          </div>
+        )}
+        {activeTab === 'chapero' && (
+          <div className="pt-1 mt-0.5 border-t border-slate-100 text-center">
+            <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Modo Chapero activo</span>
           </div>
         )}
       </header>
@@ -145,6 +160,15 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
               </div>
 
               <div className="flex-shrink-0 border-t border-slate-300 pb-2">
+                <p className="px-3 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">Chapero</p>
+                <button onClick={openChapero}
+                  className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${
+                    activeTab === 'chapero' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-200'
+                  }`}>
+                  🔩 Chapero
+                </button>
+              </div>
+              <div className="flex-shrink-0 border-t border-slate-300 pb-2">
                 <p className="px-3 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">Carros</p>
                 <button onClick={() => setActiveTab('carts')}
                   className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${
@@ -165,6 +189,8 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
             <div className="h-full overflow-y-auto">
               <PickupQueue currentShelf={selectedShelf} />
             </div>
+          ) : activeTab === 'chapero' ? (
+            <ChaperoView onClose={() => setActiveTab('shelves')} />
           ) : (
             <CarrosView />
           )}

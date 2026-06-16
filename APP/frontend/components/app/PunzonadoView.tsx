@@ -9,14 +9,17 @@
  *      para localizar en qué estantería/posición está cualquier artículo.
  */
 
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import KioskSearchBar from '../kiosk/KioskSearchBar';
 import PieceCounterCamera from '../common/PieceCounterCamera';
 
-const PunzonadoView: React.FC = () => {
+const ChaperoView = lazy(() => import('../chapero/ChaperoView'));
+
+const PunzonadoView: React.FC<{ chatButton?: React.ReactNode }> = ({ chatButton }) => {
   const { displayName, operarioId, logout } = useAuth();
   const [showCounter, setShowCounter] = useState(false);
+  const [showChapero, setShowChapero] = useState(false);
 
   return (
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
@@ -30,6 +33,7 @@ const PunzonadoView: React.FC = () => {
               <p className="text-[10px] text-slate-500 truncate leading-none mt-0.5">{displayName} · {operarioId}</p>
             </div>
           </div>
+          {chatButton}
           <button
             onClick={logout}
             className="px-2 py-1 text-[11px] font-bold bg-slate-100 text-slate-700 rounded-lg whitespace-nowrap flex-shrink-0">
@@ -65,9 +69,28 @@ const PunzonadoView: React.FC = () => {
             placeholder="Buscar artículo o número de OF..."
           />
         </div>
+
+        {/* Chapero */}
+        <div className="p-4">
+          <button
+            onClick={() => setShowChapero(true)}
+            className="w-full rounded-2xl bg-slate-700 hover:bg-slate-600 active:scale-[0.99] transition-all text-white shadow-lg p-5 flex flex-col items-center gap-2"
+          >
+            <span className="text-4xl">🔩</span>
+            <span className="text-lg font-black">Chapero</span>
+            <span className="text-xs font-medium text-slate-300">Ver y gestionar chapas por material y espesor</span>
+          </button>
+        </div>
       </main>
 
       {showCounter && <PieceCounterCamera onClose={() => setShowCounter(false)} />}
+      {showChapero && (
+        <div className="fixed inset-0 z-50">
+          <Suspense fallback={<div className="flex items-center justify-center h-full bg-slate-50 text-slate-500">Cargando chapero…</div>}>
+            <ChaperoView onClose={() => setShowChapero(false)} />
+          </Suspense>
+        </div>
+      )}
     </div>
   );
 };

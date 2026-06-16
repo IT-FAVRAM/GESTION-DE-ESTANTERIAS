@@ -138,6 +138,11 @@ service cloud.firestore {
       }
     }
 
+    match /chapero_positions/{positionId} {
+      allow read:  if canReadWarehouseState();
+      allow write: if false;
+    }
+
     match /items/{document=**} {
       allow read:  if canReadWarehouseState();
       allow write: if false;

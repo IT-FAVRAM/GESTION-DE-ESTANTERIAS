@@ -170,8 +170,7 @@ const AppV3: React.FC = () => {
           <OfflineIndicator />
           <OfflineDebugPanel />
           <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
-          <CarretilleroView />
-          {chatFab}
+          <CarretilleroView chatButton={chatFab} />
         </>
       </Suspense>
     );
@@ -182,11 +181,10 @@ const AppV3: React.FC = () => {
     return (
       <Suspense fallback={<AppLoadingScreen />}>
         {urgencyBar}
-        {chatFab}
         {showCarrosAdminMode ? (
           <CarrosView onBack={() => setShowCarrosAdminMode(false)} />
         ) : showOperativeMode ? (
-          <CarretilleroView onBack={() => { setShowOperativeMode(false); setOperativeInitialTab('shelves'); }} initialTab={operativeInitialTab} />
+          <CarretilleroView chatButton={chatFab} onBack={() => { setShowOperativeMode(false); setOperativeInitialTab('shelves'); }} initialTab={operativeInitialTab} />
         ) : showShelfBrowser ? (
           <AdminShelfBrowser onBack={() => setShowShelfBrowser(false)} onOpenCarros={() => { setShowShelfBrowser(false); setShowCarrosAdminMode(true); }} />
         ) : showTimeline ? (
@@ -194,7 +192,7 @@ const AppV3: React.FC = () => {
         ) : showAdminPanel ? (
           <SuperAdminPanel onClose={() => setShowAdminPanel(false)} role={role} initialTab={adminPanelTab} currentDeviceId={deviceId} isolatedTab />
         ) : (
-          <AdminHomeView role={role} displayName={displayName} notification={pushNotif} onCloseNotification={() => setPushNotif(null)} onOpenPanel={openAdminPanel} onOpenShelfBrowser={() => setShowShelfBrowser(true)} onOpenTimeline={() => setShowTimeline(true)} onOpenOperativeMode={() => setShowOperativeMode(true)} onLogout={logout} />
+          <AdminHomeView chatButton={chatFab} role={role} displayName={displayName} notification={pushNotif} onCloseNotification={() => setPushNotif(null)} onOpenPanel={openAdminPanel} onOpenShelfBrowser={() => setShowShelfBrowser(true)} onOpenTimeline={() => setShowTimeline(true)} onOpenOperativeMode={() => setShowOperativeMode(true)} onLogout={logout} />
         )}
       </Suspense>
     );
@@ -208,8 +206,7 @@ const AppV3: React.FC = () => {
           <OfflineIndicator />
           <OfflineDebugPanel />
           <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
-          {(section || '').toUpperCase() === 'PUNZONADO' ? <PunzonadoView /> : <JefeSeccionView />}
-          {chatFab}
+          {(section || '').toUpperCase() === 'PUNZONADO' ? <PunzonadoView chatButton={chatFab} /> : <JefeSeccionView chatButton={chatFab} />}
         </>
       </Suspense>
     );

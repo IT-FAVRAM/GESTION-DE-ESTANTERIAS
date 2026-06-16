@@ -75,3 +75,7 @@ export {
 export {
   countPieces,
 } from './pieceCounter';
+
+export {
+  chaperoOperate,
+} from './chapero';

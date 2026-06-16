@@ -17,6 +17,7 @@ import OperativeActionButtons from '../operative/OperativeActionButtons';
 
 interface JefeSeccionViewProps {
   onBack?: () => void;
+  chatButton?: React.ReactNode;
 }
 
 /** Componente interno que se renderiza solo cuando hay shelfCode válido */
@@ -25,7 +26,8 @@ const JefeSeccionOperativo: React.FC<{
   onShelfChange: (code: string) => void;
   sectionShelfCodes: string[];
   onBack?: () => void;
-}> = ({ shelfCode, onShelfChange, sectionShelfCodes, onBack }) => {
+  chatButton?: React.ReactNode;
+}> = ({ shelfCode, onShelfChange, sectionShelfCodes, onBack, chatButton }) => {
   const { displayName, operarioId, firebaseUser, section, logout } = useAuth();
   const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? '';
 
@@ -62,6 +64,9 @@ const JefeSeccionOperativo: React.FC<{
               <p className="text-[10px] text-slate-500 truncate leading-none mt-0.5">{displayName} · {operarioId}</p>
             </div>
           </div>
+
+          {/* Chat inline */}
+          {chatButton}
 
           {/* Selector de estantería si la sección tiene varias */}
           {sectionShelfCodes.length > 1 && (
@@ -102,7 +107,7 @@ const JefeSeccionOperativo: React.FC<{
   );
 };
 
-const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack }) => {
+const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack, chatButton }) => {
   const { section, assignedShelf, logout } = useAuth();
 
   // Determina las estanterías accesibles para la sección del usuario
@@ -171,6 +176,7 @@ const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack }) => {
       onShelfChange={setSelectedShelf}
       sectionShelfCodes={sectionShelfCodes}
       onBack={onBack}
+      chatButton={chatButton}
     />
   );
 };

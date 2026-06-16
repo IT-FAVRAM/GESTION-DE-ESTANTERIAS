@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import OfflineIndicator from '../common/OfflineIndicator';
 import PushToast from './PushToast';
 import ConfirmationModal from '../common/ConfirmationModal';
@@ -7,6 +7,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { usePickupQueue } from '../../hooks/usePickupQueue';
 import { SHELF_DEFINITIONS, ALL_SHELVES } from '../../lib/firestoreSchema';
 import type { AdminTab } from '../admin/adminShared';
+
+const ChaperoView = lazy(() => import('../chapero/ChaperoView'));
 
 interface AdminHomeViewProps {
   role: 'ADMIN' | 'SUPERADMIN';
@@ -18,14 +20,16 @@ interface AdminHomeViewProps {
   onOpenTimeline?: () => void;
   onOpenOperativeMode?: () => void;
   onLogout: () => Promise<void> | void;
+  chatButton?: React.ReactNode;
 }
 
 type PendingShelfAction = 'avisar' | 'traer';
 
-const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notification, onCloseNotification, onOpenPanel, onOpenShelfBrowser, onOpenTimeline, onOpenOperativeMode, onLogout }) => {
+const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notification, onCloseNotification, onOpenPanel, onOpenShelfBrowser, onOpenTimeline, onOpenOperativeMode, onLogout, chatButton }) => {
   const [showTraerModal, setShowTraerModal] = useState(false);
   const [showAvisarConfirm, setShowAvisarConfirm] = useState(false);
   const [showShelfPicker, setShowShelfPicker] = useState(false);
+  const [showChapero, setShowChapero] = useState(false);
   const [pendingShelfAction, setPendingShelfAction] = useState<PendingShelfAction | null>(null);
   const [selectedShelfCode, setSelectedShelfCode] = useState<string>('');
   const [processing, setProcessing] = useState(false);
@@ -120,6 +124,7 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {chatButton}
               <button onClick={onLogout} className="px-4 py-2 bg-slate-800/80 text-slate-100 rounded-xl font-bold hover:bg-slate-700/80 hover:text-white transition-all duration-200">Salir</button>
             </div>
           </div>
@@ -165,6 +170,19 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
               <div>
                 <h3 className="font-bold text-white text-sm">Conexiones</h3>
                 <p className="text-xs text-slate-500 mt-0.5">Monitor wifi de todos los kioskos</p>
+              </div>
+            </button>
+
+            {/* Chapero */}
+            <button
+              type="button"
+              onClick={() => setShowChapero(true)}
+              className="bg-slate-900 rounded-2xl border border-slate-700/50 p-5 flex flex-col items-start gap-2 hover:border-slate-500/50 active:scale-[0.98] transition-all cursor-pointer text-left touch-manipulation shadow-sm"
+            >
+              <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl">🔩</div>
+              <div>
+                <h3 className="font-bold text-white text-sm">Chapero</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Gestión de chapas por material y espesor</p>
               </div>
             </button>
 
@@ -273,6 +291,14 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
           onConfirm={handleDeliveryRequest}
           loading={processing}
         />
+      )}
+
+      {showChapero && (
+        <div className="fixed inset-0 z-50">
+          <Suspense fallback={<div className="flex items-center justify-center h-full bg-slate-900 text-white">Cargando chapero…</div>}>
+            <ChaperoView onClose={() => setShowChapero(false)} />
+          </Suspense>
+        </div>
       )}
     </>
   );
