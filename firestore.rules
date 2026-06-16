@@ -225,7 +225,7 @@ service cloud.firestore {
     // Lectura permitida para compatibilidad; escritura bloqueada (solo Cloud Functions).
 
     match /carts/{document=**} {
-      allow read:  if isRegisteredUser();
+      allow read:  if isRegisteredUser() && userRole() != 'SOLO_VISUAL';
       allow write: if false;
     }
 

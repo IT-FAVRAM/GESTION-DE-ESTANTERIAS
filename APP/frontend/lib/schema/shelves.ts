@@ -456,7 +456,7 @@ export const CART_DEFINITIONS: Shelf[] = [
   },
   {
     code: 'CP1',
-    name: 'Carro Plegado 1',
+    name: 'Carro Plegadora 1',
     section: 'PLEGADORA',
     type: 'cart',
     locationCount: 4,
@@ -465,7 +465,7 @@ export const CART_DEFINITIONS: Shelf[] = [
       physicalBlocks: [
         {
           id: 'cp1-main',
-          title: 'Carro Plegado 1',
+          title: 'Carro Plegadora 1',
           subtitle: '4 baldas',
           zoneName: 'BALDAS',
           rows: [[1], [2], [3], [4]],
@@ -475,7 +475,7 @@ export const CART_DEFINITIONS: Shelf[] = [
   },
   {
     code: 'CP2',
-    name: 'Carro Plegado 2',
+    name: 'Carro Plegadora 2',
     section: 'PLEGADORA',
     type: 'cart',
     locationCount: 4,
@@ -484,7 +484,7 @@ export const CART_DEFINITIONS: Shelf[] = [
       physicalBlocks: [
         {
           id: 'cp2-main',
-          title: 'Carro Plegado 2',
+          title: 'Carro Plegadora 2',
           subtitle: '4 baldas',
           zoneName: 'BALDAS',
           rows: [[1], [2], [3], [4]],
@@ -494,7 +494,7 @@ export const CART_DEFINITIONS: Shelf[] = [
   },
   {
     code: 'CRP',
-    name: 'Carro Robot Plegado',
+    name: 'Carro Robot Autoplegadora',
     section: 'AUTOPLEGADORA',
     type: 'cart',
     locationCount: 4,
@@ -503,7 +503,7 @@ export const CART_DEFINITIONS: Shelf[] = [
       physicalBlocks: [
         {
           id: 'crp-main',
-          title: 'Carro Robot Plegado',
+          title: 'Carro Robot Autoplegadora',
           subtitle: '4 baldas',
           zoneName: 'BALDAS',
           rows: [[1], [2], [3], [4]],
