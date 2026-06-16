@@ -186,6 +186,56 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
                     .filter((v, i, arr) => arr.indexOf(v) === i)
                     .sort((a, b) => a - b);
 
+                  // Ghost result: no clickeable, sin navegación
+                  if (result.isGhost) {
+                    return (
+                      <div
+                        key={`${result.aggregateKey}-${result.shelfCode}-${index}`}
+                        className="w-full text-left px-4 py-3 bg-slate-50 border-l-2 border-dashed border-slate-400"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-black text-slate-900 text-base font-mono leading-tight truncate">
+                              {result.articleCode}
+                            </p>
+                            {result.orderFab && (
+                              <p className="text-xs text-slate-500 font-mono mt-0.5">OF: {result.orderFab}</p>
+                            )}
+                          </div>
+                          <span className="shrink-0 text-[9px] bg-slate-200 text-slate-700 border border-slate-300 rounded-full px-1.5 py-0.5 font-bold mt-0.5">
+                            ⏰ Sin ubicación
+                          </span>
+                        </div>
+                        <div className="mt-2 space-y-1">
+                          {result.lastLocation && (
+                            <div className="flex items-baseline gap-1.5">
+                              <span className="text-[10px] text-slate-400">📍</span>
+                              <span className="text-xs text-slate-600">
+                                Última ubicación: {shelfNameFor(result.lastLocation.shelfCode)}
+                                <span className="text-slate-400 mx-1">·</span>
+                                pos. {result.lastLocation.position}
+                                <span className="text-slate-400 mx-1">·</span>
+                                <span className="text-[10px]">{new Date(result.lastLocation.timestamp).toLocaleDateString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
+                              </span>
+                            </div>
+                          )}
+                          {result.lastWithdrawal && (
+                            <div className="flex items-baseline gap-1.5">
+                              <span className="text-[10px] text-slate-400">🚪</span>
+                              <span className="text-xs text-slate-600">
+                                Última retirada: {shelfNameFor(result.lastWithdrawal.shelfCode)}
+                                <span className="text-slate-400 mx-1">·</span>
+                                pos. {result.lastWithdrawal.position}
+                                <span className="text-slate-400 mx-1">·</span>
+                                <span className="text-[10px]">{new Date(result.lastWithdrawal.timestamp).toLocaleDateString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+
                   return (
                     <button
                       key={`${result.aggregateKey}-${result.shelfCode}-${index}`}
@@ -233,7 +283,9 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
       {selectedResult && (
         <div className={`
           mt-2 rounded-2xl border p-3 relative shadow-sm
-          ${selectedResult.matchesCurrentShelf
+          ${selectedResult.isGhost
+            ? 'bg-slate-50 border-dashed border-slate-400'
+            : selectedResult.matchesCurrentShelf
             ? 'bg-emerald-50 border-emerald-300'
             : 'bg-white border-slate-200'}
         `}>
@@ -250,33 +302,71 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
             {selectedResult.orderFab && (
               <p className="text-xs text-slate-500 font-mono mt-0.5">OF: {selectedResult.orderFab}</p>
             )}
+            {selectedResult.isGhost && (
+              <p className="text-xs text-slate-600 mt-1">⏰ Sin ubicación activa</p>
+            )}
           </div>
           <div className="mt-2 pt-2 border-t border-slate-200 space-y-1">
-            {/* Agrupar posiciones por estantería */}
-            {(() => {
-              // Agrupar: { shelfCode → positions[] }
-              const byShelf: Record<string, number[]> = {};
-              for (const posStr of selectedResult.positions) {
-                const idx = posStr.lastIndexOf('_');
-                const sc = idx >= 0 ? posStr.slice(0, idx) : selectedResult.shelfCode;
-                const num = positionNumber(posStr);
-                if (!byShelf[sc]) byShelf[sc] = [];
-                if (!Number.isNaN(num)) byShelf[sc].push(num);
-              }
-              return Object.entries(byShelf).map(([sc, nums]) => (
-                <div key={sc} className="flex items-baseline gap-2">
-                  <span className="text-[10px] text-slate-400">📍</span>
-                  <div>
-                    <span className="text-xs font-bold text-slate-700">{shelfNameFor(sc)}</span>
-                    <span className="text-xs text-slate-500 ml-1">
-                      {nums.length === 1 ? `— posición ${nums[0]}` : `— posiciones ${nums.sort((a,b)=>a-b).join(', ')}`}
-                    </span>
+            {selectedResult.isGhost ? (
+              <>
+                {selectedResult.lastLocation && (
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[10px] text-slate-400">📍</span>
+                    <div>
+                      <span className="text-xs font-bold text-slate-700">Última ubicación</span>
+                      <span className="text-xs text-slate-600 ml-1">
+                        {shelfNameFor(selectedResult.lastLocation.shelfCode)} — posición {selectedResult.lastLocation.position}
+                      </span>
+                      <span className="text-[10px] text-slate-500 ml-1">
+                        {new Date(selectedResult.lastLocation.timestamp).toLocaleDateString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ));
-            })()}
+                )}
+                {selectedResult.lastWithdrawal && (
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[10px] text-slate-400">🚪</span>
+                    <div>
+                      <span className="text-xs font-bold text-slate-700">Última retirada</span>
+                      <span className="text-xs text-slate-600 ml-1">
+                        {shelfNameFor(selectedResult.lastWithdrawal.shelfCode)} — posición {selectedResult.lastWithdrawal.position}
+                      </span>
+                      <span className="text-[10px] text-slate-500 ml-1">
+                        {new Date(selectedResult.lastWithdrawal.timestamp).toLocaleDateString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                {/* Agrupar posiciones por estantería */}
+                {(() => {
+                  // Agrupar: { shelfCode → positions[] }
+                  const byShelf: Record<string, number[]> = {};
+                  for (const posStr of selectedResult.positions) {
+                    const idx = posStr.lastIndexOf('_');
+                    const sc = idx >= 0 ? posStr.slice(0, idx) : selectedResult.shelfCode;
+                    const num = positionNumber(posStr);
+                    if (!byShelf[sc]) byShelf[sc] = [];
+                    if (!Number.isNaN(num)) byShelf[sc].push(num);
+                  }
+                  return Object.entries(byShelf).map(([sc, nums]) => (
+                    <div key={sc} className="flex items-baseline gap-2">
+                      <span className="text-[10px] text-slate-400">📍</span>
+                      <div>
+                        <span className="text-xs font-bold text-slate-700">{shelfNameFor(sc)}</span>
+                        <span className="text-xs text-slate-500 ml-1">
+                          {nums.length === 1 ? `— posición ${nums[0]}` : `— posiciones ${nums.sort((a,b)=>a-b).join(', ')}`}
+                        </span>
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </>
+            )}
           </div>
-          {!selectedResult.matchesCurrentShelf && (
+          {!selectedResult.isGhost && !selectedResult.matchesCurrentShelf && (
             <div className="mt-2 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
               Artículo fuera de esta estantería
             </div>

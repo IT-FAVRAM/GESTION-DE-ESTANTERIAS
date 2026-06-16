@@ -6,9 +6,9 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { collection, query, where, limit, getDocs } from 'firebase/firestore';
+import { collection, query, where, limit, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { COLLECTIONS, type ItemDoc } from '../lib/firestoreSchema';
+import { COLLECTIONS, type ItemDoc, type HistoryEntryDoc } from '../lib/firestoreSchema';
 import { parseLocationId } from '../lib/schema/shelves';
 import { listenForCacheUpdates } from '../lib/offline/bidirectionalSync';
 
@@ -21,6 +21,10 @@ export type GlobalSearchResult = {
   locationIds: string[];
   matchesCurrentShelf: boolean;
   matchLabel: string;
+  // Ghost result (fallback a última ubicación conocida)
+  isGhost?: boolean;
+  lastLocation?: { shelfCode: string; position: string; timestamp: number };
+  lastWithdrawal?: { shelfCode: string; position: string; timestamp: number };
 };
 
 type UseGlobalSearchReturn = {
@@ -95,6 +99,10 @@ const groupAndFilter = (
   });
 
   filteredResults.sort((a, b) => {
+    // No-ghost results primero
+    if (!a.isGhost && b.isGhost) return -1;
+    if (a.isGhost && !b.isGhost) return 1;
+    // Entre los del mismo tipo, current shelf first
     if (a.matchesCurrentShelf && !b.matchesCurrentShelf) return -1;
     if (!a.matchesCurrentShelf && b.matchesCurrentShelf) return 1;
     return a.matchLabel.localeCompare(b.matchLabel);
@@ -177,7 +185,99 @@ export const useGlobalSearchWithCache = (
         }
 
         const items = Array.from(docMap.values());
-        setResults(groupAndFilter(items, searchTerms, currentShelfCode));
+        let results = groupAndFilter(items, searchTerms, currentShelfCode);
+
+        // Si no hay resultados activos, buscar en history (fallback)
+        if (results.length === 0) {
+          try {
+            const historyArticleQuery = query(
+              collection(db, COLLECTIONS.HISTORY),
+              where('articleCode', '>=', trimmed),
+              where('articleCode', '<=', trimmed + ''),
+              orderBy('timestamp', 'desc'),
+              limit(20),
+            );
+
+            const historySnap = await getDocs(historyArticleQuery);
+            if (historySnap.docs.length > 0) {
+              const ghostMap = new Map<string, {
+                articleCode: string;
+                orderFab: string;
+                lastLocation?: { shelfCode: string; position: string; timestamp: number };
+                lastWithdrawal?: { shelfCode: string; position: string; timestamp: number };
+              }>();
+
+              historySnap.docs.forEach((historyDoc) => {
+                const data = historyDoc.data() as HistoryEntryDoc;
+                const matchesQuery = searchTerms.some((term) =>
+                  data.articleCode.includes(term) || data.orderFab.includes(term)
+                );
+                if (!matchesQuery) return;
+
+                const key = `${data.articleCode}|${data.orderFab}`;
+                let entry = ghostMap.get(key);
+
+                if (!entry) {
+                  entry = {
+                    articleCode: data.articleCode,
+                    orderFab: data.orderFab,
+                  };
+                  ghostMap.set(key, entry);
+                }
+
+                const timestamp = new Date(data.timestamp).getTime();
+
+                if ((data.action === 'UBICAR' || data.action === 'UBICAR_MULTI') && data.toLocation && !entry.lastLocation) {
+                  const parsed = parseLocationId(data.toLocation);
+                  if (parsed) {
+                    entry.lastLocation = {
+                      shelfCode: parsed.shelfCode,
+                      position: parsed.position,
+                      timestamp,
+                    };
+                  }
+                }
+
+                if ((data.action === 'RETIRAR' || data.action === 'RETIRAR_DE_UBICACION') && data.fromLocation && !entry.lastWithdrawal) {
+                  const parsed = parseLocationId(data.fromLocation);
+                  if (parsed) {
+                    entry.lastWithdrawal = {
+                      shelfCode: parsed.shelfCode,
+                      position: parsed.position,
+                      timestamp,
+                    };
+                  }
+                }
+              });
+
+              ghostMap.forEach((entry) => {
+                if (entry.lastLocation || entry.lastWithdrawal) {
+                  const shelfCode = entry.lastLocation?.shelfCode || entry.lastWithdrawal?.shelfCode || '';
+                  const position = entry.lastLocation?.position || entry.lastWithdrawal?.position || '';
+                  const matchLabel = `${entry.articleCode} ${entry.orderFab}`.trim();
+
+                  results.push({
+                    articleCode: entry.articleCode,
+                    orderFab: entry.orderFab,
+                    aggregateKey: `${entry.articleCode}|${entry.orderFab}`,
+                    shelfCode,
+                    positions: position ? [`${shelfCode}_${position}`] : [],
+                    locationIds: [],
+                    matchesCurrentShelf: shelfCode === currentShelfCode,
+                    matchLabel,
+                    isGhost: true,
+                    lastLocation: entry.lastLocation,
+                    lastWithdrawal: entry.lastWithdrawal,
+                  });
+                }
+              });
+            }
+          } catch (historyErr) {
+            console.warn('[useGlobalSearchWithCache] History fallback failed', historyErr);
+          }
+        }
+
+        setResults(results);
         setIsCached(false);
         setCacheAge(null);
 

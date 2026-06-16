@@ -67,6 +67,14 @@
             ]
         },
         {
+            "collectionGroup": "history",
+            "queryScope": "COLLECTION",
+            "fields": [
+                { "fieldPath": "articleCode", "order": "ASCENDING" },
+                { "fieldPath": "timestamp",   "order": "DESCENDING" }
+            ]
+        },
+        {
             "collectionGroup": "items",
             "queryScope": "COLLECTION",
             "fields": [
