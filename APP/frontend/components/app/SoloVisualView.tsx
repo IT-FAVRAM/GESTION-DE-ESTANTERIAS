@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useShelf } from '../../hooks/useShelf';
-import { SHELF_DEFINITIONS, SECTION_DISPLAY_NAMES, SHELF_TO_SECTION } from '../../lib/firestoreSchema';
+import { SHELF_DEFINITIONS, CART_DEFINITIONS, SECTION_DISPLAY_NAMES, SHELF_TO_SECTION } from '../../lib/firestoreSchema';
 import ShelfGrid from '../kiosk/ShelfGrid';
 import KioskSearchBar from '../kiosk/KioskSearchBar';
 
@@ -39,21 +39,40 @@ const SoloVisualView: React.FC = () => {
             sidebarOpen ? 'w-64' : 'w-0'
           } flex-shrink-0 bg-white border-r border-slate-200 overflow-y-auto transition-all duration-200 hidden sm:flex flex-col`}
         >
-          <div className="p-4 space-y-2">
-            <h2 className="text-sm font-bold text-slate-500 uppercase">Estanterías</h2>
-            {SHELF_DEFINITIONS.map(shelf => (
-              <button
-                key={shelf.code}
-                onClick={() => setSelectedShelf(shelf.code)}
-                className={`w-full text-left px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
-                  selectedShelf === shelf.code
-                    ? 'bg-cyan-100 text-cyan-900 border border-cyan-300'
-                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                {shelf.code} — {shelf.name}
-              </button>
-            ))}
+          <div className="p-4 space-y-4 overflow-y-auto">
+            <div className="space-y-2">
+              <h2 className="text-sm font-bold text-slate-500 uppercase">Estanterías</h2>
+              {SHELF_DEFINITIONS.map(shelf => (
+                <button
+                  key={shelf.code}
+                  onClick={() => setSelectedShelf(shelf.code)}
+                  className={`w-full text-left px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
+                    selectedShelf === shelf.code
+                      ? 'bg-cyan-100 text-cyan-900 border border-cyan-300'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {shelf.code} — {shelf.name}
+                </button>
+              ))}
+            </div>
+
+            <div className="space-y-2 border-t border-slate-200 pt-3">
+              <h2 className="text-sm font-bold text-slate-500 uppercase">🚚 Carros</h2>
+              {CART_DEFINITIONS.map(cart => (
+                <button
+                  key={cart.code}
+                  onClick={() => setSelectedShelf(cart.code)}
+                  className={`w-full text-left px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
+                    selectedShelf === cart.code
+                      ? 'bg-cyan-100 text-cyan-900 border border-cyan-300'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {cart.code} — {cart.name}
+                </button>
+              ))}
+            </div>
           </div>
         </aside>
 
