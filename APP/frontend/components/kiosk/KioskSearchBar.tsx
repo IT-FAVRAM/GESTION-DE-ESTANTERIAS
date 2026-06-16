@@ -20,6 +20,8 @@ interface KioskSearchBarProps {
   onShelfNavigate?: (shelfCode: string) => void;
   onResultSelect?: (result: GlobalSearchResult) => void;
   onOutOfShelfResult?: (result: GlobalSearchResult) => void;
+  /** §7bis — Si se pasa, muestra "🚚 Solicitar traer" en la ficha del resultado. */
+  onSolicitarTraer?: (result: GlobalSearchResult) => void;
 }
 
 function shelfNameFor(code: string): string {
@@ -42,6 +44,7 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
   onShelfNavigate,
   onResultSelect,
   onOutOfShelfResult,
+  onSolicitarTraer,
 }) => {
   const [query, setQuery] = useState('');
   const [resultCount, setResultCount] = useState(0);
@@ -273,6 +276,14 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
             <div className="mt-2 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
               Artículo fuera de esta estantería
             </div>
+          )}
+          {onSolicitarTraer && (
+            <button
+              onClick={() => onSolicitarTraer(selectedResult)}
+              className="mt-3 w-full rounded-xl bg-amber-500 hover:bg-amber-400 text-white py-2.5 text-sm font-bold active:scale-[0.98] transition-all touch-manipulation"
+            >
+              🚚 Solicitar traer
+            </button>
           )}
         </div>
       )}

@@ -59,6 +59,21 @@ export interface RoleOperativeConfig {
   };
 }
 
+/**
+ * Bandeja de escaneo (scan-first) — ALCANCE RESTRINGIDO.
+ *
+ * Solo CARRETILLERO (cualquiera) y los superadmins por email pueden usar la
+ * bandeja de escaneo en idle. Estos perfiles operan con shelfScope 'all', así
+ * que no hay problema de permisos cross-sección al UBICAR/RETIRAR.
+ * Decisión del plan PLAN_ESCANEO_ATAJOS.md §7.
+ */
+export const SCAN_TRAY_SUPERADMIN_EMAILS = ['d.soler@favram.com', 'j.diaz@favram.com'];
+
+export function canUseScanTray(role: UserRole | null | undefined, email?: string | null): boolean {
+  if (role === 'CARRETILLERO') return true;
+  return SCAN_TRAY_SUPERADMIN_EMAILS.includes((email || '').toLowerCase());
+}
+
 export interface BuildOperativeConfigOptions {
   /** Estantería bloqueada (kiosko/jefe) o sección de calidad. */
   lockedShelfCode?: string | null;

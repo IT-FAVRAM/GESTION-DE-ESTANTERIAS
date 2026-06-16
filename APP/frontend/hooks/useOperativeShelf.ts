@@ -19,9 +19,12 @@ import { useShelf, type ShelfLocationState } from './useShelf';
 import { usePickupQueue } from './usePickupQueue';
 import {
   formatArticleDisplay,
+  parseScanInput,
   type ScanParseResult,
 } from '../lib/qrParser';
-import { findArticleGlobal } from '../lib/findArticleGlobal';
+import { findArticleGlobal, type GlobalArticleLocation } from '../lib/findArticleGlobal';
+import { inventoryApi } from '../lib/api/inventoryApi';
+import { getOperationalSession } from '../lib/operationalSession';
 import { parseCallableError } from '../lib/callableError';
 import { isReprocesosLocation, getShelfDefinition } from '../lib/firestoreSchema';
 import { validateContiguity } from '../lib/contiguityValidator';
@@ -77,6 +80,24 @@ export interface UseOperativeShelfParams {
   setShelfCode?: (code: string) => void;
   operarioId: string;
   displayName: string;
+  /**
+   * Habilita la "bandeja de escaneo" (scan-first) en idle. Solo CARRETILLERO +
+   * superadmins (lo decide el chrome con `canUseScanTray`). Ver PLAN_ESCANEO_ATAJOS.md §7.
+   */
+  enableScanTray?: boolean;
+}
+
+/**
+ * Item de la bandeja de escaneo (scan-first). `located`/`locations` se resuelven
+ * en segundo plano con `findArticleGlobal`; mientras tanto `resolving` es true.
+ */
+export interface ScanTrayItem {
+  articleCode: string;
+  orderFab: string;
+  /** undefined mientras se resuelve; true/false una vez resuelto. */
+  located?: boolean;
+  locations?: GlobalArticleLocation[];
+  resolving?: boolean;
 }
 
 const padPos = (p: string) => parseInt(p, 10);
@@ -85,6 +106,9 @@ const displayPos = (p: string) => { const n = parseInt(p, 10); return Number.isN
 // Clave versionada para persistir un lote en curso (tolerancia a desconexión/recarga).
 const BATCH_STORAGE_KEY = 'wms.batch.v1';
 const BATCH_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 h
+
+// Clave versionada para persistir la bandeja de escaneo (mismo patrón que el lote).
+const SCAN_TRAY_STORAGE_KEY = 'wms.scantray.v1';
 
 interface PersistedBatch {
   v: number;
@@ -106,6 +130,7 @@ export function useOperativeShelf({
   setShelfCode,
   operarioId,
   displayName,
+  enableScanTray = false,
 }: UseOperativeShelfParams) {
   const shelf = useShelf(shelfCode);
   const { locations, loading, shelfDef, ubicar, ubicarMulti, retirar, retirarDeUbicacion, mover, findArticle, validateShelfAccess, totalArticles, totalOccupied, totalEmpty } = shelf;
@@ -140,6 +165,9 @@ export function useOperativeShelf({
   const [batchMethod, setBatchMethod] = useState<ScanMethod | null>(null);
   // Cuántos artículos del lote ya están escritos en Firestore (controla "Detener análisis").
   const [batchProcessedCount, setBatchProcessedCount] = useState(0);
+
+  // Bandeja de escaneo (scan-first) — solo si enableScanTray.
+  const [trayItems, setTrayItems] = useState<ScanTrayItem[]>([]);
 
   // Multi-sección (artículo grande)
   const [additionalShelfPositions, setAdditionalShelfPositions] = useState<AdditionalShelfPosition[]>([]);
@@ -362,6 +390,204 @@ export function useOperativeShelf({
       hideCancel: true,
     });
   }, [shelfCode, batchMode, showToast]);
+
+  // ── Bandeja de escaneo (scan-first) ──────────────────────────────────────────
+  // Ver PLAN_ESCANEO_ATAJOS.md §3–§6. La bandeja es una generalización del lote:
+  // se llena en idle por escaneo y resuelve a UBICAR (siembra el lote existente)
+  // o RETIRAR (subconjunto ubicado). No se duplica lógica de negocio.
+  const clearScanTrayStorage = useCallback(() => {
+    try { window.localStorage.removeItem(SCAN_TRAY_STORAGE_KEY); } catch { /* ignore */ }
+  }, []);
+
+  // Rehidratar la bandeja persistida (una vez). El estado `located` se vuelve a
+  // resolver en segundo plano (no se confía en el valor persistido).
+  const trayRehydratedRef = useRef(false);
+  useEffect(() => {
+    if (!enableScanTray || trayRehydratedRef.current) return;
+    trayRehydratedRef.current = true;
+    try {
+      const raw = window.localStorage.getItem(SCAN_TRAY_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { items?: ScanTrayItem[] };
+      if (Array.isArray(parsed.items) && parsed.items.length > 0) {
+        setTrayItems(parsed.items.map((it) => ({ articleCode: it.articleCode, orderFab: it.orderFab })));
+      }
+    } catch { /* ignore */ }
+  }, [enableScanTray]);
+
+  // Persistir la bandeja en cada cambio (tolerancia a recarga/desconexión).
+  useEffect(() => {
+    if (!enableScanTray) return;
+    try {
+      if (trayItems.length === 0) {
+        window.localStorage.removeItem(SCAN_TRAY_STORAGE_KEY);
+      } else {
+        const slim = trayItems.map((it) => ({ articleCode: it.articleCode, orderFab: it.orderFab, located: it.located }));
+        window.localStorage.setItem(SCAN_TRAY_STORAGE_KEY, JSON.stringify({ v: 1, items: slim, ts: Date.now() }));
+      }
+    } catch { /* cuota / modo privado: ignorar */ }
+  }, [enableScanTray, trayItems]);
+
+  // Resolver el estado "ubicado" de los items pendientes (en segundo plano).
+  useEffect(() => {
+    if (!enableScanTray) return;
+    const pending = trayItems.filter((it) => it.located === undefined && !it.resolving);
+    if (pending.length === 0) return;
+    // Marcar como "resolving" para no relanzar la misma consulta.
+    setTrayItems((prev) => prev.map((it) =>
+      it.located === undefined && !it.resolving ? { ...it, resolving: true } : it,
+    ));
+    pending.forEach(async (item) => {
+      let locs: GlobalArticleLocation[] = [];
+      try {
+        locs = await findArticleGlobal(item.articleCode, item.orderFab);
+      } catch { /* offline / error: se queda sin resolver */ }
+      setTrayItems((prev) => prev.map((it) =>
+        it.articleCode === item.articleCode && it.orderFab === item.orderFab
+          ? { ...it, located: locs.length > 0, locations: locs, resolving: false }
+          : it,
+      ));
+    });
+  }, [enableScanTray, trayItems]);
+
+  /** Añade un escaneo crudo a la bandeja (parsea, dedupe y avisa). */
+  const addToTray = useCallback((raw: string) => {
+    const result = parseScanInput(raw);
+    if (!result.success) {
+      showToast('error', 'error' in result ? result.error : 'Escaneo no reconocido');
+      return;
+    }
+    const { articleCode, orderFab } = result.data;
+    const dup = trayItems.some((it) => it.articleCode === articleCode && it.orderFab === orderFab);
+    if (dup) {
+      showToast('info', `${articleCode} ${orderFab} ya está en la bandeja`);
+      return;
+    }
+    setTrayItems((prev) => [...prev, { articleCode, orderFab }]);
+    showToast('success', `✅ ${articleCode} añadido (${trayItems.length + 1} en bandeja)`);
+  }, [trayItems, showToast]);
+
+  const removeFromTray = useCallback((index: number) => {
+    setTrayItems((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const clearTray = useCallback(() => {
+    setTrayItems([]);
+    clearScanTrayStorage();
+  }, [clearScanTrayStorage]);
+
+  /**
+   * UBICAR desde la bandeja: SIEMPRE disponible para todos los artículos (los ya
+   * ubicados se ubican como parcial, con el aviso existente del flujo de lote).
+   * Siembra el lote existente y deja al usuario seleccionar posiciones (contigüidad).
+   */
+  const ubicarTray = useCallback(() => {
+    if (trayItems.length === 0) return;
+    const articles: ScanData[] = trayItems.map((it) => ({ articleCode: it.articleCode, orderFab: it.orderFab }));
+    setAction('ubicar');
+    setScanData(null);
+    setSelectedCell(null);
+    setSelectedPositions([]);
+    setBatchMode(true);
+    setBatchArticles(articles);
+    setBatchMethod('manual'); // "+ Escanear más" reactiva la entrada de pistola/teclado
+    setBatchProcessedCount(0);
+    setScannerActive(false);
+    setTrayItems([]);
+    clearScanTrayStorage();
+    showToast('info', `📦 ${articles.length} artículo(s) en lote — selecciona posición`);
+  }, [trayItems, clearScanTrayStorage, showToast]);
+
+  /** Ejecuta la retirada por ubicación de cada (artículo × ubicación) de la bandeja. */
+  const processTrayRetirar = useCallback(async (
+    ops: Array<{ articleCode: string; orderFab: string; shelfCode: string; shelfName: string; position: string }>,
+    retiredItems: ScanTrayItem[],
+  ) => {
+    if (processingRef.current) return;
+    processingRef.current = true;
+    setProcessing(true);
+    setConfirmModal((p) => ({ ...p, open: false }));
+    const session = getOperationalSession();
+    let ok = 0;
+    for (const op of ops) {
+      try {
+        const res = await inventoryApi.retirarDeUbicacion({
+          shelfCode: op.shelfCode,
+          articleCode: op.articleCode,
+          orderFab: op.orderFab,
+          position: op.position,
+          operarioId,
+          operarioName: displayName,
+        }, session);
+        if (res?.ok) ok++;
+      } catch { /* contabilizar como fallo */ }
+    }
+    processingRef.current = false;
+    setProcessing(false);
+    // Quitar de la bandeja los artículos retirados (éxito total o parcial).
+    const retiredKeys = new Set(retiredItems.map((it) => `${it.articleCode}|${it.orderFab}`));
+    setTrayItems((prev) => prev.filter((it) => !retiredKeys.has(`${it.articleCode}|${it.orderFab}`)));
+    if (ok === ops.length) {
+      showToast('success', `✅ ${ops.length} artículo(s) retirado(s) correctamente`);
+    } else {
+      showToast('error', `Parcial: ${ok}/${ops.length} retirados`);
+    }
+  }, [operarioId, displayName, showToast]);
+
+  /**
+   * RETIRAR desde la bandeja: acción ADICIONAL, solo para el subconjunto que está
+   * ubicado. Confirma la lista (artículo × ubicación) y retira de cada ubicación.
+   */
+  const retirarTray = useCallback(() => {
+    const located = trayItems.filter((it) => it.located === true && (it.locations?.length ?? 0) > 0);
+    if (located.length === 0) {
+      showToast('info', 'No hay artículos ubicados en la bandeja para retirar');
+      return;
+    }
+    const ops: Array<{ articleCode: string; orderFab: string; shelfCode: string; shelfName: string; position: string }> = [];
+    for (const it of located) {
+      for (const loc of it.locations || []) {
+        ops.push({ articleCode: it.articleCode, orderFab: it.orderFab, shelfCode: loc.shelfCode, shelfName: loc.shelfName, position: loc.position });
+      }
+    }
+    const summary = ops.map((o) => `• ${o.articleCode} — ${o.shelfName} pos. ${displayPos(o.position)}`).join('\n');
+    setConfirmModal({
+      open: true,
+      title: '📤 Retirar de la bandeja',
+      message: `Se retirarán ${ops.length} artículo(s) de estas ubicaciones:\n\n${summary}`,
+      icon: '📤',
+      variant: 'warning',
+      confirmText: `Sí, retirar ${ops.length}`,
+      onConfirm: () => { void processTrayRetirar(ops, located); },
+      onClose: () => setConfirmModal((p) => ({ ...p, open: false })),
+    });
+  }, [trayItems, showToast, processTrayRetirar]);
+
+  /**
+   * §7bis — Solicitar "traer a sección" desde el buscador global. Reutiliza el
+   * backend createDeliveryRequest (cola del carretillero, requestType TRAER).
+   */
+  const requestDeliveryToSection = useCallback(async (
+    article: { articleCode: string; orderFab: string; shelfCode: string; positions: string[] },
+    destShelfCode: string,
+  ): Promise<boolean> => {
+    const destDef = getShelfDefinition(destShelfCode);
+    const articleShelfName = getShelfDefinition(article.shelfCode)?.name || article.shelfCode;
+    setProcessing(true);
+    const ok = await createDeliveryRequest(
+      operarioId, displayName,
+      destShelfCode, destDef?.name || destShelfCode,
+      article.articleCode, article.orderFab,
+      articleShelfName, article.positions,
+    );
+    setProcessing(false);
+    if (ok) {
+      showToast('success', `✅ Solicitado: el carretillero traerá ${article.articleCode} a ${destDef?.name || destShelfCode}`);
+    } else {
+      showToast('error', 'Error al enviar la solicitud');
+    }
+    return ok;
+  }, [createDeliveryRequest, operarioId, displayName, showToast]);
 
   // ── Captura de método ────────────────────────────────────────────────────────
   /**
@@ -1405,6 +1631,8 @@ export function useOperativeShelf({
     showCameraOCR, setShowCameraOCR,
     showBarcodeForm, setShowBarcodeForm,
     batchMode, batchArticles, batchMethod, batchProcessedCount,
+    // bandeja de escaneo (scan-first)
+    enableScanTray, trayItems,
     additionalShelfPositions, showAddShelfModal, setShowAddShelfModal,
     showRetirarArticleList, showRetirarCellModal, retirarCellPosition, retirarCellItems,
     pendingRetirarQueue, finalizeRetirarQueue,
@@ -1432,6 +1660,8 @@ export function useOperativeShelf({
     handleSectionPicked,
     handleRecogidaConfirm, handleTraerConfirm,
     addAdditionalShelf,
+    // bandeja de escaneo (scan-first)
+    addToTray, removeFromTray, clearTray, ubicarTray, retirarTray, requestDeliveryToSection,
     setShowRetirarArticleList, setShowRetirarCellModal, setShowMoverArticleList,
     setSectionPicker, setScanMethodPickerOpen, setPendingAction,
     setShowReprocesosUbicacionModal,

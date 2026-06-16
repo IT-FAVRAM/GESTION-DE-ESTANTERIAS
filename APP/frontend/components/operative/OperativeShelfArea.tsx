@@ -30,9 +30,12 @@ import ReprocesosEditor from '../kiosk/ReprocesosEditor';
 import RecogidaModal from '../kiosk/RecogidaModal';
 import TraerArticuloModal from '../kiosk/TraerArticuloModal';
 import AddShelfPositionModal from './AddShelfPositionModal';
+import ScanTray from './ScanTray';
 import { SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
 import { parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
 import { validateContiguity } from '../../lib/contiguityValidator';
+import { useScannerCapture } from '../../hooks/useScannerCapture';
+import type { GlobalSearchResult } from '../../hooks/useGlobalSearchWithCache';
 import type { RoleOperativeConfig } from '../../lib/operative/operativeConfig';
 import type { UseOperativeShelfReturn } from '../../hooks/useOperativeShelf';
 
@@ -49,6 +52,13 @@ interface OperativeShelfAreaProps {
 
 const padPos = (p: string) => parseInt(p, 10);
 const displayPos = (p: string) => { const n = parseInt(p, 10); return Number.isNaN(n) ? p : String(n); };
+/** Número de posición legible a partir de "SHELF_pos" o "pos". */
+const positionNumber = (posStr: string): string => {
+  const idx = posStr.lastIndexOf('_');
+  const raw = idx >= 0 ? posStr.slice(idx + 1) : posStr;
+  const n = parseInt(raw, 10);
+  return Number.isNaN(n) ? raw : String(n);
+};
 
 const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config, setShelfCode, fullscreenGrid = true, forceSingleBlock = false }) => {
   const {
@@ -82,10 +92,28 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
     addAdditionalShelf,
     setShowRetirarArticleList, setShowMoverArticleList, setSectionPicker, setScanMethodPickerOpen,
     scanArticleOnly,
+    enableScanTray, trayItems, addToTray, removeFromTray, clearTray, ubicarTray, retirarTray,
+    requestDeliveryToSection,
   } = engine;
 
   const reprocesosCosts = !!config.reprocesos?.showCosts;
   const canMultiSection = config.ubicar.allowMultiSection;
+
+  // §7bis — "Solicitar traer" disponible en el buscador para TODOS menos el carretillero.
+  const canSolicitarTraer = config.role !== 'CARRETILLERO';
+  const [traerResult, setTraerResult] = React.useState<GlobalSearchResult | null>(null);
+
+  // Detector de pistola global (scan-first): activo solo en idle y sin modales abiertos.
+  const anyModalOpen =
+    confirmModal.open || scanMethodPickerOpen || !!selectedCell || sectionPicker.open ||
+    showRecogidaModal || showTraerModal || showRetirarArticleList || showRetirarCellModal ||
+    showMoverArticleList || !!reprocesosCell || showReprocesosUbicacionModal || showOFQuestion ||
+    showAddShelfModal || showCameraQR || showCameraOCR || showBarcodeForm || !!traerResult;
+
+  useScannerCapture({
+    active: !!enableScanTray && action === 'idle' && !anyModalOpen,
+    onScan: addToTray,
+  });
 
   const handleSaveNota = useCallback(async (nota: string, locationId: string) => {
     try {
@@ -323,6 +351,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             currentShelfCode={shelfCode}
             canNavigateToShelf={config.shelfScope === 'all' && !!setShelfCode}
             onShelfNavigate={setShelfCode}
+            onSolicitarTraer={canSolicitarTraer ? setTraerResult : undefined}
             onOutOfShelfResult={(result) => {
               if (config.shelfScope !== 'all') {
                 showToast('info', `Está en ${result.shelfCode} (pos. ${result.positions.map((p) => padPos(p)).join(', ')})`);
@@ -330,6 +359,18 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             }}
           />
         </div>
+      )}
+
+      {/* ── Bandeja de escaneo (scan-first, idle) ── */}
+      {action === 'idle' && enableScanTray && (
+        <ScanTray
+          items={trayItems}
+          onUbicar={ubicarTray}
+          onRetirar={retirarTray}
+          onClear={clearTray}
+          onRemove={removeFromTray}
+          disabled={processing}
+        />
       )}
 
       {/* ── Grid ── */}
@@ -467,6 +508,49 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             <div className="px-4 py-3 border-t border-slate-100">
               <button
                 onClick={() => { setSectionPicker((p) => ({ ...p, open: false })); cancelAction(); }}
+                className="w-full rounded-xl bg-rose-600 hover:bg-rose-500 text-white py-3 text-sm font-bold active:scale-[0.98] transition-all touch-manipulation"
+              >
+                ✕ Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* §7bis — Selector de sección destino para "Solicitar traer" */}
+      {traerResult && (
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Solicitar traer</p>
+              <h3 className="text-lg font-black text-slate-900">¿A qué sección debe traerlo el carretillero?</h3>
+              <p className="text-xs text-slate-500 mt-1 font-mono truncate">{traerResult.articleCode} · {traerResult.orderFab}</p>
+            </div>
+            <div className="p-3 max-h-[60vh] overflow-y-auto space-y-1.5">
+              {SHELF_DEFINITIONS.filter((s) => s.code !== traerResult.shelfCode && s.code !== 'COM').map((s) => (
+                <button
+                  key={s.code}
+                  disabled={processing}
+                  onClick={() => {
+                    const positions = traerResult.positions
+                      .map(positionNumber)
+                      .filter((v, i, arr) => arr.indexOf(v) === i);
+                    const result = traerResult;
+                    setTraerResult(null);
+                    void requestDeliveryToSection(
+                      { articleCode: result.articleCode, orderFab: result.orderFab, shelfCode: result.shelfCode, positions },
+                      s.code,
+                    );
+                  }}
+                  className="w-full text-left rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 disabled:opacity-50"
+                >
+                  {s.name} <span className="text-xs text-slate-400 font-mono">({s.code})</span>
+                </button>
+              ))}
+            </div>
+            <div className="px-4 py-3 border-t border-slate-100">
+              <button
+                onClick={() => setTraerResult(null)}
                 className="w-full rounded-xl bg-rose-600 hover:bg-rose-500 text-white py-3 text-sm font-bold active:scale-[0.98] transition-all touch-manipulation"
               >
                 ✕ Cancelar

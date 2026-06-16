@@ -14,7 +14,7 @@ import { usePickupQueue } from '../../hooks/usePickupQueue';
 import PickupQueue from './PickupQueue';
 import CarrosView from './CarrosView';
 import { SHELF_DEFINITIONS, SECTION_DISPLAY_NAMES } from '../../lib/firestoreSchema';
-import { buildOperativeConfig } from '../../lib/operative/operativeConfig';
+import { buildOperativeConfig, canUseScanTray } from '../../lib/operative/operativeConfig';
 import { useOperativeShelf } from '../../hooks/useOperativeShelf';
 import OperativeShelfArea from '../operative/OperativeShelfArea';
 import OperativeActionButtons from '../operative/OperativeActionButtons';
@@ -29,7 +29,7 @@ interface CarretilleroViewProps {
 }
 
 const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab = 'shelves', chatButton }) => {
-  const { role, displayName, operarioId, firebaseUser, logout } = useAuth();
+  const { role, displayName, operarioId, firebaseUser, email, logout } = useAuth();
   const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? '';
   const { pendingCount } = usePickupQueue();
 
@@ -43,12 +43,19 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
     [effectiveRole, selectedShelf],
   );
 
+  // Bandeja de escaneo (scan-first): solo carretillero + superadmins por email (§7).
+  const enableScanTray = useMemo(
+    () => canUseScanTray(effectiveRole, email ?? firebaseUser?.email),
+    [effectiveRole, email, firebaseUser],
+  );
+
   const engine = useOperativeShelf({
     config,
     shelfCode: selectedShelf,
     setShelfCode: setSelectedShelf,
     operarioId: effectiveOperarioId,
     displayName,
+    enableScanTray,
   });
 
   const isIdle = engine.action === 'idle';
