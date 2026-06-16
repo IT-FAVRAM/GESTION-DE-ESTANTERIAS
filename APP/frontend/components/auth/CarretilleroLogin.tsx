@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import {
-  signInWithEmailAndPassword,
   setPersistence,
   browserLocalPersistence,
 } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
+import { signInWithFlexiblePassword } from '../../lib/auth/flexiblePasswordSignIn';
 import { LoadingIcon, ErrorIcon } from '../icons/Icons';
 
 interface CarretilleroLoginProps {
@@ -39,7 +39,7 @@ const CarretilleroLogin: React.FC<CarretilleroLoginProps> = ({ onSuccess, onBack
       const carretillero = CARRETILLEROS.find((c) => c.name === selectedName);
       if (!carretillero) throw new Error('Carretillero no válido');
 
-      await signInWithEmailAndPassword(auth, carretillero.email, password);
+      await signInWithFlexiblePassword(auth, carretillero.email, password);
       if (onSuccess) onSuccess();
     } catch (err: any) {
       console.error('Carretillero login failed', err);

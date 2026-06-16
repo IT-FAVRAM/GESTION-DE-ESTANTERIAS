@@ -28,7 +28,11 @@ if (hasMessagingConfig) {
     messaging.onBackgroundMessage((payload) => {
         console.log('[firebase-messaging-sw.js] Received background message ', payload);
         const notificationTitle = payload.notification?.title || payload.data?.title || 'Gestor de Estanterías';
-        const isUrgent = payload.data?.priority === 'high' || payload.data?.type === 'urgent_placement';
+        const type = String(payload.data?.type || '').toUpperCase();
+        const isUrgent = payload.data?.priority === 'high'
+            || type.includes('URGENT')
+            || type.includes('CRITICAL')
+            || type === 'URGENT_PLACEMENT';
         const notificationOptions = {
             body: payload.notification?.body || payload.data?.body || '',
             icon: '/icon.svg',
@@ -36,6 +40,7 @@ if (hasMessagingConfig) {
             data: payload.data || {},
             vibrate: isUrgent ? [200, 100, 200, 100, 500] : [200],
             requireInteraction: isUrgent,
+            silent: false, // reproducir sonido del sistema al mostrar el aviso
             tag: payload.data?.type || 'warehouse-alert',
         };
 

@@ -18,6 +18,7 @@ import type { AdminTab } from './components/admin/adminShared';
 import OfflineIndicator from './components/common/OfflineIndicator';
 import OfflineDebugPanel from './components/common/OfflineDebugPanel';
 import { initPushNotifications, listenForegroundMessages, refreshTokenOnFocus } from './lib/pushService';
+import { playNotificationSound } from './lib/notificationSound';
 import { useConnectionMonitor } from './hooks/useConnectionMonitor';
 import AppLoadingScreen from './components/app/AppLoadingScreen';
 import PushToast from './components/app/PushToast';
@@ -119,6 +120,10 @@ const AppV3: React.FC = () => {
 
     listenForegroundMessages((msg) => {
       if (!mounted) return;
+      // Sonido de aviso (en primer plano FCM no reproduce sonido del sistema).
+      const isUrgent = msg.data?.priority === 'high'
+        || (msg.data?.type ?? '').toUpperCase().includes('URGENT');
+      playNotificationSound(isUrgent);
       setPushNotif({ title: msg.title || '', body: msg.body || '' });
       if (msg.data?.type !== 'ADMIN_MESSAGE') {
         setTimeout(() => setPushNotif(null), 10000);

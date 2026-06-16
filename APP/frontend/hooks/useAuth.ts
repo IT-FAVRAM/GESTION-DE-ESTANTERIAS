@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   onAuthStateChanged,
   signInAnonymously,
-  signInWithEmailAndPassword,
   signOut,
   setPersistence,
   browserLocalPersistence,
@@ -10,6 +9,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
+import { signInWithFlexiblePassword } from '../lib/auth/flexiblePasswordSignIn';
 import { fetchDeviceConfig, sendDeviceHeartbeat } from '../lib/api/deviceApi';
 import {
   type UserRole,
@@ -602,7 +602,7 @@ export const useAuth = () => {
       // El parámetro _rememberMe se ignora (siempre true) por compatibilidad
       await setPersistence(auth, browserLocalPersistence);
 
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithFlexiblePassword(auth, email, password);
       // onAuthStateChanged will fire and set authMethod: 'email'
       return true;
     } catch (e: any) {
