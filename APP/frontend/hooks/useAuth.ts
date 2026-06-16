@@ -219,13 +219,6 @@ const resolveUserProfile = async (user: User): Promise<UserDoc | null> => {
   return resolveUserProfileWithRetry(user, 3);
 };
 
-// ── Prevenir race conditions: singleton para onAuthStateChanged ─────────────
-// Múltiples instancias del hook useAuth() crean múltiples suscripciones
-// de onAuthStateChanged. Esto puede causar race conditions si cada listener
-// lee estado stale. Usamos un contador de instancias para subscribir solo una vez.
-let authSubscriptionCount = 0;
-let unsubscribeAuth: (() => void) | null = null;
-
 export const useAuth = () => {
   const deviceId = getOrCreateDeviceId();
 
@@ -387,11 +380,13 @@ export const useAuth = () => {
   }, [deviceId, authResolved]);
 
   useEffect(() => {
-    // Patrón singleton: solo la primera instancia crea la suscripción
-    authSubscriptionCount += 1;
-
-    if (authSubscriptionCount === 1) {
-      unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+    // Cada instancia de useAuth mantiene su PROPIA suscripción a onAuthStateChanged.
+    // Antes había un singleton module-level que solo actualizaba el estado de la
+    // primera instancia; el resto de consumidores (p.ej. el useAuth de UnifiedLogin)
+    // se quedaban con loading=true para siempre → botones deshabilitados / login
+    // imposible. Múltiples listeners de onAuthStateChanged son seguros: cada uno
+    // actualiza su propio estado con el mismo usuario.
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (!user || user.isAnonymous) {
           const session = readGuestSession<GuestSession>();
           // Only apply a guest session that has been confirmed by detectMode via backend.
@@ -487,16 +482,9 @@ export const useAuth = () => {
           assignedShelf: emailAssignedShelf ?? prev.assignedShelf,
           error: resolvedRole ? null : 'Usuario no configurado',
         }));
-      });
-    }
+    });
 
-    return () => {
-      authSubscriptionCount -= 1;
-      if (authSubscriptionCount === 0 && unsubscribeAuth) {
-        unsubscribeAuth();
-        unsubscribeAuth = null;
-      }
-    };
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
