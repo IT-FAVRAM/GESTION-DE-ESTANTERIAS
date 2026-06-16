@@ -138,6 +138,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
         {!isEmpty && itemCount === 1 && <span className="w-2 h-2 rounded-full bg-cyan-300 mt-0.5 shadow-[0_0_10px_rgba(103,232,249,0.8)]" />}
         {!isEmpty && itemCount > 1 && <span className={`text-[8px] font-black mt-0.5 ${headerText}`}>{itemCount}</span>}
         {location?.nota && <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-amber-400 pointer-events-none" />}
+        {!!location?.photos?.length && <span className="absolute bottom-0.5 right-0.5 w-2 h-2 rounded-full bg-violet-400 shadow-[0_0_6px_rgba(167,139,250,0.9)] pointer-events-none" />}
       </button>
     );
   }
@@ -200,6 +201,11 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
           </span>
         </div>
         {location?.nota && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 pointer-events-none" />}
+        {!!location?.photos?.length && (
+          <span className="absolute top-1 left-1 text-[9px] leading-none bg-violet-500 text-white rounded-full px-1 py-0.5 flex items-center gap-0.5 shadow-sm pointer-events-none">
+            📷{location.photos.length > 1 ? location.photos.length : ''}
+          </span>
+        )}
       </div>
     );
   }
@@ -303,6 +309,11 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
       {...dropProps}
     >
       {location?.nota && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 z-10 pointer-events-none" />}
+      {!!location?.photos?.length && (
+        <span className="absolute top-1 left-1 z-10 text-[9px] leading-none bg-violet-500 text-white rounded-full px-1 py-0.5 flex items-center gap-0.5 shadow-sm pointer-events-none">
+          📷{location.photos.length > 1 ? location.photos.length : ''}
+        </span>
+      )}
       {/* REPROCESOS: Importe total en esquina superior derecha (si showReprocessCosts) */}
       {isReproces && showReprocessCosts && location && (() => {
         const totalImporte = location.items.reduce((sum, item) => {

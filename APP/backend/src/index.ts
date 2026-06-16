@@ -79,3 +79,7 @@ export {
 export {
   chaperoOperate,
 } from './chapero';
+
+export {
+  onLocationDeleted,
+} from './photos';

@@ -31,6 +31,8 @@ import RecogidaModal from '../kiosk/RecogidaModal';
 import TraerArticuloModal from '../kiosk/TraerArticuloModal';
 import AddShelfPositionModal from './AddShelfPositionModal';
 import ScanTray from './ScanTray';
+import LocationPhotoGallery from '../common/LocationPhotoGallery';
+import PhotoCarousel from '../common/PhotoCarousel';
 import { SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
 import { parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
 import { validateContiguity } from '../../lib/contiguityValidator';
@@ -64,6 +66,7 @@ const positionNumber = (posStr: string): string => {
 
 const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config, setShelfCode, fullscreenGrid = true, forceSingleBlock = false, userSection = null }) => {
   const {
+    operarioId, displayName,
     action, scanData, selectedPositions, scannerActive, processing, feedback,
     shelfCode, shelfDef, locations, loading,
     selectedCell, setSelectedCell,
@@ -123,6 +126,21 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
     // OPERARIO, SOLO_VISUAL, otros: sin acceso
     return false;
   }, [config.role, shelfCode, userSection]);
+
+  // ── Fotos de ubicación (sección SOLDADURA) ──
+  const isSoldaduraShelf = shelfDef?.section === 'SOLDADURA';
+  const canManagePhotos = React.useMemo(() => {
+    if (!isSoldaduraShelf) return false;
+    const role = config.role;
+    if (role === 'ADMIN' || role === 'SUPERADMIN' || role === 'CARRETILLERO') return true;
+    if (role === 'JEFE_SECCION') return userSection === 'SOLDADURA';
+    return false;
+  }, [isSoldaduraShelf, config.role, userSection]);
+  const [showPhotoCarousel, setShowPhotoCarousel] = React.useState(false);
+  const shelfPhotoEntries = React.useMemo(
+    () => locations.flatMap((loc) => (loc.photos ?? []).map((photo) => ({ photo, position: loc.position }))),
+    [locations],
+  );
 
   // §7bis — "Solicitar traer" disponible en el buscador para TODOS menos el carretillero.
   const canSolicitarTraer = config.role !== 'CARRETILLERO';
@@ -720,6 +738,17 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
                   </div>
                 ))
               )}
+              {isSoldaduraShelf && (
+                <LocationPhotoGallery
+                  shelfCode={shelfCode}
+                  position={selectedCell.position}
+                  photos={selectedCell.photos ?? []}
+                  canManage={canManagePhotos}
+                  uploadedBy={operarioId}
+                  uploadedByName={displayName}
+                  onPhotosUpdated={(photos) => setSelectedCell((prev) => (prev ? { ...prev, photos } : null))}
+                />
+              )}
               <div className="pt-1">
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nota</p>
@@ -749,6 +778,33 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             </div>
           </div>
         </div>
+      )}
+
+      {/* Botón flotante: carrusel de TODAS las fotos del shelf (solo SOLDADURA) */}
+      {action === 'idle' && isSoldaduraShelf && shelfPhotoEntries.length > 0 && (
+        <button
+          onClick={() => setShowPhotoCarousel(true)}
+          className="fixed bottom-24 right-4 z-40 bg-violet-600 hover:bg-violet-500 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-xl active:scale-95 transition-all"
+          aria-label="Ver carrusel de fotos"
+        >
+          <span className="text-2xl">📷</span>
+          <span className="absolute -top-1 -right-1 bg-white text-violet-600 text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center shadow">
+            {shelfPhotoEntries.length}
+          </span>
+        </button>
+      )}
+
+      {showPhotoCarousel && shelfPhotoEntries.length > 0 && (
+        <PhotoCarousel
+          entries={shelfPhotoEntries}
+          canManage={canManagePhotos}
+          onDelete={async (entry) => {
+            if (!entry.position) return;
+            const { photoApi } = await import('../../lib/api/photoApi');
+            await photoApi.deletePhoto(shelfCode, entry.position, entry.photo);
+          }}
+          onClose={() => setShowPhotoCarousel(false)}
+        />
       )}
     </div>
   );

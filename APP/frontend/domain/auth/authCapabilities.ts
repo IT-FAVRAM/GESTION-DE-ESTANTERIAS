@@ -23,6 +23,7 @@ export const resolveCapabilities = (
       canBrowseAllShelves: false,
       canOperateShelf: false,
       canAccessShelf: () => false,
+      canManagePhotos: false,
     };
   }
 
@@ -37,6 +38,12 @@ export const resolveCapabilities = (
     canEditReprocesses: isCalidad || isAdminLevel,
     canBrowseAllShelves: role === 'CARRETILLERO' || isAdminLevel || role === 'JEFE_SECCION',
     canOperateShelf: canOperate,
+    // Gestión de fotos de ubicación (SOLDADURA): admin-level y carretillero en
+    // cualquier shelf de soldadura; jefe de sección solo si su sección es SOLDADURA.
+    canManagePhotos:
+      isAdminLevel ||
+      role === 'CARRETILLERO' ||
+      (role === 'JEFE_SECCION' && !!assignedShelf && getSectionForShelf(assignedShelf) === 'SOLDADURA'),
     canAccessShelf: (shelfCode: string) => {
       if (role === 'OPERARIO') return true;
       if (role === 'CALIDAD') return shelfCode === 'CAL';

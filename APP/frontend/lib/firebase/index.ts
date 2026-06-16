@@ -8,6 +8,7 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { getFunctions } from 'firebase/functions';
+import { getStorage } from 'firebase/storage';
 import { getMessaging, isSupported, type Messaging } from 'firebase/messaging';
 
 const firebaseConfig = {
@@ -42,6 +43,7 @@ const initDb = (): Firestore => {
 
 export const db = initDb();
 export const functions = getFunctions(app);
+export const storage = getStorage(app);
 
 export const getMessagingInstance = async (): Promise<Messaging | null> => {
   try {

@@ -29,6 +29,7 @@ import { parseCallableError } from '../lib/callableError';
 import { isReprocesosLocation, getShelfDefinition } from '../lib/firestoreSchema';
 import { validateContiguity } from '../lib/contiguityValidator';
 import type { LocationItem } from '../lib/schema/locations';
+import { getLocationDocId } from '../lib/schema/shelves';
 import type { RoleOperativeConfig } from '../lib/operative/operativeConfig';
 import type { AdditionalShelfPosition } from '../components/operative/AddShelfPositionModal';
 import type { RetirarItem } from '../components/kiosk/RetirarArticleList';
@@ -146,6 +147,11 @@ export function useOperativeShelf({
   const [feedback, setFeedback] = useState<OperativeFeedback | null>(null);
   const [selectedCell, setSelectedCell] = useState<ShelfLocationState | null>(null);
   const [highlightedSearch, setHighlightedSearch] = useState<string[]>([]);
+
+  // Espejo de `locations` para leer el valor fresco dentro de closures diferidos
+  // (p.ej. el callback "finalizar" del modal de ubicación, creado un render antes).
+  const locationsRef = useRef(locations);
+  useEffect(() => { locationsRef.current = locations; }, [locations]);
 
   const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
     open: false, title: '', message: '', icon: '', variant: 'info', onConfirm: () => {},
@@ -1288,7 +1294,19 @@ export function useOperativeShelf({
     // FINALIZAR la acción. Antes, cerrar con el fondo dejaba scanData y
     // selectedPositions vivos con el botón "✓ Ubicar" activo para un artículo
     // YA ubicado → riesgo de duplicarlo con un toque accidental.
-    const finalizeUbicar = () => finishAction('success', `✅ ${articleCode} ubicado correctamente`);
+    const finalizeUbicar = () => {
+      finishAction('success', `✅ ${articleCode} ubicado correctamente`);
+      // SOLDADURA: al finalizar, abrir la celda ubicada para poder adjuntarle una foto
+      // (la galería vive en el modal de celda). resetFlow() ya limpió selectedCell; este
+      // setSelectedCell posterior gana en el mismo tick.
+      if (shelfDef?.section === 'SOLDADURA') {
+        const pos = positions[0];
+        const existing = locationsRef.current.find((l) => l.position === pos);
+        setSelectedCell(
+          existing ?? { position: pos, items: [], isEmpty: false, locationId: getLocationDocId(shelfCode, pos), photos: [] },
+        );
+      }
+    };
     setConfirmModal({
       open: true,
       title: '✅ Artículo ubicado',
@@ -1647,6 +1665,8 @@ export function useOperativeShelf({
   ]), [highlightedSearch, scanData, locations]);
 
   return {
+    // sesión
+    operarioId, displayName,
     // datos de estantería
     locations, loading, shelfDef, shelfCode,
     totalArticles, totalOccupied, totalEmpty,

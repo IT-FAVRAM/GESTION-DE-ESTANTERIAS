@@ -8,6 +8,9 @@ export interface SessionCapabilities {
   canBrowseAllShelves: boolean;
   canOperateShelf: boolean;
   canAccessShelf: (shelfCode: string) => boolean;
+  /** Puede gestionar fotos de ubicación (sección SOLDADURA). Gate grueso de sesión;
+   *  la restricción fina por shelf/sección se aplica en la vista operativa. */
+  canManagePhotos: boolean;
 }
 
 

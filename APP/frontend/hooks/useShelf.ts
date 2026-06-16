@@ -115,6 +115,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
             isEmpty: data.isEmpty ?? (data.items?.length === 0),
             locationId: getLocationDocId(code, data.position || docSnap.id),
             nota: data.nota,
+            photos: data.photos,
           });
         });
         return out;
@@ -180,6 +181,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
             isEmpty: data.isEmpty ?? (data.items?.length === 0),
             locationId: getLocationDocId(shelfCode, data.position || docSnap.id),
             nota: data.nota,
+            photos: data.photos,
           });
         });
         locs.sort((a, b) => {

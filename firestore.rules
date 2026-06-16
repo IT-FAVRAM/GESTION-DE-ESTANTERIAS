@@ -60,23 +60,12 @@ service cloud.firestore {
 
     function canEditNotesAtLocation(shelfCode) {
       let role = userRole();
-      // ADMIN, SUPERADMIN, CARRETILLERO pueden editar en cualquier ubicación
-      if (role in ['ADMIN', 'SUPERADMIN', 'CARRETILLERO']) {
-        return true;
-      }
-      // JEFE_SECCION solo en su sección
-      if (role == 'JEFE_SECCION') {
-        let userSec = userSection();
-        if (userSec == null) return false;
-        // La sección del jefe debe coincidir con la sección de la estantería
-        // Esto se valida en el frontend, pero la rule lo refuerza
-        return true; // El frontend valida la correspondencia sección-estantería
-      }
-      // CALIDAD solo en CAL
-      if (role == 'CALIDAD') {
-        return shelfCode == 'CAL';
-      }
-      return false;
+      // ADMIN/SUPERADMIN/CARRETILLERO en cualquier ubicación;
+      // JEFE_SECCION solo con sección definida (validación fine-grained en frontend);
+      // CALIDAD solo en CAL.
+      return role in ['ADMIN', 'SUPERADMIN', 'CARRETILLERO']
+          || (role == 'JEFE_SECCION' && userSection() != null)
+          || (role == 'CALIDAD' && shelfCode == 'CAL');
     }
 
     // ── ACCESS POLICY HELPERS ─────────────────────────────────────────────────
@@ -165,11 +154,19 @@ service cloud.firestore {
 
       match /locations/{position} {
         allow read:  if canReadWarehouseState();
-        // Permitir actualizar SOLO el campo "nota" con restricciones de rol
+        // Permitir actualizar SOLO los campos "nota" y/o "photos" con restricciones de rol.
+        // Las fotos de ubicación (sección SOLDADURA) se escriben desde el cliente igual
+        // que las notas; el binario vive en Storage, aquí solo el array de metadatos.
         allow update: if isRegisteredUser()
                          && canEditNotesAtLocation(shelfCode)
-                         && request.resource.data.diff(resource.data).changedKeys().hasOnly(['nota']);
-        allow create, delete: if false;
+                         && request.resource.data.diff(resource.data).changedKeys().hasOnly(['nota', 'photos']);
+        // Permitir crear el doc de una ubicación VACÍA solo para adjuntarle fotos
+        // (posiciones sin doc previo). Forma acotada: sin items, mismos roles que notas.
+        allow create: if isRegisteredUser()
+                         && canEditNotesAtLocation(shelfCode)
+                         && request.resource.data.keys().hasOnly(['position', 'items', 'isEmpty', 'photos'])
+                         && request.resource.data.items.size() == 0;
+        allow delete: if false;
       }
     }
 

@@ -98,6 +98,7 @@ const RackSlot: React.FC<RackSlotProps> = ({
   onCellDragStart, onCellDragEnter, onCellDragLeave, onCellDrop,
 }) => {
   const items = location?.items ?? [];
+  const photos = location?.photos ?? [];
   const isEmpty = items.length === 0;
   const isReproces = typeof posNum === 'number' && isReprocesosLocation(shelfCode, posNum);
   const isDraggable = !isEmpty && !!onCellDragStart;
@@ -235,6 +236,11 @@ const RackSlot: React.FC<RackSlotProps> = ({
           {position}
         </span>
         {badgeEl}
+        {photos.length > 0 && (
+          <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', background: '#8b5cf6', borderRadius: 8, padding: '1px 4px', lineHeight: 1, display: 'inline-flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+            📷{photos.length > 1 ? photos.length : ''}
+          </span>
+        )}
         {isReproces && showReprocessCosts && !badgeEl && (
           <span style={{ fontSize: 8, color: '#fbbf24', fontWeight: 700, lineHeight: 1 }}>€</span>
         )}
