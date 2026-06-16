@@ -27,7 +27,10 @@ const ChaperoGrid: React.FC<ChaperoGridProps> = ({ positions, highlightedIds, or
     const multiCount = pos.items.length;
 
     let cellClass =
-      'w-full h-[44px] rounded-xl border-2 text-[8px] leading-tight flex flex-col items-center justify-center cursor-pointer transition-all select-none overflow-hidden px-0.5 ';
+      'w-full rounded-xl border-2 leading-tight flex flex-col items-center justify-center cursor-pointer transition-all select-none px-0.5 ';
+
+    // Responsive cell height + text size
+    cellClass += 'sm:h-[44px] md:h-[44px] lg:h-[44px] h-[36px] sm:text-[8px] text-[7px] ';
 
     if (isOrigin) {
       cellClass += 'bg-blue-500 border-blue-600 shadow-lg ring-2 ring-blue-300 scale-105 ';
@@ -52,18 +55,18 @@ const ChaperoGrid: React.FC<ChaperoGridProps> = ({ positions, highlightedIds, or
         {isOrigin ? (
           <span className="text-white font-black text-[9px]">ORIGEN</span>
         ) : isEmpty ? (
-          <span className="text-slate-300 font-bold text-[8px]">{id}</span>
+          <span className="text-slate-300 font-bold sm:text-[8px] text-[7px]">{id}</span>
         ) : (
           <>
-            <span className="font-black text-emerald-800 text-[8px] truncate w-full text-center leading-none">
+            <span className="font-black text-emerald-800 sm:text-[8px] text-[7px] truncate w-full text-center leading-none line-clamp-1">
               {item?.material}
             </span>
             {item?.spec && (
-              <span className="text-emerald-600 text-[7px] truncate w-full text-center leading-none">{item.spec}</span>
+              <span className="text-emerald-600 sm:text-[7px] text-[6px] truncate w-full text-center leading-none line-clamp-1">{item.spec}</span>
             )}
-            <span className="text-emerald-700 text-[8px] font-semibold leading-none">{item?.espesor}mm</span>
+            <span className="text-emerald-700 sm:text-[8px] text-[7px] font-semibold leading-none">{item?.espesor}mm</span>
             {multiCount > 1 && (
-              <span className="text-[7px] bg-emerald-600 text-white rounded px-0.5 leading-tight">+{multiCount - 1}</span>
+              <span className="text-[6px] sm:text-[7px] bg-emerald-600 text-white rounded px-0.5 leading-tight">+{multiCount - 1}</span>
             )}
           </>
         )}
@@ -71,22 +74,33 @@ const ChaperoGrid: React.FC<ChaperoGridProps> = ({ positions, highlightedIds, or
     );
   };
 
-  const renderSide = (side: 'L' | 'R') => (
-    <div className="w-full overflow-x-auto [scrollbar-width:thin]">
-      <div className="flex gap-1.5 px-2 py-2 min-w-max w-full">
-        {Array.from({ length: CHAPERO_COLS }, (_, i) => i + 1).map((col) => (
-          <div key={col} className="flex-1 min-w-[48px] flex flex-col gap-1 items-stretch">
-            <span className="text-[9px] font-black text-slate-400 leading-none text-center">
-              {side}{String(col).padStart(2, '0')}
-            </span>
-            {Array.from({ length: CHAPERO_LEVELS }, (_, i) => i + 1).map((level) =>
-              renderCell(getPos(side, col, level)),
-            )}
-          </div>
-        ))}
+  const renderSide = (side: 'L' | 'R') => {
+    // Responsive: móvil 8 columnas, tablet 12, desktop 16
+    const visibleCols = typeof window !== 'undefined'
+      ? window.innerWidth < 640 ? 8 : window.innerWidth < 1024 ? 12 : 16
+      : 16;
+
+    const cellWidth = typeof window !== 'undefined'
+      ? window.innerWidth < 640 ? 'w-[40px]' : window.innerWidth < 1024 ? 'w-[44px]' : 'w-[48px]'
+      : 'w-[48px]';
+
+    return (
+      <div className="w-full overflow-x-auto [scrollbar-width:thin] scroll-smooth" style={{ scrollPaddingLeft: '1rem' }}>
+        <div className="flex gap-1.5 sm:gap-2 px-2 py-2 min-w-max w-full">
+          {Array.from({ length: CHAPERO_COLS }, (_, i) => i + 1).map((col) => (
+            <div key={col} className={`${cellWidth} flex flex-col gap-1 items-stretch flex-shrink-0`}>
+              <span className="text-[8px] sm:text-[9px] font-black text-slate-400 leading-none text-center">
+                {side}{String(col).padStart(2, '0')}
+              </span>
+              {Array.from({ length: CHAPERO_LEVELS }, (_, i) => i + 1).map((level) =>
+                renderCell(getPos(side, col, level)),
+              )}
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="flex flex-col w-full">

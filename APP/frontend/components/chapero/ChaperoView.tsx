@@ -148,49 +148,50 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
   return (
     <div className="h-dvh w-screen max-w-full bg-slate-50 flex flex-col overflow-hidden">
 
-      {/* ── Header ── */}
-      <header className="flex-shrink-0 bg-white border-b border-slate-200 px-3 py-2 shadow-sm">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-2xl">🔩</span>
+      {/* ── Header — Responsive ── */}
+      <header className="flex-shrink-0 bg-white border-b border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 shadow-sm">
+        {/* Línea 1: Título + Volver */}
+        <div className="flex items-center justify-between gap-1 sm:gap-2 mb-1">
+          <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+            <span className="text-xl sm:text-2xl flex-shrink-0">🔩</span>
             <div className="min-w-0">
-              <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none">Chapero</h1>
-              <p className="text-[10px] text-slate-500 leading-none mt-0.5">
+              <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight leading-none">Chapero</h1>
+              <p className="text-[8px] sm:text-[10px] text-slate-500 leading-none mt-0.5">
                 {occupiedCount} ocupadas · {positions.length - occupiedCount} libres
               </p>
             </div>
           </div>
           {onClose && (
-            <button onClick={onClose} className="px-3 py-1.5 text-[11px] font-bold bg-slate-100 text-slate-700 rounded-xl flex-shrink-0">
+            <button onClick={onClose} className="px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[11px] font-bold bg-slate-100 text-slate-700 rounded-lg sm:rounded-xl flex-shrink-0 whitespace-nowrap">
               ‹ Volver
             </button>
           )}
         </div>
 
-        {/* Botones de acción — ancho completo, compacto */}
-        <div className="flex gap-1.5 mt-1.5">
+        {/* Línea 2: Botones de acción — compactos en móvil */}
+        <div className="flex gap-1 sm:gap-1.5 mb-1">
           {ACTION_BUTTONS.map(({ mode: m, label, icon, activeClass, idleClass }) => (
             <button
               key={m}
               type="button"
               onClick={() => toggleMode(m)}
-              className={`flex-1 py-2 rounded-xl font-bold transition-all active:scale-[0.97] flex flex-col items-center gap-0 ${mode === m ? activeClass : idleClass}`}
+              className={`flex-1 py-1.5 sm:py-2 rounded-lg sm:rounded-xl font-bold transition-all active:scale-[0.97] flex flex-col items-center gap-0 ${mode === m ? activeClass : idleClass}`}
             >
-              <span className="text-xl leading-none">{icon}</span>
-              <span className="text-[9px] tracking-wider mt-0.5">{label}</span>
+              <span className="text-lg sm:text-xl leading-none">{icon}</span>
+              <span className="text-[8px] sm:text-[9px] tracking-wider mt-0.5">{label}</span>
             </button>
           ))}
         </div>
 
-        {/* Búsqueda + Hint — comprimidos */}
+        {/* Línea 3: Búsqueda + Hint — responsive */}
         {mode !== 'ubicar' && (
-          <div className="flex items-center gap-1 mt-1">
+          <div className="flex items-center gap-1 mb-0.5">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="🔍 Buscar…"
-              className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10px] focus:outline-none focus:ring-2 focus:ring-slate-300"
+              className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 sm:py-1.5 text-[9px] sm:text-[10px] focus:outline-none focus:ring-2 focus:ring-slate-300"
             />
             {searchQuery && (
               <button type="button" onClick={() => setSearchQuery('')} className="text-slate-400 hover:text-slate-600 font-bold px-1 text-sm shrink-0">✕</button>
@@ -200,7 +201,7 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
 
         {/* Hint para retirar/mover */}
         {(mode === 'retirar' || mode === 'mover') && (
-          <div className={`mt-0.5 px-2.5 py-1 rounded-lg text-[10px] font-bold text-center w-full ${
+          <div className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg text-[9px] sm:text-[10px] font-bold text-center w-full ${
             mode === 'retirar' ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'
           }`}>
             {modeHint}
@@ -208,26 +209,26 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
         )}
       </header>
 
-      {/* ── Panel de UBICAR (selector inline, ancho completo, compacto para móvil) ── */}
+      {/* ── Panel de UBICAR (selector inline, responsive) ── */}
       {mode === 'ubicar' && (
-        <div className="flex-shrink-0 bg-emerald-50 border-b-2 border-emerald-200 px-2 pt-1 pb-1.5 space-y-1">
+        <div className="flex-shrink-0 bg-emerald-50 border-b-2 border-emerald-200 px-2 sm:px-3 pt-1 pb-1.5 space-y-1">
 
           {/* Hint + resumen en la misma línea cuando ya hay selección */}
           {ubicarReady ? (
-            <div className="flex items-center gap-2 bg-emerald-600 rounded-lg px-2.5 py-1">
-              <span className="text-white text-[10px] font-bold flex-1">👇 Toca celda</span>
-              <span className="text-emerald-100 text-[10px] font-black shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 bg-emerald-600 rounded-lg px-2 sm:px-2.5 py-1">
+              <span className="text-white text-[9px] sm:text-[10px] font-bold flex-1">👇 Toca celda</span>
+              <span className="text-emerald-100 text-[8px] sm:text-[10px] font-black shrink-0">
                 {effectiveMaterial}{pendingSpec.trim() ? ` ${pendingSpec.trim().toUpperCase()}` : ''} · {effectiveEspesor}mm
               </span>
             </div>
           ) : (
-            <div className="bg-emerald-600 text-white text-[10px] font-bold text-center py-1 rounded-lg">
+            <div className="bg-emerald-600 text-white text-[9px] sm:text-[10px] font-bold text-center py-1 rounded-lg">
               👇 Selecciona material + espesor
             </div>
           )}
 
-          {/* Material + Espesor en dos columnas */}
-          <div className="flex gap-1.5">
+          {/* Material + Espesor — responsive (vertical en móvil, horizontal en tablet+) */}
+          <div className="flex flex-col sm:flex-row gap-1 sm:gap-1.5">
             {/* Material */}
             <div className="flex-1 min-w-0">
               <p className="text-[7px] font-black uppercase tracking-widest text-emerald-700 mb-0.5">Material</p>
@@ -237,7 +238,7 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
                     key={m}
                     type="button"
                     onClick={() => setPendingMaterial(m)}
-                    className={`py-1 rounded text-[9px] font-bold transition-all active:scale-95 ${
+                    className={`py-1 rounded text-[8px] sm:text-[9px] font-bold transition-all active:scale-95 ${
                       pendingMaterial === m
                         ? 'bg-emerald-700 text-white shadow-sm'
                         : 'bg-white text-slate-600 border border-slate-200'
@@ -254,21 +255,21 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
                   onChange={(e) => setCustomMaterial(e.target.value)}
                   placeholder="Material…"
                   autoFocus
-                  className="mt-1 w-full rounded-lg border border-emerald-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="mt-1 w-full rounded-lg border border-emerald-300 bg-white px-2 py-1 text-[9px] focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               )}
             </div>
 
             {/* Espesor */}
             <div className="flex-1 min-w-0">
-              <p className="text-[8px] font-black uppercase tracking-widest text-emerald-700 mb-1">Espesor (mm)</p>
-              <div className="grid grid-cols-4 gap-1 w-full">
+              <p className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest text-emerald-700 mb-0.5">Espesor (mm)</p>
+              <div className="grid grid-cols-4 gap-0.5 sm:gap-1 w-full">
                 {CHAPERO_ESPESORES.map((e) => (
                   <button
                     key={e}
                     type="button"
                     onClick={() => setPendingEspesor(e)}
-                    className={`py-1.5 rounded-lg text-[10px] font-black transition-all active:scale-95 ${
+                    className={`py-1 sm:py-1.5 rounded-lg text-[8px] sm:text-[10px] font-black transition-all active:scale-95 ${
                       pendingEspesor === e
                         ? 'bg-emerald-700 text-white shadow-sm'
                         : 'bg-white text-slate-700 border border-slate-200'
@@ -280,7 +281,7 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
                 <button
                   type="button"
                   onClick={() => setPendingEspesor('custom')}
-                  className={`py-1.5 rounded-lg text-[10px] font-black transition-all active:scale-95 ${
+                  className={`py-1 sm:py-1.5 rounded-lg text-[8px] sm:text-[10px] font-black transition-all active:scale-95 ${
                     pendingEspesor === 'custom'
                       ? 'bg-emerald-700 text-white shadow-sm'
                       : 'bg-white text-slate-700 border border-slate-200'
@@ -297,7 +298,7 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
                   onChange={(e) => setCustomEspesor(e.target.value)}
                   placeholder="Ej: 7.0"
                   autoFocus
-                  className="mt-1 w-full rounded-lg border border-emerald-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="mt-1 w-full rounded-lg border border-emerald-300 bg-white px-2 py-1 text-[9px] focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               )}
             </div>
@@ -309,7 +310,7 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
             value={pendingSpec}
             onChange={(e) => setPendingSpec(e.target.value)}
             placeholder="Spec. opcional…"
-            className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-[9px] text-slate-600 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+            className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-[8px] sm:text-[9px] text-slate-600 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
           />
         </div>
       )}

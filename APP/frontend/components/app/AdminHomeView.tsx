@@ -9,6 +9,7 @@ import { SHELF_DEFINITIONS, ALL_SHELVES } from '../../lib/firestoreSchema';
 import type { AdminTab } from '../admin/adminShared';
 
 const ChaperoView = lazy(() => import('../chapero/ChaperoView'));
+const PieceCounterCamera = lazy(() => import('../common/PieceCounterCamera'));
 
 interface AdminHomeViewProps {
   role: 'ADMIN' | 'SUPERADMIN';
@@ -30,6 +31,7 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
   const [showAvisarConfirm, setShowAvisarConfirm] = useState(false);
   const [showShelfPicker, setShowShelfPicker] = useState(false);
   const [showChapero, setShowChapero] = useState(false);
+  const [showCounter, setShowCounter] = useState(false);
   const [pendingShelfAction, setPendingShelfAction] = useState<PendingShelfAction | null>(null);
   const [selectedShelfCode, setSelectedShelfCode] = useState<string>('');
   const [processing, setProcessing] = useState(false);
@@ -186,6 +188,21 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
               </div>
             </button>
 
+            {/* Contar piezas — solo SUPERADMIN */}
+            {role === 'SUPERADMIN' && (
+              <button
+                type="button"
+                onClick={() => setShowCounter(true)}
+                className="bg-slate-900 rounded-2xl border border-slate-700/50 p-5 flex flex-col items-start gap-2 hover:border-cyan-500/40 active:scale-[0.98] transition-all cursor-pointer text-left touch-manipulation shadow-sm"
+              >
+                <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl">📐</div>
+                <div>
+                  <h3 className="font-bold text-white text-sm">Contar piezas</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Conteo por foto con IA</p>
+                </div>
+              </button>
+            )}
+
             {/* Informes */}
             <button
               type="button"
@@ -299,6 +316,12 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
             <ChaperoView onClose={() => setShowChapero(false)} />
           </Suspense>
         </div>
+      )}
+
+      {showCounter && role === 'SUPERADMIN' && (
+        <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900 text-white">Cargando contador…</div>}>
+          <PieceCounterCamera onClose={() => setShowCounter(false)} />
+        </Suspense>
       )}
     </>
   );

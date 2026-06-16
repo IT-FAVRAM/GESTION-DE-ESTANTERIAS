@@ -145,7 +145,12 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
                   const seen = new Set<string>();
                   const sections = SHELF_DEFINITIONS
                     .map((s) => s.section)
-                    .filter((sec) => { if (seen.has(sec)) return false; seen.add(sec); return true; });
+                    .filter((sec) => {
+                      if (seen.has(sec)) return false;
+                      if (sec === 'PINTURA') return false;
+                      seen.add(sec);
+                      return true;
+                    });
                   return sections.map((sec) => (
                     <React.Fragment key={sec}>
                       <p className="px-3 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">

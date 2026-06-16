@@ -268,7 +268,8 @@
       "PowerShell(Get-ChildItem APP\\\\frontend\\\\components, APP\\\\frontend\\\\hooks, APP\\\\frontend\\\\domain, APP\\\\frontend\\\\lib -Recurse -File | Where-Object { $_.FullName -notmatch 'node_modules' } | Select-Object @{N='Path';E={$_.FullName.Replace\\('C:\\\\-- APLICACIONES DANI --\\\\APP -- ESTANTERIAS\\\\APP\\\\frontend\\\\',''\\)}}, Length | Format-Table -AutoSize)",
       "Skill(run)",
       "Skill(claude-api)",
-      "mcp__plugin_playwright_playwright__browser_resize"
+      "mcp__plugin_playwright_playwright__browser_resize",
+      "Bash(tsconfig\" | head -10)"
     ]
   },
   "enabledMcpjsonServers": [

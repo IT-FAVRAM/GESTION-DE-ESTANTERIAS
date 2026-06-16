@@ -12,13 +12,11 @@
 import React, { useState, lazy, Suspense } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import KioskSearchBar from '../kiosk/KioskSearchBar';
-import PieceCounterCamera from '../common/PieceCounterCamera';
 
 const ChaperoView = lazy(() => import('../chapero/ChaperoView'));
 
 const PunzonadoView: React.FC<{ chatButton?: React.ReactNode }> = ({ chatButton }) => {
   const { displayName, operarioId, logout } = useAuth();
-  const [showCounter, setShowCounter] = useState(false);
   const [showChapero, setShowChapero] = useState(false);
 
   return (
@@ -44,18 +42,6 @@ const PunzonadoView: React.FC<{ chatButton?: React.ReactNode }> = ({ chatButton 
 
       {/* Cuerpo */}
       <main className="flex-1 min-h-0 w-full overflow-y-auto">
-        {/* Acción principal: contar piezas */}
-        <div className="p-4">
-          <button
-            onClick={() => setShowCounter(true)}
-            className="w-full rounded-2xl bg-cyan-600 hover:bg-cyan-500 active:scale-[0.99] transition-all text-white shadow-lg p-6 flex flex-col items-center gap-2"
-          >
-            <span className="text-5xl">📐</span>
-            <span className="text-xl font-black">Contar piezas</span>
-            <span className="text-xs font-medium text-cyan-100">Haz una foto de la pila (o piezas sueltas) y deja que la cuente</span>
-          </button>
-        </div>
-
         {/* Buscador de artículos global */}
         <div className="px-1">
           <p className="px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
@@ -83,7 +69,6 @@ const PunzonadoView: React.FC<{ chatButton?: React.ReactNode }> = ({ chatButton 
         </div>
       </main>
 
-      {showCounter && <PieceCounterCamera onClose={() => setShowCounter(false)} />}
       {showChapero && (
         <div className="fixed inset-0 z-50">
           <Suspense fallback={<div className="flex items-center justify-center h-full bg-slate-50 text-slate-500">Cargando chapero…</div>}>
