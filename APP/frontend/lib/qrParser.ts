@@ -41,6 +41,12 @@ export type ScanParseResult = ScanResult | ScanError;
 const MAIN_PATTERN = /^(.+?)\s*\/\/\s*(OF\d{2}-\d+)$/i;
 
 /**
+ * Patrón del QR físico de FAVRAM: artículo <pipe> OFxx-nnnnn
+ * El QR devuelve siempre el par literal "ARTÍCULO | OFxx-nnnnn".
+ */
+const PIPE_PATTERN = /^(.+?)\s*\|\s*(OF\d{2}-\d+)$/i;
+
+/**
  * Patrón alternativo con otros separadores: artículo <espacio>-<espacio> OFxx-nnnnn
  * Requiere espacios alrededor del separador para no confundirlo con guiones en el código de artículo
  */
@@ -80,7 +86,12 @@ export const parseScanInput = (rawInput: string): ScanParseResult => {
   
   // Intentar patrón principal (// como separador)
   let match = cleaned.match(MAIN_PATTERN);
-  
+
+  if (!match) {
+    // QR físico de FAVRAM: "ARTÍCULO | OFxx-nnnnn"
+    match = cleaned.match(PIPE_PATTERN);
+  }
+
   if (!match) {
     // Intentar patrón alternativo (- como separador, solo si tiene OF)
     match = cleaned.match(ALT_PATTERN);

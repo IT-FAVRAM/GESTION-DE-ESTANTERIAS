@@ -1,5 +1,25 @@
 import { describe, it, expect } from 'vitest';
-import { parseScanInputLenient, parseScanFromLines, parseHojaDeRuta } from './qrParser';
+import { parseScanInput, parseScanInputLenient, parseScanFromLines, parseHojaDeRuta } from './qrParser';
+
+describe('parseScanInput (estricto — pistola/QR)', () => {
+  it('parsea el separador clásico //', () => {
+    const r = parseScanInput('CL34712023 // OF25-07221');
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data).toEqual({ articleCode: 'CL34712023', orderFab: 'OF25-07221' });
+  });
+
+  it('parsea el QR físico de FAVRAM con pipe "ARTÍCULO | OFxx-nnnnn"', () => {
+    const r = parseScanInput('20230110001 | OF26-05481');
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data).toEqual({ articleCode: '20230110001', orderFab: 'OF26-05481' });
+  });
+
+  it('parsea el pipe sin espacios alrededor', () => {
+    const r = parseScanInput('CL3471|OF25-07221');
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data).toEqual({ articleCode: 'CL3471', orderFab: 'OF25-07221' });
+  });
+});
 
 describe('parseScanInputLenient', () => {
   it('parses classic gun format', () => {

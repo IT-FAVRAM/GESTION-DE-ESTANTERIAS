@@ -22,13 +22,18 @@ _Fecha: 2026-06-15 · Autor: análisis sobre el código actual_
 > **§8 (QR primario)**: ya estaba — `ScanMethodPicker` lista pistola/QR como opción
 > principal y OCR como alternativa. Sin cambios.
 >
+> **Formato del QR físico (FAVRAM)**: el QR devuelve siempre el par literal
+> `ARTÍCULO | OFxx-nnnnn` (separador **pipe `|`**, no `//`). `parseScanInput` se
+> amplió con `PIPE_PATTERN` para entenderlo (además del `//` clásico). Tests del
+> parser: 80/80.
+>
 > **Notas / riesgos asumidos**
 > - La heurística deja "escapar" como mucho 1 carácter al buscador (el primero de
 >   la ráfaga, con gap grande); los siguientes se bloquean. Umbral configurable.
 > - `retirarTray` retira por artículo+OF+posición sin `presenceId`: si el mismo
 >   artículo/OF tiene varias presencias en la misma celda, retira la primera coincidencia.
 > - Pendiente al desplegar: verificar en dispositivo real la heurística de pistola
->   y el formato del QR físico (`ARTÍCULO // OFxx-nnnnn`).
+>   con el QR físico (`ARTÍCULO | OFxx-nnnnn`).
 
 ## 1. Objetivo
 
