@@ -55,11 +55,15 @@ service cloud.firestore {
     // ── ACCESS POLICY HELPERS ─────────────────────────────────────────────────
 
     function canReadWarehouseState() {
-      return isValidatedDevice() || isRegisteredUser();
+      return isValidatedDevice() || isRegisteredUser() || isSuperAdmin();
     }
 
     function canReadHistory() {
       return isOperationalUser() || isMonitoringUser();
+    }
+
+    function canAccessAnyData() {
+      return isSuperAdmin() || isAdminLike();
     }
 
     // Valida los campos opcionales de un documento de estado de conexión.
@@ -139,8 +143,8 @@ service cloud.firestore {
     }
 
     match /chapero_positions/{positionId} {
-      allow read:  if canReadWarehouseState();
-      allow write: if false;
+      allow read:  if canReadWarehouseState() || isSuperAdmin();
+      allow write: if isSuperAdmin();
     }
 
     match /items/{document=**} {
@@ -290,7 +294,7 @@ service cloud.firestore {
           && d.senderName is string
           && d.senderName.size() >= 1
           && d.senderRole is string
-          && d.senderRole in ['ADMIN', 'SUPERADMIN', 'JEFE_SECCION', 'CARRETILLERO', 'CALIDAD', 'OPERARIO']
+          && d.senderRole in ['ADMIN', 'SUPERADMIN', 'JEFE_SECCION', 'CARRETILLERO', 'CALIDAD', 'OPERARIO', 'SOLO_VISUAL']
           && d.readBy is list
           && d.readBy.size() == 1
           && d.readBy[0] == request.auth.uid;
@@ -308,7 +312,7 @@ service cloud.firestore {
           && d.senderName.size() >= 1
           && d.senderName.size() <= 120
           && d.senderRole is string
-          && d.senderRole in ['ADMIN', 'SUPERADMIN', 'JEFE_SECCION', 'CARRETILLERO', 'CALIDAD', 'OPERARIO']
+          && d.senderRole in ['ADMIN', 'SUPERADMIN', 'JEFE_SECCION', 'CARRETILLERO', 'CALIDAD', 'OPERARIO', 'SOLO_VISUAL']
           && d.readBy is list
           && d.readBy.size() == 1
           && d.readBy[0] == request.auth.uid;
