@@ -90,8 +90,10 @@ const SoloVisualView: React.FC = () => {
               locations={locations}
               onHighlight={setHighlightedPositions}
               currentShelfCode={selectedShelf}
-              placeholder="Buscar por artículo o posición..."
-              global={false}
+              placeholder="🔍 Buscar en toda la nave..."
+              global={true}
+              canNavigateToShelf={true}
+              onShelfNavigate={setSelectedShelf}
             />
           </div>
 
