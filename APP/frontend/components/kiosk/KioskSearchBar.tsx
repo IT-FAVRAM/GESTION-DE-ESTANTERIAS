@@ -8,7 +8,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import { useGlobalSearchWithCache, type GlobalSearchResult } from '../../hooks/useGlobalSearchWithCache';
-import { SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
+import { SHELF_DEFINITIONS, CART_DEFINITIONS } from '../../lib/firestoreSchema';
 
 interface KioskSearchBarProps {
   locations: ShelfLocationState[];
@@ -25,7 +25,11 @@ interface KioskSearchBarProps {
 }
 
 function shelfNameFor(code: string): string {
-  return SHELF_DEFINITIONS.find((s) => s.code === code)?.name || code;
+  const shelf = SHELF_DEFINITIONS.find((s) => s.code === code);
+  if (shelf) return shelf.name;
+  const cart = CART_DEFINITIONS.find((c) => c.code === code);
+  if (cart) return cart.name;
+  return code;
 }
 
 function positionNumber(posStr: string): number {
