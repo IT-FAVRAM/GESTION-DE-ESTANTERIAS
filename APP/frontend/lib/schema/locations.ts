@@ -16,6 +16,8 @@ export interface LocationItem {
   quantity?: number;
   /** Importe unitario en EUR (solo para ubicaciones de reproceso CAL 001-022) */
   unitCost?: number;
+  /** true si se introdujo manualmente como texto libre (sin código de barras) */
+  isFreeText?: boolean;
 }
 
 export interface ItemDoc {

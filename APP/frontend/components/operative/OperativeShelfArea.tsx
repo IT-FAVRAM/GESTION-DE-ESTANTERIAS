@@ -48,6 +48,8 @@ interface OperativeShelfAreaProps {
   fullscreenGrid?: boolean;
   /** Kiosk mode: always show one block at a time with navigation. */
   forceSingleBlock?: boolean;
+  /** Sección asignada del usuario (para JEFE_SECCION) */
+  userSection?: string | null;
 }
 
 const padPos = (p: string) => parseInt(p, 10);
@@ -60,7 +62,7 @@ const positionNumber = (posStr: string): string => {
   return Number.isNaN(n) ? raw : String(n);
 };
 
-const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config, setShelfCode, fullscreenGrid = true, forceSingleBlock = false }) => {
+const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config, setShelfCode, fullscreenGrid = true, forceSingleBlock = false, userSection = null }) => {
   const {
     action, scanData, selectedPositions, scannerActive, processing, feedback,
     shelfCode, shelfDef, locations, loading,
@@ -98,6 +100,29 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
 
   const reprocesosCosts = !!config.reprocesos?.showCosts;
   const canMultiSection = config.ubicar.allowMultiSection;
+
+  // Determinar si el usuario puede editar notas basado en su rol
+  const canEditNotes = React.useMemo(() => {
+    const role = config.role;
+    // ADMIN, SUPERADMIN, CARRETILLERO pueden editar en cualquier ubicación
+    if (role === 'ADMIN' || role === 'SUPERADMIN' || role === 'CARRETILLERO') {
+      return true;
+    }
+    // JEFE_SECCION solo en su sección
+    if (role === 'JEFE_SECCION' && userSection) {
+      const shelfDef = SHELF_DEFINITIONS.find(s => s.code === shelfCode);
+      if (shelfDef && shelfDef.section === userSection) {
+        return true;
+      }
+      return false;
+    }
+    // CALIDAD solo en CAL
+    if (role === 'CALIDAD') {
+      return shelfCode === 'CAL';
+    }
+    // OPERARIO, SOLO_VISUAL, otros: sin acceso
+    return false;
+  }, [config.role, shelfCode, userSection]);
 
   // §7bis — "Solicitar traer" disponible en el buscador para TODOS menos el carretillero.
   const canSolicitarTraer = config.role !== 'CARRETILLERO';
@@ -696,15 +721,30 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
                 ))
               )}
               <div className="pt-1">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Nota</p>
-                <textarea
-                  key={selectedCell.locationId}
-                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm text-slate-900 placeholder-slate-400 resize-none focus:outline-none focus:border-cyan-500 transition-colors"
-                  placeholder="Añadir nota..."
-                  rows={2}
-                  defaultValue={selectedCell.nota ?? ''}
-                  onBlur={(e) => handleSaveNota(e.target.value, selectedCell.locationId)}
-                />
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nota</p>
+                  {!canEditNotes && (
+                    <span className="text-[9px] font-bold text-amber-600 uppercase">Solo lectura</span>
+                  )}
+                </div>
+                {canEditNotes ? (
+                  <textarea
+                    key={selectedCell.locationId}
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm text-slate-900 placeholder-slate-400 resize-none focus:outline-none focus:border-cyan-500 transition-colors"
+                    placeholder="Añadir nota..."
+                    rows={2}
+                    defaultValue={selectedCell.nota ?? ''}
+                    onBlur={(e) => handleSaveNota(e.target.value, selectedCell.locationId)}
+                  />
+                ) : (
+                  <div className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-600 italic min-h-[60px] flex items-center">
+                    {selectedCell.nota ? (
+                      <p>{selectedCell.nota}</p>
+                    ) : (
+                      <p className="text-slate-400">Sin nota</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

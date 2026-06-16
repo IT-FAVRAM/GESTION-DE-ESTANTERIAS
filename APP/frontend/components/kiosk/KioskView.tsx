@@ -119,7 +119,7 @@ const KioskView: React.FC = () => {
               </button>
             </div>
           )}
-          <OperativeShelfArea engine={engine} config={config} fullscreenGrid forceSingleBlock />
+          <OperativeShelfArea engine={engine} config={config} fullscreenGrid forceSingleBlock userSection={null} />
         </div>
       )}
 

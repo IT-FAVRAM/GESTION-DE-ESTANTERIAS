@@ -3,7 +3,6 @@ import {
   signInWithEmailAndPassword,
   setPersistence,
   browserLocalPersistence,
-  browserSessionPersistence,
 } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
 import { LoadingIcon, ErrorIcon } from '../icons/Icons';
@@ -33,11 +32,9 @@ const CarretilleroLogin: React.FC<CarretilleroLoginProps> = ({ onSuccess, onBack
     setError(null);
 
     try {
-      // Establecer persistencia según "Recordar sesión"
-      await setPersistence(
-        auth,
-        rememberMe ? browserLocalPersistence : browserSessionPersistence
-      );
+      // Siempre persistir localmente — entorno industrial no puede perder sesión
+      // El checkbox rememberMe se ignora (siempre true) por compatibilidad
+      await setPersistence(auth, browserLocalPersistence);
 
       const carretillero = CARRETILLEROS.find((c) => c.name === selectedName);
       if (!carretillero) throw new Error('Carretillero no válido');

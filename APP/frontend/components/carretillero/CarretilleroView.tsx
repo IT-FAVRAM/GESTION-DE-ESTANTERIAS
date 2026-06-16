@@ -197,7 +197,7 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
         {/* Área principal */}
         <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
           {activeTab === 'shelves' ? (
-            <OperativeShelfArea engine={engine} config={config} setShelfCode={setSelectedShelf} fullscreenGrid />
+            <OperativeShelfArea engine={engine} config={config} setShelfCode={setSelectedShelf} fullscreenGrid userSection={null} />
           ) : activeTab === 'pickups' ? (
             <div className="h-full overflow-y-auto">
               <PickupQueue currentShelf={selectedShelf} />

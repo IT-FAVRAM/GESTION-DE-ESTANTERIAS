@@ -139,6 +139,8 @@ exports.countPieces = functions
     if (imageBase64.startsWith('data:') && commaIdx !== -1) {
         imageBase64 = imageBase64.slice(commaIdx + 1);
     }
+    // Limpiar BOM y caracteres inválidos en base64
+    imageBase64 = imageBase64.replace(/[^\w+/=]/g, '');
     if (imageBase64.length > MAX_IMAGE_BYTES) {
         throw new functions.https.HttpsError('invalid-argument', 'La imagen es demasiado grande.');
     }

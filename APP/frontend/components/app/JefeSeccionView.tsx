@@ -101,7 +101,7 @@ const JefeSeccionOperativo: React.FC<{
       </header>
 
       <main className="flex-1 min-h-0 min-w-0 w-full overflow-hidden">
-        <OperativeShelfArea engine={engine} config={config} fullscreenGrid />
+        <OperativeShelfArea engine={engine} config={config} fullscreenGrid userSection={section} />
       </main>
     </div>
   );

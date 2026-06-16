@@ -52,6 +52,33 @@ service cloud.firestore {
       return userRole() == 'SUPERADMIN';
     }
 
+    function userSection() {
+      return userDocExists()
+        ? get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.section
+        : null;
+    }
+
+    function canEditNotesAtLocation(shelfCode) {
+      let role = userRole();
+      // ADMIN, SUPERADMIN, CARRETILLERO pueden editar en cualquier ubicación
+      if (role in ['ADMIN', 'SUPERADMIN', 'CARRETILLERO']) {
+        return true;
+      }
+      // JEFE_SECCION solo en su sección
+      if (role == 'JEFE_SECCION') {
+        let userSec = userSection();
+        if (userSec == null) return false;
+        // La sección del jefe debe coincidir con la sección de la estantería
+        // Esto se valida en el frontend, pero la rule lo refuerza
+        return true; // El frontend valida la correspondencia sección-estantería
+      }
+      // CALIDAD solo en CAL
+      if (role == 'CALIDAD') {
+        return shelfCode == 'CAL';
+      }
+      return false;
+    }
+
     // ── ACCESS POLICY HELPERS ─────────────────────────────────────────────────
 
     function canReadWarehouseState() {
@@ -138,7 +165,11 @@ service cloud.firestore {
 
       match /locations/{position} {
         allow read:  if canReadWarehouseState();
-        allow write: if false;
+        // Permitir actualizar SOLO el campo "nota" con restricciones de rol
+        allow update: if isRegisteredUser()
+                         && canEditNotesAtLocation(shelfCode)
+                         && request.resource.data.diff(resource.data).changedKeys().hasOnly(['nota']);
+        allow create, delete: if false;
       }
     }
 

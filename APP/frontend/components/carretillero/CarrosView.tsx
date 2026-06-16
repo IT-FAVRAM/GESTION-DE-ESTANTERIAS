@@ -109,7 +109,7 @@ const CarrosView: React.FC<CarrosViewProps> = ({ onBack }) => {
       {/* Área operativa bloqueada al carro seleccionado */}
       <div className="flex-1 min-h-0 overflow-hidden">
         {selectedCart ? (
-          <OperativeShelfArea engine={engine} config={config} fullscreenGrid />
+          <OperativeShelfArea engine={engine} config={config} fullscreenGrid userSection={null} />
         ) : (
           <div className="flex items-center justify-center h-full text-slate-500">
             Selecciona un carro

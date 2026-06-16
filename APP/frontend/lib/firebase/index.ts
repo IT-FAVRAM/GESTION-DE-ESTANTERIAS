@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import {
   initializeFirestore,
   getFirestore,
@@ -22,6 +22,11 @@ const firebaseConfig = {
 
 export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+
+// Forzar persistencia local por defecto — TODAS las sesiones sobreviven cierre de navegador
+setPersistence(auth, browserLocalPersistence).catch((err) => {
+  console.warn('[firebase] setPersistence failed:', err);
+});
 
 // Use modern persistent cache API (replaces deprecated enableMultiTabIndexedDbPersistence)
 const initDb = (): Firestore => {

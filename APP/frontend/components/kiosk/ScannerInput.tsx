@@ -46,8 +46,15 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
   const [articleInput, setArticleInput] = useState('');
   const [ofInput, setOfInput] = useState('');
 
+  // Modo texto libre
+  const [freeTextMode, setFreeTextMode] = useState(false);
+  const [freeTextArticle, setFreeTextArticle] = useState('');
+  const [freeTextReference, setFreeTextReference] = useState('');
+
   const inputRef = useRef<HTMLInputElement>(null);
   const ofRef = useRef<HTMLInputElement>(null);
+  const freeTextArticleRef = useRef<HTMLInputElement>(null);
+  const freeTextRefRef = useRef<HTMLInputElement>(null);
 
   // Foco al activar
   useEffect(() => {
@@ -62,6 +69,9 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
       setInput('');
       setArticleInput('');
       setOfInput('');
+      setFreeTextMode(false);
+      setFreeTextArticle('');
+      setFreeTextReference('');
     }
   }, [active]);
 
@@ -135,7 +145,106 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
     }
   };
 
+  // ── Handlers para modo texto libre ───────────────────────────────────────
+
+  const handleFreeTextSubmit = () => {
+    const article = freeTextArticle.trim();
+    const reference = freeTextReference.trim();
+
+    if (!article) {
+      onScan({ success: false, error: 'El nombre/descripción del artículo es obligatorio', rawInput: '' });
+      return;
+    }
+
+    onScan({
+      success: true,
+      data: { articleCode: article.toUpperCase(), orderFab: reference.toUpperCase() || 'SIN-REF' },
+    });
+    setFreeTextMode(false);
+    setFreeTextArticle('');
+    setFreeTextReference('');
+    // Volver al input principal si no estamos en dualField
+    if (!dualField) {
+      inputRef.current?.focus();
+    }
+  };
+
+  const handleFreeTextArticleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      freeTextRefRef.current?.focus();
+    }
+  };
+
+  const handleFreeTextRefKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleFreeTextSubmit();
+    }
+  };
+
   if (!active) return null;
+
+  // ── Modo texto libre render ──────────────────────────────────────────────
+
+  if (freeTextMode) {
+    return (
+      <div className="flex-shrink-0 bg-white border-t-2 border-purple-500 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] p-4 space-y-2.5">
+        <div className="flex gap-2 items-stretch">
+          <div className="flex-1 flex flex-col gap-1.5">
+            <input
+              ref={freeTextArticleRef}
+              type="text"
+              value={freeTextArticle}
+              onChange={(e) => setFreeTextArticle(e.target.value)}
+              onKeyDown={handleFreeTextArticleKeyDown}
+              placeholder="Nombre/Descripción artículo (ej: TORNILLOS M6x20)"
+              disabled={disabled}
+              autoFocus
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="sentences"
+              spellCheck={false}
+              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 disabled:opacity-50 text-sm"
+            />
+            <input
+              ref={freeTextRefRef}
+              type="text"
+              value={freeTextReference}
+              onChange={(e) => setFreeTextReference(e.target.value)}
+              onKeyDown={handleFreeTextRefKeyDown}
+              placeholder="Referencia/Nota (opcional, ej: CAJA-001)"
+              disabled={disabled}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              className="w-full px-3 py-2.5 bg-slate-50 border border-amber-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 disabled:opacity-50 text-sm"
+            />
+          </div>
+          <button
+            onClick={handleFreeTextSubmit}
+            disabled={disabled || !freeTextArticle.trim()}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-lg font-black text-lg transition-colors shrink-0 flex items-center justify-center"
+          >
+            ✅
+          </button>
+        </div>
+        <button
+          onClick={() => {
+            setFreeTextMode(false);
+            setFreeTextArticle('');
+            setFreeTextReference('');
+            inputRef.current?.focus();
+          }}
+          disabled={disabled}
+          className="w-full px-3 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 rounded-lg font-bold transition-colors"
+        >
+          ← Volver al escáner
+        </button>
+      </div>
+    );
+  }
 
   // ── Dual-field render ────────────────────────────────────────────────────
 
@@ -203,6 +312,17 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
                 <span>📝</span> OCR
               </button>
             )}
+            <button
+              onClick={() => {
+                setFreeTextMode(true);
+                setFreeTextArticle('');
+                setFreeTextReference('');
+              }}
+              disabled={disabled}
+              className="flex-1 px-3 py-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
+            >
+              <span>✏️</span> Texto libre
+            </button>
           </div>
         )}
       </div>
@@ -257,6 +377,17 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
               <span>📝</span> OCR
             </button>
           )}
+          <button
+            onClick={() => {
+              setFreeTextMode(true);
+              setFreeTextArticle('');
+              setFreeTextReference('');
+            }}
+            disabled={disabled}
+            className="flex-1 px-3 py-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
+          >
+            <span>✏️</span> Texto libre
+          </button>
         </div>
       )}
     </div>
