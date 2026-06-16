@@ -40,6 +40,7 @@ const PunzonadoView     = lazy(() => import('./components/app/PunzonadoView'));
 const AdminHomeView     = lazy(() => import('./components/app/AdminHomeView'));
 const CalidadView       = lazy(() => import('./components/app/CalidadView'));
 const SoloVisualView    = lazy(() => import('./components/app/SoloVisualView'));
+const KioskoSetupPage   = lazy(() => import('./components/app/KioskoSetupPage'));
 
 const AppV3: React.FC = () => {
   const state = useAuth();
@@ -74,6 +75,16 @@ const AppV3: React.FC = () => {
   });
 
   useInitializeCriticalData();
+
+  // ─── Detectar setup de kiosko por URL (ej: ?setup=REPASADO) ───
+  const setupSection = new URLSearchParams(window.location.search).get('setup');
+  if (setupSection) {
+    return (
+      <Suspense fallback={<AppLoadingScreen />}>
+        <KioskoSetupPage section={setupSection} />
+      </Suspense>
+    );
+  }
 
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showShelfBrowser, setShowShelfBrowser] = useState(false);
