@@ -1119,7 +1119,7 @@ export function useOperativeShelf({
       return;
     }
 
-    // UBICAR individual: acumular posiciones con validación de contigüidad
+    // UBICAR individual: confirmar posición con modal
     if (action === 'ubicar' && !batchMode && scanData) {
       const position = loc.position;
       if (reprocesosEnabled && isReprocesosLocation(shelfCode, padPos(position))) {
@@ -1127,43 +1127,71 @@ export function useOperativeShelf({
         setShowReprocesosUbicacionModal(true);
         return;
       }
-      
-      // Calcular nuevas posiciones si añadimos esta
-      const newPositions = selectedPositions.includes(position)
-        ? selectedPositions.filter(p => p !== position)
-        : [...selectedPositions, position];
-      
-      // Validar contigüidad
-      const validation = validateContiguity(newPositions, shelfDef);
-      
-      if (!validation.isContiguous && newPositions.length > 1) {
-        showToast('error', `❌ ${validation.message}`);
-        return;
-      }
-      
-      if (!loc.isEmpty && loc.items.length > 0 && !selectedPositions.includes(position)) {
-        showToast('info', `⚠️ Pos. ${displayPos(position)} ya tiene ${loc.items.length} artículo(s) — se añadirá igualmente`);
-      }
-      
-      setSelectedPositions(newPositions);
+
+      // Mostrar confirmación: "¿Ubicar en posición X?"
+      setConfirmModal({
+        open: true,
+        title: '¿Ubicar aquí?',
+        message: `¿Ubicar ${scanData.articleCode} en ${shelfCode} pos. ${displayPos(position)}?`,
+        icon: '📍',
+        variant: 'info',
+        confirmText: '✓ Sí',
+        onConfirm: () => {
+          const newPositions = selectedPositions.includes(position)
+            ? selectedPositions.filter(p => p !== position)
+            : [...selectedPositions, position];
+
+          const validation = validateContiguity(newPositions, shelfDef);
+
+          if (!validation.isContiguous && newPositions.length > 1) {
+            showToast('error', `❌ ${validation.message}`);
+            setConfirmModal((p) => ({ ...p, open: false }));
+            return;
+          }
+
+          if (!loc.isEmpty && loc.items.length > 0 && !selectedPositions.includes(position)) {
+            showToast('info', `⚠️ Pos. ${displayPos(position)} ya tiene ${loc.items.length} artículo(s) — se añadirá igualmente`);
+          }
+
+          setSelectedPositions(newPositions);
+          setConfirmModal((p) => ({ ...p, open: false }));
+        },
+        extraButton: {
+          text: '✕ No',
+          onClick: () => setConfirmModal((p) => ({ ...p, open: false })),
+        },
+        hideCancel: true,
+      });
       return;
     }
 
-    // MOVER: seleccionar destinos (exactamente moverNeeded)
+    // MOVER: confirmar destino con modal
     if (action === 'mover' && scanData) {
       const found = findArticle(scanData.articleCode, scanData.orderFab);
       const needed = found.length || 1;
       const position = loc.position;
-      // Se permite mover a una posición ocupada: el artículo se apila junto a los
-      // existentes (igual que REUBICAR y UBICAR multi-artículo; el backend hace
-      // append). Avisamos sin bloquear cuando el destino ya tiene algo.
-      if (!loc.isEmpty && !selectedPositions.includes(position)) {
-        showToast('info', `⚠️ Pos. ${displayPos(position)} ocupada — se moverá igualmente`);
-      }
-      setSelectedPositions((cur) => {
-        if (cur.includes(position)) return cur.filter((p) => p !== position);
-        if (cur.length >= needed) return [...cur.slice(1), position];
-        return [...cur, position];
+
+      // Mostrar confirmación: "¿Mover a posición X?"
+      setConfirmModal({
+        open: true,
+        title: '¿Mover aquí?',
+        message: `¿Mover ${scanData.articleCode} a ${shelfCode} pos. ${displayPos(position)}? (${selectedPositions.length + 1}/${needed})`,
+        icon: '🔄',
+        variant: 'info',
+        confirmText: '✓ Sí',
+        onConfirm: () => {
+          setSelectedPositions((cur) => {
+            if (cur.includes(position)) return cur.filter((p) => p !== position);
+            if (cur.length >= needed) return [...cur.slice(1), position];
+            return [...cur, position];
+          });
+          setConfirmModal((p) => ({ ...p, open: false }));
+        },
+        extraButton: {
+          text: '✕ No',
+          onClick: () => setConfirmModal((p) => ({ ...p, open: false })),
+        },
+        hideCancel: true,
       });
       return;
     }
