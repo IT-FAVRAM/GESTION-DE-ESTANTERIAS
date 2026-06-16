@@ -74,7 +74,10 @@ const AppV3: React.FC = () => {
     enabled: isAuthenticated && !loading,
   });
 
-  useInitializeCriticalData();
+  // Solo precachear/sincronizar cuando la sesión está autenticada y resuelta.
+  // Arrancarlo durante la fase anónima dejaba el listener de items muerto
+  // (permission-denied no reintenta) → "permisos insuficientes" + datos en blanco.
+  useInitializeCriticalData(isAuthenticated && !loading);
 
   // ─── Detectar setup de kiosko por URL (ej: ?setup=REPASADO) ───
   const setupSection = new URLSearchParams(window.location.search).get('setup');
