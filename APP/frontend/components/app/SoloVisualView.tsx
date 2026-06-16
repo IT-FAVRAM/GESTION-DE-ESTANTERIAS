@@ -22,21 +22,14 @@ const SoloVisualView: React.FC = () => {
   return (
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="flex-shrink-0 bg-white border-b border-slate-200 px-3 py-2 shadow-sm">
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-black text-slate-900 truncate">
-              👁️ Visor Solo Lectura
-            </h1>
-            <p className="text-xs text-slate-500 mt-1">{displayName}</p>
-          </div>
-          <button
-            onClick={logout}
-            className="px-4 py-2 bg-slate-900 text-white font-bold rounded-lg hover:bg-slate-800 transition-colors flex-shrink-0"
-          >
-            Salir
-          </button>
-        </div>
+      <header className="flex-shrink-0 bg-white border-b border-slate-200 px-3 py-2 shadow-sm flex items-center justify-between gap-4">
+        <p className="text-xs text-slate-500">{displayName}</p>
+        <button
+          onClick={logout}
+          className="px-4 py-2 bg-slate-900 text-white font-bold rounded-lg hover:bg-slate-800 transition-colors flex-shrink-0"
+        >
+          Salir
+        </button>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
