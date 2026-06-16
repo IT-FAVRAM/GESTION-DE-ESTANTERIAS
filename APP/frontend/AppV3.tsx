@@ -39,6 +39,7 @@ const JefeSeccionView   = lazy(() => import('./components/app/JefeSeccionView'))
 const PunzonadoView     = lazy(() => import('./components/app/PunzonadoView'));
 const AdminHomeView     = lazy(() => import('./components/app/AdminHomeView'));
 const CalidadView       = lazy(() => import('./components/app/CalidadView'));
+const SoloVisualView    = lazy(() => import('./components/app/SoloVisualView'));
 
 const AppV3: React.FC = () => {
   const state = useAuth();
@@ -216,11 +217,24 @@ const AppV3: React.FC = () => {
     return (
       <Suspense fallback={<AppLoadingScreen />}>
         <>
+          {urgencyBar}
           <OfflineIndicator />
           <OfflineDebugPanel />
           <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
           <CalidadView />
           {chatFab}
+        </>
+      </Suspense>
+    );
+  }
+
+  if (role === 'SOLO_VISUAL') {
+    return (
+      <Suspense fallback={<AppLoadingScreen />}>
+        <>
+          <OfflineIndicator />
+          <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
+          <SoloVisualView />
         </>
       </Suspense>
     );

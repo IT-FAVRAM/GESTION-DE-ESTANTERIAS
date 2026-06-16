@@ -8,7 +8,7 @@ import { auditDatabase } from '../scripts/audit-BD-complete';
 const normalize = (value?: string | null) => String(value || '').trim();
 const normalizeRole = (value?: string | null) => String(value || '').trim().toUpperCase();
 
-const ALLOWED_ROLES = new Set(['OPERARIO', 'CARRETILLERO', 'JEFE_SECCION', 'CALIDAD', 'ADMIN', 'SUPERADMIN']);
+const ALLOWED_ROLES = new Set(['OPERARIO', 'CARRETILLERO', 'JEFE_SECCION', 'CALIDAD', 'ADMIN', 'SUPERADMIN', 'SOLO_VISUAL']);
 const ALLOWED_SECTIONS = new Set(['PRENSAS_MECANIZADO', 'PLEGADORA', 'SOLDADURA', 'ROBOT_PLEGADO', 'REPASADO', 'PINTURA', 'LASER', 'CALIDAD', 'OTROS', 'MECANIZADO', 'PRENSAS']);
 
 export const adminOperate = functions.https.onCall(async (data: any, context: any) => {
