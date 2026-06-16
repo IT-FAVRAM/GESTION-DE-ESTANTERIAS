@@ -8,7 +8,7 @@
  * reimplementaba el flujo de forma divergente respecto al kiosko.
  */
 
-import React, { Suspense, useMemo, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { usePickupQueue } from '../../hooks/usePickupQueue';
 import PickupQueue from './PickupQueue';
@@ -18,6 +18,9 @@ import { buildOperativeConfig, canUseScanTray } from '../../lib/operative/operat
 import { useOperativeShelf } from '../../hooks/useOperativeShelf';
 import OperativeShelfArea from '../operative/OperativeShelfArea';
 import OperativeActionButtons from '../operative/OperativeActionButtons';
+import OperativeActionBar from '../operative/OperativeActionBar';
+import AppHeader from '../common/AppHeader';
+import { useFormFactor } from '../../hooks/useFormFactor';
 
 const ChaperoView = React.lazy(() => import('../chapero/ChaperoView'));
 
@@ -34,8 +37,15 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
   const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? '';
   const { pendingCount } = usePickupQueue();
 
+  const formFactor = useFormFactor();
+  const isTouch = formFactor !== 'desktop';
+
   const [activeTab, setActiveTab] = useState<CarretilleroTab>(initialTab);
-  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
+  // Sidebar abierto por defecto solo en escritorio. Reacciona a la rotación del
+  // tablet / cambios de tamaño (antes se fijaba solo al montar y al girar el
+  // iPad quedaba en estado incorrecto).
+  const [sidebarOpen, setSidebarOpen] = useState(formFactor === 'desktop');
+  useEffect(() => { setSidebarOpen(formFactor === 'desktop'); }, [formFactor]);
   const [selectedShelf, setSelectedShelf] = useState<string>(SHELF_DEFINITIONS[0]?.code ?? 'PRE');
 
   const effectiveRole = role ?? 'CARRETILLERO';
@@ -77,55 +87,35 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
 
   return (
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
-      {/* Header — responsive: una línea en escritorio, dos en móvil */}
-      <header className="flex-shrink-0 bg-white border-b border-slate-200 px-2 sm:px-3 py-1 sm:py-2 shadow-sm">
-        {/* Línea 1: Título + Info */}
-        <div className="flex items-center justify-between gap-1 sm:gap-2 min-h-10">
-          <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-shrink-0">
-            <span className="text-lg sm:text-xl flex-shrink-0">🚚</span>
-            <div className="min-w-0">
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-none truncate">
-                {engine.shelfDef?.name || titleByRole}
-              </h1>
-              <p className="text-[8px] sm:text-[10px] text-slate-500 truncate leading-none mt-0.5">{displayName} · {operarioId}</p>
-            </div>
-          </div>
-
-          {/* Chat inline */}
-          {chatButton}
-
-          {/* Botones derechos (RECOGIDAS + Salir) */}
-          <div className="flex gap-0.5 sm:gap-1 flex-shrink-0">
-            {effectiveRole === 'CARRETILLERO' && (
-              <button onClick={() => {
-                if (!isIdle) engine.cancelAction();
-                setActiveTab(activeTab === 'pickups' ? 'shelves' : 'pickups');
-              }}
-                className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all whitespace-nowrap ${
-                  activeTab === 'pickups' ? 'bg-orange-500 text-white shadow-md' : 'bg-orange-100 text-orange-700'
-                }`}>
-                📦 REC{pendingCount > 0 && <span className="ml-0.5 font-black">({pendingCount})</span>}
-              </button>
-            )}
-            <button onClick={onBack ? onBack : logout}
-              className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-[9px] sm:text-[11px] font-bold bg-slate-100 text-slate-700 rounded-lg whitespace-nowrap">
-              {onBack ? '‹ Volver' : 'Salir'}
-            </button>
-          </div>
-        </div>
-
-        {/* Línea 2: Botones de acciones */}
-        {activeTab === 'shelves' && (
-          <div className="flex items-center justify-center pt-1 mt-0.5 border-t border-slate-100 flex-wrap gap-0.5">
+      {/* Header — cabecera única compartida (AppHeader) */}
+      <AppHeader
+        icon="🚚"
+        title={engine.shelfDef?.name || titleByRole}
+        subtitle={`${displayName} · ${operarioId}`}
+        chatButton={chatButton}
+        right={effectiveRole === 'CARRETILLERO' ? (
+          <button onClick={() => {
+            if (!isIdle) engine.cancelAction();
+            setActiveTab(activeTab === 'pickups' ? 'shelves' : 'pickups');
+          }}
+            className={`px-2 py-1 text-[11px] font-bold rounded-lg transition-all whitespace-nowrap ${
+              activeTab === 'pickups' ? 'bg-orange-500 text-white shadow-md' : 'bg-orange-100 text-orange-700'
+            }`}>
+            📦 REC{pendingCount > 0 && <span className="ml-0.5 font-black">({pendingCount})</span>}
+          </button>
+        ) : undefined}
+        onBack={onBack}
+        onLogout={logout}
+        secondRow={(activeTab === 'shelves' && !isTouch) ? (
+          <div className="flex items-center justify-center flex-wrap gap-0.5">
             <OperativeActionButtons engine={engine} config={config} size="compact" />
           </div>
-        )}
-        {activeTab === 'chapero' && (
-          <div className="pt-1 mt-0.5 border-t border-slate-100 text-center">
+        ) : activeTab === 'chapero' ? (
+          <div className="text-center">
             <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Modo Chapero activo</span>
           </div>
-        )}
-      </header>
+        ) : undefined}
+      />
 
       {/* Contenido */}
       <main className="flex-1 min-h-0 min-w-0 w-full overflow-hidden flex flex-row">
@@ -211,6 +201,10 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
           )}
         </div>
       </main>
+
+      {isTouch && activeTab === 'shelves' && (
+        <OperativeActionBar engine={engine} config={config} />
+      )}
     </div>
   );
 };

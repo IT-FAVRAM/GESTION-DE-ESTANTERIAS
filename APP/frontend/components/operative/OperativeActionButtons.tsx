@@ -13,8 +13,11 @@ import type { UseOperativeShelfReturn } from '../../hooks/useOperativeShelf';
 interface OperativeActionButtonsProps {
   engine: UseOperativeShelfReturn;
   config: RoleOperativeConfig;
-  /** 'compact' para headers móviles, 'large' para landings de escritorio. */
-  size?: 'compact' | 'large';
+  /**
+   * 'compact' para headers de escritorio, 'large' para landings,
+   * 'bar' para la barra de acciones táctil inferior (móvil/tablet, ≥48px).
+   */
+  size?: 'compact' | 'large' | 'bar';
 }
 
 const BTN = {
@@ -29,14 +32,23 @@ const BTN = {
 const OperativeActionButtons: React.FC<OperativeActionButtonsProps> = ({ engine, config, size = 'compact' }) => {
   if (engine.action !== 'idle') return null;
 
-  const base = size === 'compact'
-    ? 'px-2 py-1 rounded-lg text-white text-[11px] font-bold active:scale-95 transition-all touch-manipulation whitespace-nowrap'
-    : 'px-4 py-3 rounded-2xl text-white text-base font-black active:scale-95 transition-all touch-manipulation whitespace-nowrap shadow-lg';
+  const base =
+    size === 'compact'
+      ? 'px-2 py-1 rounded-lg text-white text-[11px] font-bold active:scale-95 transition-all touch-manipulation whitespace-nowrap'
+      : size === 'bar'
+        // Barra táctil inferior: columnas equitativas, altura ≥48px.
+        ? 'min-h-12 px-3 rounded-xl text-white text-[13px] font-black active:scale-95 transition-all touch-manipulation whitespace-nowrap shadow-md flex items-center justify-center'
+        : 'px-4 py-3 rounded-2xl text-white text-base font-black active:scale-95 transition-all touch-manipulation whitespace-nowrap shadow-lg';
+
+  const container =
+    size === 'bar'
+      ? 'grid grid-cols-[repeat(auto-fit,minmax(5rem,1fr))] gap-2 w-full'
+      : 'flex items-center gap-1 flex-wrap justify-center';
 
   const a = config.actions;
 
   return (
-    <div className="flex items-center gap-1 flex-wrap justify-center">
+    <div className={container}>
       {a.ubicar && (
         <button onClick={() => engine.startAction('ubicar')} className={`${base} ${BTN.ubicar.cls}`}>{BTN.ubicar.label}</button>
       )}

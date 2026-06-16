@@ -13,7 +13,6 @@
 
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useAuth } from './hooks/useAuth';
-import { useFormFactor } from './hooks/useFormFactor';
 import { useInitializeCriticalData } from './hooks/useInitializeCriticalData';
 import type { AdminTab } from './components/admin/adminShared';
 import OfflineIndicator from './components/common/OfflineIndicator';
@@ -44,7 +43,6 @@ const KioskoSetupPage   = lazy(() => import('./components/app/KioskoSetupPage'))
 
 const AppV3: React.FC = () => {
   const state = useAuth();
-  const formFactor = useFormFactor();
   const {
     loading,
     isAuthenticated,

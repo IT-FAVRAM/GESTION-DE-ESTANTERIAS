@@ -9,6 +9,8 @@ import { buildOperativeConfig } from '../../lib/operative/operativeConfig';
 import { useOperativeShelf } from '../../hooks/useOperativeShelf';
 import OperativeShelfArea from '../operative/OperativeShelfArea';
 import OperativeActionButtons from '../operative/OperativeActionButtons';
+import OperativeActionBar from '../operative/OperativeActionBar';
+import { useFormFactor } from '../../hooks/useFormFactor';
 
 /**
  * KioskView — Vista del kiosko (rol OPERARIO).
@@ -32,6 +34,7 @@ const KioskView: React.FC = () => {
   // ver su(s) estantería(s) sin pasar por la pantalla de acciones). Las acciones
   // (UBICAR/RETIRAR/...) quedan accesibles en la cabecera vía OperativeActionButtons.
   const [showShelf, setShowShelf] = useState(true);
+  const isTouch = useFormFactor() !== 'desktop';
 
   const config = useMemo(
     () => buildOperativeConfig('OPERARIO', { lockedShelfCode: shelfCode, section }),
@@ -74,7 +77,7 @@ const KioskView: React.FC = () => {
         deviceId={deviceId}
         onLogout={logout}
         onInfo={() => setShowDeviceInfo(true)}
-        actionButtons={showShelf && action === 'idle' ? (
+        actionButtons={(!isTouch && showShelf && action === 'idle') ? (
           <OperativeActionButtons engine={engine} config={config} />
         ) : undefined}
       />
@@ -122,6 +125,8 @@ const KioskView: React.FC = () => {
           <OperativeShelfArea engine={engine} config={config} fullscreenGrid forceSingleBlock userSection={null} />
         </div>
       )}
+
+      {isTouch && showArea && <OperativeActionBar engine={engine} config={config} />}
 
       {/* La inspección de celda la renderiza OperativeShelfArea (antes se
           mostraban DOS overlays apilados: este drawer + el modal del área). */}

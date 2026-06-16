@@ -18,7 +18,6 @@ import SyncStatus from '../components/common/SyncStatus';
 import HistoryView from '../components/views/HistoryView';
 import StorageView from '../components/shelf/StorageView';
 import WorkingItemsList from './components/WorkingItemsList';
-import ThemeToggle from '../components/common/ThemeToggle';
 import NotificationToast, { Notification, NotificationType } from '../components/common/NotificationToast';
 import { MessagesView } from '../components/views/MessagesView';
 import ForkliftBanner from '../components/common/ForkliftBanner';

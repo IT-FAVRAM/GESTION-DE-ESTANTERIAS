@@ -14,6 +14,9 @@ import { buildOperativeConfig, canUseScanTray } from '../../lib/operative/operat
 import { useOperativeShelf } from '../../hooks/useOperativeShelf';
 import OperativeShelfArea from '../operative/OperativeShelfArea';
 import OperativeActionButtons from '../operative/OperativeActionButtons';
+import OperativeActionBar from '../operative/OperativeActionBar';
+import AppHeader from '../common/AppHeader';
+import { useFormFactor } from '../../hooks/useFormFactor';
 
 interface JefeSeccionViewProps {
   onBack?: () => void;
@@ -30,6 +33,7 @@ const JefeSeccionOperativo: React.FC<{
 }> = ({ shelfCode, onShelfChange, sectionShelfCodes, onBack, chatButton }) => {
   const { displayName, operarioId, firebaseUser, section, logout } = useAuth();
   const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? '';
+  const isTouch = useFormFactor() !== 'desktop';
 
   const shelfDef = SHELF_DEFINITIONS.find((s) => s.code === shelfCode);
 
@@ -54,56 +58,41 @@ const JefeSeccionOperativo: React.FC<{
 
   return (
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
-      <header className="flex-shrink-0 bg-white border-b border-slate-200 px-3 py-2 shadow-sm">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
-            <span className="text-2xl">🏭</span>
-            <div className="min-w-0">
-              <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none truncate">
-                {shelfDef?.name ?? shelfCode ?? 'Mi Sección'}
-              </h1>
-              <p className="text-[10px] text-slate-500 truncate leading-none mt-0.5">{displayName} · {operarioId}</p>
-            </div>
+      <AppHeader
+        icon="🏭"
+        title={shelfDef?.name ?? shelfCode ?? 'Mi Sección'}
+        subtitle={`${displayName} · ${operarioId}`}
+        center={isTouch ? undefined : <OperativeActionButtons engine={engine} config={config} />}
+        chatButton={chatButton}
+        right={sectionShelfCodes.length > 1 ? (
+          <div className="flex gap-1 flex-shrink-0">
+            {sectionShelfCodes.map((code) => {
+              const def = SHELF_DEFINITIONS.find((s) => s.code === code);
+              return (
+                <button
+                  key={code}
+                  onClick={() => handleShelfChange(code)}
+                  className={`px-2.5 py-1.5 text-xs font-black rounded-lg transition-all ${
+                    shelfCode === code
+                      ? 'bg-sky-600 text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {def?.name ?? code}
+                </button>
+              );
+            })}
           </div>
-
-          {/* Chat inline */}
-          {chatButton}
-
-          {/* Selector de estantería si la sección tiene varias */}
-          {sectionShelfCodes.length > 1 && (
-            <div className="flex gap-1 flex-shrink-0">
-              {sectionShelfCodes.map((code) => {
-                const def = SHELF_DEFINITIONS.find((s) => s.code === code);
-                return (
-                  <button
-                    key={code}
-                    onClick={() => handleShelfChange(code)}
-                    className={`px-2.5 py-1.5 text-xs font-black rounded-lg transition-all ${
-                      shelfCode === code
-                        ? 'bg-sky-600 text-white shadow-sm'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {def?.name ?? code}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          <OperativeActionButtons engine={engine} config={config} />
-
-          <button
-            onClick={onBack ? onBack : logout}
-            className="px-2 py-1 text-[11px] font-bold bg-slate-100 text-slate-700 rounded-lg whitespace-nowrap flex-shrink-0">
-            {onBack ? 'Volver' : 'Salir'}
-          </button>
-        </div>
-      </header>
+        ) : undefined}
+        onBack={onBack}
+        onLogout={logout}
+      />
 
       <main className="flex-1 min-h-0 min-w-0 w-full overflow-hidden">
         <OperativeShelfArea engine={engine} config={config} fullscreenGrid userSection={section} />
       </main>
+
+      {isTouch && <OperativeActionBar engine={engine} config={config} />}
     </div>
   );
 };
