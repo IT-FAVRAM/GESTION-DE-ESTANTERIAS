@@ -6,6 +6,8 @@ interface ScanMethodPickerProps {
   actionLabel: string;
   onSelect: (method: ScanMethod) => void;
   onBatch?: () => void;
+  /** MOVER: alternativa a escanear — abre la lista de artículos de la estantería. */
+  onSelectList?: () => void;
   onClose: () => void;
 }
 
@@ -14,6 +16,7 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
   actionLabel,
   onSelect,
   onBatch,
+  onSelectList,
   onClose,
 }) => {
   if (!open) return null;
@@ -72,6 +75,20 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
               Introduce el código del artículo a mano
             </span>
           </button>
+
+          {/* MOVER: seleccionar de la lista de artículos de la estantería */}
+          {onSelectList && (
+            <button
+              type="button"
+              onClick={onSelectList}
+              className="w-full rounded-xl border-2 border-amber-200 hover:border-amber-500 bg-amber-50 px-4 py-3 text-left transition-colors"
+            >
+              <span className="font-bold text-amber-900">📋 Seleccionar de lista</span>
+              <span className="block text-xs text-amber-700/80 mt-0.5">
+                Elige el artículo entre los ya ubicados en la estantería
+              </span>
+            </button>
+          )}
 
           {/* Lote: varios artículos en las mismas posiciones */}
           {onBatch && (

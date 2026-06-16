@@ -60,18 +60,22 @@ export interface RoleOperativeConfig {
 }
 
 /**
- * Bandeja de escaneo (scan-first) — ALCANCE RESTRINGIDO.
+ * Bandeja de escaneo (scan-first) — disponible para todos los roles operativos
+ * que tienen pistola y barra de acciones, EXCEPTO:
+ *   - OPERARIO: opera en kiosko sin sidebar; su flujo es scan→ubicar directo.
+ *   - SOLO_VISUAL: sin permisos de escritura.
  *
- * Solo CARRETILLERO (cualquiera) y los superadmins por email pueden usar la
- * bandeja de escaneo en idle. Estos perfiles operan con shelfScope 'all', así
- * que no hay problema de permisos cross-sección al UBICAR/RETIRAR.
- * Decisión del plan PLAN_ESCANEO_ATAJOS.md §7.
+ * Homogeneización de flujos: antes estaba restringida a CARRETILLERO + 2
+ * superadmins por email. Ahora JEFE_SECCION, CALIDAD y ADMIN/SUPERADMIN también
+ * la usan. Nota: JEFE_SECCION/CALIDAD son de ámbito limitado, así que el
+ * "Retirar de la bandeja" puede actuar sobre la ubicación GLOBAL del artículo
+ * (posiblemente en otra sección) — comportamiento aceptado en la homogeneización.
  */
 export const SCAN_TRAY_SUPERADMIN_EMAILS = ['d.soler@favram.com', 'j.diaz@favram.com'];
 
-export function canUseScanTray(role: UserRole | null | undefined, email?: string | null): boolean {
-  if (role === 'CARRETILLERO') return true;
-  return SCAN_TRAY_SUPERADMIN_EMAILS.includes((email || '').toLowerCase());
+export function canUseScanTray(role: UserRole | null | undefined, _email?: string | null): boolean {
+  if (!role) return false;
+  return role !== 'OPERARIO' && role !== 'SOLO_VISUAL';
 }
 
 export interface BuildOperativeConfigOptions {

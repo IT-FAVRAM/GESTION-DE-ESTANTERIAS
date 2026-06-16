@@ -12,7 +12,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { isReprocesosLocation } from '../../lib/firestoreSchema';
 import { calcReprocesosTotal } from '../../lib/api/reprocesosApi';
 import CalidadReprocesosSection from './CalidadReprocesosSection';
-import { buildOperativeConfig } from '../../lib/operative/operativeConfig';
+import { buildOperativeConfig, canUseScanTray } from '../../lib/operative/operativeConfig';
 import { useOperativeShelf } from '../../hooks/useOperativeShelf';
 import OperativeShelfArea from '../operative/OperativeShelfArea';
 import OperativeActionButtons from '../operative/OperativeActionButtons';
@@ -33,6 +33,7 @@ const CalidadView: React.FC = () => {
     shelfCode: SHELF,
     operarioId: effectiveOperarioId,
     displayName,
+    enableScanTray: canUseScanTray('CALIDAD', firebaseUser?.email),
   });
 
   const { locations } = engine;

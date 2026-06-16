@@ -10,7 +10,7 @@ import React, { useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { SHELF_DEFINITIONS, getShelvesForSection, type WarehouseSection } from '../../lib/firestoreSchema';
 import { SECTION_TO_SHELF, normalizeLegacySection } from '../../domain/auth/sectionShelf';
-import { buildOperativeConfig } from '../../lib/operative/operativeConfig';
+import { buildOperativeConfig, canUseScanTray } from '../../lib/operative/operativeConfig';
 import { useOperativeShelf } from '../../hooks/useOperativeShelf';
 import OperativeShelfArea from '../operative/OperativeShelfArea';
 import OperativeActionButtons from '../operative/OperativeActionButtons';
@@ -44,6 +44,7 @@ const JefeSeccionOperativo: React.FC<{
     setShelfCode: onShelfChange,
     operarioId: effectiveOperarioId,
     displayName,
+    enableScanTray: canUseScanTray('JEFE_SECCION', firebaseUser?.email),
   });
 
   const handleShelfChange = (code: string) => {

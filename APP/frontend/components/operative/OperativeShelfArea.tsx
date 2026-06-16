@@ -92,7 +92,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
     handleUbicarConfirm, handleUbicarBatchConfirm, handleUbicarBatchStart,
     handleReprocesosUbicacionConfirm, handleReprocesosUbicacionSkip,
     handleRetirarArticleListConfirm, handleRetirarCellItemsConfirm,
-    handleMoverSelectArticle, handleMoverConfirm, handleReubicarConfirm,
+    handleMoverSelectArticle, handleMoverConfirm, chooseMoverFromList, handleReubicarConfirm,
     handleSectionPicked, handleRecogidaConfirm, handleTraerConfirm,
     addAdditionalShelf,
     setShowRetirarArticleList, setShowMoverArticleList, setSectionPicker, setScanMethodPickerOpen,
@@ -465,6 +465,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             ? () => beginBatchMode(!!pendingCell)
             : undefined
         }
+        onSelectList={pendingAction === 'mover' ? chooseMoverFromList : undefined}
         onClose={handleScanMethodPickerClose}
       />
 

@@ -693,6 +693,17 @@ export function useOperativeShelf({
     setScanMethodPickerOpen(true);
   };
 
+  /**
+   * MOVER — "Seleccionar de lista": alternativa a escanear. Cierra el selector de
+   * método y abre la lista de artículos de la estantería (flujo clásico de mover).
+   */
+  const chooseMoverFromList = useCallback(() => {
+    setScanMethodPickerOpen(false);
+    setPendingAction(null);
+    setAction('mover');
+    setShowMoverArticleList(true);
+  }, []);
+
   // cellFirst: confirmar posiciones seleccionadas → abre pregunta OF
   const handleCellFirstConfirmPositions = useCallback(() => {
     if (selectedPositions.length === 0) {
@@ -811,7 +822,10 @@ export function useOperativeShelf({
 
     if (next === 'retirar') {
       setAction('retirar');
-      if (config.retirar.askSectionFirst && setShelfCode) {
+      // Section picker OPCIONAL: si ya estamos en una estantería válida (el usuario
+      // la seleccionó en el sidebar), vamos directo a la lista. Solo preguntamos la
+      // sección cuando no hay una estantería resuelta todavía.
+      if (config.retirar.askSectionFirst && setShelfCode && !shelfDef) {
         setSectionPicker({ open: true, purpose: 'retirar' });
       } else {
         setShowRetirarArticleList(true);
@@ -820,8 +834,10 @@ export function useOperativeShelf({
     }
 
     if (next === 'mover') {
-      setAction('mover');
-      setShowMoverArticleList(true);
+      // MOVER ahora pasa por el selector de método (igual que UBICAR): el usuario
+      // puede escanear directamente o elegir "Seleccionar de lista" (onSelectList
+      // en el ScanMethodPicker abre MoverArticleList).
+      openScanPickerFor('mover');
       return;
     }
 
@@ -1125,7 +1141,9 @@ export function useOperativeShelf({
       return;
     }
 
-    // UBICAR individual: confirmar posición con modal
+    // UBICAR individual: toggle directo de posición, SIN modal de confirmación
+    // por celda. La confirmación final es el botón "Ubicar" de la barra de estado
+    // (homogeneización: idéntico al modo lote y a CALIDAD/ADMIN).
     if (action === 'ubicar' && !batchMode && scanData) {
       const position = loc.position;
       if (reprocesosEnabled && isReprocesosLocation(shelfCode, padPos(position))) {
@@ -1134,40 +1152,21 @@ export function useOperativeShelf({
         return;
       }
 
-      // Mostrar confirmación: "¿Ubicar en posición X?"
-      setConfirmModal({
-        open: true,
-        title: '¿Ubicar aquí?',
-        message: `¿Ubicar ${scanData.articleCode} en ${shelfCode} pos. ${displayPos(position)}?`,
-        icon: '📍',
-        variant: 'info',
-        confirmText: '✓ Sí',
-        onConfirm: () => {
-          const newPositions = selectedPositions.includes(position)
-            ? selectedPositions.filter(p => p !== position)
-            : [...selectedPositions, position];
+      const newPositions = selectedPositions.includes(position)
+        ? selectedPositions.filter((p) => p !== position)
+        : [...selectedPositions, position];
 
-          const validation = validateContiguity(newPositions, shelfDef);
+      const validation = validateContiguity(newPositions, shelfDef);
+      if (!validation.isContiguous && newPositions.length > 1) {
+        showToast('error', `❌ ${validation.message}`);
+        return;
+      }
 
-          if (!validation.isContiguous && newPositions.length > 1) {
-            showToast('error', `❌ ${validation.message}`);
-            setConfirmModal((p) => ({ ...p, open: false }));
-            return;
-          }
+      if (!loc.isEmpty && loc.items.length > 0 && !selectedPositions.includes(position)) {
+        showToast('info', `⚠️ Pos. ${displayPos(position)} ya tiene ${loc.items.length} artículo(s) — se añadirá igualmente`);
+      }
 
-          if (!loc.isEmpty && loc.items.length > 0 && !selectedPositions.includes(position)) {
-            showToast('info', `⚠️ Pos. ${displayPos(position)} ya tiene ${loc.items.length} artículo(s) — se añadirá igualmente`);
-          }
-
-          setSelectedPositions(newPositions);
-          setConfirmModal((p) => ({ ...p, open: false }));
-        },
-        extraButton: {
-          text: '✕ No',
-          onClick: () => setConfirmModal((p) => ({ ...p, open: false })),
-        },
-        hideCancel: true,
-      });
+      setSelectedPositions(newPositions);
       return;
     }
 
@@ -1259,7 +1258,6 @@ export function useOperativeShelf({
     setShowAddShelfModal(false);
     const { articleCode, orderFab } = scanData;
     const positions = [...selectedPositions];
-    const extras = [...additionalShelfPositions];
 
     const ok = await doUbicarCurrentShelf(articleCode, orderFab, positions, importe, cantidad);
     const failedSections = ok ? await ubicarAdditionalSections(articleCode, orderFab) : [];
@@ -1283,52 +1281,22 @@ export function useOperativeShelf({
       return;
     }
 
-    const allText = [
-      `${shelfCode}: pos. ${positions.map(displayPos).join(', ')}`,
-      ...extras.map((e) => `${e.shelfName}: pos. ${e.positions.map(displayPos).join(', ')}`),
-    ].join(' · ');
     setAdditionalShelfPositions([]);
 
-    // Bucle "¿ubicar otro en las mismas posiciones?"
-    // IMPORTANTE: cerrar este modal por cualquier vía que no sea "SÍ" debe
-    // FINALIZAR la acción. Antes, cerrar con el fondo dejaba scanData y
-    // selectedPositions vivos con el botón "✓ Ubicar" activo para un artículo
-    // YA ubicado → riesgo de duplicarlo con un toque accidental.
-    const finalizeUbicar = () => {
-      finishAction('success', `✅ ${articleCode} ubicado correctamente`);
-      // SOLDADURA: al finalizar, abrir la celda ubicada para poder adjuntarle una foto
-      // (la galería vive en el modal de celda). resetFlow() ya limpió selectedCell; este
-      // setSelectedCell posterior gana en el mismo tick.
-      if (shelfDef?.section === 'SOLDADURA') {
-        const pos = positions[0];
-        const existing = locationsRef.current.find((l) => l.position === pos);
-        setSelectedCell(
-          existing ?? { position: pos, items: [], isEmpty: false, locationId: getLocationDocId(shelfCode, pos), photos: [] },
-        );
-      }
-    };
-    setConfirmModal({
-      open: true,
-      title: '✅ Artículo ubicado',
-      message: `${articleCode} ubicado en ${allText}.\n¿Ubicar otro artículo en las mismas posiciones?`,
-      icon: '📦',
-      variant: 'success',
-      confirmText: 'SÍ, ubicar otro',
-      onConfirm: () => {
-        setConfirmModal((p) => ({ ...p, open: false }));
-        setScanData(null);
-        setPendingCell(null);
-        setScanArticleOnly(false);
-        setScannerActive(false);
-        setShowCameraQR(false);
-        setShowCameraOCR(false);
-        // cellFirst: volver al grid para seleccionar celda; de lo contrario abrir picker
-        if (!config.reprocesos?.cellFirst) setScanMethodPickerOpen(true);
-      },
-      extraButton: { text: 'NO, finalizar', onClick: finalizeUbicar },
-      hideCancel: true,
-      onClose: finalizeUbicar,
-    });
+    // Homogeneización: SIN modal "¿ubicar otro?". Tras ubicar con éxito se vuelve
+    // directamente a idle. Para ubicar otro, el usuario pulsa UBICAR de nuevo (o
+    // usa la bandeja de escaneo). Ahorra 1 clic en cada operación.
+    finishAction('success', `✅ ${articleCode} ubicado correctamente`);
+    // SOLDADURA: al finalizar, abrir la celda ubicada para poder adjuntarle una foto
+    // (la galería vive en el modal de celda). resetFlow() ya limpió selectedCell; este
+    // setSelectedCell posterior gana en el mismo tick.
+    if (shelfDef?.section === 'SOLDADURA') {
+      const pos = positions[0];
+      const existing = locationsRef.current.find((l) => l.position === pos);
+      setSelectedCell(
+        existing ?? { position: pos, items: [], isEmpty: false, locationId: getLocationDocId(shelfCode, pos), photos: [] },
+      );
+    }
   };
 
   const handleUbicarBatchConfirm = async (importe?: number, cantidad?: number) => {
@@ -1605,28 +1573,9 @@ export function useOperativeShelf({
     setProcessing(false);
     const { articleCode } = scanData;
     if (ok) {
-      setSelectedPositions([]);
-      if (config.mover.loop) {
-        const finalizeMover = () => finishAction('success', `✅ ${articleCode} movido correctamente`);
-        setConfirmModal({
-          open: true,
-          title: '✅ Movido correctamente',
-          message: `${articleCode} movido. ¿Quieres mover algo más?`,
-          icon: '🔄',
-          variant: 'success',
-          confirmText: 'SÍ, mover otro',
-          onConfirm: () => {
-            setConfirmModal((p) => ({ ...p, open: false }));
-            setScanData(null);
-            setShowMoverArticleList(true);
-          },
-          extraButton: { text: 'NO, finalizar', onClick: finalizeMover },
-          hideCancel: true,
-          onClose: finalizeMover,
-        });
-      } else {
-        finishAction('success', `✅ ${articleCode} movido correctamente`);
-      }
+      // Homogeneización: SIN modal "¿mover otro?". Tras mover con éxito se vuelve
+      // directamente a idle (mismo criterio que UBICAR).
+      finishAction('success', `✅ ${articleCode} movido correctamente`);
     } else {
       finishAction('error', 'Error al mover el artículo');
     }
@@ -1703,7 +1652,7 @@ export function useOperativeShelf({
     handleUbicarConfirm, handleUbicarBatchConfirm, handleUbicarBatchStart, handleStopBatch,
     handleReprocesosUbicacionConfirm, handleReprocesosUbicacionSkip,
     handleRetirarArticleListConfirm, handleRetirarCellItemsConfirm,
-    handleMoverSelectArticle, handleMoverConfirm,
+    handleMoverSelectArticle, handleMoverConfirm, chooseMoverFromList,
     handleReubicarConfirm,
     handleSectionPicked,
     handleRecogidaConfirm, handleTraerConfirm,
