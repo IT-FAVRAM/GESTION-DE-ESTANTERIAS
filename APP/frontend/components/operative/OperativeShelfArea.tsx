@@ -90,6 +90,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
     sectionPicker, reubicarCtx, reubicarNeeded,
     showRecogidaModal, setShowRecogidaModal, showTraerModal, setShowTraerModal,
     showCarretilleroPicker, selectedCarretillero, handleAvisarCarretilleroPicked,
+    successModal, dismissSuccess,
     moverNeeded, highlightedPositions,
     setScannerActive, setHighlightedSearch,
     cancelAction, applyScanMethod, beginBatchMode, showToast,
@@ -725,6 +726,20 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         open={showCarretilleroPicker}
         onSelect={handleAvisarCarretilleroPicked}
         onClose={cancelAction}
+      />
+
+      {/* Avisar: mensaje final de confirmación (proceso terminado) */}
+      <ConfirmationModal
+        open={!!successModal}
+        onClose={dismissSuccess}
+        title={successModal?.title || ''}
+        message={successModal?.message || ''}
+        icon="🚚"
+        variant="success"
+        confirmText="Entendido"
+        onConfirm={dismissSuccess}
+        hideCancel
+        loading={false}
       />
 
       {/* Avisar: recogida */}

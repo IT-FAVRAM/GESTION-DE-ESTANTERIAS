@@ -213,6 +213,9 @@ export function useOperativeShelf({
   // Primer paso de AVISAR: elegir carretillero asignado.
   const [showCarretilleroPicker, setShowCarretilleroPicker] = useState(false);
   const [selectedCarretillero, setSelectedCarretillero] = useState<CarretilleroOption | null>(null);
+  // Mensaje final de confirmación tras enviar una solicitud al carretillero.
+  const [successModal, setSuccessModal] = useState<{ title: string; message: string } | null>(null);
+  const dismissSuccess = useCallback(() => setSuccessModal(null), []);
 
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -603,7 +606,11 @@ export function useOperativeShelf({
     });
     setProcessing(false);
     if (ok) {
-      showToast('success', `✅ Solicitado: el carretillero traerá ${article.articleCode} a ${destination.name}`);
+      const dest = `${destination.name}${destination.station ? ` (puesto ${destination.station})` : ''}`;
+      setSuccessModal({
+        title: '✅ Solicitud enviada',
+        message: `${target?.name ? `Carretillero ${target.name} avisado. ` : ''}Traer ${article.articleCode} a ${dest}.`,
+      });
     } else {
       showToast('error', 'Error al enviar la solicitud');
     }
@@ -811,12 +818,18 @@ export function useOperativeShelf({
     });
     setProcessing(false);
     if (ok) {
-      setShowRecogidaModal(false);
-      finishAction('success', `✅ Recogida solicitada: ${selection.articleCode} → ${selection.destination.name}`);
+      const name = selectedCarretillero?.name;
+      const dest = `${selection.destination.name}${selection.destination.station ? ` (puesto ${selection.destination.station})` : ''}`;
+      const from = `${selection.pickup.name}${selection.pickup.station ? ` (puesto ${selection.pickup.station})` : ''}`;
+      resetFlow();
+      setSuccessModal({
+        title: '✅ Solicitud enviada',
+        message: `${name ? `Carretillero ${name} avisado. ` : ''}Recoger ${selection.articleCode} en ${from} → llevar a ${dest}.`,
+      });
     } else {
       showToast('error', 'Error al enviar la solicitud');
     }
-  }, [createPickupRequest, operarioId, displayName, shelfCode, targetFields, finishAction, showToast]);
+  }, [createPickupRequest, operarioId, displayName, shelfCode, targetFields, selectedCarretillero, resetFlow, showToast]);
 
   const handleTraerConfirm = useCallback(async (selection: TraerSelection) => {
     setProcessing(true);
@@ -835,12 +848,17 @@ export function useOperativeShelf({
     });
     setProcessing(false);
     if (ok) {
-      setShowTraerModal(false);
-      finishAction('success', `✅ Aviso enviado: el carretillero traerá ${selection.articleCode} a ${selection.destination.name}`);
+      const name = selectedCarretillero?.name;
+      const dest = `${selection.destination.name}${selection.destination.station ? ` (puesto ${selection.destination.station})` : ''}`;
+      resetFlow();
+      setSuccessModal({
+        title: '✅ Solicitud enviada',
+        message: `${name ? `Carretillero ${name} avisado. ` : ''}Traer ${selection.articleCode} a ${dest}.`,
+      });
     } else {
       showToast('error', 'Error al enviar la solicitud');
     }
-  }, [createDeliveryRequest, operarioId, displayName, shelfCode, shelfDef, targetFields, finishAction, showToast]);
+  }, [createDeliveryRequest, operarioId, displayName, shelfCode, shelfDef, targetFields, selectedCarretillero, resetFlow, showToast]);
 
   // ── start ─────────────────────────────────────────────────────────────────
   const startAction = (next: OperativeAction) => {
@@ -1679,6 +1697,7 @@ export function useOperativeShelf({
     showTraerModal, setShowTraerModal,
     showCarretilleroPicker, setShowCarretilleroPicker,
     selectedCarretillero, handleAvisarCarretilleroPicked,
+    successModal, dismissSuccess,
     moverNeeded, highlightedPositions,
     // setters/handlers de búsqueda y escáner
     setScannerActive, setHighlightedSearch,
