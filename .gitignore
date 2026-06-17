@@ -42,3 +42,13 @@ bot/.env
 
 # Artefacto Windows (redirecciones "> NUL" mal escapadas)
 nul
+
+# Contraseñas reales en texto plano (NUNCA subir)
+CONTRASEÑAS.txt
+CONTRASE*.txt
+**/CONTRASEÑAS.txt
+
+# Capturas / fotos locales de trabajo (no versionar)
+.playwright-mcp/
+foto nabe*.png
+plano nabe*.png
