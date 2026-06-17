@@ -99,7 +99,9 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
             if (!isIdle) engine.cancelAction();
             setActiveTab(activeTab === 'pickups' ? 'shelves' : 'pickups');
           }}
-            className={`px-2 py-1 text-[11px] font-bold rounded-lg transition-all whitespace-nowrap ${
+            className={`font-bold rounded-lg transition-all whitespace-nowrap flex items-center justify-center ${
+              isTouch ? 'min-h-11 px-3 text-sm' : 'px-2 py-1 text-[11px]'
+            } ${
               activeTab === 'pickups' ? 'bg-orange-500 text-white shadow-md' : 'bg-orange-100 text-orange-700'
             }`}>
             📦 REC{pendingCount > 0 && <span className="ml-0.5 font-black">({pendingCount})</span>}

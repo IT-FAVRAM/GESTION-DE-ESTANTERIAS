@@ -90,7 +90,7 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({ requests, o
       </div>
 
       {/* Acción — único modo de cerrar */}
-      <div className="px-5 pb-8 pt-3 border-t border-slate-800">
+      <div className="px-5 pb-safe pt-3 border-t border-slate-800">
         <button
           onClick={handleAck}
           disabled={processing}

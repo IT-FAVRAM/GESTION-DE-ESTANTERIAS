@@ -38,7 +38,7 @@ const SoldaduraStationPicker: React.FC<SoldaduraStationPickerProps> = ({
         <button
           onClick={onBack}
           disabled={processing}
-          className="text-slate-400 hover:text-white transition-colors p-1 text-sm font-bold"
+          className="text-slate-400 hover:text-white transition-colors min-h-11 px-3 -ml-1 flex items-center text-sm font-bold"
         >
           ← Volver
         </button>
@@ -46,7 +46,7 @@ const SoldaduraStationPicker: React.FC<SoldaduraStationPickerProps> = ({
         <div className="w-16" />
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-safe">
         <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
           Selecciona el puesto (1 al 18):
         </p>

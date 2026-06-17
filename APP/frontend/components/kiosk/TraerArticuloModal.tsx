@@ -365,7 +365,7 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
         <button
           onClick={step === 'select' ? onClose : () => setStep('select')}
           disabled={loading}
-          className="text-rose-400 hover:text-white transition-colors p-1"
+          className="text-rose-400 hover:text-white transition-colors min-h-11 px-3 -ml-1 flex items-center"
         >
           ← {step === 'select' ? 'Cancelar' : 'Volver'}
         </button>
@@ -383,7 +383,7 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
 
       {/* ── Paso destino ── */}
       {step === 'destination' && (
-        <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="flex-1 overflow-y-auto px-4 pt-4 pb-safe">
           {selected && (
             <div className="bg-slate-800/60 rounded-2xl px-4 py-3 mb-3 flex items-center gap-3">
               <span className="text-2xl">📦</span>
@@ -461,7 +461,7 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
       </div>
 
       {/* ─── Content area ─── */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div className="flex-1 overflow-y-auto px-4 pb-safe">
         {inputMethod === 'search' && (
           <>
             {/* Search input */}

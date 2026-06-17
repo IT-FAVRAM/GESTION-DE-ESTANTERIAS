@@ -120,7 +120,7 @@ const RecogidaModal: React.FC<RecogidaModalProps> = ({
         <button
           onClick={step === 'article' ? onClose : () => setStep(step === 'destination' || step === 'destStation' ? 'origin' : 'article')}
           disabled={processing}
-          className="text-rose-400 hover:text-white transition-colors p-1 text-sm font-bold"
+          className="text-rose-400 hover:text-white transition-colors min-h-11 px-3 -ml-1 flex items-center text-sm font-bold"
         >
           ← {step === 'article' ? 'Cancelar' : 'Volver'}
         </button>
@@ -140,7 +140,7 @@ const RecogidaModal: React.FC<RecogidaModalProps> = ({
 
       {/* ── Paso 1: artículo ── */}
       {step === 'article' && (
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        <div className="flex-1 overflow-y-auto px-4 pt-4 pb-safe space-y-3">
           <div>
             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Código del artículo</label>
             <input
@@ -206,7 +206,7 @@ const RecogidaModal: React.FC<RecogidaModalProps> = ({
 
       {/* ── Paso 2: origen ── */}
       {step === 'origin' && (
-        <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="flex-1 overflow-y-auto px-4 pt-4 pb-safe">
           <div className="bg-slate-800/60 rounded-2xl px-4 py-3 mb-3 flex items-center gap-3">
             <span className="text-2xl">📦</span>
             <div className="min-w-0">
@@ -229,7 +229,7 @@ const RecogidaModal: React.FC<RecogidaModalProps> = ({
 
       {/* ── Paso 3: destino ── */}
       {step === 'destination' && (
-        <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="flex-1 overflow-y-auto px-4 pt-4 pb-safe">
           <div className="bg-slate-800/60 rounded-2xl px-4 py-3 mb-3">
             <p className="text-xs text-slate-400">
               Recoger <span className="font-bold text-amber-300">{pickup?.name}{pickupStation ? ` · puesto ${pickupStation}` : ''}</span>
