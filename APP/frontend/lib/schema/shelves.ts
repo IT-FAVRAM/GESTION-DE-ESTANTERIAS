@@ -136,7 +136,7 @@ export const SHELF_DEFINITIONS: Shelf[] = [
           subtitle: 'Urgentes (001-006) en filas inferiores',
           zoneName: 'ESTANTERIA 1',
           rows: [
-            [15, 16],
+            [15, 16, null, null],
             [13, 14, 29, 30],
             [11, 12, 27, 28],
             [9,  10, 25, 26],
