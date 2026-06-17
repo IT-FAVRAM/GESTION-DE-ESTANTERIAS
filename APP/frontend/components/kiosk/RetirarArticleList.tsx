@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import type { ShelfLocationState } from '../../hooks/useShelf';
+import type { UrgentAlert } from '../../lib/firestoreSchema';
 
 interface RetirarItem {
   articleCode: string;
@@ -15,6 +16,7 @@ interface RetirarArticleListProps {
   shelfCode: string;
   onConfirm: (items: RetirarItem[]) => void;
   onClose: () => void;
+  urgentAlerts?: UrgentAlert[];
 }
 
 interface ItemGroup {
@@ -22,7 +24,7 @@ interface ItemGroup {
   items: RetirarItem[];
 }
 
-const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shelfCode, onConfirm, onClose }) => {
+const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shelfCode, onConfirm, onClose, urgentAlerts = [] }) => {
   const items = useMemo<RetirarItem[]>(() => {
     const result: RetirarItem[] = [];
     let globalIndex = 0;
@@ -38,12 +40,26 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
         });
       }
     }
-    // Ordenar: primero por ubicación, luego alfabético por artículo
+
+    // Crear set de artículos urgentes para búsqueda O(1)
+    const urgentCodes = new Set(urgentAlerts.map(a => a.articleCode));
+
+    // Ordenar: primero urgentes (por orden de alerta), luego resto (por ubicación y artículo)
     return result.sort((a, b) => {
+      const aIsUrgent = urgentCodes.has(a.articleCode);
+      const bIsUrgent = urgentCodes.has(b.articleCode);
+
+      // Si uno es urgente y el otro no, el urgente va primero
+      if (aIsUrgent !== bIsUrgent) {
+        return aIsUrgent ? -1 : 1;
+      }
+
+      // Si ambos son urgentes, mantener orden de alertas (quedan juntos arriba)
+      // Si ninguno es urgente, ordenar por ubicación y luego artículo
       const posCompare = a.position.localeCompare(b.position);
       return posCompare !== 0 ? posCompare : a.articleCode.localeCompare(b.articleCode);
     });
-  }, [locations]);
+  }, [locations, urgentAlerts]);
 
   // Agrupar items por ubicación para mostrar encabezados
   const groupedItems = useMemo<ItemGroup[]>(() => {

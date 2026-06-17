@@ -37,6 +37,7 @@ import { SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
 import { parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
 import { validateContiguity } from '../../lib/contiguityValidator';
 import { useScannerCapture } from '../../hooks/useScannerCapture';
+import { useUrgentAlerts } from '../../hooks/useUrgentAlerts';
 import type { GlobalSearchResult } from '../../hooks/useGlobalSearchWithCache';
 import type { RoleOperativeConfig } from '../../lib/operative/operativeConfig';
 import type { UseOperativeShelfReturn } from '../../hooks/useOperativeShelf';
@@ -100,6 +101,8 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
     enableScanTray, trayItems, addToTray, removeFromTray, clearTray, ubicarTray, retirarTray,
     requestDeliveryToSection,
   } = engine;
+
+  const { alerts: urgentAlerts } = useUrgentAlerts();
 
   const reprocesosCosts = !!config.reprocesos?.showCosts;
   const canMultiSection = config.ubicar.allowMultiSection;
@@ -499,6 +502,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
           shelfCode={shelfCode}
           onConfirm={handleRetirarArticleListConfirm}
           onClose={() => { setShowRetirarArticleList(false); cancelAction(); }}
+          urgentAlerts={urgentAlerts}
         />
       )}
 
