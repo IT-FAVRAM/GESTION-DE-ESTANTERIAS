@@ -6,9 +6,12 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { collection, query as firestoreQuery, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import { useGlobalSearchWithCache, type GlobalSearchResult } from '../../hooks/useGlobalSearchWithCache';
-import { SHELF_DEFINITIONS, CART_DEFINITIONS } from '../../lib/firestoreSchema';
+import { SHELF_DEFINITIONS, CART_DEFINITIONS, COLLECTIONS, type HistoryEntryDoc } from '../../lib/firestoreSchema';
+import { parseLocationId } from '../../lib/schema/shelves';
 
 interface KioskSearchBarProps {
   locations: ShelfLocationState[];
@@ -56,6 +59,10 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
   const [query, setQuery] = useState('');
   const [resultCount, setResultCount] = useState(0);
   const [selectedResult, setSelectedResult] = useState<GlobalSearchResult | null>(null);
+  // Recorrido detectado para resultados ACTIVOS (no-ghost): el hook ya calcula
+  // hasMultipleLocations para ghosts, pero para artículos ubicados hay que
+  // consultar el historial al seleccionarlos.
+  const [activeRecorrido, setActiveRecorrido] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
   const { results, loading, hasQuery, hasExactShelfMatch, clear, isCached, cacheInfo } = useGlobalSearchWithCache(query, currentShelfCode || '');
@@ -130,6 +137,43 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
   useEffect(() => {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, []);
+
+  // Al seleccionar un resultado ACTIVO (no-ghost), consultar el historial por
+  // articleCode para saber si ha pasado por más de una OF/estantería y así
+  // mostrar "🔄 Ver recorrido" en vez de "📋 Historial" también en este caso.
+  useEffect(() => {
+    if (!selectedResult || selectedResult.isGhost) {
+      setActiveRecorrido(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const q = firestoreQuery(
+          collection(db, COLLECTIONS.HISTORY),
+          where('articleCode', '==', selectedResult.articleCode),
+          orderBy('timestamp', 'desc'),
+          limit(20),
+        );
+        const snap = await getDocs(q);
+        if (cancelled) return;
+        const shelfCodes = new Set<string>();
+        const orderFabs = new Set<string>();
+        snap.docs.forEach((d) => {
+          const data = d.data() as HistoryEntryDoc;
+          if (data.orderFab) orderFabs.add(data.orderFab);
+          const loc = data.toLocation || data.fromLocation;
+          const parsed = loc ? parseLocationId(loc) : null;
+          if (parsed) shelfCodes.add(parsed.shelfCode);
+        });
+        setActiveRecorrido(shelfCodes.size > 1 || orderFabs.size > 1);
+      } catch (err) {
+        console.warn('[KioskSearchBar] recorrido check failed', err);
+        setActiveRecorrido(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedResult]);
 
   const showDropdown = global && hasQuery && !loading && !selectedResult;
 
@@ -385,18 +429,23 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
             </div>
           )}
           <div className="mt-3 flex gap-2">
-            {onOpenHistory && (
-              <button
-                onClick={() => onOpenHistory(selectedResult.articleCode, selectedResult.orderFab)}
-                className={`flex-1 rounded-xl py-2.5 text-sm font-bold active:scale-[0.98] transition-all touch-manipulation ${
-                  selectedResult.hasMultipleLocations
-                    ? 'bg-violet-600 hover:bg-violet-500 text-white'
-                    : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
-                }`}
-              >
-                {selectedResult.hasMultipleLocations ? '🔄 Ver recorrido' : '📋 Historial'}
-              </button>
-            )}
+            {onOpenHistory && (() => {
+              const hasRecorrido = selectedResult.isGhost
+                ? !!selectedResult.hasMultipleLocations
+                : activeRecorrido;
+              return (
+                <button
+                  onClick={() => onOpenHistory(selectedResult.articleCode, selectedResult.orderFab)}
+                  className={`flex-1 rounded-xl py-2.5 text-sm font-bold active:scale-[0.98] transition-all touch-manipulation ${
+                    hasRecorrido
+                      ? 'bg-violet-600 hover:bg-violet-500 text-white'
+                      : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
+                  }`}
+                >
+                  {hasRecorrido ? '🔄 Ver recorrido' : '📋 Historial'}
+                </button>
+              );
+            })()}
             {onSolicitarTraer && (
               <button
                 onClick={() => onSolicitarTraer(selectedResult)}

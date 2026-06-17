@@ -13,6 +13,7 @@ import { parseLocationId } from '../../lib/schema/shelves';
 interface HistoryModalProps {
   open: boolean;
   articleCode: string;
+  /** Informativo: OF desde la que se abrió el modal (se resalta en el timeline). */
   orderFab: string;
   onClose: () => void;
 }
@@ -43,10 +44,12 @@ const HistoryModal: React.FC<HistoryModalProps> = ({ open, articleCode, orderFab
     const loadHistory = async () => {
       setLoading(true);
       try {
+        // Por articleCode solamente (sin filtrar por OF): así se ve el
+        // recorrido completo del artículo aunque haya cambiado de OF entre
+        // movimientos. Coincide con el índice articleCode+timestamp ya existente.
         const q = query(
           collection(db, COLLECTIONS.HISTORY),
           where('articleCode', '==', articleCode),
-          where('orderFab', '==', orderFab),
           orderBy('timestamp', 'desc'),
         );
         const snap = await getDocs(q);
@@ -60,7 +63,7 @@ const HistoryModal: React.FC<HistoryModalProps> = ({ open, articleCode, orderFab
     };
 
     loadHistory();
-  }, [open, articleCode, orderFab]);
+  }, [open, articleCode]);
 
   if (!open) return null;
 
@@ -75,9 +78,15 @@ const HistoryModal: React.FC<HistoryModalProps> = ({ open, articleCode, orderFab
         </button>
 
         <h2 className="text-2xl font-bold mb-1 text-slate-900">Historial de movimientos</h2>
-        <p className="text-sm text-slate-500 mb-4">
+        <p className="text-sm text-slate-500 mb-2">
           {articleCode} {orderFab && `— OF: ${orderFab}`}
         </p>
+
+        {!loading && new Set(history.map((h) => h.orderFab)).size > 1 && (
+          <div className="mb-4 text-xs text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-3 py-2">
+            🔄 Este artículo ha pasado por más de una OF — las marcadas en violeta son de otra OF.
+          </div>
+        )}
 
         {loading ? (
           <div className="text-center py-8 text-slate-500">Cargando historial...</div>
@@ -91,8 +100,10 @@ const HistoryModal: React.FC<HistoryModalProps> = ({ open, articleCode, orderFab
               const fromParsed = entry.fromLocation ? parseLocationId(entry.fromLocation) : null;
               const toParsed = entry.toLocation ? parseLocationId(entry.toLocation) : null;
 
+              const isOtherOf = !!orderFab && entry.orderFab !== orderFab;
+
               return (
-                <div key={idx} className={`border rounded-lg p-3 ${config.color}`}>
+                <div key={idx} className={`border rounded-lg p-3 ${config.color} ${isOtherOf ? 'ring-1 ring-violet-300' : ''}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex gap-3 flex-1">
                       <span className="text-2xl mt-0.5">{config.icon}</span>
@@ -100,6 +111,11 @@ const HistoryModal: React.FC<HistoryModalProps> = ({ open, articleCode, orderFab
                         <div className="flex items-baseline gap-2 flex-wrap">
                           <span className="font-bold text-slate-900">{config.label}</span>
                           <span className="text-xs text-slate-600">por {entry.operarioName}</span>
+                          {entry.orderFab && (
+                            <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${isOtherOf ? 'bg-violet-100 text-violet-700 font-bold' : 'bg-slate-100 text-slate-500'}`}>
+                              OF: {entry.orderFab}
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-slate-600 mt-1 space-y-0.5">
                           {fromParsed && (
