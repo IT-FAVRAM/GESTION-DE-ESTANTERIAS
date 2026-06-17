@@ -517,6 +517,12 @@ export const ALL_SHELVES: Shelf[] = [...SHELF_DEFINITIONS, ...CART_DEFINITIONS];
 
 // ── HELPERS ──────────────────────────────────────────────────────────────────
 
+/** Devuelve los carros disponibles para una sección */
+export const getCartsForSection = (section: WarehouseSection): string[] =>
+  CART_DEFINITIONS
+    .filter(cart => cart.section === section)
+    .map(cart => cart.code);
+
 /** Genera el ID de ubicacion compuesto: "shelfCode-position" */
 export const getLocationDocId = (shelfCode: string, position: number | string): string => {
   if (typeof position === 'number') {

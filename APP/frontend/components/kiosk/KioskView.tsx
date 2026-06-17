@@ -11,6 +11,8 @@ import OperativeShelfArea from '../operative/OperativeShelfArea';
 import OperativeActionButtons from '../operative/OperativeActionButtons';
 import OperativeActionBar from '../operative/OperativeActionBar';
 import { useFormFactor } from '../../hooks/useFormFactor';
+import { getCartsForSection, type WarehouseSection } from '../../lib/firestoreSchema';
+import CarrosView from '../carretillero/CarrosView';
 
 /**
  * KioskView — Vista del kiosko (rol OPERARIO).
@@ -30,11 +32,18 @@ const KioskView: React.FC = () => {
   const shelfCode = currentShelf || assignedShelf || '';
 
   const [showDeviceInfo, setShowDeviceInfo] = useState(false);
+  const [showCarts, setShowCarts] = useState(false);
   // Mostrar la estantería directamente al entrar (los kioskos de sección deben
   // ver su(s) estantería(s) sin pasar por la pantalla de acciones). Las acciones
   // (UBICAR/RETIRAR/...) quedan accesibles en la cabecera vía OperativeActionButtons.
   const [showShelf, setShowShelf] = useState(true);
   const isTouch = useFormFactor() !== 'desktop';
+
+  // Carros disponibles para esta sección
+  const availableCarts = useMemo(
+    () => (section ? getCartsForSection(section as WarehouseSection) : []),
+    [section],
+  );
 
   const config = useMemo(
     () => buildOperativeConfig('OPERARIO', { lockedShelfCode: shelfCode, section }),
@@ -49,6 +58,11 @@ const KioskView: React.FC = () => {
   });
 
   const { action, loading, shelfDef, totalArticles, totalOccupied, totalEmpty, cancelAction, startAction } = engine;
+
+  // Si está viendo carros, mostrar CarrosView
+  if (showCarts) {
+    return <CarrosView onBack={() => setShowCarts(false)} />;
+  }
 
   // Loading state takes priority to avoid race condition with empty state
   if (loading && !shelfCode) {
@@ -108,6 +122,9 @@ const KioskView: React.FC = () => {
             ) : config.actions.avisar !== 'none' ? (
               <button onClick={() => startAction('avisar')} className="h-32 rounded-3xl border border-amber-400/20 bg-gradient-to-br from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 active:scale-95 text-white font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl shadow-amber-950/40 transition-all"><span className="text-4xl">🚚</span>CARRETILLERO</button>
             ) : <div />}
+            {availableCarts.length > 0 && (
+              <button onClick={() => setShowCarts(true)} className="h-32 rounded-3xl border border-orange-400/20 bg-gradient-to-br from-orange-500 to-orange-700 hover:from-orange-400 hover:to-orange-600 active:scale-95 text-white font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl shadow-orange-950/40 transition-all"><span className="text-4xl">🛒</span>CARROS</button>
+            )}
           </div>
           <button onClick={() => setShowShelf(true)} className="mt-8 px-6 py-3 rounded-full bg-white border border-slate-300 text-slate-600 font-bold hover:bg-slate-50 transition-colors shadow-sm">
             Mostrar estantería
