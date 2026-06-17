@@ -292,39 +292,37 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
           </button>
         </div>
 
-        {showCameraButtons && (onOpenQRCamera || onOpenOCRCamera) && (
-          <div className="flex gap-2">
-            {onOpenQRCamera && (
-              <button
-                onClick={onOpenQRCamera}
-                disabled={disabled}
-                className="flex-1 px-3 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
-              >
-                <span>📷</span> Barras
-              </button>
-            )}
-            {onOpenOCRCamera && (
-              <button
-                onClick={onOpenOCRCamera}
-                disabled={disabled}
-                className="flex-1 px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
-              >
-                <span>📝</span> OCR
-              </button>
-            )}
+        <div className="flex gap-2">
+          {showCameraButtons && onOpenQRCamera && (
             <button
-              onClick={() => {
-                setFreeTextMode(true);
-                setFreeTextArticle('');
-                setFreeTextReference('');
-              }}
+              onClick={onOpenQRCamera}
               disabled={disabled}
-              className="flex-1 px-3 py-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
+              className="flex-1 px-3 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
             >
-              <span>✏️</span> Texto libre
+              <span>📷</span> Barras
             </button>
-          </div>
-        )}
+          )}
+          {showCameraButtons && onOpenOCRCamera && (
+            <button
+              onClick={onOpenOCRCamera}
+              disabled={disabled}
+              className="flex-1 px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
+            >
+              <span>📝</span> OCR
+            </button>
+          )}
+          <button
+            onClick={() => {
+              setFreeTextMode(true);
+              setFreeTextArticle('');
+              setFreeTextReference('');
+            }}
+            disabled={disabled}
+            className="flex-1 px-3 py-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
+          >
+            <span>✏️</span> Texto libre
+          </button>
+        </div>
       </div>
     );
   }
@@ -357,39 +355,37 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
         </button>
       </div>
 
-      {showCameraButtons && (onOpenQRCamera || onOpenOCRCamera) && (
-        <div className="flex gap-2">
-          {onOpenQRCamera && (
-            <button
-              onClick={onOpenQRCamera}
-              disabled={disabled}
-              className="flex-1 px-3 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
-            >
-              <span>📷</span> Barras
-            </button>
-          )}
-          {onOpenOCRCamera && (
-            <button
-              onClick={onOpenOCRCamera}
-              disabled={disabled}
-              className="flex-1 px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
-            >
-              <span>📝</span> OCR
-            </button>
-          )}
+      <div className="flex gap-2">
+        {showCameraButtons && onOpenQRCamera && (
           <button
-            onClick={() => {
-              setFreeTextMode(true);
-              setFreeTextArticle('');
-              setFreeTextReference('');
-            }}
+            onClick={onOpenQRCamera}
             disabled={disabled}
-            className="flex-1 px-3 py-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
+            className="flex-1 px-3 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
           >
-            <span>✏️</span> Texto libre
+            <span>📷</span> Barras
           </button>
-        </div>
-      )}
+        )}
+        {showCameraButtons && onOpenOCRCamera && (
+          <button
+            onClick={onOpenOCRCamera}
+            disabled={disabled}
+            className="flex-1 px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
+          >
+            <span>📝</span> OCR
+          </button>
+        )}
+        <button
+          onClick={() => {
+            setFreeTextMode(true);
+            setFreeTextArticle('');
+            setFreeTextReference('');
+          }}
+          disabled={disabled}
+          className="flex-1 px-3 py-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
+        >
+          <span>✏️</span> Texto libre
+        </button>
+      </div>
     </div>
   );
 };
