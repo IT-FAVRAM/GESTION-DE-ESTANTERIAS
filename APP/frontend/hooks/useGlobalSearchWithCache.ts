@@ -23,8 +23,9 @@ export type GlobalSearchResult = {
   matchLabel: string;
   // Ghost result (fallback a última ubicación conocida)
   isGhost?: boolean;
-  lastLocation?: { shelfCode: string; position: string; timestamp: number };
-  lastWithdrawal?: { shelfCode: string; position: string; timestamp: number };
+  lastLocation?: { shelfCode: string; position: string; timestamp: number; operarioName?: string };
+  lastWithdrawal?: { shelfCode: string; position: string; timestamp: number; operarioName?: string };
+  hasMultipleLocations?: boolean;
 };
 
 type UseGlobalSearchReturn = {
@@ -203,8 +204,9 @@ export const useGlobalSearchWithCache = (
               const ghostMap = new Map<string, {
                 articleCode: string;
                 orderFab: string;
-                lastLocation?: { shelfCode: string; position: string; timestamp: number };
-                lastWithdrawal?: { shelfCode: string; position: string; timestamp: number };
+                lastLocation?: { shelfCode: string; position: string; timestamp: number; operarioName?: string };
+                lastWithdrawal?: { shelfCode: string; position: string; timestamp: number; operarioName?: string };
+                locationHistory: Set<string>;
               }>();
 
               historySnap.docs.forEach((historyDoc) => {
@@ -221,6 +223,7 @@ export const useGlobalSearchWithCache = (
                   entry = {
                     articleCode: data.articleCode,
                     orderFab: data.orderFab,
+                    locationHistory: new Set(),
                   };
                   ghostMap.set(key, entry);
                 }
@@ -234,7 +237,9 @@ export const useGlobalSearchWithCache = (
                       shelfCode: parsed.shelfCode,
                       position: parsed.position,
                       timestamp,
+                      operarioName: data.operarioName,
                     };
+                    entry.locationHistory.add(parsed.shelfCode);
                   }
                 }
 
@@ -245,6 +250,7 @@ export const useGlobalSearchWithCache = (
                       shelfCode: parsed.shelfCode,
                       position: parsed.position,
                       timestamp,
+                      operarioName: data.operarioName,
                     };
                   }
                 }
@@ -268,6 +274,7 @@ export const useGlobalSearchWithCache = (
                     isGhost: true,
                     lastLocation: entry.lastLocation,
                     lastWithdrawal: entry.lastWithdrawal,
+                    hasMultipleLocations: entry.locationHistory.size > 1,
                   });
                 }
               });

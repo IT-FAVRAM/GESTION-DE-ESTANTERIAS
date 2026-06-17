@@ -24,6 +24,7 @@ const CameraOCRScanner = React.lazy(() => import('../common/CameraOCRScanner'));
 import QRScanner from '../common/QRScanner';
 import RetirarArticleList from '../kiosk/RetirarArticleList';
 import RetirarCellModal from '../kiosk/RetirarCellModal';
+import HistoryModal from '../kiosk/HistoryModal';
 import MoverArticleList from '../kiosk/MoverArticleList';
 import ReprocesosUbicacionModal from '../kiosk/ReprocesosUbicacionModal';
 import ReprocesosEditor from '../kiosk/ReprocesosEditor';
@@ -103,6 +104,15 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
   } = engine;
 
   const { alerts: urgentAlerts } = useUrgentAlerts();
+
+  // Modal de historial de movimientos
+  const [showHistoryModal, setShowHistoryModal] = React.useState(false);
+  const [historyArticle, setHistoryArticle] = React.useState<{ articleCode: string; orderFab: string } | null>(null);
+
+  const handleOpenHistory = (articleCode: string, orderFab: string) => {
+    setHistoryArticle({ articleCode, orderFab });
+    setShowHistoryModal(true);
+  };
 
   const reprocesosCosts = !!config.reprocesos?.showCosts;
   const canMultiSection = config.ubicar.allowMultiSection;
@@ -403,6 +413,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             canNavigateToShelf={config.shelfScope === 'all' && !!setShelfCode}
             onShelfNavigate={setShelfCode}
             onSolicitarTraer={canSolicitarTraer ? setTraerResult : undefined}
+            onOpenHistory={handleOpenHistory}
             onOutOfShelfResult={(result) => {
               if (config.shelfScope !== 'all') {
                 showToast('info', `Está en ${result.shelfCode} (pos. ${result.positions.map((p) => padPos(p)).join(', ')})`);
@@ -514,6 +525,15 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         onClose={() => engine.setShowRetirarCellModal(false)}
         loading={processing}
       />
+
+      {historyArticle && (
+        <HistoryModal
+          open={showHistoryModal}
+          articleCode={historyArticle.articleCode}
+          orderFab={historyArticle.orderFab}
+          onClose={() => setShowHistoryModal(false)}
+        />
+      )}
 
       {showMoverArticleList && (
         <MoverArticleList

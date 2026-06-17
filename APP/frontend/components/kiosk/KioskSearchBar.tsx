@@ -22,6 +22,8 @@ interface KioskSearchBarProps {
   onOutOfShelfResult?: (result: GlobalSearchResult) => void;
   /** §7bis — Si se pasa, muestra "🚚 Solicitar traer" en la ficha del resultado. */
   onSolicitarTraer?: (result: GlobalSearchResult) => void;
+  /** Callback para abrir historial de movimientos */
+  onOpenHistory?: (articleCode: string, orderFab: string) => void;
 }
 
 function shelfNameFor(code: string): string {
@@ -48,6 +50,7 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
   onShelfNavigate,
   onResultSelect,
   onOutOfShelfResult,
+  onOpenHistory,
   onSolicitarTraer,
 }) => {
   const [query, setQuery] = useState('');
@@ -317,6 +320,11 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
                       <span className="text-xs text-slate-600 ml-1">
                         {shelfNameFor(selectedResult.lastLocation.shelfCode)} — posición {selectedResult.lastLocation.position}
                       </span>
+                      {selectedResult.lastLocation.operarioName && (
+                        <span className="text-[10px] text-slate-500 ml-1 block">
+                          Ubicado por: {selectedResult.lastLocation.operarioName}
+                        </span>
+                      )}
                       <span className="text-[10px] text-slate-500 ml-1">
                         {new Date(selectedResult.lastLocation.timestamp).toLocaleDateString('es-ES', { hour: '2-digit', minute: '2-digit' })}
                       </span>
@@ -331,6 +339,11 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
                       <span className="text-xs text-slate-600 ml-1">
                         {shelfNameFor(selectedResult.lastWithdrawal.shelfCode)} — posición {selectedResult.lastWithdrawal.position}
                       </span>
+                      {selectedResult.lastWithdrawal.operarioName && (
+                        <span className="text-[10px] text-slate-500 ml-1 block">
+                          Retirado por: {selectedResult.lastWithdrawal.operarioName}
+                        </span>
+                      )}
                       <span className="text-[10px] text-slate-500 ml-1">
                         {new Date(selectedResult.lastWithdrawal.timestamp).toLocaleDateString('es-ES', { hour: '2-digit', minute: '2-digit' })}
                       </span>
@@ -371,14 +384,28 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
               Artículo fuera de esta estantería
             </div>
           )}
-          {onSolicitarTraer && (
-            <button
-              onClick={() => onSolicitarTraer(selectedResult)}
-              className="mt-3 w-full rounded-xl bg-amber-500 hover:bg-amber-400 text-white py-2.5 text-sm font-bold active:scale-[0.98] transition-all touch-manipulation"
-            >
-              🚚 Solicitar traer
-            </button>
-          )}
+          <div className="mt-3 flex gap-2">
+            {onOpenHistory && (
+              <button
+                onClick={() => onOpenHistory(selectedResult.articleCode, selectedResult.orderFab)}
+                className={`flex-1 rounded-xl py-2.5 text-sm font-bold active:scale-[0.98] transition-all touch-manipulation ${
+                  selectedResult.hasMultipleLocations
+                    ? 'bg-violet-600 hover:bg-violet-500 text-white'
+                    : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
+                }`}
+              >
+                {selectedResult.hasMultipleLocations ? '🔄 Ver recorrido' : '📋 Historial'}
+              </button>
+            )}
+            {onSolicitarTraer && (
+              <button
+                onClick={() => onSolicitarTraer(selectedResult)}
+                className="flex-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-white py-2.5 text-sm font-bold active:scale-[0.98] transition-all touch-manipulation"
+              >
+                🚚 Solicitar traer
+              </button>
+            )}
+          </div>
         </div>
       )}
 
