@@ -494,7 +494,7 @@ export const CART_DEFINITIONS: Shelf[] = [
   },
   {
     code: 'CRP',
-    name: 'Carro Robot Autoplegadora',
+    name: 'Carro Plegadora Amada',
     section: 'AUTOPLEGADORA',
     type: 'cart',
     locationCount: 4,
@@ -503,7 +503,7 @@ export const CART_DEFINITIONS: Shelf[] = [
       physicalBlocks: [
         {
           id: 'crp-main',
-          title: 'Carro Robot Autoplegadora',
+          title: 'Carro Plegadora Amada',
           subtitle: '4 baldas',
           zoneName: 'BALDAS',
           rows: [[1], [2], [3], [4]],
