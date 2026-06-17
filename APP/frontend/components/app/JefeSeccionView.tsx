@@ -8,7 +8,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { SHELF_DEFINITIONS, getShelvesForSection, getAccessibleShelvesForSection, getCartsForSection, type WarehouseSection } from '../../lib/firestoreSchema';
+import { SHELF_DEFINITIONS, getShelvesForSection, getAccessibleShelvesForSection, type WarehouseSection } from '../../lib/firestoreSchema';
 import { SECTION_TO_SHELF, normalizeLegacySection } from '../../domain/auth/sectionShelf';
 import { buildOperativeConfig, canUseScanTray } from '../../lib/operative/operativeConfig';
 import { useOperativeShelf } from '../../hooks/useOperativeShelf';
@@ -17,7 +17,6 @@ import OperativeActionButtons from '../operative/OperativeActionButtons';
 import OperativeActionBar from '../operative/OperativeActionBar';
 import AppHeader from '../common/AppHeader';
 import { useFormFactor } from '../../hooks/useFormFactor';
-import CarrosView from '../carretillero/CarrosView';
 
 interface JefeSeccionViewProps {
   onBack?: () => void;
@@ -31,9 +30,7 @@ const JefeSeccionOperativo: React.FC<{
   sectionShelfCodes: string[];
   onBack?: () => void;
   chatButton?: React.ReactNode;
-  onShowCarts?: () => void;
-  availableCarts?: string[];
-}> = ({ shelfCode, onShelfChange, sectionShelfCodes, onBack, chatButton, onShowCarts, availableCarts = [] }) => {
+}> = ({ shelfCode, onShelfChange, sectionShelfCodes, onBack, chatButton }) => {
   const { displayName, operarioId, firebaseUser, section, logout } = useAuth();
   const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? '';
   const isTouch = useFormFactor() !== 'desktop';
@@ -67,39 +64,26 @@ const JefeSeccionOperativo: React.FC<{
         subtitle={`${displayName} · ${operarioId}`}
         center={isTouch ? undefined : <OperativeActionButtons engine={engine} config={config} />}
         chatButton={chatButton}
-        right={
-          <div className="flex gap-1 flex-shrink-0 items-center">
-            {availableCarts.length > 0 && (
-              <button
-                onClick={onShowCarts}
-                className="px-2.5 py-1.5 text-xs font-black rounded-lg bg-orange-100 text-orange-700 hover:bg-orange-200 transition-all"
-                title="Ver carros"
-              >
-                🛒 Carros
-              </button>
-            )}
-            {sectionShelfCodes.length > 1 && (
-              <div className="flex gap-1">
-                {sectionShelfCodes.map((code) => {
-                  const def = SHELF_DEFINITIONS.find((s) => s.code === code);
-                  return (
-                    <button
-                      key={code}
-                      onClick={() => handleShelfChange(code)}
-                      className={`px-2.5 py-1.5 text-xs font-black rounded-lg transition-all ${
-                        shelfCode === code
-                          ? 'bg-sky-600 text-white shadow-sm'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      {def?.name ?? code}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+        right={sectionShelfCodes.length > 1 ? (
+          <div className="flex gap-1 flex-shrink-0">
+            {sectionShelfCodes.map((code) => {
+              const def = SHELF_DEFINITIONS.find((s) => s.code === code);
+              return (
+                <button
+                  key={code}
+                  onClick={() => handleShelfChange(code)}
+                  className={`px-2.5 py-1.5 text-xs font-black rounded-lg transition-all ${
+                    shelfCode === code
+                      ? 'bg-sky-600 text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {def?.name ?? code}
+                </button>
+              );
+            })}
           </div>
-        }
+        ) : undefined}
         onBack={onBack}
         onLogout={logout}
       />
@@ -115,7 +99,6 @@ const JefeSeccionOperativo: React.FC<{
 
 const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack, chatButton }) => {
   const { section, assignedShelf, logout } = useAuth();
-  const [showCarts, setShowCarts] = useState(false);
 
   // Determina las estanterías accesibles para la sección del usuario,
   // incluyendo secciones adicionales (p.ej. Jefe de PLEGADORA también accede a AUTOPLEGADORA)
@@ -131,12 +114,6 @@ const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack, chatButton })
     const canonical = SECTION_TO_SHELF[normalized];
     return canonical ? [canonical] : [];
   }, [section]);
-
-  // Carros disponibles para esta sección
-  const availableCarts = useMemo(
-    () => (section ? getCartsForSection(section as WarehouseSection) : []),
-    [section],
-  );
 
   // Si no hay sección o no tiene estanterías, mostrar error
   const hasValidSection = section && sectionShelfCodes.length > 0;
@@ -159,11 +136,6 @@ const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack, chatButton })
   const [selectedShelf, setSelectedShelf] = useState<string | null>(null);
   const shelfCode =
     selectedShelf && sectionShelfCodes.includes(selectedShelf) ? selectedShelf : initialShelf;
-
-  // Si está viendo carros, mostrar CarrosView
-  if (showCarts) {
-    return <CarrosView onBack={() => setShowCarts(false)} />;
-  }
 
   // Si no tiene sección válida, mostrar error
   if (!hasValidSection || !shelfCode) {
@@ -196,8 +168,6 @@ const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack, chatButton })
       sectionShelfCodes={sectionShelfCodes}
       onBack={onBack}
       chatButton={chatButton}
-      onShowCarts={() => setShowCarts(true)}
-      availableCarts={availableCarts}
     />
   );
 };
