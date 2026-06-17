@@ -66,4 +66,27 @@ export const getShelvesForSection = (section: WarehouseSection): string[] =>
     .filter(([code, sec]) => sec === section && !DATA_ONLY_SHELVES.has(code))
     .map(([code]) => code);
 
+/**
+ * Mapa de secciones que pueden tener acceso adicional a otras secciones.
+ * Usado para jefes que necesitan acceder a múltiples secciones.
+ * Ej: Jefe de PLEGADORA también accede a AUTOPLEGADORA.
+ */
+const CROSS_SECTION_ACCESS: Partial<Record<WarehouseSection, WarehouseSection[]>> = {
+  'PLEGADORA': ['AUTOPLEGADORA'],
+};
+
+/**
+ * Devuelve todas las estanterías accesibles para una sección,
+ * incluyendo las de la sección primaria + las de secciones adicionales.
+ */
+export const getAccessibleShelvesForSection = (section: WarehouseSection): string[] => {
+  const shelves = getShelvesForSection(section);
+  const additionalSections = CROSS_SECTION_ACCESS[section] || [];
+  for (const addSection of additionalSections) {
+    const additionalShelves = getShelvesForSection(addSection);
+    shelves.push(...additionalShelves);
+  }
+  return shelves;
+};
+
 

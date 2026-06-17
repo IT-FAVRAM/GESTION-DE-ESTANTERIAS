@@ -8,7 +8,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { SHELF_DEFINITIONS, getShelvesForSection, type WarehouseSection } from '../../lib/firestoreSchema';
+import { SHELF_DEFINITIONS, getShelvesForSection, getAccessibleShelvesForSection, type WarehouseSection } from '../../lib/firestoreSchema';
 import { SECTION_TO_SHELF, normalizeLegacySection } from '../../domain/auth/sectionShelf';
 import { buildOperativeConfig, canUseScanTray } from '../../lib/operative/operativeConfig';
 import { useOperativeShelf } from '../../hooks/useOperativeShelf';
@@ -100,11 +100,12 @@ const JefeSeccionOperativo: React.FC<{
 const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack, chatButton }) => {
   const { section, assignedShelf, logout } = useAuth();
 
-  // Determina las estanterías accesibles para la sección del usuario
+  // Determina las estanterías accesibles para la sección del usuario,
+  // incluyendo secciones adicionales (p.ej. Jefe de PLEGADORA también accede a AUTOPLEGADORA)
   const sectionShelfCodes = useMemo(() => {
     if (!section) return [];
     const normalized = (normalizeLegacySection(section) ?? section) as WarehouseSection;
-    const codesFromSection = getShelvesForSection(normalized as Parameters<typeof getShelvesForSection>[0]);
+    const codesFromSection = getAccessibleShelvesForSection(normalized as Parameters<typeof getAccessibleShelvesForSection>[0]);
     if (codesFromSection.length > 0) return codesFromSection;
     // Fallback: algunas secciones (p.ej. PUNZONADO) comparten su estantería
     // canónica con otra sección (PUNZONADO → PLE) y no aparecen en el mapa
