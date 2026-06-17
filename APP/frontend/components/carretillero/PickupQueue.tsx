@@ -30,12 +30,12 @@ interface RequestCardProps {
 const MetaBadges: React.FC<{ req: PickupRequest }> = ({ req }) => (
   <div className="flex flex-wrap items-center gap-1.5 mt-2">
     {req.targetCarretilleroName && (
-      <span className="text-[10px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded-full">
+      <span className="text-[11px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded-full">
         🚜 {req.targetCarretilleroName}
       </span>
     )}
     {req.acknowledged && (
-      <span className="text-[10px] font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 rounded-full">
+      <span className="text-[11px] font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 rounded-full">
         ✓ recibido
       </span>
     )}
@@ -59,7 +59,7 @@ const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-blue-400 bg-blue-500/15 px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                <span className="text-[11px] font-bold text-blue-400 bg-blue-500/15 px-1.5 py-0.5 rounded-full uppercase tracking-wider">
                   Traer
                 </span>
                 <span className="text-xs text-slate-500">{timeAgo(req.createdAt)}</span>
@@ -93,7 +93,7 @@ const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId
             )}
             {req.articleShelfName && (
               <div className="mt-2 flex items-baseline gap-1.5">
-                <span className="text-[10px] text-blue-400">📍</span>
+                <span className="text-[11px] text-blue-400">📍</span>
                 <div>
                   <span className="text-xs font-bold text-blue-300">{req.articleShelfName}</span>
                   {req.articlePositions && req.articlePositions.length > 0 && (
@@ -106,7 +106,7 @@ const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId
                 </div>
               </div>
             )}
-            <p className="text-[10px] text-slate-500 mt-2">
+            <p className="text-[11px] text-slate-400 mt-2">
               → Llevar a: <span className="text-emerald-300 font-bold">{destText}</span>
             </p>
           </div>
@@ -128,7 +128,7 @@ const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-orange-400 bg-orange-500/15 px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+              <span className="text-[11px] font-bold text-orange-400 bg-orange-500/15 px-1.5 py-0.5 rounded-full uppercase tracking-wider">
                 Recoger
               </span>
               <span className="text-xs text-slate-500">{timeAgo(req.createdAt)}</span>
@@ -157,10 +157,10 @@ const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId
           {req.articleToPickOrderFab && (
             <p className="text-xs text-slate-400 font-mono mt-0.5">OF: {req.articleToPickOrderFab}</p>
           )}
-          <p className="text-[10px] text-slate-500 mt-2">
+          <p className="text-[11px] text-slate-400 mt-2">
             Recoger en: <span className="text-amber-300 font-bold">{fromText}</span>
           </p>
-          <p className="text-[10px] text-slate-500 mt-1">
+          <p className="text-[11px] text-slate-400 mt-1">
             → Llevar a: <span className="text-emerald-300 font-bold">{destText}</span>
           </p>
         </div>

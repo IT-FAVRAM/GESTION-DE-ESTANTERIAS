@@ -115,7 +115,7 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
           </div>
         ) : activeTab === 'chapero' ? (
           <div className="text-center">
-            <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Modo Chapero activo</span>
+            <span className="text-[11px] font-black uppercase text-slate-500 tracking-widest">Modo Chapero activo</span>
           </div>
         ) : undefined}
       />
@@ -146,7 +146,7 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
                     });
                   return sections.map((sec) => (
                     <React.Fragment key={sec}>
-                      <p className="px-3 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                      <p className="px-3 pt-3 pb-1 text-[11px] font-black uppercase tracking-widest text-slate-500">
                         {SECTION_DISPLAY_NAMES[sec] ?? sec}
                       </p>
                       {SHELF_DEFINITIONS.filter((s) => s.section === sec).map((shelf) => (
@@ -166,7 +166,7 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
               </div>
 
               <div className="flex-shrink-0 border-t border-slate-300 pb-2">
-                <p className="px-3 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">Chapero</p>
+                <p className="px-3 pt-3 pb-1 text-[11px] font-black uppercase tracking-widest text-slate-500">Chapero</p>
                 <button onClick={openChapero}
                   className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${
                     activeTab === 'chapero' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-200'
@@ -175,7 +175,7 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
                 </button>
               </div>
               <div className="flex-shrink-0 border-t border-slate-300 pb-2">
-                <p className="px-3 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">Carros</p>
+                <p className="px-3 pt-3 pb-1 text-[11px] font-black uppercase tracking-widest text-slate-500">Carros</p>
                 <button onClick={() => setActiveTab('carts')}
                   className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${
                     activeTab === 'carts' ? 'bg-emerald-500 text-white' : 'text-slate-600 hover:bg-slate-200'

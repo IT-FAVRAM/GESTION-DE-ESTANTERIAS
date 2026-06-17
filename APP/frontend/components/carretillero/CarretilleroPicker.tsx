@@ -25,7 +25,7 @@ const CarretilleroPicker: React.FC<CarretilleroPickerProps> = ({ open, onSelect,
     <div className="fixed inset-0 z-[65] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Avisar carretillero</p>
+          <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Avisar carretillero</p>
           <h3 className="text-lg font-black text-slate-900">¿A qué carretillero avisas?</h3>
         </div>
 

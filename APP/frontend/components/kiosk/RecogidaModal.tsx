@@ -180,7 +180,7 @@ const RecogidaModal: React.FC<RecogidaModalProps> = ({
           )}
           {showSuggestions && (
             <div className="space-y-2">
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Coincidencias ubicadas</p>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Coincidencias ubicadas</p>
               {results.slice(0, 6).map((r, idx) => (
                 <button
                   key={`${r.aggregateKey}-${idx}`}

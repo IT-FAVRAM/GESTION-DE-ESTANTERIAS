@@ -633,7 +633,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Solicitar traer · 🚜 {traerCarretillero.name}</p>
+              <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Solicitar traer · 🚜 {traerCarretillero.name}</p>
               <h3 className="text-lg font-black text-slate-900">¿A qué sección debe traerlo?</h3>
               <p className="text-xs text-slate-500 mt-1 font-mono truncate">{traerResult.articleCode} · {traerResult.orderFab}</p>
             </div>

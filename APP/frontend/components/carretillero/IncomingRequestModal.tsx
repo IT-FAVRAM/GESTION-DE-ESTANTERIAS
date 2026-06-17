@@ -18,7 +18,7 @@ interface IncomingRequestModalProps {
 
 const Row: React.FC<{ label: string; value: string; accent?: string }> = ({ label, value, accent }) => (
   <div className="flex flex-col gap-0.5">
-    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</span>
+    <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">{label}</span>
     <span className={`text-lg font-black ${accent || 'text-white'}`}>{value}</span>
   </div>
 );

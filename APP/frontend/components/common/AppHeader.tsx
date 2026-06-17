@@ -62,7 +62,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             {title}
           </h1>
           {subtitle && (
-            <p className="text-[10px] text-slate-500 truncate leading-none mt-0.5">{subtitle}</p>
+            <p className="text-[11px] text-slate-500 truncate leading-none mt-0.5">{subtitle}</p>
           )}
         </div>
       </div>

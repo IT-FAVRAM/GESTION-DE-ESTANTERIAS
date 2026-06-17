@@ -262,7 +262,7 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
                   )}
                 </div>
                 {result.matchesCurrentShelf && (
-                  <span className="shrink-0 text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full px-2 py-0.5 font-bold mt-1">
+                  <span className="shrink-0 text-[11px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full px-2 py-0.5 font-bold mt-1">
                     Esta estant.
                   </span>
                 )}
