@@ -5,6 +5,7 @@ import { useFormFactor } from '../../hooks/useFormFactor';
 import { LogoIcon, LoadingIcon, ErrorIcon, UserIcon } from '../icons/Icons';
 import type { UserRole, WarehouseSection } from '../../lib/firestoreSchema';
 import CarretilleroLogin from './CarretilleroLogin';
+import { resolveEmailFromNameOrEmail } from '../../lib/auth/flexiblePasswordSignIn';
 
 const UnifiedLogin: React.FC = () => {
   const { loginWithEmail, loginAsGuest, loading, error: authError } = useAuth();
@@ -22,9 +23,15 @@ const UnifiedLogin: React.FC = () => {
     e.preventDefault();
     setLocalLoading(true);
     setLocalError(null);
-    const success = await loginWithEmail(email, password, rememberMe);
-    if (!success) {
-      setLocalError("Credenciales incorrectas o error de conexión.");
+    try {
+      // Permitir login por email O por nombre de usuario (ej: MARIO)
+      const resolvedEmail = await resolveEmailFromNameOrEmail(email);
+      const success = await loginWithEmail(resolvedEmail, password, rememberMe);
+      if (!success) {
+        setLocalError("Credenciales incorrectas o error de conexión.");
+      }
+    } catch (err: any) {
+      setLocalError(err.message || "Credenciales incorrectas o error de conexión.");
     }
     setLocalLoading(false);
   };
@@ -76,14 +83,14 @@ const UnifiedLogin: React.FC = () => {
 
           <form onSubmit={handleEmailLogin} className="space-y-4">
             <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-400 uppercase ml-1">Email</label>
+              <label className="text-xs font-bold text-slate-400 uppercase ml-1">Email o Nombre</label>
               <input
-                type="email"
+                type="text"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-cyan-500 outline-none text-slate-900 dark:text-white transition-all font-medium"
-                placeholder="usuario@empresa.com"
+                placeholder="usuario@empresa.com o MARIO"
               />
             </div>
             <div className="space-y-1">
