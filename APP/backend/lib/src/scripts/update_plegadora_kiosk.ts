@@ -65,7 +65,7 @@ export async function updatePlegadoraKiosk() {
   if (!kioskDoc.exists) {
     console.log(`⚠️ Kiosk no existe, creando...`);
     // Crear el documento del kiosk si no existe
-    const shelves = [assignedShelf, 'CRP', 'RPL'].filter(Boolean);
+    const shelves = [assignedShelf, 'CP1', 'CP2', 'CRP', 'RPL'].filter(Boolean);
     await kioskRef.set({
       id: kioskId,
       name: 'Plegadora',
@@ -80,7 +80,7 @@ export async function updatePlegadoraKiosk() {
     // Actualizar el documento existente
     const kioskData = kioskDoc.data() as any;
     const currentShelves = kioskData.shelves || [assignedShelf];
-    const newShelves = Array.from(new Set([...currentShelves, 'CRP', 'RPL'])).filter(Boolean);
+    const newShelves = Array.from(new Set([...currentShelves, 'CP1', 'CP2', 'CRP', 'RPL'])).filter(Boolean);
 
     console.log(`📝 Estanterías actuales: ${currentShelves.join(', ')}`);
     console.log(`📝 Nuevas estanterías: ${newShelves.join(', ')}`);
@@ -97,7 +97,7 @@ export async function updatePlegadoraKiosk() {
     ok: true,
     deviceId,
     kioskId,
-    shelves: ['PLE', 'CRP', 'RPL'],
+    shelves: ['PLE', 'CP1', 'CP2', 'CRP', 'RPL'],
   };
 }
 
