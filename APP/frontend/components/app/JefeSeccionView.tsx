@@ -64,29 +64,30 @@ const JefeSeccionOperativo: React.FC<{
         subtitle={`${displayName} · ${operarioId}`}
         center={isTouch ? undefined : <OperativeActionButtons engine={engine} config={config} />}
         chatButton={chatButton}
-        right={sectionShelfCodes.length > 1 ? (
-          <div className="flex gap-1 flex-shrink-0">
-            {sectionShelfCodes.map((code) => {
-              const def = SHELF_DEFINITIONS.find((s) => s.code === code);
-              return (
-                <button
-                  key={code}
-                  onClick={() => handleShelfChange(code)}
-                  className={`px-2.5 py-1.5 text-xs font-black rounded-lg transition-all ${
-                    shelfCode === code
-                      ? 'bg-sky-600 text-white shadow-sm'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {def?.name ?? code}
-                </button>
-              );
-            })}
-          </div>
-        ) : undefined}
         onBack={onBack}
         onLogout={logout}
       />
+
+      {sectionShelfCodes.length > 1 && (
+        <div className="bg-white border-b border-slate-200 px-3 py-2 flex gap-2 overflow-x-auto">
+          {sectionShelfCodes.map((code) => {
+            const def = SHELF_DEFINITIONS.find((s) => s.code === code);
+            return (
+              <button
+                key={code}
+                onClick={() => handleShelfChange(code)}
+                className={`px-3 py-1.5 text-xs font-black rounded-lg flex-shrink-0 transition-all ${
+                  shelfCode === code
+                    ? 'bg-sky-600 text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {def?.name ?? code}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <main className="flex-1 min-h-0 min-w-0 w-full overflow-hidden">
         <OperativeShelfArea engine={engine} config={config} fullscreenGrid userSection={section} />
