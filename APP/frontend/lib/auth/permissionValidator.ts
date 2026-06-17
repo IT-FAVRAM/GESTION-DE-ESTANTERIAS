@@ -27,10 +27,10 @@ const CROSS_SECTION_ACCESS: Record<string, WarehouseSection[]> = {
 
 /**
  * Mapa de estanterías de kiosk que pueden operar en secciones adicionales.
- * Ej: Kiosk 'PLE' (PLEGADORA) también puede operar en 'CRP' (AUTOPLEGADORA).
+ * Ej: Kiosk 'PLE' (PLEGADORA) también puede operar en CP1, CP2 (carros) y CRP, RPL (AUTOPLEGADORA).
  */
 const KIOSK_ADDITIONAL_SHELVES: Record<string, string[]> = {
-  'PLE': ['CRP', 'RPL'],  // Kiosk PLEGADORA también accede a AUTOPLEGADORA
+  'PLE': ['CP1', 'CP2', 'CRP', 'RPL'],  // Kiosk PLEGADORA accede a carros + AUTOPLEGADORA
 };
 
 /**

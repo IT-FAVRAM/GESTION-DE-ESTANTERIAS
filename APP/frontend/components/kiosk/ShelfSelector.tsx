@@ -3,6 +3,7 @@
  */
 
 import React from 'react';
+import { getShelfDisplayName } from '../../lib/shelfDisplayNames';
 
 interface ShelfSelectorProps {
   shelves: string[];
@@ -29,7 +30,7 @@ const ShelfSelector: React.FC<ShelfSelectorProps> = ({ shelves, currentShelf, on
                 : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
             }`}
           >
-            {shelf}
+            {getShelfDisplayName(shelf)}
           </button>
         ))}
       </div>

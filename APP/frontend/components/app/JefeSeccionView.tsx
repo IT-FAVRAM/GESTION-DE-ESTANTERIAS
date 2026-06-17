@@ -17,6 +17,7 @@ import OperativeActionButtons from '../operative/OperativeActionButtons';
 import OperativeActionBar from '../operative/OperativeActionBar';
 import AppHeader from '../common/AppHeader';
 import { useFormFactor } from '../../hooks/useFormFactor';
+import { getShelfDisplayName } from '../../lib/shelfDisplayNames';
 
 interface JefeSeccionViewProps {
   onBack?: () => void;
@@ -70,22 +71,19 @@ const JefeSeccionOperativo: React.FC<{
 
       {sectionShelfCodes.length > 1 && (
         <div className="bg-white border-b border-slate-200 px-3 py-2 flex gap-2 overflow-x-auto">
-          {sectionShelfCodes.map((code) => {
-            const def = SHELF_DEFINITIONS.find((s) => s.code === code);
-            return (
-              <button
-                key={code}
-                onClick={() => handleShelfChange(code)}
-                className={`px-3 py-1.5 text-xs font-black rounded-lg flex-shrink-0 transition-all ${
-                  shelfCode === code
-                    ? 'bg-sky-600 text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {def?.name ?? code}
-              </button>
-            );
-          })}
+          {sectionShelfCodes.map((code) => (
+            <button
+              key={code}
+              onClick={() => handleShelfChange(code)}
+              className={`px-3 py-1.5 text-xs font-black rounded-lg flex-shrink-0 transition-all ${
+                shelfCode === code
+                  ? 'bg-sky-600 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {getShelfDisplayName(code)}
+            </button>
+          ))}
         </div>
       )}
 

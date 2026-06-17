@@ -40,7 +40,10 @@ const WMS_SHELF_SECTION: Record<string, string> = {
   PRE: 'PRENSAS_MECANIZADO',
   PME: 'PRENSAS_MECANIZADO',
   PLE: 'PLEGADORA',
+  CP1: 'PLEGADORA',
+  CP2: 'PLEGADORA',
   SOL: 'SOLDADURA',
+  CS: 'SOLDADURA',
   RSO: 'SOLDADURA',
   SXP: 'SOLDADURA',
   REP: 'REPASADO',
@@ -64,10 +67,10 @@ const CROSS_SECTION_ACCESS: Record<string, string[]> = {
 
 /**
  * Estanterías de kiosk que pueden operar en estanterías adicionales.
- * Ej: Kiosk 'PLE' también puede operar en 'CRP' y 'RPL'.
+ * Ej: Kiosk 'PLE' también puede operar en CP1, CP2 (carros PLEGADORA) y CRP, RPL (AUTOPLEGADORA).
  */
 const KIOSK_ADDITIONAL_SHELVES: Record<string, string[]> = {
-  'PLE': ['CRP', 'RPL'],
+  'PLE': ['CP1', 'CP2', 'CRP', 'RPL'],
 };
 
 export const getWmsSectionForShelf = (shelfCode?: string | null) => {
