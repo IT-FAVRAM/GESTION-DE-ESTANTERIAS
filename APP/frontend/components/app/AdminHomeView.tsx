@@ -2,7 +2,9 @@ import React, { useState, useCallback, useRef, useMemo, lazy, Suspense } from 'r
 import OfflineIndicator from '../common/OfflineIndicator';
 import PushToast from './PushToast';
 import ConfirmationModal from '../common/ConfirmationModal';
-import TraerArticuloModal from '../kiosk/TraerArticuloModal';
+import TraerArticuloModal, { type TraerSelection } from '../kiosk/TraerArticuloModal';
+import CarretilleroPicker from '../carretillero/CarretilleroPicker';
+import type { CarretilleroOption } from '../../lib/api/pickupQueueApi';
 import { useAuth } from '../../hooks/useAuth';
 import { usePickupQueue } from '../../hooks/usePickupQueue';
 import { SHELF_DEFINITIONS, ALL_SHELVES } from '../../lib/firestoreSchema';
@@ -30,6 +32,8 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
   const [showTraerModal, setShowTraerModal] = useState(false);
   const [showAvisarConfirm, setShowAvisarConfirm] = useState(false);
   const [showShelfPicker, setShowShelfPicker] = useState(false);
+  const [showCarretilleroPicker, setShowCarretilleroPicker] = useState(false);
+  const [selectedCarretillero, setSelectedCarretillero] = useState<CarretilleroOption | null>(null);
   const [showChapero, setShowChapero] = useState(false);
   const [showCounter, setShowCounter] = useState(false);
   const [pendingShelfAction, setPendingShelfAction] = useState<PendingShelfAction | null>(null);
@@ -56,16 +60,19 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
     setShowShelfPicker(true);
   }, []);
 
+  // Tras elegir estantería → elegir carretillero → ejecutar la acción pendiente.
   const handleShelfSelected = useCallback((shelfCode: string) => {
     setSelectedShelfCode(shelfCode);
     setShowShelfPicker(false);
-    setPendingShelfAction(null);
+    setShowCarretilleroPicker(true);
+  }, []);
 
-    if (pendingShelfAction === 'avisar') {
-      setShowAvisarConfirm(true);
-    } else if (pendingShelfAction === 'traer') {
-      setShowTraerModal(true);
-    }
+  const handleCarretilleroPicked = useCallback((c: CarretilleroOption) => {
+    setSelectedCarretillero(c);
+    setShowCarretilleroPicker(false);
+    if (pendingShelfAction === 'avisar') setShowAvisarConfirm(true);
+    else if (pendingShelfAction === 'traer') setShowTraerModal(true);
+    setPendingShelfAction(null);
   }, [pendingShelfAction]);
 
   const handleAvisarConfirm = async () => {
@@ -75,32 +82,35 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
 
     setProcessing(true);
     setShowAvisarConfirm(false);
-    const ok = await createPickupRequest(effectiveOperarioId, displayName, selectedShelfCode);
+    const ok = await createPickupRequest({
+      operarioId: effectiveOperarioId, operarioName: displayName, shelfCode: selectedShelfCode,
+      targetCarretilleroId: selectedCarretillero?.uid,
+      targetCarretilleroName: selectedCarretillero?.name,
+    });
     setProcessing(false);
     if (ok) showFeedback('success', `✅ Carretillero avisado para ${shelfDef.name}`);
     else showFeedback('error', 'Error al enviar la solicitud');
   };
 
-  const handleDeliveryRequest = async (
-    articleCode: string,
-    orderFab: string,
-    artShelfCode: string,
-    artShelfName: string,
-    positions: string[],
-  ) => {
+  const handleDeliveryRequest = async (selection: TraerSelection) => {
     if (!selectedShelfCode) return;
     const shelfDef = ALL_SHELVES.find((s) => s.code === selectedShelfCode);
     if (!shelfDef) return;
 
     setProcessing(true);
     setShowTraerModal(false);
-    const ok = await createDeliveryRequest(
-      effectiveOperarioId, displayName,
-      selectedShelfCode, shelfDef.name,
-      articleCode, orderFab, artShelfName, positions,
-    );
+    const ok = await createDeliveryRequest({
+      operarioId: effectiveOperarioId, operarioName: displayName,
+      shelfCode: selectedShelfCode, shelfName: shelfDef.name,
+      articleCode: selection.articleCode, articleOrderFab: selection.articleOrderFab,
+      articleShelfName: selection.articleShelfName, articlePositions: selection.articlePositions,
+      destinationShelfCode: selection.destination.code, destinationShelfName: selection.destination.name,
+      destinationSection: selection.destination.section, destinationStation: selection.destination.station,
+      targetCarretilleroId: selectedCarretillero?.uid,
+      targetCarretilleroName: selectedCarretillero?.name,
+    });
     setProcessing(false);
-    if (ok) showFeedback('success', `✅ Solicitud enviada — artículo llegará a ${shelfDef.name}`);
+    if (ok) showFeedback('success', `✅ Solicitud enviada — artículo llegará a ${selection.destination.name}`);
     else showFeedback('error', 'Error al enviar la solicitud');
   };
 
@@ -300,10 +310,17 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
         loading={processing}
       />
 
+      <CarretilleroPicker
+        open={showCarretilleroPicker}
+        onSelect={handleCarretilleroPicked}
+        onClose={() => { setShowCarretilleroPicker(false); setPendingShelfAction(null); }}
+      />
+
       {showTraerModal && selectedShelfCode && (
         <TraerArticuloModal
           open={showTraerModal}
           currentShelfCode={selectedShelfCode}
+          targetCarretilleroName={selectedCarretillero?.name}
           onClose={() => setShowTraerModal(false)}
           onConfirm={handleDeliveryRequest}
           loading={processing}

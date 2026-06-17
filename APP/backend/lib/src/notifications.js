@@ -88,6 +88,12 @@ exports.notifyPickupQueueCreated = functions.firestore
     const operarioName = String(data.operarioName || data.operarioId || '---');
     const requestId = String(context.params.requestId || '');
     const shelfCode = String(data.shelfCode || '');
+    const targetCarretilleroId = String(data.targetCarretilleroId || '').trim();
+    const destinationShelfName = String(data.destinationShelfName || '');
+    const destinationStation = data.destinationStation != null ? Number(data.destinationStation) : null;
+    const destText = destinationShelfName
+        ? `${destinationShelfName}${destinationStation ? ` (puesto ${destinationStation})` : ''}`
+        : `${shelfSection} — ${shelfName}`;
     let title;
     let body;
     let notifType;
@@ -100,20 +106,36 @@ exports.notifyPickupQueueCreated = functions.firestore
             ? `posición ${articlePositions.join(', posición ')}`
             : 'ubicación desconocida';
         title = `📦 ${operarioName} (${shelfSection}) solicita traslado`;
-        body = `Necesita: ${articleCode}${articleOrderFab ? ' ' + articleOrderFab : ''}.\nEstá en: ${articleShelfName}, ${posText}.\nLlevar a: ${shelfSection} — ${shelfName}.`;
+        body = `Necesita: ${articleCode}${articleOrderFab ? ' ' + articleOrderFab : ''}.\nEstá en: ${articleShelfName}, ${posText}.\nLlevar a: ${destText}.`;
         notifType = 'DELIVERY_REQUEST';
     }
     else {
-        const operarioId = String(data.operarioId || '---');
+        const articleToPickCode = String(data.articleToPickCode || '');
+        const articleToPickOrderFab = String(data.articleToPickOrderFab || '');
+        const pickupShelfName = String(data.pickupShelfName || '');
+        const pickupStation = data.pickupStation != null ? Number(data.pickupStation) : null;
+        const fromText = pickupShelfName
+            ? `${pickupShelfName}${pickupStation ? ` (puesto ${pickupStation})` : ''}`
+            : `${shelfSection} — ${shelfName}`;
         title = `🛑 ${operarioName} solicita recogida`;
-        body = `${shelfSection} — ${shelfName} (${operarioId}).`;
+        body = articleToPickCode
+            ? `Recoger: ${articleToPickCode}${articleToPickOrderFab ? ' ' + articleToPickOrderFab : ''}.\nEn: ${fromText}.\nLlevar a: ${destText}.`
+            : `Recoger en: ${fromText}.\nLlevar a: ${destText}.`;
         notifType = 'PICKUP_QUEUE_CREATED';
     }
-    await (0, push_1.notifyUsersByRole)('CARRETILLERO', {
+    const payload = {
         title,
         body,
         data: { type: notifType, requestId, shelfCode, shelfSection },
-    });
+    };
+    // Si la solicitud está asignada a un carretillero concreto, solo a él le llega
+    // el push (y el popup bloqueante). El resto la verá en su cola.
+    if (targetCarretilleroId) {
+        await (0, push_1.notifyUserById)(targetCarretilleroId, payload);
+    }
+    else {
+        await (0, push_1.notifyUsersByRole)('CARRETILLERO', payload);
+    }
     return null;
 });
 exports.notifySpecialLocationOccupancy = functions.firestore
@@ -322,10 +344,22 @@ exports.notifyLongDisconnection = functions.pubsub
     }
     return { checked: offlineDevices.length, critical: criticalDevices.length };
 });
+const toStation = (value) => {
+    const n = Number.parseInt(String(value !== null && value !== void 0 ? value : ''), 10);
+    return Number.isNaN(n) ? null : n;
+};
 exports.pickupQueueOperate = functions.https.onCall(async (data, context) => {
     const actor = await (0, authz_1.resolveOperationalActor)(context, data === null || data === void 0 ? void 0 : data.session);
     const op = String((data === null || data === void 0 ? void 0 : data.op) || '');
     const payload = (data === null || data === void 0 ? void 0 : data.payload) || {};
+    if (op === 'carretilleros') {
+        const docs = await (0, push_1.getUsersByRole)('CARRETILLERO');
+        const carretilleros = docs.map((d) => {
+            const u = d.data() || {};
+            return { uid: d.id, name: String(u.displayName || u.email || d.id) };
+        });
+        return { ok: true, carretilleros };
+    }
     if (op === 'create') {
         const shelfCode = String((payload === null || payload === void 0 ? void 0 : payload.shelfCode) || actor.assignedShelf || '').trim().toUpperCase();
         const operarioId = String((payload === null || payload === void 0 ? void 0 : payload.operarioId) || actor.operarioId || actor.uid).trim();
@@ -335,21 +369,24 @@ exports.pickupQueueOperate = functions.https.onCall(async (data, context) => {
         if (!shelfCode || !operarioId) {
             throw new functions.https.HttpsError('invalid-argument', 'Datos incompletos para crear recogida.');
         }
-        // Validar autorización de estantería para ambos tipos
+        // Validar autorización de estantería del solicitante (no del origen/destino,
+        // que son la tarea que se le encarga al carretillero).
         (0, authz_1.assertActorMayOperateShelf)(actor, shelfCode);
         const createdAt = new Date().toISOString();
-        const docData = {
-            operarioId,
-            operarioName,
-            shelfSection: (0, authz_1.getWmsSectionForShelf)(shelfCode),
-            shelfCode,
+        const targetCarretilleroId = String((payload === null || payload === void 0 ? void 0 : payload.targetCarretilleroId) || '').trim();
+        const targetCarretilleroName = String((payload === null || payload === void 0 ? void 0 : payload.targetCarretilleroName) || '').trim();
+        const docData = Object.assign({ operarioId,
+            operarioName, shelfSection: (0, authz_1.getWmsSectionForShelf)(shelfCode), shelfCode,
             shelfName,
-            requestType,
-            status: 'PENDING',
-            createdAt,
-            completedAt: null,
-            completedBy: null,
-        };
+            requestType, status: 'PENDING', createdAt, completedAt: null, completedBy: null, acknowledged: false, acknowledgedAt: null, acknowledgedBy: null }, (targetCarretilleroId ? { targetCarretilleroId, targetCarretilleroName } : {}));
+        // Destino explícito (RECOGER y TRAER). La sección/estación las decide el cliente.
+        const destinationShelfCode = String((payload === null || payload === void 0 ? void 0 : payload.destinationShelfCode) || '').trim();
+        if (destinationShelfCode) {
+            docData.destinationShelfCode = destinationShelfCode;
+            docData.destinationShelfName = String((payload === null || payload === void 0 ? void 0 : payload.destinationShelfName) || destinationShelfCode).trim();
+            docData.destinationSection = String((payload === null || payload === void 0 ? void 0 : payload.destinationSection) || '').trim() || (0, authz_1.getWmsSectionForShelf)(destinationShelfCode);
+            docData.destinationStation = toStation(payload === null || payload === void 0 ? void 0 : payload.destinationStation);
+        }
         if (requestType === 'TRAER') {
             docData.articleCode = String((payload === null || payload === void 0 ? void 0 : payload.articleCode) || '').trim();
             docData.articleOrderFab = String((payload === null || payload === void 0 ? void 0 : payload.articleOrderFab) || '').trim();
@@ -357,6 +394,17 @@ exports.pickupQueueOperate = functions.https.onCall(async (data, context) => {
             docData.articlePositions = Array.isArray(payload === null || payload === void 0 ? void 0 : payload.articlePositions)
                 ? payload.articlePositions.map((p) => String(p))
                 : [];
+        }
+        else {
+            // RECOGER / SE LLEVE — artículo puede ser texto libre (no ubicado) + origen.
+            docData.articleToPickCode = String((payload === null || payload === void 0 ? void 0 : payload.articleToPickCode) || '').trim();
+            docData.articleToPickOrderFab = String((payload === null || payload === void 0 ? void 0 : payload.articleToPickOrderFab) || '').trim();
+            const pickupShelfName = String((payload === null || payload === void 0 ? void 0 : payload.pickupShelfName) || '').trim();
+            if (pickupShelfName) {
+                docData.pickupShelfName = pickupShelfName;
+                docData.pickupSection = String((payload === null || payload === void 0 ? void 0 : payload.pickupSection) || '').trim() || null;
+                docData.pickupStation = toStation(payload === null || payload === void 0 ? void 0 : payload.pickupStation);
+            }
         }
         const queueRef = await firebaseAdmin_1.admin.firestore().collection('pickupQueue').add(docData);
         await firebaseAdmin_1.admin.firestore().collection('history').add({
@@ -372,9 +420,32 @@ exports.pickupQueueOperate = functions.https.onCall(async (data, context) => {
             uid: actor.uid,
             role: actor.role,
             user: operarioName,
+            targetCarretilleroId: targetCarretilleroId || null,
             source: 'pickupQueueOperate',
         });
         return { ok: true, requestId: queueRef.id };
+    }
+    if (op === 'acknowledge') {
+        if (!['CARRETILLERO', 'ADMIN', 'SUPERADMIN'].includes(actor.role)) {
+            throw new functions.https.HttpsError('permission-denied', 'No tienes permisos para confirmar solicitudes.');
+        }
+        const requestId = String((payload === null || payload === void 0 ? void 0 : payload.requestId) || '').trim();
+        if (!requestId) {
+            throw new functions.https.HttpsError('invalid-argument', 'requestId requerido.');
+        }
+        const reqRef = firebaseAdmin_1.admin.firestore().collection('pickupQueue').doc(requestId);
+        await firebaseAdmin_1.admin.firestore().runTransaction(async (tx) => {
+            const reqSnap = await tx.get(reqRef);
+            if (!reqSnap.exists) {
+                throw new functions.https.HttpsError('not-found', 'Solicitud no encontrada.');
+            }
+            tx.update(reqRef, {
+                acknowledged: true,
+                acknowledgedAt: new Date().toISOString(),
+                acknowledgedBy: actor.uid,
+            });
+        });
+        return { ok: true };
     }
     if (op === 'complete') {
         if (!['CARRETILLERO', 'ADMIN', 'SUPERADMIN'].includes(actor.role)) {

@@ -12,6 +12,7 @@ import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { usePickupQueue } from '../../hooks/usePickupQueue';
 import PickupQueue from './PickupQueue';
+import IncomingRequestModal from './IncomingRequestModal';
 import CarrosView from './CarrosView';
 import { SHELF_DEFINITIONS, SECTION_DISPLAY_NAMES } from '../../lib/firestoreSchema';
 import { buildOperativeConfig, canUseScanTray } from '../../lib/operative/operativeConfig';
@@ -35,7 +36,7 @@ interface CarretilleroViewProps {
 const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab = 'shelves', chatButton }) => {
   const { role, displayName, operarioId, firebaseUser, email, logout } = useAuth();
   const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? '';
-  const { pendingCount } = usePickupQueue();
+  const { pendingCount, myUnacknowledged, acknowledgeRequest } = usePickupQueue();
 
   const formFactor = useFormFactor();
   const isTouch = formFactor !== 'desktop';
@@ -204,6 +205,11 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
 
       {isTouch && activeTab === 'shelves' && (
         <OperativeActionBar engine={engine} config={config} />
+      )}
+
+      {/* Popup BLOQUEANTE: solicitudes asignadas a este carretillero sin confirmar */}
+      {effectiveRole === 'CARRETILLERO' && (
+        <IncomingRequestModal requests={myUnacknowledged} onAcknowledge={acknowledgeRequest} />
       )}
     </div>
   );

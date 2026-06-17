@@ -30,6 +30,10 @@ import ReprocesosUbicacionModal from '../kiosk/ReprocesosUbicacionModal';
 import ReprocesosEditor from '../kiosk/ReprocesosEditor';
 import RecogidaModal from '../kiosk/RecogidaModal';
 import TraerArticuloModal from '../kiosk/TraerArticuloModal';
+import CarretilleroPicker from '../carretillero/CarretilleroPicker';
+import SoldaduraStationPicker from '../common/SoldaduraStationPicker';
+import { REQUEST_SECTIONS, type RequestSection } from '../../lib/operative/requestSections';
+import type { CarretilleroOption } from '../../lib/api/pickupQueueApi';
 import AddShelfPositionModal from './AddShelfPositionModal';
 import ScanTray from './ScanTray';
 import LocationPhotoGallery from '../common/LocationPhotoGallery';
@@ -85,6 +89,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
     showOFQuestion, handleOFAnswer, handleOFCancel, handleCellFirstConfirmPositions,
     sectionPicker, reubicarCtx, reubicarNeeded,
     showRecogidaModal, setShowRecogidaModal, showTraerModal, setShowTraerModal,
+    showCarretilleroPicker, selectedCarretillero, handleAvisarCarretilleroPicked,
     moverNeeded, highlightedPositions,
     setScannerActive, setHighlightedSearch,
     cancelAction, applyScanMethod, beginBatchMode, showToast,
@@ -158,16 +163,40 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
   // §7bis — "Solicitar traer" disponible en el buscador para TODOS menos el carretillero.
   const canSolicitarTraer = config.role !== 'CARRETILLERO';
   const [traerResult, setTraerResult] = React.useState<GlobalSearchResult | null>(null);
+  // Flujo del buscador: 1) elegir carretillero  2) destino  3) puesto soldadura.
+  const [traerCarretillero, setTraerCarretillero] = React.useState<CarretilleroOption | null>(null);
+  const [traerDest, setTraerDest] = React.useState<RequestSection | null>(null);
+
+  const resetTraerFlow = React.useCallback(() => {
+    setTraerResult(null);
+    setTraerCarretillero(null);
+    setTraerDest(null);
+  }, []);
 
   // Resetear el selector de "solicitar traer" al cambiar de estantería
   React.useEffect(() => {
-    setTraerResult(null);
-  }, [shelfCode]);
+    resetTraerFlow();
+  }, [shelfCode, resetTraerFlow]);
+
+  const submitTraerFromSearch = React.useCallback((dest: RequestSection, station: number | null) => {
+    if (!traerResult) return;
+    const positions = traerResult.positions
+      .map(positionNumber)
+      .filter((v, i, arr) => arr.indexOf(v) === i);
+    const result = traerResult;
+    const target = traerCarretillero;
+    resetTraerFlow();
+    void requestDeliveryToSection(
+      { articleCode: result.articleCode, orderFab: result.orderFab, shelfCode: result.shelfCode, positions },
+      { code: dest.code, name: dest.name, section: dest.section, station },
+      target,
+    );
+  }, [traerResult, traerCarretillero, resetTraerFlow, requestDeliveryToSection]);
 
   // Detector de pistola global (scan-first): activo solo en idle y sin modales abiertos.
   const anyModalOpen =
     confirmModal.open || scanMethodPickerOpen || !!selectedCell || sectionPicker.open ||
-    showRecogidaModal || showTraerModal || showRetirarArticleList || showRetirarCellModal ||
+    showRecogidaModal || showTraerModal || showCarretilleroPicker || showRetirarArticleList || showRetirarCellModal ||
     showMoverArticleList || !!reprocesosCell || showReprocesosUbicacionModal || showOFQuestion ||
     showAddShelfModal || showCameraQR || showCameraOCR || showBarcodeForm || !!traerResult;
 
@@ -590,40 +619,42 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         </div>
       )}
 
-      {/* §7bis — Selector de sección destino para "Solicitar traer" */}
-      {traerResult && (
+      {/* §7bis — "Solicitar traer" desde el buscador: carretillero → destino → puesto */}
+      {/* Paso 1: elegir carretillero */}
+      <CarretilleroPicker
+        open={!!traerResult && !traerCarretillero}
+        onSelect={(c) => setTraerCarretillero(c)}
+        onClose={resetTraerFlow}
+      />
+
+      {/* Paso 2: elegir sección destino */}
+      {traerResult && traerCarretillero && !traerDest && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Solicitar traer</p>
-              <h3 className="text-lg font-black text-slate-900">¿A qué sección debe traerlo el carretillero?</h3>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Solicitar traer · 🚜 {traerCarretillero.name}</p>
+              <h3 className="text-lg font-black text-slate-900">¿A qué sección debe traerlo?</h3>
               <p className="text-xs text-slate-500 mt-1 font-mono truncate">{traerResult.articleCode} · {traerResult.orderFab}</p>
             </div>
-            <div className="p-3 max-h-[60vh] overflow-y-auto space-y-1.5">
-              {SHELF_DEFINITIONS.filter((s) => s.code !== traerResult.shelfCode && s.code !== 'COM').map((s) => (
+            <div className="p-3 max-h-[60vh] overflow-y-auto grid grid-cols-2 gap-2">
+              {REQUEST_SECTIONS.map((s) => (
                 <button
                   key={s.code}
                   disabled={processing}
                   onClick={() => {
-                    const positions = traerResult.positions
-                      .map(positionNumber)
-                      .filter((v, i, arr) => arr.indexOf(v) === i);
-                    const result = traerResult;
-                    setTraerResult(null);
-                    void requestDeliveryToSection(
-                      { articleCode: result.articleCode, orderFab: result.orderFab, shelfCode: result.shelfCode, positions },
-                      s.code,
-                    );
+                    if (s.isSoldadura) setTraerDest(s);
+                    else submitTraerFromSearch(s, null);
                   }}
-                  className="w-full text-left rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 disabled:opacity-50"
+                  className="rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-3 py-3 text-center font-semibold text-slate-800 disabled:opacity-50 active:scale-95 transition-all"
                 >
-                  {s.name} <span className="text-xs text-slate-400 font-mono">({s.code})</span>
+                  <span className="block text-2xl mb-1">{s.emoji}</span>
+                  <span className="block text-sm">{s.name}</span>
                 </button>
               ))}
             </div>
             <div className="px-4 py-3 border-t border-slate-100">
               <button
-                onClick={() => setTraerResult(null)}
+                onClick={resetTraerFlow}
                 className="w-full rounded-xl bg-rose-600 hover:bg-rose-500 text-white py-3 text-sm font-bold active:scale-[0.98] transition-all touch-manipulation"
               >
                 ✕ Cancelar
@@ -632,6 +663,15 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
           </div>
         </div>
       )}
+
+      {/* Paso 3: puesto de soldadura si el destino es SOLDADURA */}
+      <SoldaduraStationPicker
+        open={!!traerResult && !!traerCarretillero && !!traerDest}
+        variant="destino"
+        processing={processing}
+        onBack={() => setTraerDest(null)}
+        onSelect={(n) => { if (traerDest) submitTraerFromSearch(traerDest, n); }}
+      />
 
       {/* Multi-sección (ubicar artículo grande) */}
       <AddShelfPositionModal
@@ -680,11 +720,19 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         />
       )}
 
+      {/* Avisar: paso 1 — elegir carretillero asignado */}
+      <CarretilleroPicker
+        open={showCarretilleroPicker}
+        onSelect={handleAvisarCarretilleroPicked}
+        onClose={cancelAction}
+      />
+
       {/* Avisar: recogida */}
       <RecogidaModal
         open={showRecogidaModal}
         currentShelfCode={shelfCode}
         processing={processing}
+        targetCarretilleroName={selectedCarretillero?.name}
         onConfirm={handleRecogidaConfirm}
         onClose={() => { setShowRecogidaModal(false); cancelAction(); }}
       />
@@ -694,6 +742,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         <TraerArticuloModal
           open={showTraerModal}
           currentShelfCode={shelfCode}
+          targetCarretilleroName={selectedCarretillero?.name}
           onClose={() => { setShowTraerModal(false); cancelAction(); }}
           onConfirm={handleTraerConfirm}
           loading={processing}

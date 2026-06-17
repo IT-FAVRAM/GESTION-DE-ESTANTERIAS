@@ -172,7 +172,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
         onConfirm: async () => {
           setProcessing(true);
           setConfirmModal(prev => ({ ...prev, open: false }));
-          const ok = await createPickupRequest(effectiveOperarioId, displayName, selectedShelf);
+          const ok = await createPickupRequest({ operarioId: effectiveOperarioId, operarioName: displayName, shelfCode: selectedShelf });
           setProcessing(false);
           if (ok) finishAction('success', '✅ Aviso enviado');
           else finishAction('error', 'Error al enviar');

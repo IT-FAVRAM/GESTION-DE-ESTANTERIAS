@@ -26,8 +26,27 @@ interface RequestCardProps {
   processingId: string | null;
 }
 
+/** Badges comunes: carretillero asignado + estado de recibido. */
+const MetaBadges: React.FC<{ req: PickupRequest }> = ({ req }) => (
+  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+    {req.targetCarretilleroName && (
+      <span className="text-[10px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded-full">
+        🚜 {req.targetCarretilleroName}
+      </span>
+    )}
+    {req.acknowledged && (
+      <span className="text-[10px] font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 rounded-full">
+        ✓ recibido
+      </span>
+    )}
+  </div>
+);
+
+const stationLabel = (station?: number | null) => (station ? ` · puesto ${station}` : '');
+
 const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId }) => {
   const isTraer = req.requestType === 'TRAER';
+  const destText = `${req.destinationShelfName || req.shelfName}${stationLabel(req.destinationStation)}`;
 
   if (isTraer) {
     return (
@@ -88,16 +107,18 @@ const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId
               </div>
             )}
             <p className="text-[10px] text-slate-500 mt-2">
-              Llevar a: <span className="text-slate-400">{req.shelfName}</span>
+              → Llevar a: <span className="text-emerald-300 font-bold">{destText}</span>
             </p>
           </div>
         )}
+        <MetaBadges req={req} />
       </div>
     );
   }
 
   // RECOGER (default)
-  const hasDetails = !!(req.articleToPickCode || req.destinationShelfName);
+  const hasDetails = !!(req.articleToPickCode || req.destinationShelfName || req.pickupShelfName);
+  const fromText = `${req.pickupShelfName || req.shelfName}${stationLabel(req.pickupStation)}`;
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
       <div className="flex items-center justify-between">
@@ -113,7 +134,6 @@ const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId
               <span className="text-xs text-slate-500">{timeAgo(req.createdAt)}</span>
             </div>
             <p className="text-sm font-bold text-white mt-0.5">{req.operarioName}</p>
-            <p className="text-xs text-slate-500 mt-0.5">{req.shelfName}</p>
           </div>
         </div>
         <button
@@ -137,13 +157,15 @@ const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId
           {req.articleToPickOrderFab && (
             <p className="text-xs text-slate-400 font-mono mt-0.5">OF: {req.articleToPickOrderFab}</p>
           )}
-          {req.destinationShelfName && (
-            <p className="text-[10px] text-slate-500 mt-2">
-              → Llevar a: <span className="text-orange-300 font-bold">{req.destinationShelfName}</span>
-            </p>
-          )}
+          <p className="text-[10px] text-slate-500 mt-2">
+            Recoger en: <span className="text-amber-300 font-bold">{fromText}</span>
+          </p>
+          <p className="text-[10px] text-slate-500 mt-1">
+            → Llevar a: <span className="text-emerald-300 font-bold">{destText}</span>
+          </p>
         </div>
       )}
+      <MetaBadges req={req} />
     </div>
   );
 };

@@ -13,6 +13,8 @@ import { usePickupQueue } from '../../hooks/usePickupQueue';
 import ShelfGrid from '../kiosk/ShelfGrid';
 import KioskSearchBar from '../kiosk/KioskSearchBar';
 import ConfirmationModal from '../common/ConfirmationModal';
+import CarretilleroPicker from '../carretillero/CarretilleroPicker';
+import type { CarretilleroOption } from '../../lib/api/pickupQueueApi';
 import { SHELF_DEFINITIONS, ALL_SHELVES, CART_DEFINITIONS, SECTION_DISPLAY_NAMES } from '../../lib/firestoreSchema';
 import { formatArticleDisplay, parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
 import { validateContiguity } from '../../lib/contiguityValidator';
@@ -54,6 +56,8 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
     confirmText?: string;
   }>({ open: false, title: '', message: '', icon: '', variant: 'info', onConfirm: () => {} });
   
+  const [showCarretilleroPicker, setShowCarretilleroPicker] = useState(false);
+
   // Camera scanning
   const [showCameraQR, setShowCameraQR] = useState(false);
   const [showCameraOCR, setShowCameraOCR] = useState(false);
@@ -156,15 +160,24 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
     setShowRetirarArticleList(false);
   }, []);
 
-  const handleAvisar = useCallback(async () => {
+  // Paso 1: elegir carretillero. Paso 2: confirmar el aviso de recogida.
+  const handleAvisar = useCallback(() => {
+    setShowCarretilleroPicker(true);
+  }, []);
+
+  const handleAvisarCarretilleroPicked = useCallback((c: CarretilleroOption) => {
+    setShowCarretilleroPicker(false);
     setConfirmModal({
       open: true, title: 'Avisar al Carretillero', icon: '🚚', variant: 'warning',
-      message: `Se enviará una solicitud de recogida en ${SHELF_DEFINITIONS.find(s => s.code === selectedShelf)?.name || selectedShelf}`,
+      message: `Se enviará una solicitud de recogida a ${c.name} en ${SHELF_DEFINITIONS.find(s => s.code === selectedShelf)?.name || selectedShelf}`,
       confirmText: 'LLEVAR — que me se lleven un artículo',
       onConfirm: async () => {
         setConfirmModal(p => ({ ...p, open: false }));
         setProcessing(true);
-        const ok = await createPickupRequest(effectiveOperarioId, displayName, selectedShelf);
+        const ok = await createPickupRequest({
+          operarioId: effectiveOperarioId, operarioName: displayName, shelfCode: selectedShelf,
+          targetCarretilleroId: c.uid, targetCarretilleroName: c.name,
+        });
         setProcessing(false);
         showFeedback(ok ? 'success' : 'error', ok ? '✅ Aviso enviado al carretillero' : 'Error al enviar el aviso');
       },
@@ -1190,6 +1203,12 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
         onConfirm={confirmModal.onConfirm}
         extraButton={confirmModal.extraButton}
         loading={processing}
+      />
+
+      <CarretilleroPicker
+        open={showCarretilleroPicker}
+        onSelect={handleAvisarCarretilleroPicked}
+        onClose={() => setShowCarretilleroPicker(false)}
       />
 
       <RetirarCellModal

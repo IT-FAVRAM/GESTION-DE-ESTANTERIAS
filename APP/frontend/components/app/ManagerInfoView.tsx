@@ -2,7 +2,9 @@ import React, { useState, useCallback, useRef } from 'react';
 import OfflineIndicator from '../common/OfflineIndicator';
 import PushToast from './PushToast';
 import ConfirmationModal from '../common/ConfirmationModal';
-import TraerArticuloModal from '../kiosk/TraerArticuloModal';
+import TraerArticuloModal, { type TraerSelection } from '../kiosk/TraerArticuloModal';
+import CarretilleroPicker from '../carretillero/CarretilleroPicker';
+import type { CarretilleroOption } from '../../lib/api/pickupQueueApi';
 import { useAuth } from '../../hooks/useAuth';
 import { usePickupQueue } from '../../hooks/usePickupQueue';
 import type { WarehouseSection } from '../../lib/schema/sections';
@@ -35,6 +37,9 @@ interface ManagerInfoViewProps {
 const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, section, notification, onCloseNotification, onOpenOperativeMode, onLogout }) => {
   const [showTraerModal, setShowTraerModal] = useState(false);
   const [showAvisarConfirm, setShowAvisarConfirm] = useState(false);
+  const [showCarretilleroPicker, setShowCarretilleroPicker] = useState(false);
+  const [pendingAvisar, setPendingAvisar] = useState<'recogida' | 'traer' | null>(null);
+  const [selectedCarretillero, setSelectedCarretillero] = useState<CarretilleroOption | null>(null);
   const [processing, setProcessing] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -51,31 +56,47 @@ const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, se
     feedbackTimerRef.current = setTimeout(() => setFeedback(null), 3000);
   }, []);
 
+  // Paso 1: elegir carretillero, recordando qué solicitud sigue.
+  const startAvisar = (kind: 'recogida' | 'traer') => {
+    setPendingAvisar(kind);
+    setShowCarretilleroPicker(true);
+  };
+
+  const handleCarretilleroPicked = (c: CarretilleroOption) => {
+    setSelectedCarretillero(c);
+    setShowCarretilleroPicker(false);
+    if (pendingAvisar === 'recogida') setShowAvisarConfirm(true);
+    else if (pendingAvisar === 'traer') setShowTraerModal(true);
+  };
+
   const handleAvisarConfirm = async () => {
     if (!shelfCode || !shelfDef) { showFeedback('error', 'No tienes sección asignada'); return; }
     setProcessing(true);
     setShowAvisarConfirm(false);
-    const ok = await createPickupRequest(effectiveOperarioId, displayName, shelfCode);
+    const ok = await createPickupRequest({
+      operarioId: effectiveOperarioId, operarioName: displayName, shelfCode,
+      targetCarretilleroId: selectedCarretillero?.uid,
+      targetCarretilleroName: selectedCarretillero?.name,
+    });
     setProcessing(false);
     if (ok) showFeedback('success', '✅ Carretillero avisado — recogida solicitada');
     else showFeedback('error', 'Error al enviar la solicitud');
   };
 
-  const handleDeliveryRequest = async (
-    articleCode: string,
-    orderFab: string,
-    artShelfCode: string,
-    artShelfName: string,
-    positions: string[],
-  ) => {
+  const handleDeliveryRequest = async (selection: TraerSelection) => {
     if (!shelfCode || !shelfDef) { showFeedback('error', 'No tienes sección asignada'); return; }
     setProcessing(true);
     setShowTraerModal(false);
-    const ok = await createDeliveryRequest(
-      effectiveOperarioId, displayName,
-      shelfCode, shelfDef.name,
-      articleCode, orderFab, artShelfName, positions,
-    );
+    const ok = await createDeliveryRequest({
+      operarioId: effectiveOperarioId, operarioName: displayName,
+      shelfCode, shelfName: shelfDef.name,
+      articleCode: selection.articleCode, articleOrderFab: selection.articleOrderFab,
+      articleShelfName: selection.articleShelfName, articlePositions: selection.articlePositions,
+      destinationShelfCode: selection.destination.code, destinationShelfName: selection.destination.name,
+      destinationSection: selection.destination.section, destinationStation: selection.destination.station,
+      targetCarretilleroId: selectedCarretillero?.uid,
+      targetCarretilleroName: selectedCarretillero?.name,
+    });
     setProcessing(false);
     if (ok) showFeedback('success', '✅ Solicitud enviada — el carretillero traerá el artículo');
     else showFeedback('error', 'Error al enviar la solicitud');
@@ -176,14 +197,14 @@ const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, se
                           <p className="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-3">Solicitudes al Carretillero</p>
                           <div className="flex flex-col gap-2">
                             <button
-                              onClick={() => setShowAvisarConfirm(true)}
+                              onClick={() => startAvisar('recogida')}
                               disabled={processing}
                               className="w-full py-4 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-amber-900/20 transition-all active:scale-[0.98] disabled:opacity-50"
                             >
                               <span>🚚</span> AVISAR CARRETILLERO (Recoger)
                             </button>
                             <button
-                              onClick={() => setShowTraerModal(true)}
+                              onClick={() => startAvisar('traer')}
                               disabled={processing}
                               className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20 transition-all active:scale-[0.98] disabled:opacity-50"
                             >
@@ -221,11 +242,17 @@ const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, se
         </main>
       </div>
 
+      <CarretilleroPicker
+        open={showCarretilleroPicker}
+        onSelect={handleCarretilleroPicked}
+        onClose={() => { setShowCarretilleroPicker(false); setPendingAvisar(null); }}
+      />
+
       <ConfirmationModal
         open={showAvisarConfirm}
         onClose={() => setShowAvisarConfirm(false)}
         title="🚚 Avisar Carretillero"
-        message={`¿Solicitar recogida para la estantería de ${SECTION_LABEL[section!]}? El carretillero se desplazará a tu sección para recoger los artículos pendientes.`}
+        message={`¿Solicitar recogida para la estantería de ${SECTION_LABEL[section!]}?${selectedCarretillero ? ` Carretillero: ${selectedCarretillero.name}.` : ''} El carretillero se desplazará a tu sección para recoger los artículos pendientes.`}
         icon="🚚"
         variant="warning"
         confirmText="SÍ, AVISAR"
@@ -237,6 +264,7 @@ const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, se
         <TraerArticuloModal
           open={showTraerModal}
           currentShelfCode={shelfCode!}
+          targetCarretilleroName={selectedCarretillero?.name}
           onClose={() => setShowTraerModal(false)}
           onConfirm={handleDeliveryRequest}
           loading={processing}

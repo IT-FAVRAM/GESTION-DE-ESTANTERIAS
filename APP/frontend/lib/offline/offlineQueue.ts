@@ -5,7 +5,7 @@ import { calculateBackoff, shouldRetry } from './retryStrategy';
 import { analyzeConflict, shouldAutoResolve } from './conflictResolver';
 import { enforceStorageLimits } from './storageManager';
 
-export type OfflineOperationType = 'UBICAR' | 'UBICAR_MULTI' | 'RETIRAR' | 'RETIRAR_DE_UBICACION' | 'MOVER' | 'AVISAR_CARRETILLERO' | 'COMPLETAR_RECOGIDA' | 'SOLICITAR_TRASLADO';
+export type OfflineOperationType = 'UBICAR' | 'UBICAR_MULTI' | 'RETIRAR' | 'RETIRAR_DE_UBICACION' | 'MOVER' | 'AVISAR_CARRETILLERO' | 'COMPLETAR_RECOGIDA' | 'SOLICITAR_TRASLADO' | 'CONFIRMAR_RECEPCION';
 
 type OfflinePayloadByType = {
   UBICAR: Record<string, unknown>;
@@ -16,6 +16,7 @@ type OfflinePayloadByType = {
   AVISAR_CARRETILLERO: Record<string, unknown>;
   COMPLETAR_RECOGIDA: Record<string, unknown>;
   SOLICITAR_TRASLADO: Record<string, unknown>;
+  CONFIRMAR_RECEPCION: Record<string, unknown>;
 };
 
 export interface OfflineQueueEntry<T extends OfflineOperationType = OfflineOperationType> {
@@ -249,6 +250,8 @@ const processEntry = async (entry: OfflineQueueEntry) => {
       return pickupQueueApi.create(entry.payload, session);
     case 'COMPLETAR_RECOGIDA':
       return pickupQueueApi.complete(entry.payload, session);
+    case 'CONFIRMAR_RECEPCION':
+      return pickupQueueApi.acknowledge(entry.payload, session);
     default:
       throw new Error('Operacion offline desconocida');
   }

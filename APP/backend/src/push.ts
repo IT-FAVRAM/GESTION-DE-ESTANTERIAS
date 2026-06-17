@@ -32,6 +32,13 @@ export const getUsersByRole = async (role: string) => {
   return snapshot.docs;
 };
 
+export const getUserById = async (uid: string) => {
+  const cleanUid = String(uid || '').trim();
+  if (!cleanUid) return [] as FirebaseFirestore.QueryDocumentSnapshot[];
+  const doc = await admin.firestore().collection('usuarios').doc(cleanUid).get();
+  return doc.exists ? [doc as FirebaseFirestore.QueryDocumentSnapshot] : [];
+};
+
 export const getAppConfig = async () => {
   const snapshot = await admin.firestore().collection('config').doc('app').get();
   return snapshot.exists ? snapshot.data() || {} : {};
@@ -156,3 +163,8 @@ export const notifyUsersByRole = async (
   role: string,
   payload: { title: string; body: string; data?: Record<string, string> },
 ) => sendPushToUsers(await getUsersByRole(role), payload);
+
+export const notifyUserById = async (
+  uid: string,
+  payload: { title: string; body: string; data?: Record<string, string> },
+) => sendPushToUsers(await getUserById(uid), payload);

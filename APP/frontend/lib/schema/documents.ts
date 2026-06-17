@@ -14,6 +14,13 @@ export interface PickupRequestDoc {
   completedAt: string | null;
   completedBy: string | null;
   requestType?: PickupRequestType;
+  // ── Carretillero asignado (recibe popup + push; el resto lo ve en la cola) ──
+  targetCarretilleroId?: string;
+  targetCarretilleroName?: string;
+  // ── Acuse de recibo del carretillero ("Recibido" en el popup bloqueante) ──
+  acknowledged?: boolean;
+  acknowledgedAt?: string | null;
+  acknowledgedBy?: string | null;
   // Solo para requestType === 'TRAER':
   articleCode?: string;
   articleOrderFab?: string;
@@ -22,8 +29,15 @@ export interface PickupRequestDoc {
   // Solo para requestType === 'RECOGER' con detalles:
   articleToPickCode?: string;
   articleToPickOrderFab?: string;
+  // ── Origen (dónde recoger) — RECOGER / SE LLEVE (artículo puede ser texto libre) ──
+  pickupSection?: WarehouseSection;
+  pickupShelfName?: string;
+  pickupStation?: number | null;      // 1..18 si el origen es SOLDADURA (SOL)
+  // ── Destino (explícito para RECOGER y TRAER) ──
   destinationShelfCode?: string;
   destinationShelfName?: string;
+  destinationSection?: WarehouseSection;
+  destinationStation?: number | null; // 1..18 si el destino es SOLDADURA (SOL)
 }
 
 export type HistoryAction =

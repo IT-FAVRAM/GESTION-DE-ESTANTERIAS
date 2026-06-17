@@ -121,7 +121,8 @@ export function buildOperativeConfig(
           mover: true,
           reubicar: false,
           almacen: isPintura(lockedShelfCode, section) ? 'pintura' : 'none',
-          avisar: 'recogida+traer',
+          // Kioskos (OPERARIO): sin botón AVISAR — solo UBICAR / RETIRAR / MOVER.
+          avisar: 'none',
         },
         ubicar: { askMultiArticle: true, allowMultiSection: false },
         retirar: { askSectionFirst: false },

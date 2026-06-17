@@ -2,21 +2,27 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useGlobalSearchWithCache, type GlobalSearchResult } from '../../hooks/useGlobalSearchWithCache';
 import { SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
 import { parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
+import { REQUEST_SECTIONS, type RequestSection } from '../../lib/operative/requestSections';
+import SoldaduraStationPicker from '../common/SoldaduraStationPicker';
 import CameraQRScanner from '../common/CameraQRScanner';
 const CameraOCRScanner = React.lazy(() => import('../common/CameraOCRScanner'));
+
+export interface TraerSelection {
+  articleCode: string;
+  articleOrderFab: string;
+  articleShelfCode: string;
+  articleShelfName: string;
+  articlePositions: string[];
+  destination: { code: string; name: string; section: RequestSection['section']; station: number | null };
+}
 
 interface TraerArticuloModalProps {
   open: boolean;
   onClose: () => void;
-  onConfirm: (
-    articleCode: string,
-    articleOrderFab: string,
-    articleShelfCode: string,
-    articleShelfName: string,
-    articlePositions: string[],
-  ) => void;
+  onConfirm: (selection: TraerSelection) => void;
   currentShelfCode: string;
   loading?: boolean;
+  targetCarretilleroName?: string;
 }
 
 function formatPositionLabel(posStr: string): string {
@@ -47,13 +53,18 @@ function shelfNameFor(code: string): string {
 
 type InputMethod = 'search' | 'manual';
 
+type Step = 'select' | 'destination' | 'destStation';
+
 const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
   open,
   onClose,
   onConfirm,
   currentShelfCode,
   loading = false,
+  targetCarretilleroName,
 }) => {
+  const [step, setStep] = useState<Step>('select');
+  const [destination, setDestination] = useState<RequestSection | null>(null);
   const [inputMethod, setInputMethod] = useState<InputMethod>('search');
   const [query, setQuery] = useState('');
   const [manualArticleCode, setManualArticleCode] = useState('');
@@ -72,6 +83,8 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
 
   useEffect(() => {
     if (open) {
+      setStep('select');
+      setDestination(null);
       setQuery('');
       setDebouncedQuery('');
       setSelected(null);
@@ -100,7 +113,13 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
     setDebouncedQuery('');
   }, []);
 
-  const handleConfirm = useCallback(() => {
+  // Tras elegir el artículo ubicado → pasar a elegir destino.
+  const handleGoToDestination = useCallback(() => {
+    if (!selected) return;
+    setStep('destination');
+  }, [selected]);
+
+  const submit = useCallback((dest: RequestSection, destStation: number | null) => {
     if (!selected) return;
     const articleShelfName = shelfNameFor(selected.shelfCode);
     const humanPositions = selected.positions
@@ -109,13 +128,14 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
         return Number.isNaN(num) ? p : String(num);
       })
       .filter((v, i, arr) => arr.indexOf(v) === i);
-    onConfirm(
-      selected.articleCode,
-      selected.orderFab,
-      selected.shelfCode,
+    onConfirm({
+      articleCode: selected.articleCode,
+      articleOrderFab: selected.orderFab,
+      articleShelfCode: selected.shelfCode,
       articleShelfName,
-      humanPositions,
-    );
+      articlePositions: humanPositions,
+      destination: { code: dest.code, name: dest.name, section: dest.section, station: destStation },
+    });
   }, [selected, onConfirm]);
 
   const buscarArticuloManual = useCallback((articleCode: string, orderFab: string) => {
@@ -305,20 +325,13 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
         </div>
 
         <button
-          onClick={handleConfirm}
+          onClick={handleGoToDestination}
           disabled={loading}
           className="w-full h-16 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600
             text-white font-black text-xl shadow-lg shadow-amber-950/40
             active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-3"
         >
-          {loading ? (
-            <>
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Enviando...
-            </>
-          ) : (
-            <>🚚 SOLICITAR AL CARRETILLERO</>
-          )}
+          Siguiente: elegir destino →
         </button>
 
         <button
@@ -349,14 +362,81 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-950/95 backdrop-blur-sm">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-4 border-b border-slate-800">
-        <button onClick={onClose} disabled={loading} className="text-rose-400 hover:text-white transition-colors p-1">
-          ← Cancelar
+        <button
+          onClick={step === 'select' ? onClose : () => setStep('select')}
+          disabled={loading}
+          className="text-rose-400 hover:text-white transition-colors p-1"
+        >
+          ← {step === 'select' ? 'Cancelar' : 'Volver'}
         </button>
-        <h2 className="text-lg font-black text-white flex-1 text-center">📦 Traer artículo</h2>
+        <h2 className="text-lg font-black text-white flex-1 text-center">
+          {step === 'select' ? '📦 Traer artículo' : '🚚 ¿A dónde traerlo?'}
+        </h2>
         <div className="w-20" />
       </div>
 
+      {targetCarretilleroName && (
+        <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 text-center">
+          <span className="text-xs font-bold text-amber-300">🚜 Carretillero: {targetCarretilleroName}</span>
+        </div>
+      )}
+
+      {/* ── Paso destino ── */}
+      {step === 'destination' && (
+        <div className="flex-1 overflow-y-auto px-4 py-4">
+          {selected && (
+            <div className="bg-slate-800/60 rounded-2xl px-4 py-3 mb-3 flex items-center gap-3">
+              <span className="text-2xl">📦</span>
+              <div className="min-w-0">
+                <p className="font-black text-white font-mono truncate">{selected.articleCode}</p>
+                <p className="text-xs text-slate-400 font-mono">
+                  {selected.orderFab ? `OF: ${selected.orderFab} · ` : ''}{shelfNameFor(selected.shelfCode)}
+                </p>
+              </div>
+            </div>
+          )}
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">¿A qué sección traerlo?</p>
+          <div className="grid grid-cols-2 gap-2">
+            {REQUEST_SECTIONS.map((opt) => (
+              <button
+                key={opt.code}
+                onClick={() => {
+                  setDestination(opt);
+                  if (opt.isSoldadura) setStep('destStation');
+                  else submit(opt, null);
+                }}
+                disabled={loading}
+                className={`rounded-2xl border-2 px-3 py-4 text-center font-bold transition-all active:scale-95 disabled:opacity-50 ${
+                  destination?.code === opt.code
+                    ? 'border-amber-400 bg-amber-500/20 text-amber-300'
+                    : 'border-slate-700 bg-slate-800/60 text-slate-300 hover:border-slate-500'
+                }`}
+              >
+                <span className="block text-2xl mb-1">{opt.emoji}</span>
+                <span className="block text-sm font-black">{opt.name}</span>
+              </button>
+            ))}
+          </div>
+          {loading && (
+            <div className="flex items-center justify-center gap-2 mt-4 text-amber-300 text-sm font-bold">
+              <div className="w-5 h-5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+              Enviando…
+            </div>
+          )}
+        </div>
+      )}
+
+      <SoldaduraStationPicker
+        open={step === 'destStation'}
+        variant="destino"
+        selected={null}
+        processing={loading}
+        onBack={() => setStep('destination')}
+        onSelect={(n) => { if (destination) submit(destination, n); }}
+      />
+
       {/* ─── Tabs: Buscar / Escanear ─── */}
+      {step === 'select' && (<>
       <div className="flex border-b border-slate-800">
         <button
           onClick={() => { setInputMethod('search'); setScanError(null); }}
@@ -514,6 +594,7 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
           </>
         )}
       </div>
+      </>)}
 
       {/* Camera scanners */}
       {showCameraQR && (

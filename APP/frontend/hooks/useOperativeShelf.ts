@@ -17,6 +17,10 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from '../lib/firebase';
 import { useShelf, type ShelfLocationState } from './useShelf';
 import { usePickupQueue } from './usePickupQueue';
+import type { CarretilleroOption } from '../lib/api/pickupQueueApi';
+import type { WarehouseSection } from '../lib/schema/sections';
+import type { RecogidaSelection } from '../components/kiosk/RecogidaModal';
+import type { TraerSelection } from '../components/kiosk/TraerArticuloModal';
 import {
   formatArticleDisplay,
   parseScanInput,
@@ -206,6 +210,9 @@ export function useOperativeShelf({
   // Avisar
   const [showRecogidaModal, setShowRecogidaModal] = useState(false);
   const [showTraerModal, setShowTraerModal] = useState(false);
+  // Primer paso de AVISAR: elegir carretillero asignado.
+  const [showCarretilleroPicker, setShowCarretilleroPicker] = useState(false);
+  const [selectedCarretillero, setSelectedCarretillero] = useState<CarretilleroOption | null>(null);
 
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -309,6 +316,8 @@ export function useOperativeShelf({
     setReubicarCtx(null);
     setShowRecogidaModal(false);
     setShowTraerModal(false);
+    setShowCarretilleroPicker(false);
+    setSelectedCarretillero(null);
     setPendingAction(null);
     setScanMethodPickerOpen(false);
     setShowCameraQR(false);
@@ -575,25 +584,31 @@ export function useOperativeShelf({
    */
   const requestDeliveryToSection = useCallback(async (
     article: { articleCode: string; orderFab: string; shelfCode: string; positions: string[] },
-    destShelfCode: string,
+    destination: { code: string; name: string; section: WarehouseSection; station: number | null },
+    target?: CarretilleroOption | null,
   ): Promise<boolean> => {
-    const destDef = getShelfDefinition(destShelfCode);
     const articleShelfName = getShelfDefinition(article.shelfCode)?.name || article.shelfCode;
     setProcessing(true);
-    const ok = await createDeliveryRequest(
-      operarioId, displayName,
-      destShelfCode, destDef?.name || destShelfCode,
-      article.articleCode, article.orderFab,
-      articleShelfName, article.positions,
-    );
+    const ok = await createDeliveryRequest({
+      operarioId, operarioName: displayName,
+      shelfCode, shelfName: shelfDef?.name || shelfCode,
+      articleCode: article.articleCode, articleOrderFab: article.orderFab,
+      articleShelfName, articlePositions: article.positions,
+      destinationShelfCode: destination.code,
+      destinationShelfName: destination.name,
+      destinationSection: destination.section,
+      destinationStation: destination.station,
+      targetCarretilleroId: target?.uid,
+      targetCarretilleroName: target?.name,
+    });
     setProcessing(false);
     if (ok) {
-      showToast('success', `✅ Solicitado: el carretillero traerá ${article.articleCode} a ${destDef?.name || destShelfCode}`);
+      showToast('success', `✅ Solicitado: el carretillero traerá ${article.articleCode} a ${destination.name}`);
     } else {
       showToast('error', 'Error al enviar la solicitud');
     }
     return ok;
-  }, [createDeliveryRequest, operarioId, displayName, showToast]);
+  }, [createDeliveryRequest, operarioId, displayName, shelfCode, shelfDef, showToast]);
 
   // ── Captura de método ────────────────────────────────────────────────────────
   /**
@@ -731,12 +746,21 @@ export function useOperativeShelf({
   }, []);
 
   // ── Avisar ─────────────────────────────────────────────────────────────────
+  // Paso 1 (siempre): elegir a qué carretillero se asigna la solicitud.
   const startAvisar = () => {
     const mode = config.actions.avisar;
     if (mode === 'none') return;
     setAction('avisar');
+    setSelectedCarretillero(null);
+    setShowCarretilleroPicker(true);
+  };
+
+  // Paso 2: con el carretillero elegido, decidir tipo (o abrir recogida directa).
+  const handleAvisarCarretilleroPicked = useCallback((carretillero: CarretilleroOption) => {
+    setSelectedCarretillero(carretillero);
+    setShowCarretilleroPicker(false);
+    const mode = config.actions.avisar;
     if (mode === 'recogida') {
-      // Solo recogida: abrir directamente el modal de recogida
       setShowRecogidaModal(true);
       return;
     }
@@ -763,48 +787,60 @@ export function useOperativeShelf({
       // Cerrar/cancelar = abortar AVISAR del todo (sin dejar la acción zombi)
       onClose: cancelAction,
     });
-  };
+  }, [config.actions.avisar, cancelAction]);
 
-  const handleRecogidaConfirm = useCallback(async (
-    articleCode: string,
-    articleOrderFab: string,
-    destShelfCode: string,
-    destShelfName: string,
-  ) => {
+  const targetFields = useCallback(() => ({
+    targetCarretilleroId: selectedCarretillero?.uid,
+    targetCarretilleroName: selectedCarretillero?.name,
+  }), [selectedCarretillero]);
+
+  const handleRecogidaConfirm = useCallback(async (selection: RecogidaSelection) => {
     setProcessing(true);
-    const ok = await createPickupRequest(
-      operarioId, displayName, shelfCode,
-      articleCode, articleOrderFab, destShelfCode, destShelfName,
-    );
+    const ok = await createPickupRequest({
+      operarioId, operarioName: displayName, shelfCode,
+      articleToPickCode: selection.articleCode,
+      articleToPickOrderFab: selection.articleOrderFab,
+      pickupShelfName: selection.pickup.name,
+      pickupSection: selection.pickup.section as WarehouseSection,
+      pickupStation: selection.pickup.station,
+      destinationShelfCode: selection.destination.code,
+      destinationShelfName: selection.destination.name,
+      destinationSection: selection.destination.section as WarehouseSection,
+      destinationStation: selection.destination.station,
+      ...targetFields(),
+    });
     setProcessing(false);
     if (ok) {
       setShowRecogidaModal(false);
-      finishAction('success', `✅ Recogida solicitada: ${articleCode} → ${destShelfName}`);
+      finishAction('success', `✅ Recogida solicitada: ${selection.articleCode} → ${selection.destination.name}`);
     } else {
       showToast('error', 'Error al enviar la solicitud');
     }
-  }, [createPickupRequest, operarioId, displayName, shelfCode, finishAction, showToast]);
+  }, [createPickupRequest, operarioId, displayName, shelfCode, targetFields, finishAction, showToast]);
 
-  const handleTraerConfirm = useCallback(async (
-    articleCode: string,
-    articleOrderFab: string,
-    articleShelfCode: string,
-    articleShelfName: string,
-    articlePositions: string[],
-  ) => {
+  const handleTraerConfirm = useCallback(async (selection: TraerSelection) => {
     setProcessing(true);
-    const ok = await createDeliveryRequest(
-      operarioId, displayName, shelfCode, shelfDef?.name || shelfCode,
-      articleCode, articleOrderFab, articleShelfName, articlePositions,
-    );
+    const ok = await createDeliveryRequest({
+      operarioId, operarioName: displayName,
+      shelfCode, shelfName: shelfDef?.name || shelfCode,
+      articleCode: selection.articleCode,
+      articleOrderFab: selection.articleOrderFab,
+      articleShelfName: selection.articleShelfName,
+      articlePositions: selection.articlePositions,
+      destinationShelfCode: selection.destination.code,
+      destinationShelfName: selection.destination.name,
+      destinationSection: selection.destination.section as WarehouseSection,
+      destinationStation: selection.destination.station,
+      ...targetFields(),
+    });
     setProcessing(false);
     if (ok) {
       setShowTraerModal(false);
-      finishAction('success', `✅ Aviso enviado: el carretillero traerá ${articleCode}`);
+      finishAction('success', `✅ Aviso enviado: el carretillero traerá ${selection.articleCode} a ${selection.destination.name}`);
     } else {
       showToast('error', 'Error al enviar la solicitud');
     }
-  }, [createDeliveryRequest, operarioId, displayName, shelfCode, shelfDef, finishAction, showToast]);
+  }, [createDeliveryRequest, operarioId, displayName, shelfCode, shelfDef, targetFields, finishAction, showToast]);
 
   // ── start ─────────────────────────────────────────────────────────────────
   const startAction = (next: OperativeAction) => {
@@ -1641,6 +1677,8 @@ export function useOperativeShelf({
     reubicarCtx, reubicarNeeded,
     showRecogidaModal, setShowRecogidaModal,
     showTraerModal, setShowTraerModal,
+    showCarretilleroPicker, setShowCarretilleroPicker,
+    selectedCarretillero, handleAvisarCarretilleroPicked,
     moverNeeded, highlightedPositions,
     // setters/handlers de búsqueda y escáner
     setScannerActive, setHighlightedSearch,
