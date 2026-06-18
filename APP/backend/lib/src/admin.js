@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.setupUser = exports.deviceHeartbeat = exports.sendAdminMessage = exports.resolveDeviceConfig = exports.adminOperate = void 0;
+exports.resolveLoginEmail = exports.setupUser = exports.deviceHeartbeat = exports.sendAdminMessage = exports.resolveDeviceConfig = exports.adminOperate = void 0;
 const functions = require("firebase-functions");
 const firebaseAdmin_1 = require("./firebaseAdmin");
 const authz_1 = require("./authz");
@@ -61,6 +61,13 @@ exports.adminOperate = functions.https.onCall(async (data, context) => {
         if ('kioskId' in payload) {
             const effectiveType = String(updatePayload.type || (payload === null || payload === void 0 ? void 0 : payload.type) || '').trim().toUpperCase();
             updatePayload.kioskId = effectiveType === 'KIOSK' ? (normalize(payload === null || payload === void 0 ? void 0 : payload.kioskId) || null) : null;
+        }
+        if ('excludedCarts' in payload) {
+            const carts = Array.isArray(payload.excludedCarts) ? payload.excludedCarts : [];
+            updatePayload.excludedCarts = carts.map((c) => String(c || '').trim().toUpperCase()).filter((c) => c);
+        }
+        if (typeof (payload === null || payload === void 0 ? void 0 : payload.visualOnly) === 'boolean') {
+            updatePayload.visualOnly = payload.visualOnly;
         }
         if (Object.keys(updatePayload).length === 0) {
             throw new functions.https.HttpsError('invalid-argument', 'No hay cambios validos para actualizar.');
@@ -309,5 +316,33 @@ exports.setupUser = functions.https.onCall(async (data, context) => {
         console.error('[setupUser] Error:', error.message);
         throw new functions.https.HttpsError('internal', error.message);
     }
+});
+/**
+ * Resuelve el email de un usuario a partir de su nombre de login (ej. "MARIO").
+ * Pública y sin auth: se llama ANTES de iniciar sesión, desde la pantalla de login.
+ * Las reglas de Firestore restringen `list` sobre `usuarios` a admins, así que esta
+ * búsqueda debe hacerse server-side con el Admin SDK. Solo devuelve el email
+ * (nunca rol, sección u otros campos) para no exponer datos de usuarios.
+ */
+exports.resolveLoginEmail = functions.https.onCall(async (data) => {
+    const nameOrEmail = normalize(data === null || data === void 0 ? void 0 : data.nameOrEmail);
+    if (!nameOrEmail) {
+        throw new functions.https.HttpsError('invalid-argument', 'nameOrEmail requerido.');
+    }
+    if (nameOrEmail.includes('@')) {
+        return { email: nameOrEmail };
+    }
+    const lowerName = nameOrEmail.toLowerCase();
+    const db = firebaseAdmin_1.admin.firestore();
+    const usuariosSnap = await db.collection('usuarios').get();
+    for (const doc of usuariosSnap.docs) {
+        const userData = doc.data();
+        const loginNames = userData.loginNames || [];
+        if (loginNames.some((ln) => String(ln).toLowerCase() === lowerName) ||
+            (userData.displayName && String(userData.displayName).toLowerCase() === lowerName)) {
+            return { email: userData.email };
+        }
+    }
+    throw new functions.https.HttpsError('not-found', `Usuario "${nameOrEmail}" no encontrado`);
 });
 //# sourceMappingURL=admin.js.map
