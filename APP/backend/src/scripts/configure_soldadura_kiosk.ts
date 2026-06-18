@@ -17,7 +17,7 @@ async function configureSoldaduraKiosk() {
   const db = admin.firestore();
 
   const DEVICE_ID = 'device_1781522236899_ct4wdd'; // Kiosko Soldadura
-  const ALLOWED_SHELVES = ['SOL', 'SXP', 'CS']; // Soldadura, Puntos, Carro Soldadura
+  const ALLOWED_SHELVES = ['SOL', 'SXP', 'CS', 'RSO']; // Soldadura, Puntos, Carro Soldadura, Robot Soldadura
 
   console.log('🔧 Configurando kiosko de Soldadura...');
   console.log('='.repeat(60));

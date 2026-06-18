@@ -14,15 +14,19 @@ export interface PermissionContext {
   assignedShelf?: string;
   section?: string;
   accessibleSections?: WarehouseSection[];
+  /** Estanterías adicionales que el kiosko (OPERARIO) puede operar — device.allowedShelves. */
+  allowedShelves?: string[] | null;
 }
 
 /**
  * Mapa de secciones que pueden tener acceso adicional a otras secciones.
  * Usado para jefes y kiosks que necesitan acceder a múltiples secciones.
  * Ej: Jefe de PLEGADORA también accede a AUTOPLEGADORA.
+ * El jefe de SOLDADURA conserva acceso a Soldadura Puntos (SXP), ahora sección propia.
  */
 const CROSS_SECTION_ACCESS: Record<string, WarehouseSection[]> = {
   'PLEGADORA': ['AUTOPLEGADORA'],
+  'SOLDADURA': ['SXP'],
 };
 
 /**
@@ -61,7 +65,11 @@ export const canAccessShelf = (ctx: PermissionContext, shelfCode: string): boole
     // Acceso a su estantería principal
     if (primaryShelfUpper === targetUpper) return true;
 
-    // Acceso a estanterías adicionales mapeadas
+    // Acceso a las estanterías adicionales configuradas en el dispositivo
+    // (device.allowedShelves) — fuente de verdad única, igual que el backend.
+    if (ctx.allowedShelves && ctx.allowedShelves.map((s) => s.toUpperCase()).includes(targetUpper)) return true;
+
+    // Compatibilidad: mapa estático de estanterías adicionales por kiosko.
     const additionalShelves = KIOSK_ADDITIONAL_SHELVES[primaryShelfUpper];
     if (additionalShelves && additionalShelves.includes(targetUpper)) return true;
 

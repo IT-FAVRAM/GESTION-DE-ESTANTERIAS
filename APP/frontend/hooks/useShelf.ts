@@ -70,11 +70,17 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
       setError('No hay una sesion activa para esta operacion.');
       return { ok: false, session };
     }
-    if (!canAccessShelf({ role: session.role, assignedShelf: session.assignedShelf, section: session.section }, shelfCode)) {
+    const permCtx = {
+      role: session.role,
+      assignedShelf: session.assignedShelf,
+      section: session.section,
+      allowedShelves: session.allowedShelves,
+    };
+    if (!canAccessShelf(permCtx, shelfCode)) {
       setError(`La sesion ${session.role} no puede acceder a la estanteria ${shelfCode}.`);
       return { ok: false, session };
     }
-    if (purpose === 'operate' && !canOperateShelf({ role: session.role, assignedShelf: session.assignedShelf, section: session.section }, shelfCode)) {
+    if (purpose === 'operate' && !canOperateShelf(permCtx, shelfCode)) {
       setError(`La sesion ${session.role} no puede operar sobre la estanteria ${shelfCode}.`);
       return { ok: false, session };
     }
