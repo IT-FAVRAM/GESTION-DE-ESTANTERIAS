@@ -11,6 +11,7 @@ import { db } from '../lib/firebase';
 import { COLLECTIONS, type ItemDoc, type HistoryEntryDoc } from '../lib/firestoreSchema';
 import { parseLocationId } from '../lib/schema/shelves';
 import { listenForCacheUpdates } from '../lib/offline/bidirectionalSync';
+import { canonicalizeShelfCode } from '../domain/auth/sectionShelf';
 
 export type GlobalSearchResult = {
   articleCode: string;
@@ -58,8 +59,12 @@ const groupAndFilter = (
   }>();
 
   items.forEach((item) => {
+    // Códigos legacy (MEC/PME) se fusionan en su vista canónica (PRE) para que
+    // un artículo ubicado antes de la consolidación PRENSAS-MECANIZADO siga
+    // siendo navegable: la estantería 'MEC' ya no existe en SHELF_DEFINITIONS.
+    const canonicalShelfCode = canonicalizeShelfCode(item.shelfCode) ?? item.shelfCode;
     const aggregateKey = `${item.articleCode}|${item.orderFab}`;
-    const groupKey = `${aggregateKey}|${item.shelfCode}`;
+    const groupKey = `${aggregateKey}|${canonicalShelfCode}`;
 
     const existing = groupedResults.get(groupKey);
     if (existing) {
@@ -70,7 +75,7 @@ const groupAndFilter = (
         articleCode: item.articleCode,
         orderFab: item.orderFab,
         aggregateKey,
-        shelfCode: item.shelfCode,
+        shelfCode: canonicalShelfCode,
         locationIds: [...item.locationIds],
         subcontratacion: item.subcontratacion,
       });
@@ -87,6 +92,7 @@ const groupAndFilter = (
     const positionObjects = locationIds
       .map((id) => parseLocationId(id))
       .filter((pos): pos is { shelfCode: string; position: string } => pos !== null)
+      .map((pos) => ({ ...pos, shelfCode: canonicalizeShelfCode(pos.shelfCode) ?? pos.shelfCode }))
       .sort((a, b) => {
         if (a.shelfCode !== b.shelfCode) return a.shelfCode.localeCompare(b.shelfCode);
         return parseInt(a.position, 10) - parseInt(b.position, 10);
@@ -238,13 +244,14 @@ export const useGlobalSearchWithCache = (
                 if ((data.action === 'UBICAR' || data.action === 'UBICAR_MULTI') && data.toLocation && !entry.lastLocation) {
                   const parsed = parseLocationId(data.toLocation);
                   if (parsed) {
+                    const shelfCode = canonicalizeShelfCode(parsed.shelfCode) ?? parsed.shelfCode;
                     entry.lastLocation = {
-                      shelfCode: parsed.shelfCode,
+                      shelfCode,
                       position: parsed.position,
                       timestamp,
                       operarioName: data.operarioName,
                     };
-                    entry.locationHistory.add(parsed.shelfCode);
+                    entry.locationHistory.add(shelfCode);
                   }
                 }
 
@@ -252,7 +259,7 @@ export const useGlobalSearchWithCache = (
                   const parsed = parseLocationId(data.fromLocation);
                   if (parsed) {
                     entry.lastWithdrawal = {
-                      shelfCode: parsed.shelfCode,
+                      shelfCode: canonicalizeShelfCode(parsed.shelfCode) ?? parsed.shelfCode,
                       position: parsed.position,
                       timestamp,
                       operarioName: data.operarioName,
