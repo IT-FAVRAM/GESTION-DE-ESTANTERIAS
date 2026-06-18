@@ -132,13 +132,20 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
   // y resaltar (rosa) la celda donde está el artículo.
   // force=true para que useKiosk acepte la estantería aunque no esté en kiosk.shelves.
   const searchNavPending = useRef(false);
-  const handleSearchNavigate = useCallback((code: string, positions?: string[]) => {
+  const [highlightedItemKey, setHighlightedItemKey] = React.useState<string | null>(null);
+  const handleSearchNavigate = useCallback((code: string, positions?: string[], itemKey?: string) => {
     searchNavPending.current = true;
     setShelfCode?.(code, true);
     setHighlightedSearch(positions ?? []);
+    setHighlightedItemKey(itemKey ?? null);
     // Reset the flag after the render cycle so manual shelf changes clear highlights
     setTimeout(() => { searchNavPending.current = false; }, 0);
   }, [setShelfCode, setHighlightedSearch]);
+
+  const handleSearchHighlight = useCallback((positions: string[], itemKey?: string) => {
+    setHighlightedSearch(positions);
+    setHighlightedItemKey(itemKey ?? null);
+  }, [setHighlightedSearch]);
 
   // Limpiar highlights de búsqueda cuando el usuario cambia de estantería manualmente
   // (tabs, selector). Si el cambio viene del buscador (searchNavPending), no limpiar.
@@ -148,6 +155,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
       prevShelfRef.current = shelfCode;
       if (!searchNavPending.current) {
         setHighlightedSearch([]);
+        setHighlightedItemKey(null);
       }
     }
   }, [shelfCode, setHighlightedSearch]);
@@ -482,7 +490,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         <div className="flex-shrink-0">
           <KioskSearchBar
             locations={locations}
-            onHighlight={setHighlightedSearch}
+            onHighlight={handleSearchHighlight}
             global
             currentShelfCode={shelfCode}
             canNavigateToShelf={config.shelfScope === 'all'}
@@ -525,6 +533,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             onCellPress={handleCellPress}
             selectedPositions={selectedPositions}
             highlightedPositions={highlightedPositions}
+            highlightedItemKey={highlightedItemKey}
             showReprocessCosts={reprocesosCosts}
             fullscreenMode={fullscreenGrid}
             forceSingleBlock={forceSingleBlock}

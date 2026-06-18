@@ -89,13 +89,15 @@ interface RackSlotProps {
   onCellDragEnter?: (position: string) => void;
   onCellDragLeave?: () => void;
   onCellDrop?: (targetPosition: string) => void;
+  /** "articleCode|orderFab" del artículo buscado, para resaltarlo más oscuro entre varios de la misma celda. */
+  highlightedItemKey?: string | null;
 }
 
 const RackSlot: React.FC<RackSlotProps> = ({
   position, posNum, location, shelfCode,
   isUrgent, isTechReview, isAluminio, isSelected, isHighlighted, isDragOver,
   showReprocessCosts, onPress, createEmpty, minHeight, shelfSurface,
-  onCellDragStart, onCellDragEnter, onCellDragLeave, onCellDrop,
+  onCellDragStart, onCellDragEnter, onCellDragLeave, onCellDrop, highlightedItemKey,
 }) => {
   const items = location?.items ?? [];
   const photos = location?.photos ?? [];
@@ -205,6 +207,7 @@ const RackSlot: React.FC<RackSlotProps> = ({
 
   return (
     <div
+      data-position={position}
       role={onPress || isDraggable ? 'button' : undefined}
       tabIndex={onPress ? 0 : undefined}
       onClick={onPress ? handleClick : undefined}
@@ -260,17 +263,20 @@ const RackSlot: React.FC<RackSlotProps> = ({
         </div>
       ) : (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '3px 4px 2px', gap: 2, minHeight: 0 }}>
-          {items.map((item, i) => (
+          {items.map((item, i) => {
+            const isSearchedItem = !!highlightedItemKey && `${item.articleCode}|${item.orderFab}` === highlightedItemKey;
+            return (
             <div
               key={`${item.articleCode}-${item.orderFab}-${i}`}
               style={{
-                background: itemBg,
+                background: isSearchedItem ? 'rgba(219,39,119,0.32)' : itemBg,
                 borderRadius: 3,
                 padding: '3px 5px',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
-                borderLeft: `3px solid ${artColor}`,
+                borderLeft: `3px solid ${isSearchedItem ? '#831843' : artColor}`,
+                boxShadow: isSearchedItem ? '0 0 0 1.5px rgba(190,24,93,0.85)' : undefined,
                 overflow: 'hidden',
                 flexShrink: 0,
               }}
@@ -287,7 +293,8 @@ const RackSlot: React.FC<RackSlotProps> = ({
                 </p>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -333,6 +340,7 @@ export interface ShelfRackViewProps {
   onCellDragEnter?: (position: string) => void;
   onCellDragLeave?: () => void;
   onCellDrop?: (targetPosition: string) => void;
+  highlightedItemKey?: string | null;
 }
 
 const ShelfRackView: React.FC<ShelfRackViewProps> = ({
@@ -350,6 +358,7 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
   onCellDragEnter,
   onCellDragLeave,
   onCellDrop,
+  highlightedItemKey,
 }) => {
   const pk = getPaletteKey(shelfCode, block.zoneName);
   const palette = PALETTES[pk];
@@ -464,6 +473,7 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
                     onCellDragEnter={onCellDragEnter}
                     onCellDragLeave={onCellDragLeave}
                     onCellDrop={onCellDrop}
+                    highlightedItemKey={highlightedItemKey}
                   />
                 );
               })}

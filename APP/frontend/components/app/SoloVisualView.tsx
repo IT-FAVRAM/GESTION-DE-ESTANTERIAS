@@ -14,6 +14,7 @@ const SoloVisualView: React.FC = () => {
   const [selectedShelf, setSelectedShelf] = useState<string>(SHELF_DEFINITIONS[0]?.code ?? 'PRE');
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
   const [highlightedPositions, setHighlightedPositions] = useState<string[]>([]);
+  const [highlightedItemKey, setHighlightedItemKey] = useState<string | null>(null);
   // Inspección de celda (solo lectura) — permite ver artículos, nota y fotos.
   const [selectedCell, setSelectedCell] = useState<ShelfLocationState | null>(null);
   const [showPhotoCarousel, setShowPhotoCarousel] = useState(false);
@@ -168,14 +169,18 @@ const SoloVisualView: React.FC = () => {
                 se resalta en rosa (todas las estanterías son accesibles en solo-visual). */}
             <KioskSearchBar
               locations={locations}
-              onHighlight={setHighlightedPositions}
+              onHighlight={(positions, itemKey) => {
+                setHighlightedPositions(positions);
+                setHighlightedItemKey(itemKey ?? null);
+              }}
               currentShelfCode={selectedShelf}
               placeholder="🔍 Buscar en toda la nave..."
               global={true}
               canNavigateToShelf={true}
-              onShelfNavigate={(code, positions) => {
+              onShelfNavigate={(code, positions, itemKey) => {
                 setSelectedShelf(code);
                 setHighlightedPositions(positions ?? []);
+                setHighlightedItemKey(itemKey ?? null);
               }}
             />
           </div>
@@ -203,6 +208,7 @@ const SoloVisualView: React.FC = () => {
                 onCellPress={setSelectedCell}
                 selectedPositions={[]}
                 highlightedPositions={highlightedPositions}
+                highlightedItemKey={highlightedItemKey}
               />
             )}
           </div>

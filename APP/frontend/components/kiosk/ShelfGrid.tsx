@@ -23,6 +23,8 @@ interface ShelfGridProps {
   onCellPress?: (location: ShelfLocationState) => void;
   selectedPositions?: string[];
   highlightedPositions?: string[];
+  /** "articleCode|orderFab" del artículo buscado, para resaltarlo más oscuro entre varios de la misma celda. */
+  highlightedItemKey?: string | null;
   dragOverPosition?: string | null;
   compact?: boolean;
   showReprocessCosts?: boolean;
@@ -257,6 +259,7 @@ interface BlockProps {
   locationMap: Map<string, ShelfLocationState>;
   selectedPositions: string[];
   highlightedPositions: string[];
+  highlightedItemKey?: string | null;
   dragOverPosition?: string | null;
   onCellPress?: (location: ShelfLocationState) => void;
   isCollapsed: boolean;
@@ -276,6 +279,7 @@ const Block = React.memo(({
   locationMap,
   selectedPositions,
   highlightedPositions,
+  highlightedItemKey,
   dragOverPosition,
   onCellPress,
   isCollapsed,
@@ -394,6 +398,7 @@ const Block = React.memo(({
               locationMap={locationMap}
               selectedPositions={selectedPositions}
               highlightedPositions={highlightedPositions}
+              highlightedItemKey={highlightedItemKey}
               dragOverPosition={dragOverPosition}
               onCellPress={onCellPress}
               showReprocessCosts={showReprocessCosts}
@@ -419,6 +424,7 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
   onCellPress,
   selectedPositions = [],
   highlightedPositions = [],
+  highlightedItemKey = null,
   dragOverPosition = null,
   compact = false,
   showReprocessCosts = false,
@@ -466,18 +472,14 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
       return false;
     };
     // Primer intento inmediato
-    if (scrollTo()) return;
-    // Retry tras un frame (espera a que React pinte las celdas)
+    scrollTo();
+    // Reintentos sucesivos: cubren tanto la carga asíncrona de celdas como la
+    // transición CSS (300ms) de expandir un bloque/zona colapsado, durante la
+    // cual la celda ya está en el DOM pero con altura 0 (posición incorrecta).
     let cancelled = false;
-    const raf = requestAnimationFrame(() => {
-      if (cancelled) return;
-      if (scrollTo()) return;
-      // Último retry tras 150ms por si hay carga asíncrona
-      const timer = setTimeout(() => { if (!cancelled) scrollTo(); }, 150);
-      // Cleanup del timeout se maneja abajo
-      void timer;
-    });
-    return () => { cancelled = true; cancelAnimationFrame(raf); };
+    const raf = requestAnimationFrame(() => { if (!cancelled) scrollTo(); });
+    const timers = [120, 250, 380].map((ms) => setTimeout(() => { if (!cancelled) scrollTo(); }, ms));
+    return () => { cancelled = true; cancelAnimationFrame(raf); timers.forEach(clearTimeout); };
   }, [highlightedPositions, locations, collapsedSections, activeMobileBlockIdx]);
 
   // Si el highlight cae en una sección colapsada o, en modo kiosko, en un
@@ -598,6 +600,7 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
                           isAluminio={!isStr && isAluminioLocation(shelfDef?.code || '', posNum as number)}
                           isSelected={selectedPositions.includes(pos)}
                           isHighlighted={highlightedPositions.includes(pos)}
+                          highlightedItemKey={highlightedItemKey}
                           compact
                           showReprocessCosts={showReprocessCosts}
                           onPress={onCellPress}
@@ -626,6 +629,7 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
             isAluminio={isAluminioLocation(shelfDef?.code || '', parseInt(loc.position, 10))}
             isSelected={selectedPositions.includes(loc.position)}
             isHighlighted={highlightedPositions.includes(loc.position)}
+            highlightedItemKey={highlightedItemKey}
             compact
             showReprocessCosts={showReprocessCosts}
             onPress={onCellPress}
@@ -705,6 +709,7 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
                       locationMap={locationMap}
                       selectedPositions={selectedPositions}
                       highlightedPositions={highlightedPositions}
+                      highlightedItemKey={highlightedItemKey}
                       dragOverPosition={dragOverPosition}
                       onCellPress={onCellPress}
                       isCollapsed={isCollapsed}
@@ -772,6 +777,7 @@ const isUrgentZone = zone.isUrgent ?? false;
                            isAluminio={isAluminioLocation(shelfDef?.code || '', posInt)}
                            isSelected={selectedPositions.includes(pos)}
                            isHighlighted={highlightedPositions.includes(pos)}
+                           highlightedItemKey={highlightedItemKey}
                            isDragOver={dragOverPosition === pos}
                            showReprocessCosts={showReprocessCosts}
                            onPress={onCellPress}

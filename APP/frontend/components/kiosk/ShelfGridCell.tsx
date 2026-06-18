@@ -23,6 +23,8 @@ interface ShelfGridCellProps {
   isAluminio?: boolean;
   isSelected?: boolean;
   isHighlighted?: boolean;
+  /** "articleCode|orderFab" del artículo buscado, para resaltarlo más oscuro entre varios de la misma celda. */
+  highlightedItemKey?: string | null;
   isDragOver?: boolean;
   compact?: boolean;
   showReprocessCosts?: boolean;
@@ -53,6 +55,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
   isAluminio = false,
   isSelected = false,
   isHighlighted = false,
+  highlightedItemKey = null,
   isDragOver = false,
   compact = false,
   showReprocessCosts = false,
@@ -374,10 +377,12 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
 
       {/* Items list */}
       <div className={`border-t px-2 pt-1.5 pb-2 space-y-1.5 ${borderTop}`}>
-        {location!.items.map((item, idx) => (
+        {location!.items.map((item, idx) => {
+          const isSearchedItem = !!highlightedItemKey && `${item.articleCode}|${item.orderFab}` === highlightedItemKey;
+          return (
           <div
             key={`${item.articleCode}-${item.orderFab}-${idx}`}
-            className={`rounded-xl px-2.5 py-2 relative ${itemBg}
+            className={`rounded-xl px-2.5 py-2 relative ${isSearchedItem ? 'bg-pink-600/55 border border-pink-300 ring-2 ring-pink-300/80' : itemBg}
               ${multiItem && onCellDragStart ? 'cursor-grab active:cursor-grabbing' : ''}`}
             draggable={multiItem && !!onCellDragStart}
             onDragStart={multiItem && onCellDragStart ? (e) => {
@@ -405,7 +410,8 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
               {item.locatedByName} · {formatDate(item.locatedAt)}
             </p>
           </div>
-        ))}
+          );
+        })}
         {onPress && (
           <button
             type="button"

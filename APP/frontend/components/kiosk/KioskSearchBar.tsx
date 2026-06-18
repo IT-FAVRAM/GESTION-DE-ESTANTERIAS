@@ -15,13 +15,14 @@ import { parseLocationId } from '../../lib/schema/shelves';
 
 interface KioskSearchBarProps {
   locations: ShelfLocationState[];
-  onHighlight: (positions: string[]) => void;
+  /** itemKey = "articleCode|orderFab" del resultado pinchado, para resaltarlo en rosa oscuro dentro de celdas con varios artículos. */
+  onHighlight: (positions: string[], itemKey?: string) => void;
   placeholder?: string;
   global?: boolean;
   currentShelfCode?: string;
   canNavigateToShelf?: boolean;
   /** Navega a otra estantería al pinchar un resultado y resalta sus posiciones. */
-  onShelfNavigate?: (shelfCode: string, highlightPositions?: string[]) => void;
+  onShelfNavigate?: (shelfCode: string, highlightPositions?: string[], itemKey?: string) => void;
   /**
    * Permite navegar a una estantería concreta aunque `canNavigateToShelf` sea
    * false (p.ej. OPERARIO/JEFE solo dentro de sus secciones accesibles).
@@ -146,8 +147,9 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
     setSelectedResult(result);
     // El grid resalta por posición "desnuda" (001), no por "SHELF_001".
     const barePositions = result.positions.map(barePosition);
+    const itemKey = `${result.articleCode}|${result.orderFab}`;
     if (result.matchesCurrentShelf) {
-      onHighlight(barePositions);
+      onHighlight(barePositions, itemKey);
       return;
     }
     // Resultado en OTRA estantería: navegar y resaltar la celda si el rol puede.
@@ -156,7 +158,7 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
     const mayNavigate = !!onShelfNavigate &&
       (canNavigateToShelf || (isShelfNavigable?.(result.shelfCode) ?? false));
     if (mayNavigate && onShelfNavigate) {
-      onShelfNavigate(result.shelfCode, barePositions);
+      onShelfNavigate(result.shelfCode, barePositions, itemKey);
       return;
     }
     // Si no puede navegar, se mantiene el comportamiento actual: la ficha

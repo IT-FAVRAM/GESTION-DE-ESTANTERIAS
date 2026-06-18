@@ -41,6 +41,7 @@ interface AdminShelfBrowserProps {
 const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCarros }) => {
   const [selectedShelf, setSelectedShelf] = useState(ALL_SHELVES[0]?.code || 'PRE');
   const [highlightedPositions, setHighlightedPositions] = useState<string[]>([]);
+  const [highlightedItemKey, setHighlightedItemKey] = useState<string | null>(null);
   const [action, setAction] = useState<AdminAction>('idle');
   const [articleInput, setArticleInput] = useState('');
   const [ofInput, setOfInput] = useState('');
@@ -880,13 +881,17 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
             <div className="flex-shrink-0">
               <KioskSearchBar
                 locations={locations}
-                onHighlight={setHighlightedPositions}
+                onHighlight={(positions, itemKey) => {
+                  setHighlightedPositions(positions);
+                  setHighlightedItemKey(itemKey ?? null);
+                }}
                 global
                 currentShelfCode={selectedShelf}
                 canNavigateToShelf
-                onShelfNavigate={(code, positions) => {
+                onShelfNavigate={(code, positions, itemKey) => {
                   setSelectedShelf(code);
                   setHighlightedPositions(positions ?? []);
+                  setHighlightedItemKey(itemKey ?? null);
                 }}
               />
             </div>
@@ -1190,6 +1195,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
                 onCellPress={action !== 'idle' && action !== 'moverSeccion' ? handleCellPress : undefined}
                 selectedPositions={selectedPositions}
                 highlightedPositions={[...highlightedPositions, ...foundPositions]}
+                highlightedItemKey={highlightedItemKey}
                 dragOverPosition={dragOverPosition}
                 compact={false}
                 fullscreenMode={true}
