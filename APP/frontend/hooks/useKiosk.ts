@@ -16,16 +16,35 @@ export interface UseKioskReturn {
   error: string | null;
 }
 
-export const useKiosk = (kioskId: string | null | undefined): UseKioskReturn => {
+export const useKiosk = (kioskId: string | null | undefined, allowedShelves?: string[]): UseKioskReturn => {
   const [kiosk, setKiosk] = useState<KioskDoc | null>(null);
   const [currentShelf, setCurrentShelfState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!kioskId) {
+    if (!kioskId && (!allowedShelves || allowedShelves.length === 0)) {
       setKiosk(null);
       setCurrentShelfState(null);
+      setLoading(false);
+      return;
+    }
+
+    // Si tenemos allowedShelves pero no kioskId, usar allowedShelves como fallback
+    if (!kioskId && allowedShelves && allowedShelves.length > 0) {
+      const fallbackKiosk: KioskDoc = {
+        id: 'device-fallback',
+        name: 'Dispositivo',
+        shelves: allowedShelves,
+        location: 'Zona',
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      setKiosk(fallbackKiosk);
+      const firstShelf = allowedShelves[0] ?? null;
+      setCurrentShelfState(firstShelf);
+      setError(null);
       setLoading(false);
       return;
     }
@@ -104,16 +123,15 @@ export const useKiosk = (kioskId: string | null | undefined): UseKioskReturn => 
     };
 
     fetchKiosk();
-  }, [kioskId]);
+  }, [kioskId, allowedShelves]);
 
   const setCurrentShelf = (shelf: string) => {
-    if (kioskId) {
-      const allowedShelves = kiosk?.shelves || [];
-      const isAllowed = allowedShelves.includes(shelf);
-      if (isAllowed) {
-        setCurrentShelfState(shelf);
-        localStorage.setItem(`kiosk-${kioskId}-shelf`, shelf);
-      }
+    const allowedShelvesList = kiosk?.shelves || [];
+    const isAllowed = allowedShelvesList.includes(shelf);
+    if (isAllowed) {
+      setCurrentShelfState(shelf);
+      const storageKey = kioskId ? `kiosk-${kioskId}-shelf` : 'device-shelf';
+      localStorage.setItem(storageKey, shelf);
     }
   };
 

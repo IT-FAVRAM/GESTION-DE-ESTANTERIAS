@@ -25,12 +25,15 @@ import CarrosView from '../carretillero/CarrosView';
  */
 const KioskView: React.FC = () => {
   const { assignedShelf, operarioId, firebaseUser, section, displayName, logout, kioskId, deviceId } = useAuth();
-  const { excludedCarts, visualOnly } = useDeviceConfig(deviceId);
+  const { excludedCarts, visualOnly, allowedShelves } = useDeviceConfig(deviceId);
   // Usuarios con auth por email (p.ej. JEFE_SECCION en modo operativo) no tienen
   // operarioId numérico; usamos su UID para mantener la trazabilidad.
   const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? '';
 
-  const { kiosk, shelves, currentShelf, setCurrentShelf } = useKiosk(kioskId);
+  const { kiosk, shelves, currentShelf, setCurrentShelf } = useKiosk(kioskId, allowedShelves);
+
+  // Usar shelves que ahora incluye allowedShelves como fallback
+  const effectiveShelves = shelves;
   const shelfCode = currentShelf || assignedShelf || '';
 
   const [showDeviceInfo, setShowDeviceInfo] = useState(false);
@@ -98,10 +101,10 @@ const KioskView: React.FC = () => {
         ) : undefined}
       />
 
-      {kiosk && shelves.length > 1 && (
+      {effectiveShelves.length > 1 && (
         <div className="bg-sky-50 border-b border-slate-200 px-4 py-2 flex justify-center">
           <ShelfSelector
-            shelves={shelves}
+            shelves={effectiveShelves}
             currentShelf={currentShelf}
             onSelectShelf={(s) => {
               if (action !== 'idle') {
