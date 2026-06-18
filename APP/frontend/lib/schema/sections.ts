@@ -34,7 +34,7 @@ export const SHELF_TO_SECTION: Record<string, WarehouseSection> = {
   RPL: 'AUTOPLEGADORA',
   SOL: 'SOLDADURA',
   RSO: 'SOLDADURA',
-  SXP: 'SOLDADURA',
+  SXP: 'SXP',
   REP: 'REPASADO',
   PIN: 'PINTURA',
   ZIN: 'REPASADO',
@@ -75,6 +75,9 @@ export const getShelvesForSection = (section: WarehouseSection): string[] =>
  */
 const CROSS_SECTION_ACCESS: Partial<Record<WarehouseSection, WarehouseSection[]>> = {
   'PLEGADORA': ['AUTOPLEGADORA'],
+  // El jefe de SOLDADURA conserva acceso a Soldadura Puntos (SXP), que ahora es
+  // su propia sección con jefe dedicado (H / Mario). El jefe de SXP ve solo SXP.
+  'SOLDADURA': ['SXP'],
 };
 
 /**

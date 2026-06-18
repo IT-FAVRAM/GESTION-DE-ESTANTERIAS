@@ -140,7 +140,6 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
                     .map((s) => s.section)
                     .filter((sec) => {
                       if (seen.has(sec)) return false;
-                      if (sec === 'PINTURA') return false;
                       seen.add(sec);
                       return true;
                     });

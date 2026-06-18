@@ -45,7 +45,7 @@ const WMS_SHELF_SECTION: Record<string, string> = {
   SOL: 'SOLDADURA',
   CS: 'SOLDADURA',
   RSO: 'SOLDADURA',
-  SXP: 'SOLDADURA',
+  SXP: 'SXP',
   REP: 'REPASADO',
   PIN: 'PINTURA',
   ZIN: 'REPASADO',
@@ -63,6 +63,9 @@ const WMS_SHELF_SECTION: Record<string, string> = {
  */
 const CROSS_SECTION_ACCESS: Record<string, string[]> = {
   'PLEGADORA': ['AUTOPLEGADORA'],
+  // El jefe de SOLDADURA conserva acceso a Soldadura Puntos (SXP), ahora sección
+  // propia con jefe dedicado (H / Mario). El jefe de SXP opera solo SXP.
+  'SOLDADURA': ['SXP'],
 };
 
 /**
