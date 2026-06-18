@@ -18,6 +18,7 @@ import ShelfGrid from '../kiosk/ShelfGrid';
 import KioskSearchBar from '../kiosk/KioskSearchBar';
 import ScannerInput from '../kiosk/ScannerInput';
 import ScanMethodPicker from '../common/ScanMethodPicker';
+import SubcontratacionCapture from './SubcontratacionCapture';
 import ConfirmationModal from '../common/ConfirmationModal';
 import CameraQRScanner from '../common/CameraQRScanner';
 const CameraOCRScanner = React.lazy(() => import('../common/CameraOCRScanner'));
@@ -80,6 +81,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
     scanMethodPickerOpen, pendingAction,
     showCameraQR, setShowCameraQR, showCameraOCR, setShowCameraOCR, showBarcodeForm, setShowBarcodeForm,
     batchMode, batchArticles, batchProcessedCount,
+    subcontratacionMode, beginSubcontratacion, handleSubcontratacionResult, cancelSubcontratacion,
     additionalShelfPositions, showAddShelfModal, setShowAddShelfModal,
     showRetirarArticleList, showRetirarCellModal, retirarCellPosition, retirarCellItems,
     pendingRetirarQueue, finalizeRetirarQueue,
@@ -510,6 +512,12 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             : undefined
         }
         onSelectList={pendingAction === 'mover' ? chooseMoverFromList : undefined}
+        onSubcontratacion={
+          ['CARRETILLERO', 'ADMIN', 'SUPERADMIN'].includes(config.role) && !batchMode &&
+          (pendingAction === 'ubicar' || (action === 'ubicar' && !!pendingCell))
+            ? beginSubcontratacion
+            : undefined
+        }
         onClose={handleScanMethodPickerClose}
       />
 
@@ -522,10 +530,29 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
       {showCameraOCR && (
         <React.Suspense fallback={<div className="p-4 text-center">Cargando escáner OCR...</div>}>
           <CameraOCRScanner
-            onResult={(text) => { setShowCameraOCR(false); handleScan(parseScanInputLenient(text)); }}
-            onClose={() => { setShowCameraOCR(false); setScannerActive(true); }}
+            mode={subcontratacionMode ? 'subcontratacion' : 'normal'}
+            onResult={(text) => {
+              setShowCameraOCR(false);
+              if (subcontratacionMode) handleSubcontratacionResult(text);
+              else handleScan(parseScanInputLenient(text));
+            }}
+            onClose={() => {
+              setShowCameraOCR(false);
+              if (subcontratacionMode) cancelSubcontratacion();
+              else setScannerActive(true);
+            }}
           />
         </React.Suspense>
+      )}
+
+      {/* SUBCONTRATACIÓN: selector dedicado (foto OCR amarillo o código manual)
+          mientras no haya código capturado. Sólo carretillero/admin en UBICAR. */}
+      {subcontratacionMode && !scanData && !showCameraOCR && (
+        <SubcontratacionCapture
+          onPhoto={() => setShowCameraOCR(true)}
+          onManual={(code) => handleSubcontratacionResult(code)}
+          onClose={() => cancelSubcontratacion()}
+        />
       )}
 
       {showBarcodeForm && (
@@ -815,9 +842,14 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
                 <p className="text-center text-sm text-slate-400 py-6">Ubicación vacía</p>
               ) : (
                 selectedCell.items.map((item, idx) => (
-                  <div key={`${item.articleCode}-${item.orderFab}-${idx}`} className="rounded-xl px-3 py-2.5 bg-slate-50 border border-slate-200">
-                    <p className="text-[15px] font-black font-mono text-slate-900 leading-tight break-all">{item.articleCode}</p>
-                    <p className="text-[12px] font-bold font-mono text-cyan-700 leading-tight break-all">{item.orderFab}</p>
+                  <div key={`${item.articleCode}-${item.orderFab}-${idx}`} className={`rounded-xl px-3 py-2.5 border ${item.subcontratacion ? 'bg-orange-50 border-orange-300' : 'bg-slate-50 border-slate-200'}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-[15px] font-black font-mono text-slate-900 leading-tight break-all">{item.articleCode}</p>
+                      {item.subcontratacion && (
+                        <span className="flex-shrink-0 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded bg-orange-500 text-white">🏭 Subcon.</span>
+                      )}
+                    </div>
+                    {item.orderFab && <p className="text-[12px] font-bold font-mono text-cyan-700 leading-tight break-all">{item.orderFab}</p>}
                     {reprocesosCosts && item.quantity != null && item.unitCost != null && item.unitCost > 0 && (
                       <p className="text-[11px] text-amber-600 font-mono mt-0.5">{item.quantity} ud · {item.unitCost.toFixed(2)} €/ud</p>
                     )}

@@ -167,6 +167,9 @@ export function useOperativeShelf({
   const [showCameraQR, setShowCameraQR] = useState(false);
   const [showCameraOCR, setShowCameraOCR] = useState(false);
   const [showBarcodeForm, setShowBarcodeForm] = useState(false);
+  // SUBCONTRATACIÓN: modo de captura restringido (solo OCR zona amarilla o manual)
+  // para ubicar artículos de subcontratación (código amarillo = artículo, sin OF).
+  const [subcontratacionMode, setSubcontratacionMode] = useState(false);
 
   // Lote (varios artículos en la misma posición)
   const [batchMode, setBatchMode] = useState(false);
@@ -305,6 +308,7 @@ export function useOperativeShelf({
     setBatchArticles([]);
     setBatchMethod(null);
     setBatchProcessedCount(0);
+    setSubcontratacionMode(false);
     setAdditionalShelfPositions([]);
     setShowAddShelfModal(false);
     setShowRetirarArticleList(false);
@@ -663,6 +667,44 @@ export function useOperativeShelf({
     setScanMethodPickerOpen(true);
   }, [pendingAction]);
 
+  // ── SUBCONTRATACIÓN ──────────────────────────────────────────────────────────
+  /**
+   * Inicia el flujo de subcontratación: cierra el selector normal y activa el
+   * modo restringido (solo OCR de la zona amarilla o entrada manual del código).
+   * La UI (OperativeShelfArea) muestra un selector dedicado mientras no haya
+   * código capturado.
+   */
+  const beginSubcontratacion = useCallback(() => {
+    setScanMethodPickerOpen(false);
+    const act: OperativeAction = pendingAction ?? 'ubicar';
+    setAction(act);
+    setPendingAction(null);
+    setScanData(null);
+    setSelectedPositions([]);
+    setBatchMode(false);
+    setSubcontratacionMode(true);
+  }, [pendingAction]);
+
+  /**
+   * Recibe el código capturado (OCR amarillo o manual) y lo fija como artículo de
+   * subcontratación (sin OF). A continuación el usuario elige celda(s) y confirma.
+   */
+  const handleSubcontratacionResult = useCallback((rawCode: string) => {
+    setShowCameraOCR(false);
+    setShowBarcodeForm(false);
+    setScannerActive(false);
+    const code = (rawCode || '').trim().toUpperCase();
+    if (!code) { showToast('error', 'No se leyó ningún código'); return; }
+    setScanData({ articleCode: code, orderFab: '', subcontratacion: true });
+  }, [showToast]);
+
+  const cancelSubcontratacion = useCallback(() => {
+    setSubcontratacionMode(false);
+    setShowCameraOCR(false);
+    setShowBarcodeForm(false);
+    setScannerActive(false);
+  }, []);
+
   /**
    * "Cambiar método" a mitad de lote: cierra el escáner vivo (detiene el
    * MediaStream al desmontar la cámara) y reabre el selector. No toca
@@ -954,7 +996,7 @@ export function useOperativeShelf({
       setScannerActive(true);
       return;
     }
-    const { articleCode, orderFab } = result.data;
+    const { articleCode, orderFab, subcontratacion } = result.data;
 
     // Lote: acumular artículos
     if (action === 'ubicar' && batchMode) {
@@ -991,7 +1033,7 @@ export function useOperativeShelf({
       return;
     }
 
-    setScanData({ articleCode, orderFab });
+    setScanData({ articleCode, orderFab, ...(subcontratacion ? { subcontratacion: true } : {}) });
     setScannerActive(false);
 
     // UBICAR: aviso de artículo ya ubicado en el sistema (ghost)
@@ -1274,11 +1316,11 @@ export function useOperativeShelf({
   };
 
   // ── UBICAR confirm (individual, con bucle "¿otro?") ──────────────────────────
-  const doUbicarCurrentShelf = async (articleCode: string, orderFab: string, positions: string[], importe?: number, cantidad?: number): Promise<boolean> => {
+  const doUbicarCurrentShelf = async (articleCode: string, orderFab: string, positions: string[], importe?: number, cantidad?: number, subcontratacion?: boolean): Promise<boolean> => {
     if (positions.length === 1 && importe === undefined && cantidad === undefined) {
-      return ubicar(articleCode, orderFab, positions[0], operarioId, displayName);
+      return ubicar(articleCode, orderFab, positions[0], operarioId, displayName, subcontratacion);
     }
-    return ubicarMulti(articleCode, orderFab, positions, operarioId, displayName, importe, cantidad);
+    return ubicarMulti(articleCode, orderFab, positions, operarioId, displayName, importe, cantidad, subcontratacion);
   };
 
   const ubicarAdditionalSections = async (articleCode: string, orderFab: string): Promise<string[]> => {
@@ -1310,10 +1352,10 @@ export function useOperativeShelf({
     processingRef.current = true;
     setProcessing(true);
     setShowAddShelfModal(false);
-    const { articleCode, orderFab } = scanData;
+    const { articleCode, orderFab, subcontratacion } = scanData;
     const positions = [...selectedPositions];
 
-    const ok = await doUbicarCurrentShelf(articleCode, orderFab, positions, importe, cantidad);
+    const ok = await doUbicarCurrentShelf(articleCode, orderFab, positions, importe, cantidad, subcontratacion);
     const failedSections = ok ? await ubicarAdditionalSections(articleCode, orderFab) : [];
     processingRef.current = false;
     setProcessing(false);
@@ -1682,6 +1724,8 @@ export function useOperativeShelf({
     showCameraOCR, setShowCameraOCR,
     showBarcodeForm, setShowBarcodeForm,
     batchMode, batchArticles, batchMethod, batchProcessedCount,
+    // subcontratación
+    subcontratacionMode, beginSubcontratacion, handleSubcontratacionResult, cancelSubcontratacion,
     // bandeja de escaneo (scan-first)
     enableScanTray, trayItems,
     additionalShelfPositions, showAddShelfModal, setShowAddShelfModal,

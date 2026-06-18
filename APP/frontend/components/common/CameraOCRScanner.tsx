@@ -21,6 +21,12 @@ interface CameraOCRScannerProps {
   onResult: (text: string) => void;
   onError?: (error: string) => void;
   onClose: () => void;
+  /**
+   * 'subcontratacion': la etiqueta sólo tiene un código (subrayado en amarillo,
+   * arriba del todo). No se intenta separar Artículo/OF: se devuelve la línea
+   * superior como código único.
+   */
+  mode?: 'normal' | 'subcontratacion';
 }
 
 type Phase = 'starting' | 'live' | 'processing' | 'review' | 'error';
@@ -136,7 +142,8 @@ async function runTesseractFallback(
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, onClose }) => {
+const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, onClose, mode = 'normal' }) => {
+  const isSubcontratacion = mode === 'subcontratacion';
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -335,6 +342,23 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
       //     votación por frecuencia, ignora "Histórico OFs") — el caso real del taller.
       // 2º: por líneas (OF + artículo de la línea inferior) — etiquetas antiguas.
       // 3º: parser lenient sobre el texto completo. 4º: texto crudo (foto manual).
+      // SUBCONTRATACIÓN: la etiqueta sólo tiene un código (subrayado en amarillo,
+      // siempre arriba del todo). Cloud Vision devuelve las líneas en orden de
+      // lectura, así que la línea superior es ese código. No se separa Artículo/OF.
+      if (isSubcontratacion) {
+        const topLine = (bestLines[0] || bestText.split('\n')[0] || bestText).trim();
+        const code = cleanOcrText(topLine).trim();
+        setProgress(100);
+        setParsedOk(false);
+        setFieldArticle('');
+        setFieldOF('');
+        setOcrText(code);
+        setRawOcrText(bestText);
+        setOcrConfidence(Math.round(bestConfidence));
+        setPhase('review');
+        return;
+      }
+
       const candidateLines = bestLines.length > 0 ? bestLines : (bestText ? [bestText] : []);
       const hojaParse = candidateLines.length > 0 ? parseHojaDeRuta(candidateLines) : null;
       const lineParse = bestLines.length > 0 ? parseScanFromLines(bestLines) : null;
@@ -545,7 +569,7 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
             <div className="flex-1 px-4 pb-4">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-slate-400 text-xs uppercase tracking-widest">
-                  {parsedOk ? 'Datos detectados — verifica y confirma' : 'Texto reconocido — edita si es necesario'}
+                  {isSubcontratacion ? 'Código de subcontratación — verifica y confirma' : parsedOk ? 'Datos detectados — verifica y confirma' : 'Texto reconocido — edita si es necesario'}
                 </p>
                 {ocrConfidence > 0 && (
                   <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${

@@ -37,6 +37,8 @@ export interface LocationItem {
   unitCost?: number;
   /** true si se introdujo manualmente como texto libre (sin código de barras) */
   isFreeText?: boolean;
+  /** true si el artículo proviene de una etiqueta de SUBCONTRATACIÓN (código amarillo, sin OF) */
+  subcontratacion?: boolean;
 }
 
 export interface ItemDoc {
@@ -53,6 +55,8 @@ export interface ItemDoc {
   removedAt?: string;
   removedBy?: string;
   lastAlertAt?: string;
+  /** true si es un artículo de SUBCONTRATACIÓN (código amarillo, sin OF) */
+  subcontratacion?: boolean;
 }
 
 export interface ItemAggregateDoc {

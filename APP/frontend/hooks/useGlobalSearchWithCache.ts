@@ -21,6 +21,8 @@ export type GlobalSearchResult = {
   locationIds: string[];
   matchesCurrentShelf: boolean;
   matchLabel: string;
+  /** true si el artículo es de SUBCONTRATACIÓN (código amarillo, sin OF) */
+  subcontratacion?: boolean;
   // Ghost result (fallback a última ubicación conocida)
   isGhost?: boolean;
   lastLocation?: { shelfCode: string; position: string; timestamp: number; operarioName?: string };
@@ -52,6 +54,7 @@ const groupAndFilter = (
     aggregateKey: string;
     shelfCode: string;
     locationIds: string[];
+    subcontratacion?: boolean;
   }>();
 
   items.forEach((item) => {
@@ -61,7 +64,7 @@ const groupAndFilter = (
     const existing = groupedResults.get(groupKey);
     if (existing) {
       const combinedLocationIds = Array.from(new Set([...existing.locationIds, ...item.locationIds]));
-      groupedResults.set(groupKey, { ...existing, locationIds: combinedLocationIds });
+      groupedResults.set(groupKey, { ...existing, locationIds: combinedLocationIds, subcontratacion: existing.subcontratacion || item.subcontratacion });
     } else {
       groupedResults.set(groupKey, {
         articleCode: item.articleCode,
@@ -69,6 +72,7 @@ const groupAndFilter = (
         aggregateKey,
         shelfCode: item.shelfCode,
         locationIds: [...item.locationIds],
+        subcontratacion: item.subcontratacion,
       });
     }
   });
@@ -76,7 +80,7 @@ const groupAndFilter = (
   const filteredResults: GlobalSearchResult[] = [];
 
   groupedResults.forEach((group) => {
-    const { articleCode, orderFab, aggregateKey, shelfCode, locationIds } = group;
+    const { articleCode, orderFab, aggregateKey, shelfCode, locationIds, subcontratacion } = group;
     const matchesQuery = searchTerms.some((term) => articleCode.includes(term) || orderFab.includes(term));
     if (!matchesQuery) return;
 
@@ -96,6 +100,7 @@ const groupAndFilter = (
     filteredResults.push({
       articleCode, orderFab, aggregateKey, shelfCode,
       positions: uniquePositions, locationIds, matchesCurrentShelf, matchLabel,
+      ...(subcontratacion ? { subcontratacion: true } : {}),
     });
   });
 

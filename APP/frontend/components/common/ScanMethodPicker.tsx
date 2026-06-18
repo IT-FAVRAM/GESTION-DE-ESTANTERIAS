@@ -8,6 +8,8 @@ interface ScanMethodPickerProps {
   onBatch?: () => void;
   /** MOVER: alternativa a escanear — abre la lista de artículos de la estantería. */
   onSelectList?: () => void;
+  /** UBICAR (carretillero/admin): flujo de SUBCONTRATACIÓN (foto etiqueta o código manual). */
+  onSubcontratacion?: () => void;
   onClose: () => void;
 }
 
@@ -17,6 +19,7 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
   onSelect,
   onBatch,
   onSelectList,
+  onSubcontratacion,
   onClose,
 }) => {
   if (!open) return null;
@@ -100,6 +103,20 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
               <span className="font-bold text-cyan-900">📚 Varios artículos (lote)</span>
               <span className="block text-xs text-cyan-700/80 mt-0.5">
                 Escanéalos uno tras otro y ubícalos juntos en las mismas posiciones
+              </span>
+            </button>
+          )}
+
+          {/* Subcontratación: foto de la etiqueta (código amarillo) o código manual */}
+          {onSubcontratacion && (
+            <button
+              type="button"
+              onClick={onSubcontratacion}
+              className="w-full rounded-xl border-2 border-orange-300 hover:border-orange-500 bg-orange-50 px-4 py-3 text-left transition-colors"
+            >
+              <span className="font-bold text-orange-900">🏭 Subcontratación</span>
+              <span className="block text-xs text-orange-700/80 mt-0.5">
+                Foto de la etiqueta (lee el código amarillo) o escríbelo a mano
               </span>
             </button>
           )}

@@ -22,8 +22,9 @@ export const applyUbicar = (
   importe?: number,
   cantidad?: number,
   presenceId?: string,
+  subcontratacion?: boolean,
 ): ShelfLocationState[] => {
-  return applyUbicarMulti(prev, shelfCode, articleCode, orderFab, [position], operarioId, operarioName, importe, cantidad, presenceId);
+  return applyUbicarMulti(prev, shelfCode, articleCode, orderFab, [position], operarioId, operarioName, importe, cantidad, presenceId, subcontratacion);
 };
 
 export const applyUbicarMulti = (
@@ -37,6 +38,7 @@ export const applyUbicarMulti = (
   importe?: number,
   cantidad?: number,
   presenceId?: string,
+  subcontratacion?: boolean,
 ): ShelfLocationState[] => {
   const now = new Date().toISOString();
   let next = [...prev];
@@ -55,6 +57,7 @@ export const applyUbicarMulti = (
       locatedAt: now,
       ...(importe !== undefined && { unitCost: importe }),
       ...(cantidad !== undefined && { quantity: cantidad }),
+      ...(subcontratacion && { subcontratacion: true }),
     };
 
     if (index >= 0) {

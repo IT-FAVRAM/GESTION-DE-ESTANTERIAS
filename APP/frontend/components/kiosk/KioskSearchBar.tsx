@@ -248,6 +248,9 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
                             {result.orderFab && (
                               <p className="text-xs text-slate-500 font-mono mt-0.5">OF: {result.orderFab}</p>
                             )}
+                            {result.subcontratacion && (
+                              <span className="inline-block mt-1 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded bg-orange-500 text-white">🏭 Subcontratación</span>
+                            )}
                           </div>
                           <span className="shrink-0 text-[9px] bg-slate-200 text-slate-700 border border-slate-300 rounded-full px-1.5 py-0.5 font-bold mt-0.5">
                             ⏰ Sin ubicación
@@ -299,6 +302,9 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
                           </p>
                           {result.orderFab && (
                             <p className="text-xs text-slate-500 font-mono mt-0.5">OF: {result.orderFab}</p>
+                          )}
+                          {result.subcontratacion && (
+                            <span className="inline-block mt-1 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded bg-orange-500 text-white">🏭 Subcontratación</span>
                           )}
                         </div>
                         {result.matchesCurrentShelf && (
