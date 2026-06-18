@@ -280,6 +280,19 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── AVISOS PERSISTENTES (fallback modal rojo) ────────────────────────────
+    // Creados por Cloud Function (notifySpecialLocationOccupancy) para los avisos
+    // URGENTES a jefes de sección. El destinatario puede leer los suyos y marcarlos
+    // como reconocidos (acknowledged). Creación/borrado solo vía backend (admin SDK).
+    match /pendingAlerts/{alertId} {
+      allow read:   if request.auth != null && resource.data.recipientUid == request.auth.uid;
+      allow update: if request.auth != null
+                       && resource.data.recipientUid == request.auth.uid
+                       && request.resource.data.recipientUid == resource.data.recipientUid
+                       && request.resource.data.diff(resource.data).changedKeys().hasOnly(['acknowledged', 'acknowledgedAt']);
+      allow create, delete: if false;
+    }
+
     // ── LOGS Y AUDITORÍA ADMIN ───────────────────────────────────────────────
     // Escritura exclusiva de Cloud Functions. Lectura restringida a admins.
 

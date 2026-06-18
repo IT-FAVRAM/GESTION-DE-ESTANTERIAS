@@ -25,7 +25,9 @@ export interface PermissionContext {
  * El jefe de SOLDADURA conserva acceso a Soldadura Puntos (SXP), ahora sección propia.
  */
 const CROSS_SECTION_ACCESS: Record<string, WarehouseSection[]> = {
+  // PLEGADORA ↔ AUTOPLEGADORA: acceso bidireccional (secciones contiguas).
   'PLEGADORA': ['AUTOPLEGADORA'],
+  'AUTOPLEGADORA': ['PLEGADORA'],
   'SOLDADURA': ['SXP'],
 };
 

@@ -20,7 +20,15 @@ interface KioskSearchBarProps {
   global?: boolean;
   currentShelfCode?: string;
   canNavigateToShelf?: boolean;
-  onShelfNavigate?: (shelfCode: string) => void;
+  /** Navega a otra estantería al pinchar un resultado y resalta sus posiciones. */
+  onShelfNavigate?: (shelfCode: string, highlightPositions?: string[]) => void;
+  /**
+   * Permite navegar a una estantería concreta aunque `canNavigateToShelf` sea
+   * false (p.ej. OPERARIO/JEFE solo dentro de sus secciones accesibles).
+   * Si devuelve false y tampoco hay `canNavigateToShelf`, se mantiene el
+   * comportamiento actual (mostrar la ficha con la ubicación, sin navegar).
+   */
+  isShelfNavigable?: (shelfCode: string) => boolean;
   onResultSelect?: (result: GlobalSearchResult) => void;
   onOutOfShelfResult?: (result: GlobalSearchResult) => void;
   /** §7bis — Si se pasa, muestra "🚚 Solicitar traer" en la ficha del resultado. */
@@ -43,6 +51,15 @@ function positionNumber(posStr: string): number {
   return parseInt(raw, 10);
 }
 
+/**
+ * Posición "desnuda" (sin prefijo de estantería) tal y como la espera el grid.
+ * Los resultados globales vienen como "SHELF_001"; el grid resalta por "001".
+ */
+function barePosition(posStr: string): string {
+  const idx = posStr.lastIndexOf('_');
+  return idx >= 0 ? posStr.slice(idx + 1) : posStr;
+}
+
 const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
   locations,
   onHighlight,
@@ -51,6 +68,7 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
   currentShelfCode,
   canNavigateToShelf = false,
   onShelfNavigate,
+  isShelfNavigable,
   onResultSelect,
   onOutOfShelfResult,
   onOpenHistory,
@@ -126,13 +144,24 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
       return;
     }
     setSelectedResult(result);
+    // El grid resalta por posición "desnuda" (001), no por "SHELF_001".
+    const barePositions = result.positions.map(barePosition);
     if (result.matchesCurrentShelf) {
-      onHighlight(result.positions);
-    } else if (canNavigateToShelf && onShelfNavigate) {
-      onShelfNavigate(result.shelfCode);
+      onHighlight(barePositions);
+      return;
     }
+    // Resultado en OTRA estantería: navegar y resaltar la celda si el rol puede.
+    // - canNavigateToShelf: roles de ámbito total (admin/superadmin/carretillero/solo visual)
+    // - isShelfNavigable: roles limitados (operario/jefe) solo en sus secciones accesibles
+    const mayNavigate = !!onShelfNavigate &&
+      (canNavigateToShelf || (isShelfNavigable?.(result.shelfCode) ?? false));
+    if (mayNavigate && onShelfNavigate) {
+      onShelfNavigate(result.shelfCode, barePositions);
+    }
+    // Si no puede navegar, se mantiene el comportamiento actual: la ficha
+    // seleccionada muestra en qué estantería/posición está el artículo.
     // El dropdown se oculta solo: showDropdown depende de !selectedResult
-  }, [onResultSelect, onHighlight, canNavigateToShelf, onShelfNavigate]);
+  }, [onResultSelect, onHighlight, canNavigateToShelf, onShelfNavigate, isShelfNavigable]);
 
   useEffect(() => {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };

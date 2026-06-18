@@ -144,7 +144,15 @@ const KioskView: React.FC = () => {
               </button>
             </div>
           )}
-          <OperativeShelfArea engine={engine} config={config} fullscreenGrid forceSingleBlock userSection={null} />
+          <OperativeShelfArea
+            engine={engine}
+            config={config}
+            fullscreenGrid
+            forceSingleBlock
+            userSection={null}
+            setShelfCode={(code) => { if (action !== 'idle') cancelAction(); setCurrentShelf(code); }}
+            accessibleShelves={effectiveShelves}
+          />
         </div>
       )}
 

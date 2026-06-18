@@ -451,7 +451,10 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
     }
   }, [collapseStorageKey]);
 
-  // BA7: Auto-scroll al primer highlight cuando cambian las posiciones destacadas
+  // BA7: Auto-scroll al primer highlight cuando cambian las posiciones destacadas.
+  // Depende también de `locationMap` para que, al navegar desde el buscador a otra
+  // estantería, el scroll se ejecute cuando las celdas terminan de cargar (antes
+  // la celda destino aún no existía en el DOM y el scroll no encontraba nada).
   useEffect(() => {
     if (highlightedPositions.length === 0 || !gridContainerRef.current) return;
     const firstHighlight = highlightedPositions[0];
@@ -459,7 +462,7 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
     if (cell) {
       cell.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
     }
-  }, [highlightedPositions]);
+  }, [highlightedPositions, locations]);
 
   const toggleSection = useCallback((id: string) => {
     setCollapsedSections((prev) => {

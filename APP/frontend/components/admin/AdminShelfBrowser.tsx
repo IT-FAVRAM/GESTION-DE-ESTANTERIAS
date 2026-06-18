@@ -878,7 +878,17 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
           {/* Barra de búsqueda */}
           {action === 'idle' && !gridFocused && (
             <div className="flex-shrink-0">
-              <KioskSearchBar locations={locations} onHighlight={setHighlightedPositions} />
+              <KioskSearchBar
+                locations={locations}
+                onHighlight={setHighlightedPositions}
+                global
+                currentShelfCode={selectedShelf}
+                canNavigateToShelf
+                onShelfNavigate={(code, positions) => {
+                  setSelectedShelf(code);
+                  setHighlightedPositions(positions ?? []);
+                }}
+              />
             </div>
           )}
           {/* Manual operations panel — hidden in grid focus mode */}

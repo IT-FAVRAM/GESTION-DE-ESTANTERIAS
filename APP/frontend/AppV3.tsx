@@ -25,6 +25,8 @@ import PushToast from './components/app/PushToast';
 import ChatButton from './components/app/ChatButton';
 import { UrgentAlertsBar } from './components/app/UrgentAlertsBar';
 import { useUrgentAlerts } from './hooks/useUrgentAlerts';
+import { usePendingUrgentAlerts, acknowledgePendingAlert } from './hooks/usePendingUrgentAlerts';
+import UrgentMissedAlertModal from './components/app/UrgentMissedAlertModal';
 
 // ── Lazy-loaded views — cada rol sólo descarga su código ──────────────────────
 const UnifiedLogin      = lazy(() => import('./components/auth/UnifiedLogin'));
@@ -97,6 +99,17 @@ const AppV3: React.FC = () => {
   const [adminPanelTab, setAdminPanelTab] = useState<AdminTab>('reports');
   const [pushNotif, setPushNotif] = useState<{ title: string; body: string } | null>(null);
   const { alerts, resolveAlert } = useUrgentAlerts();
+
+  // Fallback persistente de avisos urgentes para jefes de sección: modal rojo al
+  // reentrar si el push se perdió por no estar conectado.
+  const { alerts: missedUrgentAlerts, acknowledgeAll: acknowledgeMissedUrgent } = usePendingUrgentAlerts(
+    firebaseUser?.uid ?? null,
+    isAuthenticated && role === 'JEFE_SECCION' && authMethod === 'email',
+  );
+  const urgentMissedModal = missedUrgentAlerts.length > 0
+    ? <UrgentMissedAlertModal alerts={missedUrgentAlerts} onAcknowledge={acknowledgeMissedUrgent} />
+    : null;
+
   const urgencyBar = isAuthenticated && alerts.length > 0
     ? <UrgentAlertsBar alerts={alerts} currentUid={firebaseUser?.uid ?? null} currentRole={role} onResolve={resolveAlert} />
     : null;
@@ -125,6 +138,11 @@ const AppV3: React.FC = () => {
         || (msg.data?.type ?? '').toUpperCase().includes('URGENT');
       playNotificationSound(isUrgent);
       setPushNotif({ title: msg.title || '', body: msg.body || '' });
+      // Aviso urgente recibido EN VIVO: marca su fallback persistente como reconocido
+      // para que no reaparezca como "perdido" en el modal rojo del próximo inicio.
+      if (msg.data?.alertId) {
+        acknowledgePendingAlert(msg.data.alertId).catch(() => { /* no crítico */ });
+      }
       if (msg.data?.type !== 'ADMIN_MESSAGE') {
         setTimeout(() => setPushNotif(null), 10000);
       }
@@ -225,6 +243,7 @@ const AppV3: React.FC = () => {
           <OfflineDebugPanel />
           <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
           {(section || '').toUpperCase() === 'PUNZONADO' ? <PunzonadoView chatButton={chatFab} /> : <JefeSeccionView chatButton={chatFab} />}
+          {urgentMissedModal}
         </>
       </Suspense>
     );

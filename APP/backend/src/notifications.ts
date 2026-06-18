@@ -6,6 +6,37 @@ import { getAppConfig, getUsersByEmails, getUsersByRole, notifyUserById, notifyU
 const normalize = (value?: string | null) => (value || '').trim().toUpperCase();
 const STALE_ITEM_THRESHOLD_DAYS = 5;
 const STALE_ITEM_ALERT_INTERVAL_HOURS = 48;
+const PENDING_ALERTS_COLLECTION = 'pendingAlerts';
+
+/**
+ * Notifica a los jefes de sección de un aviso URGENTE con FALLBACK persistente:
+ * además del push, crea un doc en `pendingAlerts` por destinatario (acknowledged:false)
+ * y manda el push con el `alertId`. Así, si el jefe NO estaba conectado y se pierde el
+ * push, al volver a entrar la app le muestra un modal rojo bloqueante con el aviso.
+ * Si recibe el push en vivo, el frontend marca el `alertId` como reconocido y no se
+ * vuelve a mostrar.
+ */
+const notifyUrgentChiefsWithFallback = async (
+  emails: string[],
+  payload: { title: string; body: string; data?: Record<string, string> },
+) => {
+  const userDocs = await getUsersByEmails(emails);
+  await Promise.all(userDocs.map(async (doc) => {
+    const alertRef = await admin.firestore().collection(PENDING_ALERTS_COLLECTION).add({
+      recipientUid: doc.id,
+      acknowledged: false,
+      createdAt: new Date().toISOString(),
+      title: payload.title,
+      body: payload.body,
+      data: payload.data || null,
+      kind: 'URGENT_LOCATION',
+    });
+    await sendPushToUsers([doc], {
+      ...payload,
+      data: { ...(payload.data || {}), alertId: alertRef.id },
+    });
+  }));
+};
 
 const toMillis = (value?: string | null) => {
   if (!value) return null;
@@ -152,15 +183,30 @@ export const notifySpecialLocationOccupancy = functions.firestore
   .onWrite(async (change: any, context: any) => {
     if (!change.after.exists) return null;
     const shelfCode = normalize(context.params.shelfCode);
-    const position = parseLocationPosition(context.params.position);
+    const rawPosition = String(context.params.position);
+    const position = parseLocationPosition(rawPosition);
     if (!position) return null;
     const config = await getAppConfig();
     const urgentLocations = Array.isArray(config.urgentLocations) ? config.urgentLocations : [];
     const techReviewLocations = Array.isArray(config.techReviewLocations) ? config.techReviewLocations : [];
-    const locationId = `${shelfCode}-${String(context.params.position).padStart(3, '0')}`;
-    const isUrgent = urgentLocations.includes(locationId);
-    const isTechReview = techReviewLocations.includes(locationId);
-    const isSoldadura = ['SOL', 'RSO', 'SXP'].includes(shelfCode);
+    // Identificadores candidatos para casar contra config.{urgentLocations,techReviewLocations}.
+    // Formato canónico = `${shelfCode}-${posición 0-padded}` (p.ej. "PLE-001", "CAL-031"),
+    // pero las celdas urgentes de Prensas/Mecanizado se guardan con una posición en
+    // formato libre COMPARTIDA por ambas (p.ej. "URG MEC-PRE 001"). Casamos contra ambos
+    // formatos para que el aviso urgente salte a los dos jefes (están en chiefMapping
+    // PRENSAS_MECANIZADO) cuando se ubica algo en esa estantería de urgentes compartida.
+    const locationId = `${shelfCode}-${String(position).padStart(3, '0')}`;
+    const candidateIds = [
+      locationId,                    // "PRE-001", "PLE-001", "CAL-031"
+      rawPosition,                   // "URG MEC-PRE 001" (posición libre compartida)
+      `${shelfCode}-${rawPosition}`, // "PRE-URG MEC-PRE 001"
+    ];
+    const matchesAny = (list: string[]) => list.some((entry) => candidateIds.includes(entry));
+    const isUrgent = matchesAny(urgentLocations);
+    const isTechReview = matchesAny(techReviewLocations);
+    // Solo la estantería PRINCIPAL de soldadura (SOL). RSO/SXP/CS quedan FUERA: SXP es
+    // su propia sección con jefe dedicado y RSO/CS no deben avisar al jefe de soldadura.
+    const isSoldadura = shelfCode === 'SOL';
     const isReprocesos = shelfCode === 'CAL' && position >= 1 && position <= 22;
     if (!isUrgent && !isTechReview && !isSoldadura && !isReprocesos) return null;
     const addedItems = getAddedLocationItems(change.before.data(), change.after.data());
@@ -192,7 +238,8 @@ export const notifySpecialLocationOccupancy = functions.firestore
         : [];
       const urgentChiefEmails = [...chiefEmails, ...extraUrgentEmails];
       await Promise.all([
-        notifyUsersByEmails(urgentChiefEmails, {
+        // Jefes de sección: push + fallback persistente (modal rojo al reentrar si offline).
+        notifyUrgentChiefsWithFallback(urgentChiefEmails, {
           title: 'Articulo urgente ubicado',
           body: `${articleCode} ${orderFab} ha sido ubicado en ${locationId}.`.trim(),
           data: { type: 'URGENT_LOCATION', shelfCode, locationId, articleCode, orderFab },
@@ -310,58 +357,67 @@ export const notifyConnectionDisconnect = functions.firestore
     return null;
   });
 
-// Long offline detection (triggered when a device stays offline for 10+ minutes)
+// Detección de dispositivos sin conexión POR HEARTBEAT OBSOLETO (server-side).
+//
+// Por qué no basta `notifyConnectionDisconnect`: el log DISCONNECTED y el flag
+// `isOnline=false` los escribe el PROPIO dispositivo al caerse; estando offline esas
+// escrituras se ENCOLAN y solo llegan al servidor cuando el kiosko RECONECTA. Por eso
+// un kiosko que se queda sin conexión (o se apaga) nunca se reportaría a tiempo.
+//
+// Solución: el dispositivo escribe `lastSeen` cada 60s mientras está online (heartbeat).
+// Aquí detectamos los `conexion_estado` cuyo `lastSeen` quedó obsoleto (>5 min) — eso
+// SÍ es señal fiable de caída, sin depender de que el cliente escriba nada estando ya
+// offline — y avisamos al SUPERADMIN.
 export const notifyLongDisconnection = functions.pubsub
-  .schedule('every 10 minutes')
+  .schedule('every 5 minutes')
   .timeZone('Europe/Madrid')
   .onRun(async () => {
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const now = Date.now();
+    const STALE_MS = 5 * 60 * 1000;        // sin heartbeat > 5 min → sin conexión
+    const REALERT_MS = 60 * 60 * 1000;     // no repetir el aviso del mismo equipo en 1h
+    const staleThreshold = new Date(now - STALE_MS).toISOString();
+    const reAlertThreshold = new Date(now - REALERT_MS).toISOString();
 
     const statusSnapshot = await admin.firestore()
       .collection('conexion_estado')
-      .where('isOnline', '==', false)
-      .where('lastDisconnectedAt', '<=', tenMinutesAgo)
+      .where('lastSeen', '<=', staleThreshold)
       .get();
 
-    const now = Date.now();
-    const oneHourAgo = new Date(now - 60 * 60 * 1000).toISOString();
-    const offlineDevices = statusSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const staleDevices = statusSnapshot.docs
+      .map((doc) => ({ id: doc.id, ...(doc.data() as any) }))
+      // Los PCs de administración se apagan con normalidad: no generan alarma.
+      .filter((d: any) => String(d.deviceType || '').toUpperCase() !== 'ADMIN')
+      .filter((d: any) => !d.lastCriticalAlertAt || d.lastCriticalAlertAt < reAlertThreshold);
 
-    if (offlineDevices.length === 0) return { checked: 0, critical: 0 };
+    if (staleDevices.length === 0) return { checked: statusSnapshot.size, alerted: 0 };
 
-    const criticalDevices = offlineDevices.filter((device: any) => {
-      const disconnectTime = new Date(device.lastDisconnectedAt).getTime();
-      const isLongOffline = (now - disconnectTime) > 30 * 60 * 1000;
-      const notRecentlyAlerted = !device.lastCriticalAlertAt || device.lastCriticalAlertAt < oneHourAgo;
-      return isLongOffline && notRecentlyAlerted;
+    const deviceList = staleDevices
+      .map((d: any) => {
+        const mins = d.lastSeen ? Math.floor((now - new Date(d.lastSeen).getTime()) / 60000) : null;
+        return `${d.deviceName || d.id} (${d.deviceType || 'desconocido'})${mins != null ? ` — ${mins}m sin conexión` : ''}`;
+      })
+      .join('\n');
+
+    await notifyUsersByRole('SUPERADMIN', {
+      title: '🔴 Kiosko sin conexión',
+      body: `${staleDevices.length} dispositivo(s) sin conexión:\n${deviceList}`,
+      data: {
+        type: 'CRITICAL_OFFLINE_ALERT',
+        deviceCount: String(staleDevices.length),
+      }
+    }).catch((err) => {
+      console.error('[notifyLongDisconnection] Error sending critical alert:', err);
     });
 
-    if (criticalDevices.length > 0) {
-      const deviceList = criticalDevices
-        .map((d: any) => `${d.deviceName} (${d.deviceType}) - ${Math.floor((now - new Date(d.lastDisconnectedAt).getTime()) / 60000)}m`)
-        .join('\n');
+    const alertedAt = new Date(now).toISOString();
+    const db = admin.firestore();
+    const batchUpdate = db.batch();
+    staleDevices.forEach((device: any) => {
+      batchUpdate.update(db.collection('conexion_estado').doc(device.id), { lastCriticalAlertAt: alertedAt });
+    });
+    await batchUpdate.commit().catch((err) => console.error('[notifyLongDisconnection] batch update failed:', err));
 
-      await notifyUsersByRole('SUPERADMIN', {
-        title: '🔴 Dispositivos críticos sin conexión',
-        body: `${criticalDevices.length} dispositivo(s) llevan más de 30 minutos sin conexión:\n${deviceList}`,
-        data: {
-          type: 'CRITICAL_OFFLINE_ALERT',
-          deviceCount: String(criticalDevices.length),
-        }
-      }).catch((err) => {
-        console.error('[notifyLongDisconnection] Error sending critical alert:', err);
-      });
-
-      const alertedAt = new Date(now).toISOString();
-      const db = admin.firestore();
-      const batchUpdate = db.batch();
-      criticalDevices.forEach((device: any) => {
-        batchUpdate.update(db.collection('conexion_estado').doc(device.id), { lastCriticalAlertAt: alertedAt });
-      });
-      await batchUpdate.commit().catch((err) => console.error('[notifyLongDisconnection] batch update failed:', err));
-    }
-
-    return { checked: offlineDevices.length, critical: criticalDevices.length };
+    return { checked: statusSnapshot.size, alerted: staleDevices.length };
   });
 
 const toStation = (value: unknown): number | null => {

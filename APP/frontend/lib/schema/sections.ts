@@ -74,7 +74,10 @@ export const getShelvesForSection = (section: WarehouseSection): string[] =>
  * Ej: Jefe de PLEGADORA también accede a AUTOPLEGADORA.
  */
 const CROSS_SECTION_ACCESS: Partial<Record<WarehouseSection, WarehouseSection[]>> = {
+  // PLEGADORA y AUTOPLEGADORA son secciones contiguas que se operan en conjunto:
+  // el acceso es bidireccional (cada jefe ve las estanterías y carros de la otra).
   'PLEGADORA': ['AUTOPLEGADORA'],
+  'AUTOPLEGADORA': ['PLEGADORA'],
   // El jefe de SOLDADURA conserva acceso a Soldadura Puntos (SXP), que ahora es
   // su propia sección con jefe dedicado (H / Mario). El jefe de SXP ve solo SXP.
   'SOLDADURA': ['SXP'],

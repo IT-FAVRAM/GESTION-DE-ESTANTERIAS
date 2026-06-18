@@ -64,7 +64,10 @@ const WMS_SHELF_SECTION: Record<string, string> = {
  * Ej: Jefe de PLEGADORA también accede a AUTOPLEGADORA.
  */
 const CROSS_SECTION_ACCESS: Record<string, string[]> = {
+  // PLEGADORA ↔ AUTOPLEGADORA: acceso bidireccional (secciones contiguas que se
+  // operan en conjunto). Cada jefe puede operar estanterías y carros de la otra.
   'PLEGADORA': ['AUTOPLEGADORA'],
+  'AUTOPLEGADORA': ['PLEGADORA'],
   // El jefe de SOLDADURA conserva acceso a Soldadura Puntos (SXP), ahora sección
   // propia con jefe dedicado (H / Mario). El jefe de SXP opera solo SXP.
   'SOLDADURA': ['SXP'],

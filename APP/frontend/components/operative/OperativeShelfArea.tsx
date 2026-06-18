@@ -59,6 +59,12 @@ interface OperativeShelfAreaProps {
   forceSingleBlock?: boolean;
   /** Sección asignada del usuario (para JEFE_SECCION) */
   userSection?: string | null;
+  /**
+   * Estanterías a las que el rol limitado (OPERARIO/JEFE) puede navegar desde el
+   * buscador (su estantería + secciones accesibles). Si el rol es de ámbito total
+   * (carretillero/admin) se ignora: puede navegar a cualquier estantería.
+   */
+  accessibleShelves?: string[] | null;
 }
 
 const padPos = (p: string) => parseInt(p, 10);
@@ -71,7 +77,7 @@ const positionNumber = (posStr: string): string => {
   return Number.isNaN(n) ? raw : String(n);
 };
 
-const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config, setShelfCode, fullscreenGrid = true, forceSingleBlock = false, userSection = null }) => {
+const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config, setShelfCode, fullscreenGrid = true, forceSingleBlock = false, userSection = null, accessibleShelves = null }) => {
   const {
     operarioId, displayName,
     action, scanData, selectedPositions, scannerActive, processing, feedback,
@@ -121,6 +127,22 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
     setHistoryArticle({ articleCode, orderFab });
     setShowHistoryModal(true);
   };
+
+  // Buscador: al pinchar un resultado en otra estantería, cambiar de estantería
+  // y resaltar (rosa) la celda donde está el artículo.
+  const handleSearchNavigate = useCallback((code: string, positions?: string[]) => {
+    setShelfCode?.(code);
+    setHighlightedSearch(positions ?? []);
+  }, [setShelfCode, setHighlightedSearch]);
+
+  // Roles de ámbito total navegan a cualquier estantería; los limitados
+  // (OPERARIO/JEFE) solo a las de sus secciones accesibles.
+  const isShelfNavigable = useCallback((code: string) => {
+    if (!setShelfCode) return false;
+    if (config.shelfScope === 'all') return true;
+    if (!accessibleShelves) return false;
+    return accessibleShelves.map((s) => s.toUpperCase()).includes(code.toUpperCase());
+  }, [setShelfCode, config.shelfScope, accessibleShelves]);
 
   const reprocesosCosts = !!config.reprocesos?.showCosts;
   const canMultiSection = config.ubicar.allowMultiSection;
@@ -443,11 +465,13 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             global
             currentShelfCode={shelfCode}
             canNavigateToShelf={config.shelfScope === 'all' && !!setShelfCode}
-            onShelfNavigate={setShelfCode}
+            onShelfNavigate={setShelfCode ? handleSearchNavigate : undefined}
+            isShelfNavigable={isShelfNavigable}
             onSolicitarTraer={canSolicitarTraer ? setTraerResult : undefined}
             onOpenHistory={handleOpenHistory}
             onOutOfShelfResult={(result) => {
-              if (config.shelfScope !== 'all') {
+              // Solo informativo cuando el rol NO puede navegar a esa estantería.
+              if (!isShelfNavigable(result.shelfCode)) {
                 showToast('info', `Está en ${result.shelfCode} (pos. ${result.positions.map((p) => padPos(p)).join(', ')})`);
               }
             }}

@@ -88,7 +88,14 @@ const JefeSeccionOperativo: React.FC<{
       )}
 
       <main className="flex-1 min-h-0 min-w-0 w-full overflow-hidden">
-        <OperativeShelfArea engine={engine} config={config} fullscreenGrid userSection={section} />
+        <OperativeShelfArea
+          engine={engine}
+          config={config}
+          fullscreenGrid
+          userSection={section}
+          setShelfCode={handleShelfChange}
+          accessibleShelves={sectionShelfCodes}
+        />
       </main>
 
       {isTouch && <OperativeActionBar engine={engine} config={config} />}

@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { useShelf } from '../../hooks/useShelf';
+import { useShelf, type ShelfLocationState } from '../../hooks/useShelf';
 import { useDeviceConfig } from '../../hooks/useDeviceConfig';
 import { SHELF_DEFINITIONS, CART_DEFINITIONS, SECTION_DISPLAY_NAMES, SHELF_TO_SECTION } from '../../lib/firestoreSchema';
 import ShelfGrid from '../kiosk/ShelfGrid';
 import KioskSearchBar from '../kiosk/KioskSearchBar';
+import LocationPhotoGallery from '../common/LocationPhotoGallery';
+import PhotoCarousel from '../common/PhotoCarousel';
 
 const SoloVisualView: React.FC = () => {
   const { displayName, logout, deviceId } = useAuth();
@@ -12,9 +14,19 @@ const SoloVisualView: React.FC = () => {
   const [selectedShelf, setSelectedShelf] = useState<string>(SHELF_DEFINITIONS[0]?.code ?? 'PRE');
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
   const [highlightedPositions, setHighlightedPositions] = useState<string[]>([]);
+  // Inspección de celda (solo lectura) — permite ver artículos, nota y fotos.
+  const [selectedCell, setSelectedCell] = useState<ShelfLocationState | null>(null);
+  const [showPhotoCarousel, setShowPhotoCarousel] = useState(false);
 
   const { shelfDef, locations, loading, totalArticles, totalOccupied, totalEmpty } = useShelf(selectedShelf);
   const section = SHELF_TO_SECTION[selectedShelf] || 'OTROS';
+  const isSoldaduraShelf = section === 'SOLDADURA';
+
+  // Todas las fotos de la estantería (para el carrusel) — solo SOLDADURA tiene fotos.
+  const shelfPhotoEntries = useMemo(
+    () => locations.flatMap((loc) => (loc.photos ?? []).map((photo) => ({ photo, position: loc.position }))),
+    [locations],
+  );
 
   // Filtrar estanterías según allowedShelves (si está definido)
   const availableShelves = useMemo(() => {
@@ -27,11 +39,6 @@ const SoloVisualView: React.FC = () => {
     if (allowedShelves.length === 0) return CART_DEFINITIONS;
     return CART_DEFINITIONS.filter(cart => allowedShelves.includes(cart.code));
   }, [allowedShelves]);
-
-  const filteredLocations = useMemo(() => {
-    if (highlightedPositions.length === 0) return locations;
-    return locations.filter(loc => highlightedPositions.includes(loc.position));
-  }, [locations, highlightedPositions]);
 
   return (
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
@@ -157,7 +164,8 @@ const SoloVisualView: React.FC = () => {
               <p className="text-[11px] text-slate-500">{SECTION_DISPLAY_NAMES[section]}</p>
             </div>
 
-            {/* Search */}
+            {/* Search — al pinchar un resultado navega a su estantería y la celda
+                se resalta en rosa (todas las estanterías son accesibles en solo-visual). */}
             <KioskSearchBar
               locations={locations}
               onHighlight={setHighlightedPositions}
@@ -165,7 +173,10 @@ const SoloVisualView: React.FC = () => {
               placeholder="🔍 Buscar en toda la nave..."
               global={true}
               canNavigateToShelf={true}
-              onShelfNavigate={setSelectedShelf}
+              onShelfNavigate={(code, positions) => {
+                setSelectedShelf(code);
+                setHighlightedPositions(positions ?? []);
+              }}
             />
           </div>
 
@@ -178,26 +189,120 @@ const SoloVisualView: React.FC = () => {
                   <p className="text-slate-400 font-medium">Cargando estantería...</p>
                 </div>
               </div>
-            ) : filteredLocations.length === 0 ? (
+            ) : locations.length === 0 ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
                   <span className="text-5xl block mb-3">🔍</span>
-                  <p className="text-slate-500 font-medium">
-                    {highlightedPositions.length > 0 ? 'No hay resultados' : 'Estantería vacía'}
-                  </p>
+                  <p className="text-slate-500 font-medium">Estantería vacía</p>
                 </div>
               </div>
             ) : (
               <ShelfGrid
-                locations={filteredLocations}
+                locations={locations}
                 shelfDef={shelfDef}
-                onCellPress={() => {}}
+                onCellPress={setSelectedCell}
                 selectedPositions={[]}
+                highlightedPositions={highlightedPositions}
               />
             )}
           </div>
         </main>
       </div>
+
+      {/* Inspección de celda (solo lectura): artículos + nota + fotos (SOLDADURA) */}
+      {selectedCell && (
+        <div
+          className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => setSelectedCell(null)}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ubicación</p>
+                <h3 className="text-lg font-black text-slate-900 font-mono truncate">
+                  {selectedShelf} {parseInt(selectedCell.position, 10) || selectedCell.position}
+                </h3>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-[11px] font-bold font-mono px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
+                  {selectedCell.items.length} art.
+                </span>
+                <button
+                  onClick={() => setSelectedCell(null)}
+                  className="text-rose-500 hover:text-rose-700 text-2xl leading-none"
+                  aria-label="Cerrar"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            <div className="p-3 max-h-[60vh] overflow-y-auto space-y-2">
+              {selectedCell.items.length === 0 ? (
+                <p className="text-center text-sm text-slate-400 py-6">Ubicación vacía</p>
+              ) : (
+                selectedCell.items.map((item, idx) => (
+                  <div key={`${item.articleCode}-${item.orderFab}-${idx}`} className={`rounded-xl px-3 py-2.5 border ${item.subcontratacion ? 'bg-orange-50 border-orange-300' : 'bg-slate-50 border-slate-200'}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-[15px] font-black font-mono text-slate-900 leading-tight break-all">{item.articleCode}</p>
+                      {item.subcontratacion && (
+                        <span className="flex-shrink-0 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded bg-orange-500 text-white">🏭 Subcon.</span>
+                      )}
+                    </div>
+                    {item.orderFab && <p className="text-[12px] font-bold font-mono text-cyan-700 leading-tight break-all">{item.orderFab}</p>}
+                    <p className="text-[11px] text-slate-500 mt-1 break-words">
+                      {item.locatedByName}{item.locatedAt ? ` · ${new Date(item.locatedAt).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}` : ''}
+                    </p>
+                  </div>
+                ))
+              )}
+              {isSoldaduraShelf && (
+                <LocationPhotoGallery
+                  shelfCode={selectedShelf}
+                  position={selectedCell.position}
+                  photos={selectedCell.photos ?? []}
+                  canManage={false}
+                  uploadedBy=""
+                  uploadedByName=""
+                  onPhotosUpdated={() => {}}
+                />
+              )}
+              {selectedCell.nota && (
+                <div className="pt-1">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Nota</p>
+                  <div className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-600">
+                    {selectedCell.nota}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Botón flotante: carrusel de TODAS las fotos del shelf (solo SOLDADURA) */}
+      {isSoldaduraShelf && shelfPhotoEntries.length > 0 && (
+        <button
+          onClick={() => setShowPhotoCarousel(true)}
+          className="fixed bottom-6 right-4 z-40 bg-violet-600 hover:bg-violet-500 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-xl active:scale-95 transition-all"
+          aria-label="Ver carrusel de fotos"
+        >
+          <span className="text-2xl">📷</span>
+          <span className="absolute -top-1 -right-1 bg-white text-violet-600 text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center shadow">
+            {shelfPhotoEntries.length}
+          </span>
+        </button>
+      )}
+
+      {showPhotoCarousel && shelfPhotoEntries.length > 0 && (
+        <PhotoCarousel
+          entries={shelfPhotoEntries}
+          canManage={false}
+          onClose={() => setShowPhotoCarousel(false)}
+        />
+      )}
     </div>
   );
 };

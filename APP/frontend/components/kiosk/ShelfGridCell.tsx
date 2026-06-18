@@ -102,8 +102,9 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
       cardBase = 'bg-cyan-500/20 border-cyan-300/80 ring-2 ring-cyan-300/80 shadow-[0_10px_26px_rgba(34,211,238,0.22)]';
       headerText = 'text-cyan-50';
     } else if (isHighlighted) {
-      cardBase = 'bg-amber-400/20 border-amber-200/80 ring-2 ring-amber-200/80 shadow-[0_10px_26px_rgba(251,191,36,0.2)]';
-      headerText = 'text-amber-50';
+      // Resultado de búsqueda: celda resaltada en ROSA para localizarla de un vistazo.
+      cardBase = 'bg-pink-400/30 border-pink-300/90 ring-2 ring-pink-300/90 shadow-[0_10px_26px_rgba(244,114,182,0.3)]';
+      headerText = 'text-pink-50';
     } else if (isUrgent) {
       cardBase = isEmpty ? 'bg-red-950/75 border-red-400/55' : 'bg-red-950/90 border-red-300/65';
       headerText = 'text-red-100';
@@ -162,10 +163,11 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
       emptyCode = 'text-cyan-50';
       emptyHint = 'text-cyan-200/80';
     } else if (isHighlighted) {
-      emptyBorder = 'border-amber-200/80 ring-2 ring-amber-200/80';
-      emptyBg = 'bg-amber-400/15';
-      emptyCode = 'text-amber-50';
-      emptyHint = 'text-amber-200/85';
+      // Resultado de búsqueda: celda (vacía) resaltada en ROSA.
+      emptyBorder = 'border-pink-300/90 ring-2 ring-pink-300/90';
+      emptyBg = 'bg-pink-400/20';
+      emptyCode = 'text-pink-50';
+      emptyHint = 'text-pink-200/85';
     } else if (isUrgent) {
       emptyBorder = 'border-red-400/55 border-dashed';
       emptyBg = 'bg-red-950/45';
@@ -233,12 +235,13 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
     borderTop = 'border-cyan-200/35';
     countBadgeCls = 'bg-cyan-50 text-cyan-950';
   } else if (isHighlighted) {
-    cardBase = 'bg-amber-400/18 border-amber-200/80 ring-2 ring-amber-200/80 shadow-[0_14px_40px_rgba(251,191,36,0.2)]';
-    headerText = 'text-amber-50';
-    ofCls = 'text-amber-100';
-    itemBg = 'bg-amber-950/55 border border-amber-300/20';
-    borderTop = 'border-amber-200/35';
-    countBadgeCls = 'bg-amber-50 text-amber-950';
+    // Resultado de búsqueda: celda ocupada resaltada en ROSA (+ animate-pulse abajo).
+    cardBase = 'bg-pink-400/22 border-pink-300/90 ring-2 ring-pink-300/90 shadow-[0_14px_40px_rgba(244,114,182,0.26)]';
+    headerText = 'text-pink-50';
+    ofCls = 'text-pink-100';
+    itemBg = 'bg-pink-950/55 border border-pink-300/25';
+    borderTop = 'border-pink-200/35';
+    countBadgeCls = 'bg-pink-50 text-pink-950';
   } else if (isUrgent) {
     cardBase = 'bg-red-950/88 border-red-300/70 shadow-[0_14px_40px_rgba(127,29,29,0.3)]';
     headerText = 'text-red-100';

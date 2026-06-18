@@ -146,14 +146,15 @@ const RackSlot: React.FC<RackSlotProps> = ({
     posColor = 'rgba(14,165,233,0.9)';
     emptyColor = 'rgba(14,165,233,0.5)';
   } else if (isHighlighted) {
-    wrapBg = 'rgba(255,251,235,0.95)';
-    wrapBorder = 'rgba(234,179,8,0.7)';
-    wrapShadow = '0 0 0 2px rgba(234,179,8,0.35), inset 0 1px 3px rgba(0,0,0,0.04)';
-    itemBg = 'rgba(254,243,199,0.9)';
-    artColor = '#713f12';
-    ofColor = '#92400e';
-    posColor = 'rgba(234,179,8,0.9)';
-    emptyColor = 'rgba(234,179,8,0.5)';
+    // Resultado de búsqueda: celda resaltada en ROSA.
+    wrapBg = 'rgba(253,242,248,0.95)';
+    wrapBorder = 'rgba(236,72,153,0.75)';
+    wrapShadow = '0 0 0 2px rgba(236,72,153,0.4), inset 0 1px 3px rgba(0,0,0,0.04)';
+    itemBg = 'rgba(251,207,232,0.9)';
+    artColor = '#831843';
+    ofColor = '#9d174d';
+    posColor = 'rgba(236,72,153,0.95)';
+    emptyColor = 'rgba(236,72,153,0.55)';
   } else if (isUrgent) {
     wrapBg = isEmpty ? 'rgba(255,241,242,0.9)' : 'rgba(254,226,226,0.95)';
     wrapBorder = isEmpty ? 'rgba(239,68,68,0.35)' : 'rgba(239,68,68,0.65)';
@@ -297,7 +298,7 @@ const RackSlot: React.FC<RackSlotProps> = ({
             height: '100%',
             width: isEmpty ? '0%' : `${Math.min((items.length / 3) * 100, 100)}%`,
             background: isSelected ? 'rgba(34,211,238,0.9)'
-              : isHighlighted ? 'rgba(251,191,36,0.9)'
+              : isHighlighted ? 'rgba(236,72,153,0.95)'
               : isUrgent ? 'rgba(239,68,68,0.85)'
               : (isTechReview || isAluminio) ? 'rgba(245,158,11,0.85)'
               : items.length <= 1 ? 'rgba(16,185,129,0.9)'

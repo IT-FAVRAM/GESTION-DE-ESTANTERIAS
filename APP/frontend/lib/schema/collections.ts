@@ -14,6 +14,7 @@ export const COLLECTIONS = {
   CHAT: 'chat',
   CONVERSATIONS: 'conversations',
   URGENT_ALERTS: 'urgent_alerts',
+  PENDING_ALERTS: 'pendingAlerts',
 } as const;
 
 export const CONFIG_DOC_ID = 'app';
