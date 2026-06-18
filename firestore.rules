@@ -137,8 +137,12 @@ service cloud.firestore {
     }
 
     match /dispositivos/{deviceId} {
-      allow get, list: if isAdminLike();
-      allow write:     if false;
+      // Los kioskos (dispositivos validados) necesitan leer su propia config para
+      // obtener allowedShelves / excludedCarts / visualOnly (useDeviceConfig).
+      // `list` sigue restringido a admins; `get` de un doc concreto es seguro.
+      allow get:   if isAdminLike() || isValidatedDevice();
+      allow list:  if isAdminLike();
+      allow write: if false;
     }
 
     match /kiosks/{kioskId} {
