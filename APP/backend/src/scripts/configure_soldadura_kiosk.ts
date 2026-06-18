@@ -2,10 +2,10 @@
 /**
  * configure_soldadura_kiosk — Configura el kiosko de Soldadura
  *
- * Tareas:
- *  1. Establecer estanterías accesibles: SOL, SXP
- *  2. Permitir acceso a Carro Soldadura (CS)
- *  3. Permitir acceso a Carro Plegadora Amada (CRP)
+ * Estanterías accesibles:
+ *  - SOL: Soldadura (estantería principal)
+ *  - SXP: Soldadura Puntos
+ *  - CS: Carro Soldadura (robot de soldadura)
  *
  * Uso (desde APP/backend):
  *   npm run build && node lib/scripts/configure_soldadura_kiosk.js
@@ -17,7 +17,7 @@ async function configureSoldaduraKiosk() {
   const db = admin.firestore();
 
   const DEVICE_ID = 'device_1781522236899_ct4wdd'; // Kiosko Soldadura
-  const ALLOWED_SHELVES = ['SOL', 'SXP', 'CS', 'CRP']; // Soldadura, Puntos, Carro Soldadura, Carro Plegadora Amada
+  const ALLOWED_SHELVES = ['SOL', 'SXP', 'CS']; // Soldadura, Puntos, Carro Soldadura
 
   console.log('🔧 Configurando kiosko de Soldadura...');
   console.log('='.repeat(60));
