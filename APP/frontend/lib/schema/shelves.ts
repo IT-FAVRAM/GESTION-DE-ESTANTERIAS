@@ -301,7 +301,7 @@ export const SHELF_DEFINITIONS: Shelf[] = [
   {
     code: 'SXP',
     name: 'Soldadura Puntos',
-    section: 'SOLDADURA',
+    section: 'SXP',
     type: 'shelf',
     locationCount: 10,
     layout: {

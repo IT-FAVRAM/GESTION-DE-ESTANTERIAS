@@ -3,8 +3,8 @@ import {
   type Auth,
   type UserCredential,
 } from 'firebase/auth';
-import { db } from '../firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../firebase';
 
 export async function resolveEmailFromNameOrEmail(
   nameOrEmail: string,
@@ -13,21 +13,16 @@ export async function resolveEmailFromNameOrEmail(
     return nameOrEmail;
   }
 
-  const lowerName = nameOrEmail.toLowerCase().trim();
-  const usuariosSnap = await getDocs(collection(db, 'usuarios'));
-
-  for (const doc of usuariosSnap.docs) {
-    const userData = doc.data();
-    const loginNames = userData.loginNames || [];
-    if (
-      loginNames.some((ln: string) => ln.toLowerCase() === lowerName) ||
-      (userData.displayName && userData.displayName.toLowerCase() === lowerName)
-    ) {
-      return userData.email;
-    }
+  // La búsqueda por nombre se hace server-side: las reglas de Firestore
+  // restringen `list` sobre `usuarios` a admins, y este lookup ocurre
+  // ANTES de iniciar sesión (sin auth todavía).
+  const resolveLoginEmail = httpsCallable(functions, 'resolveLoginEmail');
+  try {
+    const result = await resolveLoginEmail({ nameOrEmail });
+    return (result.data as { email: string }).email;
+  } catch (err) {
+    throw new Error(`Usuario "${nameOrEmail}" no encontrado`);
   }
-
-  throw new Error(`Usuario "${nameOrEmail}" no encontrado`);
 }
 
 export async function signInWithFlexiblePassword(

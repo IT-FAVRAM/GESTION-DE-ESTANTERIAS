@@ -2,6 +2,7 @@ export type WarehouseSection =
   | 'PRENSAS_MECANIZADO'
   | 'PLEGADORA'
   | 'SOLDADURA'
+  | 'SXP'
   | 'AUTOPLEGADORA'
   | 'REPASADO'
   | 'PINTURA'
@@ -15,6 +16,7 @@ export const SECTION_DISPLAY_NAMES: Record<WarehouseSection, string> = {
   PRENSAS_MECANIZADO: 'Prensas-Mecanizado',
   PLEGADORA: 'Plegadora',
   SOLDADURA: 'Soldadura',
+  SXP: 'Soldadura Puntos',
   AUTOPLEGADORA: 'Autoplegadora',
   REPASADO: 'Repasado',
   PINTURA: 'Pintura',

@@ -15,6 +15,7 @@ const SECTION_LABEL: Record<WarehouseSection, string> = {
   PRENSAS_MECANIZADO: 'Prensas-Mecanizado',
   PLEGADORA: 'Plegadora',
   SOLDADURA: 'Soldadura',
+  SXP: 'Soldadura Puntos',
   AUTOPLEGADORA: 'Autoplegadora',
   REPASADO: 'Repasado',
   PINTURA: 'Pintura',
