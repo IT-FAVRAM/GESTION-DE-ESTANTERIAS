@@ -117,8 +117,9 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
       cardBase = isEmpty ? 'bg-purple-950/60 border-purple-400/40' : 'bg-purple-950/85 border-purple-300/55';
       headerText = 'text-purple-100';
     } else if (hasSubcontratacion) {
-      cardBase = 'bg-yellow-400/30 border-yellow-300/85 ring-2 ring-yellow-300/70 shadow-[0_10px_26px_rgba(250,204,21,0.22)]';
-      headerText = 'text-yellow-50';
+      // Mismo color que el botón "Subcontratación" del flujo de ubicar (naranja).
+      cardBase = 'bg-orange-400/30 border-orange-300/85 ring-2 ring-orange-300/75 shadow-[0_10px_26px_rgba(251,146,60,0.24)]';
+      headerText = 'text-orange-50';
     } else if (!isEmpty) {
       cardBase = 'bg-slate-800/95 border-cyan-400/35 shadow-[0_0_16px_rgba(34,211,238,0.08)]';
       headerText = 'text-white';
@@ -285,6 +286,19 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
     badgeEl = (
       <span className="px-1.5 py-0.5 text-[9px] font-black bg-purple-500/20 text-purple-300 border border-purple-400/30 rounded-md uppercase tracking-widest shrink-0">
         REPROC
+      </span>
+    );
+  } else if (hasSubcontratacion) {
+    // Mismo color que el botón "Subcontratación" del flujo de ubicar (naranja).
+    cardBase = 'bg-orange-500/25 border-orange-300/75 ring-1 ring-orange-300/50 shadow-[0_14px_40px_rgba(251,146,60,0.24)]';
+    headerText = 'text-orange-50';
+    ofCls = 'text-orange-100';
+    itemBg = 'bg-orange-950/55 border border-orange-300/25';
+    borderTop = 'border-orange-300/35';
+    countBadgeCls = 'bg-orange-100 text-orange-950';
+    badgeEl = (
+      <span className="px-1.5 py-0.5 text-[9px] font-black bg-orange-500/25 text-orange-200 border border-orange-400/30 rounded-md uppercase tracking-widest shrink-0">
+        🏭 SUBCON
       </span>
     );
   }
