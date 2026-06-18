@@ -157,11 +157,13 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
       (canNavigateToShelf || (isShelfNavigable?.(result.shelfCode) ?? false));
     if (mayNavigate && onShelfNavigate) {
       onShelfNavigate(result.shelfCode, barePositions);
+      return;
     }
     // Si no puede navegar, se mantiene el comportamiento actual: la ficha
     // seleccionada muestra en qué estantería/posición está el artículo.
     // El dropdown se oculta solo: showDropdown depende de !selectedResult
-  }, [onResultSelect, onHighlight, canNavigateToShelf, onShelfNavigate, isShelfNavigable]);
+    onOutOfShelfResult?.(result);
+  }, [onResultSelect, onHighlight, canNavigateToShelf, onShelfNavigate, isShelfNavigable, onOutOfShelfResult]);
 
   useEffect(() => {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };

@@ -33,7 +33,13 @@ const KioskView: React.FC = () => {
   const { kiosk, shelves, currentShelf, setCurrentShelf } = useKiosk(kioskId, allowedShelves);
 
   // Usar shelves que ahora incluye allowedShelves como fallback
-  const effectiveShelves = shelves;
+  const effectiveShelves = useMemo(() => {
+    const base = kiosk?.shelves || [];
+    // Unir con allowedShelves del dispositivo para que la búsqueda pueda navegar
+    // a estanterías accesibles que no están en la lista fija del kiosko.
+    const merged = new Set([...base, ...allowedShelves]);
+    return [...merged];
+  }, [kiosk?.shelves, allowedShelves]);
   const shelfCode = currentShelf || assignedShelf || '';
 
   const [showDeviceInfo, setShowDeviceInfo] = useState(false);
@@ -150,7 +156,7 @@ const KioskView: React.FC = () => {
             fullscreenGrid
             forceSingleBlock
             userSection={null}
-            setShelfCode={(code) => { if (action !== 'idle') cancelAction(); setCurrentShelf(code); }}
+            setShelfCode={(code, force) => { if (action !== 'idle') cancelAction(); setCurrentShelf(code, force); }}
             accessibleShelves={effectiveShelves}
           />
         </div>

@@ -11,7 +11,7 @@ export interface UseKioskReturn {
   kiosk: KioskDoc | null;
   shelves: string[];
   currentShelf: string | null;
-  setCurrentShelf: (shelf: string) => void;
+  setCurrentShelf: (shelf: string, force?: boolean) => void;
   loading: boolean;
   error: string | null;
 }
@@ -125,10 +125,10 @@ export const useKiosk = (kioskId: string | null | undefined, allowedShelves?: st
     fetchKiosk();
   }, [kioskId, allowedShelves]);
 
-  const setCurrentShelf = (shelf: string) => {
+  const setCurrentShelf = (shelf: string, force = false) => {
     const allowedShelvesList = kiosk?.shelves || [];
     const isAllowed = allowedShelvesList.includes(shelf);
-    if (isAllowed) {
+    if (isAllowed || force) {
       setCurrentShelfState(shelf);
       const storageKey = kioskId ? `kiosk-${kioskId}-shelf` : 'device-shelf';
       localStorage.setItem(storageKey, shelf);

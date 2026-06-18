@@ -27,7 +27,7 @@ interface JefeSeccionViewProps {
 /** Componente interno que se renderiza solo cuando hay shelfCode válido */
 const JefeSeccionOperativo: React.FC<{
   shelfCode: string;
-  onShelfChange: (code: string) => void;
+  onShelfChange: (code: string, force?: boolean) => void;
   sectionShelfCodes: string[];
   onBack?: () => void;
   chatButton?: React.ReactNode;
@@ -52,9 +52,9 @@ const JefeSeccionOperativo: React.FC<{
     enableScanTray: canUseScanTray('JEFE_SECCION', firebaseUser?.email),
   });
 
-  const handleShelfChange = (code: string) => {
+  const handleShelfChange = (code: string, force?: boolean) => {
     engine.cancelAction();
-    onShelfChange(code);
+    onShelfChange(code, force);
   };
 
   return (
@@ -140,8 +140,11 @@ const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack, chatButton })
   // primer render dejaba `shelfCode` en null para siempre y mostraba
   // "Sección no configurada" aunque la sección sí estuviera asignada (regresión b8e661a).
   const [selectedShelf, setSelectedShelf] = useState<string | null>(null);
-  const shelfCode =
-    selectedShelf && sectionShelfCodes.includes(selectedShelf) ? selectedShelf : initialShelf;
+  const [forceShelf, setForceShelf] = useState<string | null>(null);
+  // Si forceShelf está activo (navegación por búsqueda), usarlo directamente.
+  // Si no, validar contra sectionShelfCodes.
+  const shelfCode = forceShelf
+    || (selectedShelf && sectionShelfCodes.includes(selectedShelf) ? selectedShelf : initialShelf);
 
   // Si no tiene sección válida, mostrar error
   if (!hasValidSection || !shelfCode) {
@@ -170,7 +173,14 @@ const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack, chatButton })
   return (
     <JefeSeccionOperativo
       shelfCode={shelfCode}
-      onShelfChange={setSelectedShelf}
+      onShelfChange={(code, force) => {
+        if (force) {
+          setForceShelf(code);
+        } else {
+          setForceShelf(null);
+          setSelectedShelf(code);
+        }
+      }}
       sectionShelfCodes={sectionShelfCodes}
       onBack={onBack}
       chatButton={chatButton}

@@ -452,17 +452,81 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
   }, [collapseStorageKey]);
 
   // BA7: Auto-scroll al primer highlight cuando cambian las posiciones destacadas.
-  // Depende también de `locationMap` para que, al navegar desde el buscador a otra
-  // estantería, el scroll se ejecute cuando las celdas terminan de cargar (antes
-  // la celda destino aún no existía en el DOM y el scroll no encontraba nada).
+  // Retry con requestAnimationFrame + timeout para cubrir el caso en que las celdas
+  // nuevas aún no están en el DOM al primer paint (navegación cross-shelf desde el buscador).
   useEffect(() => {
     if (highlightedPositions.length === 0 || !gridContainerRef.current) return;
     const firstHighlight = highlightedPositions[0];
-    const cell = gridContainerRef.current.querySelector(`[data-position="${firstHighlight}"]`);
-    if (cell) {
-      cell.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    const scrollTo = () => {
+      const cell = gridContainerRef.current?.querySelector(`[data-position="${firstHighlight}"]`);
+      if (cell) {
+        cell.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+        return true;
+      }
+      return false;
+    };
+    // Primer intento inmediato
+    if (scrollTo()) return;
+    // Retry tras un frame (espera a que React pinte las celdas)
+    let cancelled = false;
+    const raf = requestAnimationFrame(() => {
+      if (cancelled) return;
+      if (scrollTo()) return;
+      // Último retry tras 150ms por si hay carga asíncrona
+      const timer = setTimeout(() => { if (!cancelled) scrollTo(); }, 150);
+      // Cleanup del timeout se maneja abajo
+      void timer;
+    });
+    return () => { cancelled = true; cancelAnimationFrame(raf); };
+  }, [highlightedPositions, locations, collapsedSections, activeMobileBlockIdx]);
+
+  // Si el highlight cae en una sección colapsada o, en modo kiosko, en un
+  // bloque físico distinto del activo, la celda existe en el DOM pero con
+  // altura 0 / oculta: hay que expandirla / saltar al bloque correcto para
+  // que la navegación por búsqueda lleve a una vista realmente visible.
+  useEffect(() => {
+    if (highlightedPositions.length === 0) return;
+    const firstHighlight = highlightedPositions[0];
+    const blocks = shelfDef?.layout.physicalBlocks ?? [];
+    const posKey = (p: number | string | null) =>
+      p === null ? null : (typeof p === 'string' ? p : p.toString().padStart(3, '0'));
+
+    if (blocks.length > 0) {
+      const containingBlock = blocks.find((b) =>
+        b.rows.some((row) => row.some((p) => posKey(p) === firstHighlight)),
+      );
+      if (!containingBlock) return;
+
+      const regular = blocks.filter((b) => !b.fullWidth);
+      const regularIdx = regular.findIndex((b) => b.id === containingBlock.id);
+      if (regularIdx >= 0) setActiveMobileBlockIdx(regularIdx);
+
+      setCollapsedSections((prev) => {
+        if (!prev.has(containingBlock.id)) return prev;
+        const next = new Set(prev);
+        next.delete(containingBlock.id);
+        if (collapseStorageKey) {
+          try { window.localStorage.setItem(collapseStorageKey, JSON.stringify([...next])); } catch { /* cuota / modo privado */ }
+        }
+        return next;
+      });
+    } else {
+      const zones = shelfDef?.layout.zones ?? [];
+      const posInt = parseInt(firstHighlight, 10);
+      const zone = zones.find((z) => !Number.isNaN(posInt) && posInt >= z.range[0] && posInt <= z.range[1]);
+      if (!zone) return;
+      const zoneId = `zone-${zone.name}`;
+      setCollapsedSections((prev) => {
+        if (!prev.has(zoneId)) return prev;
+        const next = new Set(prev);
+        next.delete(zoneId);
+        if (collapseStorageKey) {
+          try { window.localStorage.setItem(collapseStorageKey, JSON.stringify([...next])); } catch { /* cuota / modo privado */ }
+        }
+        return next;
+      });
     }
-  }, [highlightedPositions, locations]);
+  }, [highlightedPositions, shelfDef, collapseStorageKey]);
 
   const toggleSection = useCallback((id: string) => {
     setCollapsedSections((prev) => {

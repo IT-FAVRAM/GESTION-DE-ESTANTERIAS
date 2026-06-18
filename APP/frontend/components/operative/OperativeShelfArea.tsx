@@ -10,7 +10,7 @@
  * de flujo y es imposible que diverjan.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { COLLECTIONS } from '../../lib/schema/collections';
@@ -51,8 +51,8 @@ import type { UseOperativeShelfReturn } from '../../hooks/useOperativeShelf';
 interface OperativeShelfAreaProps {
   engine: UseOperativeShelfReturn;
   config: RoleOperativeConfig;
-  /** El chrome puede cambiar de sección (scope='all'). */
-  setShelfCode?: (code: string) => void;
+  /** El chrome puede cambiar de sección (scope='all'). force=true bypass para navegación por búsqueda. */
+  setShelfCode?: (code: string, force?: boolean) => void;
   /** Grid a pantalla completa (kiosko / carretillero). */
   fullscreenGrid?: boolean;
   /** Kiosk mode: always show one block at a time with navigation. */
@@ -130,18 +130,39 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
 
   // Buscador: al pinchar un resultado en otra estantería, cambiar de estantería
   // y resaltar (rosa) la celda donde está el artículo.
+  // force=true para que useKiosk acepte la estantería aunque no esté en kiosk.shelves.
+  const searchNavPending = useRef(false);
   const handleSearchNavigate = useCallback((code: string, positions?: string[]) => {
-    setShelfCode?.(code);
+    searchNavPending.current = true;
+    setShelfCode?.(code, true);
     setHighlightedSearch(positions ?? []);
+    // Reset the flag after the render cycle so manual shelf changes clear highlights
+    setTimeout(() => { searchNavPending.current = false; }, 0);
   }, [setShelfCode, setHighlightedSearch]);
+
+  // Limpiar highlights de búsqueda cuando el usuario cambia de estantería manualmente
+  // (tabs, selector). Si el cambio viene del buscador (searchNavPending), no limpiar.
+  const prevShelfRef = useRef(shelfCode);
+  useEffect(() => {
+    if (shelfCode !== prevShelfRef.current) {
+      prevShelfRef.current = shelfCode;
+      if (!searchNavPending.current) {
+        setHighlightedSearch([]);
+      }
+    }
+  }, [shelfCode, setHighlightedSearch]);
 
   // Roles de ámbito total navegan a cualquier estantería; los limitados
   // (OPERARIO/JEFE) solo a las de sus secciones accesibles.
   const isShelfNavigable = useCallback((code: string) => {
     if (!setShelfCode) return false;
     if (config.shelfScope === 'all') return true;
-    if (!accessibleShelves) return false;
-    return accessibleShelves.map((s) => s.toUpperCase()).includes(code.toUpperCase());
+    // Roles limitados: solo navegar a estanterías accesibles (sección + adicionales)
+    if (accessibleShelves && accessibleShelves.length > 0) {
+      return accessibleShelves.map((s) => s.toUpperCase()).includes(code.toUpperCase());
+    }
+    // Sin lista de accesibles: no navegar
+    return false;
   }, [setShelfCode, config.shelfScope, accessibleShelves]);
 
   const reprocesosCosts = !!config.reprocesos?.showCosts;
@@ -464,7 +485,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             onHighlight={setHighlightedSearch}
             global
             currentShelfCode={shelfCode}
-            canNavigateToShelf={config.shelfScope === 'all' && !!setShelfCode}
+            canNavigateToShelf={config.shelfScope === 'all'}
             onShelfNavigate={setShelfCode ? handleSearchNavigate : undefined}
             isShelfNavigable={isShelfNavigable}
             onSolicitarTraer={canSolicitarTraer ? setTraerResult : undefined}
