@@ -11,6 +11,7 @@ export interface UseDeviceConfigReturn {
   device: DeviceDoc | null;
   excludedCarts: string[];
   visualOnly: boolean;
+  allowedShelves: string[];
   loading: boolean;
   error: string | null;
 }
@@ -56,6 +57,7 @@ export const useDeviceConfig = (deviceId: string | null | undefined): UseDeviceC
     device,
     excludedCarts: device?.excludedCarts || [],
     visualOnly: device?.visualOnly || false,
+    allowedShelves: device?.allowedShelves || [],
     loading,
     error,
   };

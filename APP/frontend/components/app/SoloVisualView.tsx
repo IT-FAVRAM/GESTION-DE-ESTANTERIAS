@@ -1,18 +1,33 @@
 import React, { useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useShelf } from '../../hooks/useShelf';
+import { useDeviceConfig } from '../../hooks/useDeviceConfig';
 import { SHELF_DEFINITIONS, CART_DEFINITIONS, SECTION_DISPLAY_NAMES, SHELF_TO_SECTION } from '../../lib/firestoreSchema';
 import ShelfGrid from '../kiosk/ShelfGrid';
 import KioskSearchBar from '../kiosk/KioskSearchBar';
 
 const SoloVisualView: React.FC = () => {
-  const { displayName, logout } = useAuth();
+  const { displayName, logout, deviceId } = useAuth();
+  const { allowedShelves } = useDeviceConfig(deviceId);
   const [selectedShelf, setSelectedShelf] = useState<string>(SHELF_DEFINITIONS[0]?.code ?? 'PRE');
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
   const [highlightedPositions, setHighlightedPositions] = useState<string[]>([]);
+  const [showMobileShelfSelector, setShowMobileShelfSelector] = useState(false);
 
   const { shelfDef, locations, loading, totalArticles, totalOccupied, totalEmpty } = useShelf(selectedShelf);
   const section = SHELF_TO_SECTION[selectedShelf] || 'OTROS';
+
+  // Filtrar estanterías según allowedShelves (si está definido)
+  const availableShelves = useMemo(() => {
+    if (allowedShelves.length === 0) return SHELF_DEFINITIONS;
+    return SHELF_DEFINITIONS.filter(shelf => allowedShelves.includes(shelf.code));
+  }, [allowedShelves]);
+
+  // Filtrar carros según allowedShelves
+  const availableCarts = useMemo(() => {
+    if (allowedShelves.length === 0) return CART_DEFINITIONS;
+    return CART_DEFINITIONS.filter(cart => allowedShelves.includes(cart.code));
+  }, [allowedShelves]);
 
   const filteredLocations = useMemo(() => {
     if (highlightedPositions.length === 0) return locations;
@@ -42,10 +57,10 @@ const SoloVisualView: React.FC = () => {
           <div className="p-4 space-y-4 overflow-y-auto">
             <div className="space-y-2">
               <h2 className="text-sm font-bold text-slate-500 uppercase">Estanterías</h2>
-              {SHELF_DEFINITIONS.map(shelf => (
+              {availableShelves.map(shelf => (
                 <button
                   key={shelf.code}
-                  onClick={() => setSelectedShelf(shelf.code)}
+                  onClick={() => { setSelectedShelf(shelf.code); setSidebarOpen(false); }}
                   className={`w-full text-left px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
                     selectedShelf === shelf.code
                       ? 'bg-cyan-100 text-cyan-900 border border-cyan-300'
@@ -57,22 +72,24 @@ const SoloVisualView: React.FC = () => {
               ))}
             </div>
 
-            <div className="space-y-2 border-t border-slate-200 pt-3">
-              <h2 className="text-sm font-bold text-slate-500 uppercase">🚚 Carros</h2>
-              {CART_DEFINITIONS.map(cart => (
-                <button
-                  key={cart.code}
-                  onClick={() => setSelectedShelf(cart.code)}
-                  className={`w-full text-left px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
-                    selectedShelf === cart.code
-                      ? 'bg-cyan-100 text-cyan-900 border border-cyan-300'
-                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  {cart.code} — {cart.name}
-                </button>
-              ))}
-            </div>
+            {availableCarts.length > 0 && (
+              <div className="space-y-2 border-t border-slate-200 pt-3">
+                <h2 className="text-sm font-bold text-slate-500 uppercase">🚚 Carros</h2>
+                {availableCarts.map(cart => (
+                  <button
+                    key={cart.code}
+                    onClick={() => { setSelectedShelf(cart.code); setSidebarOpen(false); }}
+                    className={`w-full text-left px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
+                      selectedShelf === cart.code
+                        ? 'bg-cyan-100 text-cyan-900 border border-cyan-300'
+                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    {cart.code} — {cart.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </aside>
 
@@ -81,9 +98,31 @@ const SoloVisualView: React.FC = () => {
           {/* Shelf Info + Search */}
           <div className="flex-shrink-0 bg-white border-b border-slate-200 px-4 py-3 space-y-3">
             <div className="flex items-center justify-between gap-3">
+              <div className="sm:hidden">
+                <select
+                  value={selectedShelf}
+                  onChange={(e) => setSelectedShelf(e.target.value)}
+                  className="px-3 py-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium"
+                >
+                  {availableShelves.map(shelf => (
+                    <option key={shelf.code} value={shelf.code}>
+                      {shelf.code} — {shelf.name}
+                    </option>
+                  ))}
+                  {availableCarts.length > 0 && (
+                    <optgroup label="Carros">
+                      {availableCarts.map(cart => (
+                        <option key={cart.code} value={cart.code}>
+                          {cart.code} — {cart.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+              </div>
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="sm:hidden px-3 py-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+                className="hidden sm:block px-3 py-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
               >
                 ☰
               </button>

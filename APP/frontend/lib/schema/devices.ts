@@ -13,6 +13,8 @@ export interface DeviceDoc {
   excludedCarts?: string[];
   // Modo visual/solo lectura
   visualOnly?: boolean;
+  // Estanterías permitidas (si no está definido, acceso a todas)
+  allowedShelves?: string[];
 }
 
 
