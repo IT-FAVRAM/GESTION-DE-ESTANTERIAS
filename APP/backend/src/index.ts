@@ -28,6 +28,7 @@ export {
   adminOperate,
   deviceHeartbeat,
   resolveDeviceConfig,
+  resolveLoginEmail,
   sendAdminMessage,
   setupUser,
 } from './admin';

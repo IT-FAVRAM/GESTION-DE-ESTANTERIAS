@@ -9,6 +9,10 @@ export interface DeviceDoc {
   assignedShelf?: string | null;
   // Configuración nueva: asociar a un kiosko
   kioskId?: string | null;
+  // Carros a excluir de la vista (ej: ['CRP'] para excluir Amada)
+  excludedCarts?: string[];
+  // Modo visual/solo lectura
+  visualOnly?: boolean;
 }
 
 

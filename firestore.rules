@@ -160,11 +160,11 @@ service cloud.firestore {
         allow update: if isRegisteredUser()
                          && canEditNotesAtLocation(shelfCode)
                          && request.resource.data.diff(resource.data).changedKeys().hasOnly(['nota', 'photos']);
-        // Permitir crear el doc de una ubicación VACÍA solo para adjuntarle fotos
+        // Permitir crear el doc de una ubicación VACÍA solo para adjuntarle nota y/o fotos
         // (posiciones sin doc previo). Forma acotada: sin items, mismos roles que notas.
         allow create: if isRegisteredUser()
                          && canEditNotesAtLocation(shelfCode)
-                         && request.resource.data.keys().hasOnly(['position', 'items', 'isEmpty', 'photos'])
+                         && request.resource.data.keys().hasOnly(['position', 'items', 'isEmpty', 'nota', 'photos'])
                          && request.resource.data.items.size() == 0;
         allow delete: if false;
       }

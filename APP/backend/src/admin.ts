@@ -65,6 +65,13 @@ export const adminOperate = functions.https.onCall(async (data: any, context: an
       const effectiveType = String(updatePayload.type || payload?.type || '').trim().toUpperCase();
       updatePayload.kioskId = effectiveType === 'KIOSK' ? (normalize(payload?.kioskId) || null) : null;
     }
+    if ('excludedCarts' in payload) {
+      const carts = Array.isArray(payload.excludedCarts) ? payload.excludedCarts : [];
+      updatePayload.excludedCarts = carts.map((c: any) => String(c || '').trim().toUpperCase()).filter((c: string) => c);
+    }
+    if (typeof payload?.visualOnly === 'boolean') {
+      updatePayload.visualOnly = payload.visualOnly;
+    }
     if (Object.keys(updatePayload).length === 0) {
       throw new functions.https.HttpsError('invalid-argument', 'No hay cambios validos para actualizar.');
     }
@@ -347,4 +354,38 @@ export const setupUser = functions.https.onCall(async (data: any, context: any) 
     console.error('[setupUser] Error:', error.message);
     throw new functions.https.HttpsError('internal', error.message);
   }
+});
+
+/**
+ * Resuelve el email de un usuario a partir de su nombre de login (ej. "MARIO").
+ * Pública y sin auth: se llama ANTES de iniciar sesión, desde la pantalla de login.
+ * Las reglas de Firestore restringen `list` sobre `usuarios` a admins, así que esta
+ * búsqueda debe hacerse server-side con el Admin SDK. Solo devuelve el email
+ * (nunca rol, sección u otros campos) para no exponer datos de usuarios.
+ */
+export const resolveLoginEmail = functions.https.onCall(async (data: any) => {
+  const nameOrEmail = normalize(data?.nameOrEmail);
+  if (!nameOrEmail) {
+    throw new functions.https.HttpsError('invalid-argument', 'nameOrEmail requerido.');
+  }
+  if (nameOrEmail.includes('@')) {
+    return { email: nameOrEmail };
+  }
+
+  const lowerName = nameOrEmail.toLowerCase();
+  const db = admin.firestore();
+  const usuariosSnap = await db.collection('usuarios').get();
+
+  for (const doc of usuariosSnap.docs) {
+    const userData = doc.data();
+    const loginNames: string[] = userData.loginNames || [];
+    if (
+      loginNames.some((ln) => String(ln).toLowerCase() === lowerName) ||
+      (userData.displayName && String(userData.displayName).toLowerCase() === lowerName)
+    ) {
+      return { email: userData.email };
+    }
+  }
+
+  throw new functions.https.HttpsError('not-found', `Usuario "${nameOrEmail}" no encontrado`);
 });

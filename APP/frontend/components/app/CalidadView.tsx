@@ -54,12 +54,23 @@ const CalidadView: React.FC = () => {
     [locations],
   );
   const { totalImporte, totalPiezas } = calcReprocesosTotal(reprocesosItems);
-  const oldestDays = useMemo(() => {
-    if (reprocesosItems.length === 0) return 0;
+  const oldestItem = useMemo(() => {
     const now = Date.now();
-    const times = reprocesosItems.map((i) => new Date(i.locatedAt).getTime()).filter((t) => !isNaN(t));
-    if (times.length === 0) return 0;
-    return Math.floor((now - Math.min(...times)) / 86_400_000);
+    let oldest: { articleCode: string; orderFab: string; locatedByName: string; days: number } | null = null;
+    for (const item of reprocesosItems) {
+      const time = new Date(item.locatedAt).getTime();
+      if (isNaN(time)) continue;
+      const days = Math.floor((now - time) / 86_400_000);
+      if (!oldest || days > oldest.days) {
+        oldest = {
+          articleCode: item.articleCode,
+          orderFab: item.orderFab,
+          locatedByName: item.locatedByName,
+          days,
+        };
+      }
+    }
+    return oldest;
   }, [reprocesosItems]);
 
   return (
@@ -77,7 +88,7 @@ const CalidadView: React.FC = () => {
         canEditReprocesses={canEditReprocesses}
         totalImporte={totalImporte}
         totalPiezas={totalPiezas}
-        oldestDays={oldestDays}
+        oldestItem={oldestItem}
       />
 
       <main className="flex-1 min-h-0 min-w-0 w-full overflow-hidden">
