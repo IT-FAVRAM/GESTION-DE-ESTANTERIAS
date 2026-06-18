@@ -67,6 +67,8 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
   const displayNum = Number.isNaN(posNum) ? position : posNum.toString().padStart(3, '0');
   const itemCount = location?.items.length ?? 0;
   const isEmpty = itemCount === 0;
+  // SUBCONTRATACIÓN: celda ocupada por al menos un artículo subcontratado → amarillo.
+  const hasSubcontratacion = !isEmpty && (location?.items?.some((it) => it.subcontratacion) ?? false);
   const isReproces = isReprocesosLocation(shelfCode, posNum);
   const isDraggable = !isEmpty && !!onCellDragStart;
 
@@ -114,6 +116,9 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
     } else if (isReproces) {
       cardBase = isEmpty ? 'bg-purple-950/60 border-purple-400/40' : 'bg-purple-950/85 border-purple-300/55';
       headerText = 'text-purple-100';
+    } else if (hasSubcontratacion) {
+      cardBase = 'bg-yellow-400/30 border-yellow-300/85 ring-2 ring-yellow-300/70 shadow-[0_10px_26px_rgba(250,204,21,0.22)]';
+      headerText = 'text-yellow-50';
     } else if (!isEmpty) {
       cardBase = 'bg-slate-800/95 border-cyan-400/35 shadow-[0_0_16px_rgba(34,211,238,0.08)]';
       headerText = 'text-white';

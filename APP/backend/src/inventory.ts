@@ -560,7 +560,9 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
   }
 
   if (op === 'retirar') {
-    if (!articleCode || !orderFab) {
+    // OF puede ir vacía para artículos de SUBCONTRATACIÓN y CAL (aggregateKey
+    // `CODE__` sólo casa con ítems sin OF, así que es seguro no exigirla).
+    if (!articleCode) {
       throw new functions.https.HttpsError('invalid-argument', 'Datos incompletos para retirar.');
     }
     const aggregateKey = `${normalize(articleCode)}__${normalize(orderFab)}`;
@@ -632,7 +634,8 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
 
   if (op === 'retirarDeUbicacion') {
     const position = String(payload?.position || '').trim();
-    if (!articleCode || !orderFab || !position) {
+    // OF puede ir vacía (SUBCONTRATACIÓN / CAL); la baja se hace por presenceId.
+    if (!articleCode || !position) {
       throw new functions.https.HttpsError('invalid-argument', 'Datos incompletos para retirar de ubicacion.');
     }
     const locRef = db.collection('shelves').doc(shelfCode).collection('locations').doc(position);

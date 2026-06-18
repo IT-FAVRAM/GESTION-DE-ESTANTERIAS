@@ -31,6 +31,8 @@ export type UserContext = {
 export type OperationalActor = UserContext & {
   deviceId?: string | null;
   assignedShelf?: string | null;
+  /** Estanterías adicionales que el dispositivo (kiosko) puede operar, además de assignedShelf. */
+  allowedShelves?: string[] | null;
   operarioId?: string | null;
   operarioName?: string | null;
 };
@@ -120,7 +122,12 @@ export const assertActorMayOperateShelf = (
     // Puede operar en su estantería principal
     if (assignedShelfUpper === shelf) return;
 
-    // Puede operar en estanterías adicionales mapeadas
+    // Puede operar en las estanterías adicionales configuradas en el dispositivo
+    // (device.allowedShelves) — fuente de verdad única, igual que el frontend.
+    const deviceAllowed = (actor.allowedShelves || []).map((s) => normalize(s));
+    if (deviceAllowed.includes(shelf)) return;
+
+    // Compatibilidad: mapa estático de estanterías adicionales por kiosko.
     const additionalShelves = KIOSK_ADDITIONAL_SHELVES[assignedShelfUpper];
     if (additionalShelves && additionalShelves.includes(shelf)) return;
 
@@ -258,7 +265,7 @@ export const resolveOperationalActor = async (
     throw new functions.https.HttpsError('permission-denied', 'Dispositivo no registrado.');
   }
 
-  const device = deviceDoc.data() as { type?: string; active?: boolean; assignedShelf?: string | null };
+  const device = deviceDoc.data() as { type?: string; active?: boolean; assignedShelf?: string | null; allowedShelves?: string[] | null };
   if (device.active === false) {
     throw new functions.https.HttpsError('permission-denied', 'Dispositivo desactivado.');
   }
@@ -274,6 +281,7 @@ export const resolveOperationalActor = async (
     section: role === 'OPERARIO' ? getWmsSectionForShelf(device.assignedShelf) : null,
     deviceId,
     assignedShelf: device.assignedShelf || null,
+    allowedShelves: Array.isArray(device.allowedShelves) ? device.allowedShelves : null,
     operarioId,
     operarioName: operarioName || operarioId,
   };

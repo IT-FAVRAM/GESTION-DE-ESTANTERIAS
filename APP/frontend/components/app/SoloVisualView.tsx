@@ -12,7 +12,6 @@ const SoloVisualView: React.FC = () => {
   const [selectedShelf, setSelectedShelf] = useState<string>(SHELF_DEFINITIONS[0]?.code ?? 'PRE');
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
   const [highlightedPositions, setHighlightedPositions] = useState<string[]>([]);
-  const [showMobileShelfSelector, setShowMobileShelfSelector] = useState(false);
 
   const { shelfDef, locations, loading, totalArticles, totalOccupied, totalEmpty } = useShelf(selectedShelf);
   const section = SHELF_TO_SECTION[selectedShelf] || 'OTROS';
@@ -37,11 +36,17 @@ const SoloVisualView: React.FC = () => {
   return (
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="flex-shrink-0 bg-white border-b border-slate-200 px-3 py-2 shadow-sm flex items-center justify-between gap-4">
-        <p className="text-xs text-slate-500">{displayName}</p>
+      <header className="flex-shrink-0 bg-white border-b border-slate-200 px-3 py-2 shadow-sm flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-lg leading-none">👁️</span>
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-widest text-cyan-600 leading-none">Solo visual</p>
+            <p className="text-xs text-slate-500 truncate leading-tight">{displayName}</p>
+          </div>
+        </div>
         <button
           onClick={logout}
-          className="px-4 py-2 bg-slate-900 text-white font-bold rounded-lg hover:bg-slate-800 transition-colors flex-shrink-0"
+          className="px-4 py-2 bg-slate-900 text-white font-bold rounded-lg hover:bg-slate-800 transition-colors flex-shrink-0 text-sm"
         >
           Salir
         </button>
@@ -96,19 +101,31 @@ const SoloVisualView: React.FC = () => {
         {/* Main Content */}
         <main className="flex-1 flex flex-col overflow-hidden">
           {/* Shelf Info + Search */}
-          <div className="flex-shrink-0 bg-white border-b border-slate-200 px-4 py-3 space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="sm:hidden">
+          <div className="flex-shrink-0 bg-white border-b border-slate-200 px-3 sm:px-4 py-2.5 sm:py-3 space-y-2.5">
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Desktop: toggle sidebar */}
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="hidden sm:block px-3 py-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors flex-shrink-0"
+                aria-label="Mostrar/ocultar estanterías"
+              >
+                ☰
+              </button>
+
+              {/* Móvil: selector de estantería a ancho completo, prominente y táctil */}
+              <div className="flex-1 sm:hidden">
                 <select
                   value={selectedShelf}
                   onChange={(e) => setSelectedShelf(e.target.value)}
-                  className="px-3 py-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium"
+                  className="w-full px-3 py-2.5 bg-cyan-50 border border-cyan-200 rounded-xl text-sm font-bold text-cyan-900 focus:outline-none focus:ring-2 focus:ring-cyan-400 appearance-none"
                 >
-                  {availableShelves.map(shelf => (
-                    <option key={shelf.code} value={shelf.code}>
-                      {shelf.code} — {shelf.name}
-                    </option>
-                  ))}
+                  <optgroup label="Estanterías">
+                    {availableShelves.map(shelf => (
+                      <option key={shelf.code} value={shelf.code}>
+                        {shelf.code} — {shelf.name}
+                      </option>
+                    ))}
+                  </optgroup>
                   {availableCarts.length > 0 && (
                     <optgroup label="Carros">
                       {availableCarts.map(cart => (
@@ -120,20 +137,24 @@ const SoloVisualView: React.FC = () => {
                   )}
                 </select>
               </div>
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="hidden sm:block px-3 py-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
-              >
-                ☰
-              </button>
-              <div>
-                <h2 className="text-xl font-black text-slate-900">{shelfDef?.name || 'Cargando...'}</h2>
+
+              {/* Desktop: título de la estantería */}
+              <div className="hidden sm:block min-w-0">
+                <h2 className="text-xl font-black text-slate-900 truncate">{shelfDef?.name || 'Cargando...'}</h2>
                 <p className="text-xs text-slate-500">{SECTION_DISPLAY_NAMES[section]}</p>
               </div>
-              <div className="text-right text-xs text-slate-500">
-                <p><strong>{totalOccupied}</strong>/{totalArticles}</p>
-                <p><strong>{totalEmpty}</strong> vacías</p>
+
+              {/* Stats (compactos en móvil) */}
+              <div className="ml-auto text-right text-[11px] sm:text-xs text-slate-500 flex-shrink-0 leading-tight">
+                <p><strong className="text-slate-900 text-sm sm:text-base">{totalOccupied}</strong>/{totalArticles} ocup.</p>
+                <p><strong className="text-slate-700">{totalEmpty}</strong> vacías</p>
               </div>
+            </div>
+
+            {/* Móvil: nombre de la estantería + sección bajo el selector */}
+            <div className="sm:hidden">
+              <h2 className="text-lg font-black text-slate-900 truncate leading-tight">{shelfDef?.name || 'Cargando...'}</h2>
+              <p className="text-[11px] text-slate-500">{SECTION_DISPLAY_NAMES[section]}</p>
             </div>
 
             {/* Search */}
@@ -149,7 +170,7 @@ const SoloVisualView: React.FC = () => {
           </div>
 
           {/* Grid */}
-          <div className="flex-1 overflow-auto bg-sky-50 p-4">
+          <div className="flex-1 overflow-auto bg-sky-50 p-2 sm:p-4">
             {loading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">

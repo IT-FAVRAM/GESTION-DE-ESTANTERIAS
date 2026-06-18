@@ -94,7 +94,12 @@ const assertActorMayOperateShelf = (actor, shelfCode) => {
         // Puede operar en su estantería principal
         if (assignedShelfUpper === shelf)
             return;
-        // Puede operar en estanterías adicionales mapeadas
+        // Puede operar en las estanterías adicionales configuradas en el dispositivo
+        // (device.allowedShelves) — fuente de verdad única, igual que el frontend.
+        const deviceAllowed = (actor.allowedShelves || []).map((s) => normalize(s));
+        if (deviceAllowed.includes(shelf))
+            return;
+        // Compatibilidad: mapa estático de estanterías adicionales por kiosko.
         const additionalShelves = KIOSK_ADDITIONAL_SHELVES[assignedShelfUpper];
         if (additionalShelves && additionalShelves.includes(shelf))
             return;
@@ -212,6 +217,7 @@ const resolveOperationalActor = async (context, session) => {
         section: role === 'OPERARIO' ? (0, exports.getWmsSectionForShelf)(device.assignedShelf) : null,
         deviceId,
         assignedShelf: device.assignedShelf || null,
+        allowedShelves: Array.isArray(device.allowedShelves) ? device.allowedShelves : null,
         operarioId,
         operarioName: operarioName || operarioId,
     };
