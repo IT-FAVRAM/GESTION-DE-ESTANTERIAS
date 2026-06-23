@@ -274,17 +274,23 @@ export const SHELF_DEFINITIONS: Shelf[] = [
     name: 'Pintura',
     section: 'PINTURA',
     type: 'shelf',
-    // Solo se muestra la estantería de FUERA (Estantería 2, posiciones 028-039).
-    // La estantería de DENTRO (001-027) se mantiene en datos pero no se visualiza.
-    locationCount: 12,
+    locationCount: 39,
     layout: {
       zones: [
+        { name: 'DENTRO', range: [1, 27], color: '#3b82f6' },
         { name: 'FUERA', range: [28, 39], color: '#f97316' },
       ],
       physicalBlocks: [
         {
+          id: 'pin-dentro',
+          title: 'Estanteria 1',
+          subtitle: 'Dentro · 001-027',
+          zoneName: 'DENTRO',
+          rows: [[19, 20, 21, 22, 23, 24, 25, 26, 27], [10, 11, 12, 13, 14, 15, 16, 17, 18], [1, 2, 3, 4, 5, 6, 7, 8, 9]],
+        },
+        {
           id: 'pin-fuera',
-          title: 'Estanteria Fuera',
+          title: 'Estanteria 2',
           subtitle: 'Fuera · 028-039',
           zoneName: 'FUERA',
           rows: [[37, 38, 39], [34, 35, 36], [31, 32, 33], [28, 29, 30]],
