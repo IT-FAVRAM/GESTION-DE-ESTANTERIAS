@@ -2,15 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   onAuthStateChanged,
   signInAnonymously,
-  signInWithEmailAndPassword,
   signOut,
   setPersistence,
   browserLocalPersistence,
-  browserSessionPersistence,
   type User,
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
+import { signInWithFlexiblePassword } from '../lib/auth/flexiblePasswordSignIn';
 import { fetchDeviceConfig, sendDeviceHeartbeat } from '../lib/api/deviceApi';
 import {
   type UserRole,
@@ -106,6 +105,7 @@ const buildGuestSession = (role: UserRole, section?: WarehouseSection, kioskId?:
     CALIDAD: 'Calidad Desarrollo',
     ADMIN: 'Admin Desarrollo',
     SUPERADMIN: 'Superadmin Desarrollo',
+    SOLO_VISUAL: 'Solo Visual Desarrollo',
   };
 
   return {
@@ -180,14 +180,43 @@ const getDeviceConfig = async (deviceId: string): Promise<DeviceDoc | null> => {
   }
 };
 
-const resolveUserProfile = async (user: User): Promise<UserDoc | null> => {
-  try {
-    const snap = await getDoc(doc(db, COLLECTIONS.USERS, user.uid));
-    if (snap.exists()) return snap.data() as UserDoc;
-  } catch (e) {
-    console.error('Error resolving profile', e);
+// Retry helper con backoff exponencial
+const resolveUserProfileWithRetry = async (
+  user: User,
+  maxRetries: number = 3
+): Promise<UserDoc | null> => {
+  let lastError: unknown = null;
+
+  for (let retries = 0; retries < maxRetries; retries += 1) {
+    try {
+      const snap = await getDoc(doc(db, COLLECTIONS.USERS, user.uid));
+      if (snap.exists()) {
+        console.log(`[resolveUserProfile] Success on attempt ${retries + 1}`);
+        return snap.data() as UserDoc;
+      }
+      // Document doesn't exist but no error — return null
+      return null;
+    } catch (e) {
+      lastError = e;
+      console.warn(`[resolveUserProfile] Attempt ${retries + 1} failed:`, e);
+
+      // No esperar después del último intento
+      if (retries < maxRetries - 1) {
+        const delayMs = 500 * Math.pow(2, retries); // 500ms, 1s, 2s
+        await new Promise((r) => setTimeout(r, delayMs));
+      }
+    }
   }
+
+  console.error(
+    `[resolveUserProfile] Failed after ${maxRetries} attempts:`,
+    lastError
+  );
   return null;
+};
+
+const resolveUserProfile = async (user: User): Promise<UserDoc | null> => {
+  return resolveUserProfileWithRetry(user, 3);
 };
 
 export const useAuth = () => {
@@ -226,6 +255,21 @@ export const useAuth = () => {
     const detectMode = async () => {
       const existingSession = readGuestSession<GuestSession>();
       const deviceConfig = await getDeviceConfig(deviceId);
+
+      // Un usuario autenticado con email (CALIDAD / JEFE_SECCION / ADMIN / ...) NUNCA
+      // debe ser reclasificado por el tipo de dispositivo. Su rol proviene de su ficha
+      // en `usuarios` (lo resuelve onAuthStateChanged). Aunque el PC esté (auto)
+      // registrado como KIOSK, aquí solo ajustamos el deviceMode para el monitor de
+      // conexión y conservamos intacta la sesión de email. Sin esto, al recargar en el
+      // ordenador de un responsable (p. ej. Calidad), su rol se ponía a null y perdía
+      // acceso (reprocesos, operar la estantería) o lo echaba al login.
+      if (auth.currentUser && !auth.currentUser.isAnonymous) {
+        const mode: AuthMode = deviceConfig && deviceConfig.type !== 'KIOSK'
+          ? ((deviceConfig.type.toLowerCase() as AuthMode) || 'admin')
+          : 'admin';
+        setState((prev) => ({ ...prev, loading: false, deviceMode: mode, error: null }));
+        return;
+      }
 
       if (!deviceConfig) {
         // Device not registered: if there's a stale guest session (anonymous user),
@@ -336,102 +380,108 @@ export const useAuth = () => {
   }, [deviceId, authResolved]);
 
   useEffect(() => {
+    // Cada instancia de useAuth mantiene su PROPIA suscripción a onAuthStateChanged.
+    // Antes había un singleton module-level que solo actualizaba el estado de la
+    // primera instancia; el resto de consumidores (p.ej. el useAuth de UnifiedLogin)
+    // se quedaban con loading=true para siempre → botones deshabilitados / login
+    // imposible. Múltiples listeners de onAuthStateChanged son seguros: cada uno
+    // actualiza su propio estado con el mismo usuario.
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user || user.isAnonymous) {
-        const session = readGuestSession<GuestSession>();
-        // Only apply a guest session that has been confirmed by detectMode via backend.
-        // Unconfirmed / stale sessions are ignored — the user must log in with credentials.
-        if (session?.confirmedKiosk === true) {
+        if (!user || user.isAnonymous) {
+          const session = readGuestSession<GuestSession>();
+          // Only apply a guest session that has been confirmed by detectMode via backend.
+          // Unconfirmed / stale sessions are ignored — the user must log in with credentials.
+          if (session?.confirmedKiosk === true) {
+            setAuthResolved(true);
+            setState((prev) => ({
+              ...prev,
+              loading: false,
+              firebaseUser: user,
+              role: session.role,
+              section: session.section || null,
+              operario: session.operario,
+              operarioId: session.operarioId,
+              assignedShelf: session.assignedShelf || prev.assignedShelf,
+              kioskId: session.kioskId || prev.kioskId,
+              displayName: session.displayName || session.operario?.name || '',
+              isKioskSession: true,
+              authMethod: 'guest',
+              error: null,
+            }));
+            return;
+          }
+
+          // No user yet: trigger anonymous sign-in so Firestore reads and Cloud
+          // Functions get an auth token. CRUCIAL: do NOT mark auth as resolved here —
+          // wait for onAuthStateChanged to re-fire with the anonymous user, so that
+          // detectMode runs WITH a valid token. resolveDeviceConfig throws
+          // 'unauthenticated' without it, which previously left fresh kiosks stuck on
+          // the login screen until a manual reload (race: detectMode ran before the
+          // anonymous sign-in completed and never re-ran).
+          if (!user) {
+            try {
+              await signInAnonymously(auth);
+              return; // re-fires onAuthStateChanged with the anonymous user
+            } catch {
+              // Anonymous auth disabled: fall through and mark resolved so the app
+              // can degrade to the login screen.
+            }
+          }
+
           setAuthResolved(true);
           setState((prev) => ({
             ...prev,
             loading: false,
             firebaseUser: user,
-            role: session.role,
-            section: session.section || null,
-            operario: session.operario,
-            operarioId: session.operarioId,
-            assignedShelf: session.assignedShelf || prev.assignedShelf,
-            kioskId: session.kioskId || prev.kioskId,
-            displayName: session.displayName || session.operario?.name || '',
-            isKioskSession: true,
-            authMethod: 'guest',
+            role: null,
+            section: null,
+            displayName: '',
+            isKioskSession: false,
+            authMethod: null,
             error: null,
           }));
           return;
         }
 
-        // No user yet: trigger anonymous sign-in so Firestore reads and Cloud
-        // Functions get an auth token. CRUCIAL: do NOT mark auth as resolved here —
-        // wait for onAuthStateChanged to re-fire with the anonymous user, so that
-        // detectMode runs WITH a valid token. resolveDeviceConfig throws
-        // 'unauthenticated' without it, which previously left fresh kiosks stuck on
-        // the login screen until a manual reload (race: detectMode ran before the
-        // anonymous sign-in completed and never re-ran).
-        if (!user) {
-          try {
-            await signInAnonymously(auth);
-            return; // re-fires onAuthStateChanged with the anonymous user
-          } catch {
-            // Anonymous auth disabled: fall through and mark resolved so the app
-            // can degrade to the login screen.
-          }
+        setAuthResolved(true);
+        const userData = await resolveUserProfile(user);
+
+        // If Firestore returned nothing (cold cache + offline), fall back to localStorage cache
+        const cachedForThisUser = initialAuthCache?.uid === user.uid ? initialAuthCache : null;
+        const resolvedRole = userData?.role || cachedForThisUser?.role || null;
+        const resolvedSection = normalizeLegacySection(userData?.section || cachedForThisUser?.section || null);
+        const resolvedDisplayName = userData?.displayName || cachedForThisUser?.displayName || user.email || '';
+
+        // Update cache whenever we have a good profile (online or Firestore cached)
+        if (resolvedRole) {
+          setState((prev) => {
+            writeAuthResolvedCache({
+              uid: user.uid,
+              role: resolvedRole,
+              section: resolvedSection,
+              displayName: resolvedDisplayName,
+              email: user.email || '',
+              deviceMode: prev.deviceMode || 'admin',
+            });
+            return prev;
+          });
         }
 
-        setAuthResolved(true);
+        const emailAssignedShelf = resolveAssignedShelfForRole(resolvedRole, resolvedSection);
+
         setState((prev) => ({
           ...prev,
           loading: false,
           firebaseUser: user,
-          role: null,
-          section: null,
-          displayName: '',
+          role: resolvedRole,
+          section: resolvedSection,
+          displayName: resolvedDisplayName,
+          email: user.email,
           isKioskSession: false,
-          authMethod: null,
-          error: null,
+          authMethod: 'email',
+          assignedShelf: emailAssignedShelf ?? prev.assignedShelf,
+          error: resolvedRole ? null : 'Usuario no configurado',
         }));
-        return;
-      }
-
-      setAuthResolved(true);
-      const userData = await resolveUserProfile(user);
-
-      // If Firestore returned nothing (cold cache + offline), fall back to localStorage cache
-      const cachedForThisUser = initialAuthCache?.uid === user.uid ? initialAuthCache : null;
-      const resolvedRole = userData?.role || cachedForThisUser?.role || null;
-      const resolvedSection = normalizeLegacySection(userData?.section || cachedForThisUser?.section || null);
-      const resolvedDisplayName = userData?.displayName || cachedForThisUser?.displayName || user.email || '';
-
-      // Update cache whenever we have a good profile (online or Firestore cached)
-      if (resolvedRole) {
-        setState((prev) => {
-          writeAuthResolvedCache({
-            uid: user.uid,
-            role: resolvedRole,
-            section: resolvedSection,
-            displayName: resolvedDisplayName,
-            email: user.email || '',
-            deviceMode: prev.deviceMode || 'admin',
-          });
-          return prev;
-        });
-      }
-
-      const emailAssignedShelf = resolveAssignedShelfForRole(resolvedRole, resolvedSection);
-
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        firebaseUser: user,
-        role: resolvedRole,
-        section: resolvedSection,
-        displayName: resolvedDisplayName,
-        email: user.email,
-        isKioskSession: false,
-        authMethod: 'email',
-        assignedShelf: emailAssignedShelf ?? prev.assignedShelf,
-        error: resolvedRole ? null : 'Usuario no configurado',
-      }));
     });
 
     return () => unsubscribe();
@@ -496,6 +546,9 @@ export const useAuth = () => {
         // no-op if there is no Firebase session
       }
 
+      // Asegurar persistencia local antes de auth anónima
+      await setPersistence(auth, browserLocalPersistence);
+
       // Try Firebase Anonymous Auth, but allow fallback to localStorage-only guest session
       try {
         await signInAnonymouslyWithRetry();
@@ -540,18 +593,16 @@ export const useAuth = () => {
     }
   }, [state.kioskId]);
 
-  const loginWithEmail = useCallback(async (email: string, password: string, rememberMe: boolean = false) => {
+  const loginWithEmail = useCallback(async (email: string, password: string, _rememberMe: boolean = true) => {
     setState((prev) => ({ ...prev, loading: true }));
     try {
       clearAllSessionData();
 
-      // Establecer persistencia según rememberMe
-      await setPersistence(
-        auth,
-        rememberMe ? browserLocalPersistence : browserSessionPersistence
-      );
+      // Siempre persistir localmente — entorno industrial no puede perder sesión del trabajador
+      // El parámetro _rememberMe se ignora (siempre true) por compatibilidad
+      await setPersistence(auth, browserLocalPersistence);
 
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithFlexiblePassword(auth, email, password);
       // onAuthStateChanged will fire and set authMethod: 'email'
       return true;
     } catch (e: any) {

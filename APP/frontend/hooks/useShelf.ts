@@ -41,8 +41,8 @@ export interface UseShelfReturn {
   error: string | null;
   shelfCode: string;
   shelfDef: Shelf | undefined;
-  ubicar: (articleCode: string, orderFab: string, position: string, operarioId: string, operarioName: string) => Promise<boolean>;
-  ubicarMulti: (articleCode: string, orderFab: string, positions: string[], operarioId: string, operarioName: string, importe?: number, cantidad?: number) => Promise<boolean>;
+  ubicar: (articleCode: string, orderFab: string, position: string, operarioId: string, operarioName: string, subcontratacion?: boolean) => Promise<boolean>;
+  ubicarMulti: (articleCode: string, orderFab: string, positions: string[], operarioId: string, operarioName: string, importe?: number, cantidad?: number, subcontratacion?: boolean) => Promise<boolean>;
   retirar: (articleCode: string, orderFab: string, operarioId: string, operarioName: string) => Promise<{ success: boolean; positions: string[]; error?: string }>;
   retirarDeUbicacion: (articleCode: string, orderFab: string, position: string, operarioId: string, operarioName: string, presenceId?: string) => Promise<{ success: boolean; position: string; error?: string }>;
   mover: (articleCode: string, orderFab: string, newPositions: string[], operarioId: string, operarioName: string) => Promise<boolean>;
@@ -70,11 +70,17 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
       setError('No hay una sesion activa para esta operacion.');
       return { ok: false, session };
     }
-    if (!canAccessShelf({ role: session.role, assignedShelf: session.assignedShelf, section: session.section }, shelfCode)) {
+    const permCtx = {
+      role: session.role,
+      assignedShelf: session.assignedShelf,
+      section: session.section,
+      allowedShelves: session.allowedShelves,
+    };
+    if (!canAccessShelf(permCtx, shelfCode)) {
       setError(`La sesion ${session.role} no puede acceder a la estanteria ${shelfCode}.`);
       return { ok: false, session };
     }
-    if (purpose === 'operate' && !canOperateShelf({ role: session.role, assignedShelf: session.assignedShelf, section: session.section }, shelfCode)) {
+    if (purpose === 'operate' && !canOperateShelf(permCtx, shelfCode)) {
       setError(`La sesion ${session.role} no puede operar sobre la estanteria ${shelfCode}.`);
       return { ok: false, session };
     }
@@ -115,6 +121,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
             isEmpty: data.isEmpty ?? (data.items?.length === 0),
             locationId: getLocationDocId(code, data.position || docSnap.id),
             nota: data.nota,
+            photos: data.photos,
           });
         });
         return out;
@@ -180,6 +187,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
             isEmpty: data.isEmpty ?? (data.items?.length === 0),
             locationId: getLocationDocId(shelfCode, data.position || docSnap.id),
             nota: data.nota,
+            photos: data.photos,
           });
         });
         locs.sort((a, b) => {
@@ -224,6 +232,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     position: string,
     operarioId: string,
     operarioName: string,
+    subcontratacion?: boolean,
   ): Promise<boolean> => {
     // Keep a DEEP COPY snapshot of current locations for rollback
     // Critical: must be deep copy to prevent mutations when snapshot arrives
@@ -240,23 +249,24 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
         setError('Codigo de articulo es obligatorio para ubicar.');
         return false;
       }
-      // CALIDAD (CAL): Permite ubicar sin OF en cualquier posición
+      // CALIDAD (CAL): Permite ubicar sin OF en cualquier posición.
+      // SUBCONTRATACIÓN: el código amarillo es el único identificador (sin OF).
       const isCalidadShelf = targetShelf === 'CAL';
-      if (!orderFab.trim() && !isCalidadShelf) {
+      if (!orderFab.trim() && !isCalidadShelf && !subcontratacion) {
         setError('OF (Orden de Fabricación) es obligatoria para ubicar.');
         return false;
       }
       const session = getOperationalSession();
       if (!navigator.onLine) {
-        enqueueOfflineOperation('UBICAR', { shelfCode: targetShelf, articleCode, orderFab, position, operarioId, operarioName }, session);
+        enqueueOfflineOperation('UBICAR', { shelfCode: targetShelf, articleCode, orderFab, position, operarioId, operarioName, subcontratacion }, session);
         // Offline: apply optimistic update since onSnapshot won't fire
-        setLocations((prev) => applyUbicar(prev, targetShelf, articleCode, orderFab, position, operarioId, operarioName));
+        setLocations((prev) => applyUbicar(prev, targetShelf, articleCode, orderFab, position, operarioId, operarioName, undefined, undefined, undefined, subcontratacion));
         return true;
       }
 
       // Online: NO optimistic update — onSnapshot fires automatically and is the single source of truth.
       // Applying a manual setLocations here would add the item twice (once optimistically, once from snapshot).
-      const ubicarResult = await inventoryApi.ubicar({ shelfCode: targetShelf, articleCode, orderFab, position, operarioId, operarioName }, session);
+      const ubicarResult = await inventoryApi.ubicar({ shelfCode: targetShelf, articleCode, orderFab, position, operarioId, operarioName, ...(subcontratacion ? { subcontratacion: true } : {}) }, session);
       if (!ubicarResult?.ok) {
         throw new Error(`Fallo al guardar artículo en Firestore: ${ubicarResult?.ok === false ? 'backend rechazó la operación' : 'sin respuesta del servidor'}`);
       }
@@ -278,6 +288,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     operarioName: string,
     importe?: number,
     cantidad?: number,
+    subcontratacion?: boolean,
   ): Promise<boolean> => {
     const previousLocations = JSON.parse(JSON.stringify(locations));
     try {
@@ -301,9 +312,9 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
 
       if (!navigator.onLine) {
         Object.entries(positionsByShelf).forEach(([s, ps]) => {
-          enqueueOfflineOperation('UBICAR_MULTI', { shelfCode: s, articleCode, orderFab, positions: ps, operarioId, operarioName, importe, cantidad }, session);
+          enqueueOfflineOperation('UBICAR_MULTI', { shelfCode: s, articleCode, orderFab, positions: ps, operarioId, operarioName, importe, cantidad, subcontratacion }, session);
           // Offline: apply optimistic update since onSnapshot won't fire
-          setLocations((prev) => applyUbicarMulti(prev, s, articleCode, orderFab, ps, operarioId, operarioName, importe, cantidad));
+          setLocations((prev) => applyUbicarMulti(prev, s, articleCode, orderFab, ps, operarioId, operarioName, importe, cantidad, undefined, subcontratacion));
         });
         return true;
       }
@@ -311,7 +322,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
       // Online: NO optimistic update — onSnapshot fires automatically and is the single source of truth.
       // Applying setLocations here would add items twice (once optimistically, once from snapshot).
       for (const [s, ps] of Object.entries(positionsByShelf)) {
-        const ubicarMultiResult = await inventoryApi.ubicarMulti({ shelfCode: s, articleCode, orderFab, positions: ps, operarioId, operarioName, importe, cantidad }, session);
+        const ubicarMultiResult = await inventoryApi.ubicarMulti({ shelfCode: s, articleCode, orderFab, positions: ps, operarioId, operarioName, importe, cantidad, ...(subcontratacion ? { subcontratacion: true } : {}) }, session);
         if (!ubicarMultiResult?.ok) {
           throw new Error(`Fallo al ubicar múltiple en ${s}: ${ubicarMultiResult?.ok === false ? 'backend rechazó la operación' : 'sin respuesta del servidor'}`);
         }
@@ -448,8 +459,10 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
         setError('Articulo no encontrado o ya retirado');
         return false;
       }
-      if (activePresences.length !== normalizedPositions.length) {
-        setError('El numero de huecos destino no coincide con las presencias activas del articulo.');
+      // Destinos válidos: tantos como presencias (1:1) o UN único destino,
+      // que apila todas las presencias en la misma posición.
+      if (activePresences.length !== normalizedPositions.length && normalizedPositions.length !== 1) {
+        setError('Selecciona un hueco por presencia activa, o un único hueco para apilarlas todas.');
         return false;
       }
       const session = getOperationalSession();

@@ -13,7 +13,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { createWorker } from 'tesseract.js';
 import { generateOcrVariants, cropHalfCanvas, preprocessSingleLine, measureSharpnessLive, waitForVideoReady } from '../../lib/ocrPreprocess';
-import { parseScanInputLenient, parseScanFromLines } from '../../lib/qrParser';
+import { parseScanInputLenient, parseScanFromLines, parseHojaDeRuta } from '../../lib/qrParser';
 import { recognizeImage } from '../../lib/api/ocrApi';
 import { runPremiumOcr, cleanOcrText, analyzeIllumination } from '../../lib/ocrPremium';
 
@@ -21,6 +21,12 @@ interface CameraOCRScannerProps {
   onResult: (text: string) => void;
   onError?: (error: string) => void;
   onClose: () => void;
+  /**
+   * 'subcontratacion': la etiqueta sólo tiene un código (subrayado en amarillo,
+   * arriba del todo). No se intenta separar Artículo/OF: se devuelve la línea
+   * superior como código único.
+   */
+  mode?: 'normal' | 'subcontratacion';
 }
 
 type Phase = 'starting' | 'live' | 'processing' | 'review' | 'error';
@@ -136,7 +142,8 @@ async function runTesseractFallback(
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, onClose }) => {
+const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, onClose, mode = 'normal' }) => {
+  const isSubcontratacion = mode === 'subcontratacion';
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -149,6 +156,12 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
   const [progressLabel, setProgressLabel] = useState('');
   const [capturedDataUrl, setCapturedDataUrl] = useState<string | null>(null);
   const [ocrText, setOcrText] = useState('');
+  const [rawOcrText, setRawOcrText] = useState('');
+  // Revisión estructurada: cuando el parseo tiene éxito, el operario ve y edita
+  // Artículo y OF como campos separados (en vez de un textarea de texto libre).
+  const [parsedOk, setParsedOk] = useState(false);
+  const [fieldArticle, setFieldArticle] = useState('');
+  const [fieldOF, setFieldOF] = useState('');
   const [ocrConfidence, setOcrConfidence] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [workerReady, setWorkerReady] = useState(false);
@@ -325,16 +338,49 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
       }
 
       // Parsear y formatear el texto reconocido antes de mostrarlo al usuario.
-      // 1º: por líneas (OF + artículo de la línea inferior) — evita una 2ª foto.
-      // 2º: parser lenient sobre el texto completo. 3º: texto crudo (foto manual).
+      // 1º: parser de Hoja de Ruta Solmicro (etiquetas "O.F. Nº" / "Artículo",
+      //     votación por frecuencia, ignora "Histórico OFs") — el caso real del taller.
+      // 2º: por líneas (OF + artículo de la línea inferior) — etiquetas antiguas.
+      // 3º: parser lenient sobre el texto completo. 4º: texto crudo (foto manual).
+      // SUBCONTRATACIÓN: la etiqueta sólo tiene un código (subrayado en amarillo,
+      // siempre arriba del todo). Cloud Vision devuelve las líneas en orden de
+      // lectura, así que la línea superior es ese código. No se separa Artículo/OF.
+      if (isSubcontratacion) {
+        const topLine = (bestLines[0] || bestText.split('\n')[0] || bestText).trim();
+        const code = cleanOcrText(topLine).trim();
+        setProgress(100);
+        setParsedOk(false);
+        setFieldArticle('');
+        setFieldOF('');
+        setOcrText(code);
+        setRawOcrText(bestText);
+        setOcrConfidence(Math.round(bestConfidence));
+        setPhase('review');
+        return;
+      }
+
+      const candidateLines = bestLines.length > 0 ? bestLines : (bestText ? [bestText] : []);
+      const hojaParse = candidateLines.length > 0 ? parseHojaDeRuta(candidateLines) : null;
       const lineParse = bestLines.length > 0 ? parseScanFromLines(bestLines) : null;
-      const parseResult = lineParse && lineParse.success ? lineParse : parseScanInputLenient(bestText);
-      const displayText = parseResult.success
-        ? `${parseResult.data.articleCode} // ${parseResult.data.orderFab}`
-        : bestText;
+      const parseResult = hojaParse && hojaParse.success
+        ? hojaParse
+        : lineParse && lineParse.success
+        ? lineParse
+        : parseScanInputLenient(bestText);
 
       setProgress(100);
-      setOcrText(displayText);
+      if (parseResult.success) {
+        setFieldArticle(parseResult.data.articleCode);
+        setFieldOF(parseResult.data.orderFab);
+        setParsedOk(true);
+        setOcrText(`${parseResult.data.articleCode} // ${parseResult.data.orderFab}`);
+      } else {
+        setFieldArticle('');
+        setFieldOF('');
+        setParsedOk(false);
+        setOcrText(bestText);
+      }
+      setRawOcrText(bestText);
       setOcrConfidence(Math.round(bestConfidence));
       setPhase('review');
 
@@ -361,17 +407,26 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
   const handleRetry = useCallback(() => {
     setCapturedDataUrl(null);
     setOcrText('');
+    setRawOcrText('');
+    setParsedOk(false);
+    setFieldArticle('');
+    setFieldOF('');
     setErrorMsg(null);
     setOcrConfidence(0);
     startCamera();
   }, [startCamera]);
 
+  const canConfirm = parsedOk ? !!(fieldArticle.trim() && fieldOF.trim()) : !!ocrText.trim();
+
   const handleConfirm = useCallback(() => {
-    const trimmed = ocrText.trim();
+    const trimmed = parsedOk
+      ? `${fieldArticle.trim()} // ${fieldOF.trim()}`
+      : ocrText.trim();
+    if (parsedOk && (!fieldArticle.trim() || !fieldOF.trim())) return;
     if (!trimmed) return;
     stopStream();
     onResult(trimmed);
-  }, [ocrText, stopStream, onResult]);
+  }, [parsedOk, fieldArticle, fieldOF, ocrText, stopStream, onResult]);
 
   // ─── Indicador de nitidez ─────────────────────────────────────────────────
   const sharpLabel = sharpness >= 55 ? { text: 'Nítido', color: 'text-emerald-400', dot: 'bg-emerald-400' }
@@ -513,7 +568,9 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
             )}
             <div className="flex-1 px-4 pb-4">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-slate-400 text-xs uppercase tracking-widest">Texto reconocido — edita si es necesario</p>
+                <p className="text-slate-400 text-xs uppercase tracking-widest">
+                  {isSubcontratacion ? 'Código de subcontratación — verifica y confirma' : parsedOk ? 'Datos detectados — verifica y confirma' : 'Texto reconocido — edita si es necesario'}
+                </p>
                 {ocrConfidence > 0 && (
                   <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                     ocrConfidence >= CONFIDENCE_THRESHOLD
@@ -526,21 +583,60 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
                   </span>
                 )}
               </div>
-              <textarea
-                value={ocrText}
-                onChange={(e) => setOcrText(e.target.value)}
-                rows={6}
-                placeholder="(sin texto detectado)"
-                className="w-full bg-slate-800 text-white text-base border border-slate-600 focus:border-cyan-500 focus:outline-none rounded-xl p-3 resize-none font-mono"
-                autoFocus
-                inputMode="text"
-                enterKeyHint="done"
-              />
-              {!ocrText.trim() && (
-                <p className="text-amber-400 text-xs mt-2">No se detectó texto. Intenta acercar la etiqueta y evitar reflejos.</p>
-              )}
-              {ocrText.trim() && ocrConfidence > 0 && ocrConfidence < 45 && (
-                <p className="text-amber-400 text-xs mt-2">⚠ Confianza baja ({ocrConfidence}%) — verifica el texto antes de confirmar.</p>
+
+              {parsedOk ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-cyan-400 text-xs font-bold uppercase tracking-widest mb-1">Artículo</label>
+                    <input
+                      type="text"
+                      value={fieldArticle}
+                      onChange={(e) => setFieldArticle(e.target.value.toUpperCase())}
+                      className="w-full bg-slate-800 text-white text-2xl font-mono font-bold tracking-wider border border-slate-600 focus:border-cyan-500 focus:outline-none rounded-xl p-3 text-center"
+                      inputMode="text"
+                      enterKeyHint="next"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-cyan-400 text-xs font-bold uppercase tracking-widest mb-1">Orden de fabricación</label>
+                    <input
+                      type="text"
+                      value={fieldOF}
+                      onChange={(e) => setFieldOF(e.target.value.toUpperCase())}
+                      className="w-full bg-slate-800 text-white text-2xl font-mono font-bold tracking-wider border border-slate-600 focus:border-cyan-500 focus:outline-none rounded-xl p-3 text-center"
+                      inputMode="text"
+                      enterKeyHint="done"
+                    />
+                  </div>
+                  {fieldOF.trim() && !/^OF\d{2}-\d{3,}$/i.test(fieldOF.trim()) && (
+                    <p className="text-amber-400 text-xs">⚠ La OF no tiene el formato habitual OFxx-nnnnn — revísala.</p>
+                  )}
+                  {rawOcrText && (
+                    <details className="text-slate-500 text-xs">
+                      <summary className="cursor-pointer">Ver texto OCR completo</summary>
+                      <p className="mt-1 font-mono whitespace-pre-wrap break-all">{rawOcrText}</p>
+                    </details>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <textarea
+                    value={ocrText}
+                    onChange={(e) => setOcrText(e.target.value)}
+                    rows={6}
+                    placeholder="(sin texto detectado)"
+                    className="w-full bg-slate-800 text-white text-base border border-slate-600 focus:border-cyan-500 focus:outline-none rounded-xl p-3 resize-none font-mono"
+                    autoFocus
+                    inputMode="text"
+                    enterKeyHint="done"
+                  />
+                  {!ocrText.trim() && (
+                    <p className="text-amber-400 text-xs mt-2">No se detectó texto. Intenta acercar la etiqueta y evitar reflejos.</p>
+                  )}
+                  {ocrText.trim() && ocrConfidence > 0 && ocrConfidence < 45 && (
+                    <p className="text-amber-400 text-xs mt-2">⚠ Confianza baja ({ocrConfidence}%) — verifica el texto antes de confirmar.</p>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -604,11 +700,11 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
               className="flex-1 max-w-[140px] py-3 bg-slate-700 text-white rounded-xl font-bold hover:bg-slate-600 transition-colors text-sm">
               🔄 Reintentar
             </button>
-            <button onClick={handleConfirm} disabled={!ocrText.trim()}
+            <button onClick={handleConfirm} disabled={!canConfirm}
               className={`flex-1 max-w-[200px] py-3 rounded-xl font-bold transition-colors text-sm ${
-                ocrText.trim() ? 'bg-emerald-600 text-white hover:bg-emerald-500' : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                canConfirm ? 'bg-emerald-600 text-white hover:bg-emerald-500' : 'bg-slate-700 text-slate-500 cursor-not-allowed'
               }`}>
-              ✅ Confirmar texto
+              {parsedOk ? '✅ Confirmar datos' : '✅ Confirmar texto'}
             </button>
           </>
         )}

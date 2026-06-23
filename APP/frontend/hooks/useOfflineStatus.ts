@@ -28,19 +28,21 @@ export const useOfflineStatus = () => {
       setIsOnline(true);
       setLastOnlineAt(new Date());
       if (!navigator.onLine) return;
-      // Show recovery notification briefly
+      // Mostrar notificación de recuperación hasta que la sincronización esté completa
       setWasOffline(true);
-      setTimeout(() => setWasOffline(false), 5000);
-      void drainOfflineQueue();
+      void drainOfflineQueue().then(() => {
+        // Mantener visible por 3 segundos después de que la sincronización termine
+        setTimeout(() => setWasOffline(false), 3000);
+      });
     };
-    
+
     const handleOffline = () => {
       setIsOnline(false);
     };
-    
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);

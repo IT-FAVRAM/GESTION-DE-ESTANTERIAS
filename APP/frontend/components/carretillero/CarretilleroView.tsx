@@ -8,31 +8,45 @@
  * reimplementaba el flujo de forma divergente respecto al kiosko.
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { usePickupQueue } from '../../hooks/usePickupQueue';
 import PickupQueue from './PickupQueue';
+import IncomingRequestModal from './IncomingRequestModal';
 import CarrosView from './CarrosView';
 import { SHELF_DEFINITIONS, SECTION_DISPLAY_NAMES } from '../../lib/firestoreSchema';
-import { buildOperativeConfig } from '../../lib/operative/operativeConfig';
+import { buildOperativeConfig, canUseScanTray } from '../../lib/operative/operativeConfig';
 import { useOperativeShelf } from '../../hooks/useOperativeShelf';
 import OperativeShelfArea from '../operative/OperativeShelfArea';
 import OperativeActionButtons from '../operative/OperativeActionButtons';
+import OperativeActionBar from '../operative/OperativeActionBar';
+import AppHeader from '../common/AppHeader';
+import { useFormFactor } from '../../hooks/useFormFactor';
 
-type CarretilleroTab = 'shelves' | 'pickups' | 'carts';
+const ChaperoView = React.lazy(() => import('../chapero/ChaperoView'));
+
+type CarretilleroTab = 'shelves' | 'pickups' | 'carts' | 'chapero';
 
 interface CarretilleroViewProps {
   onBack?: () => void;
   initialTab?: CarretilleroTab;
+  chatButton?: React.ReactNode;
 }
 
-const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab = 'shelves' }) => {
-  const { role, displayName, operarioId, firebaseUser, logout } = useAuth();
+const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab = 'shelves', chatButton }) => {
+  const { role, displayName, operarioId, firebaseUser, email, logout } = useAuth();
   const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? '';
-  const { pendingCount } = usePickupQueue();
+  const { pendingCount, myUnacknowledged, acknowledgeRequest } = usePickupQueue();
+
+  const formFactor = useFormFactor();
+  const isTouch = formFactor !== 'desktop';
 
   const [activeTab, setActiveTab] = useState<CarretilleroTab>(initialTab);
-  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
+  // Sidebar abierto por defecto solo en escritorio. Reacciona a la rotación del
+  // tablet / cambios de tamaño (antes se fijaba solo al montar y al girar el
+  // iPad quedaba en estado incorrecto).
+  const [sidebarOpen, setSidebarOpen] = useState(formFactor === 'desktop');
+  useEffect(() => { setSidebarOpen(formFactor === 'desktop'); }, [formFactor]);
   const [selectedShelf, setSelectedShelf] = useState<string>(SHELF_DEFINITIONS[0]?.code ?? 'PRE');
 
   const effectiveRole = role ?? 'CARRETILLERO';
@@ -41,12 +55,19 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
     [effectiveRole, selectedShelf],
   );
 
+  // Bandeja de escaneo (scan-first): solo carretillero + superadmins por email (§7).
+  const enableScanTray = useMemo(
+    () => canUseScanTray(effectiveRole, email ?? firebaseUser?.email),
+    [effectiveRole, email, firebaseUser],
+  );
+
   const engine = useOperativeShelf({
     config,
     shelfCode: selectedShelf,
     setShelfCode: setSelectedShelf,
     operarioId: effectiveOperarioId,
     displayName,
+    enableScanTray,
   });
 
   const isIdle = engine.action === 'idle';
@@ -60,49 +81,44 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
     setActiveTab('shelves');
   };
 
+  const openChapero = () => {
+    if (!isIdle) engine.cancelAction();
+    setActiveTab('chapero');
+  };
+
   return (
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
-      {/* Header — responsive: una línea en escritorio, dos en móvil */}
-      <header className="flex-shrink-0 bg-white border-b border-slate-200 px-2 sm:px-3 py-1 sm:py-2 shadow-sm">
-        {/* Línea 1: Título + Info */}
-        <div className="flex items-center justify-between gap-1 sm:gap-2 min-h-10">
-          <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-shrink-0">
-            <span className="text-lg sm:text-xl flex-shrink-0">🚚</span>
-            <div className="min-w-0">
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-none truncate">
-                {engine.shelfDef?.name || titleByRole}
-              </h1>
-              <p className="text-[8px] sm:text-[10px] text-slate-500 truncate leading-none mt-0.5">{displayName} · {operarioId}</p>
-            </div>
-          </div>
-
-          {/* Botones derechos (RECOGIDAS + Salir) */}
-          <div className="flex gap-0.5 sm:gap-1 flex-shrink-0">
-            {effectiveRole === 'CARRETILLERO' && (
-              <button onClick={() => {
-                if (!isIdle) engine.cancelAction();
-                setActiveTab(activeTab === 'pickups' ? 'shelves' : 'pickups');
-              }}
-                className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-[9px] sm:text-[11px] font-bold rounded-lg transition-all whitespace-nowrap ${
-                  activeTab === 'pickups' ? 'bg-orange-500 text-white shadow-md' : 'bg-orange-100 text-orange-700'
-                }`}>
-                📦 REC{pendingCount > 0 && <span className="ml-0.5 font-black">({pendingCount})</span>}
-              </button>
-            )}
-            <button onClick={onBack ? onBack : logout}
-              className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-[9px] sm:text-[11px] font-bold bg-slate-100 text-slate-700 rounded-lg whitespace-nowrap">
-              {onBack ? '‹' : '⏚'}
-            </button>
-          </div>
-        </div>
-
-        {/* Línea 2: Botones de acciones */}
-        {activeTab === 'shelves' && (
-          <div className="flex items-center justify-center pt-1 mt-0.5 border-t border-slate-100 flex-wrap gap-0.5">
+      {/* Header — cabecera única compartida (AppHeader) */}
+      <AppHeader
+        icon="🚚"
+        title={engine.shelfDef?.name || titleByRole}
+        subtitle={`${displayName} · ${operarioId}`}
+        chatButton={chatButton}
+        right={effectiveRole === 'CARRETILLERO' ? (
+          <button onClick={() => {
+            if (!isIdle) engine.cancelAction();
+            setActiveTab(activeTab === 'pickups' ? 'shelves' : 'pickups');
+          }}
+            className={`font-bold rounded-lg transition-all whitespace-nowrap flex items-center justify-center ${
+              isTouch ? 'min-h-11 px-3 text-sm' : 'px-2 py-1 text-[11px]'
+            } ${
+              activeTab === 'pickups' ? 'bg-orange-500 text-white shadow-md' : 'bg-orange-100 text-orange-700'
+            }`}>
+            📦 REC{pendingCount > 0 && <span className="ml-0.5 font-black">({pendingCount})</span>}
+          </button>
+        ) : undefined}
+        onBack={onBack}
+        onLogout={logout}
+        secondRow={(activeTab === 'shelves' && !isTouch) ? (
+          <div className="flex items-center justify-center flex-wrap gap-0.5">
             <OperativeActionButtons engine={engine} config={config} size="compact" />
           </div>
-        )}
-      </header>
+        ) : activeTab === 'chapero' ? (
+          <div className="text-center">
+            <span className="text-[11px] font-black uppercase text-slate-500 tracking-widest">Modo Chapero activo</span>
+          </div>
+        ) : undefined}
+      />
 
       {/* Contenido */}
       <main className="flex-1 min-h-0 min-w-0 w-full overflow-hidden flex flex-row">
@@ -122,10 +138,14 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
                   const seen = new Set<string>();
                   const sections = SHELF_DEFINITIONS
                     .map((s) => s.section)
-                    .filter((sec) => { if (seen.has(sec)) return false; seen.add(sec); return true; });
+                    .filter((sec) => {
+                      if (seen.has(sec)) return false;
+                      seen.add(sec);
+                      return true;
+                    });
                   return sections.map((sec) => (
                     <React.Fragment key={sec}>
-                      <p className="px-3 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                      <p className="px-3 pt-3 pb-1 text-[11px] font-black uppercase tracking-widest text-slate-500">
                         {SECTION_DISPLAY_NAMES[sec] ?? sec}
                       </p>
                       {SHELF_DEFINITIONS.filter((s) => s.section === sec).map((shelf) => (
@@ -145,7 +165,16 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
               </div>
 
               <div className="flex-shrink-0 border-t border-slate-300 pb-2">
-                <p className="px-3 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">Carros</p>
+                <p className="px-3 pt-3 pb-1 text-[11px] font-black uppercase tracking-widest text-slate-500">Chapero</p>
+                <button onClick={openChapero}
+                  className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${
+                    activeTab === 'chapero' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-200'
+                  }`}>
+                  🔩 Chapero
+                </button>
+              </div>
+              <div className="flex-shrink-0 border-t border-slate-300 pb-2">
+                <p className="px-3 pt-3 pb-1 text-[11px] font-black uppercase tracking-widest text-slate-500">Carros</p>
                 <button onClick={() => setActiveTab('carts')}
                   className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${
                     activeTab === 'carts' ? 'bg-emerald-500 text-white' : 'text-slate-600 hover:bg-slate-200'
@@ -160,16 +189,29 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
         {/* Área principal */}
         <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
           {activeTab === 'shelves' ? (
-            <OperativeShelfArea engine={engine} config={config} setShelfCode={setSelectedShelf} fullscreenGrid />
+            <OperativeShelfArea engine={engine} config={config} setShelfCode={setSelectedShelf} fullscreenGrid userSection={null} />
           ) : activeTab === 'pickups' ? (
             <div className="h-full overflow-y-auto">
               <PickupQueue currentShelf={selectedShelf} />
             </div>
+          ) : activeTab === 'chapero' ? (
+            <Suspense fallback={<div className="flex items-center justify-center h-full text-slate-500 text-sm">Cargando chapero…</div>}>
+              <ChaperoView onClose={() => setActiveTab('shelves')} />
+            </Suspense>
           ) : (
             <CarrosView />
           )}
         </div>
       </main>
+
+      {isTouch && activeTab === 'shelves' && (
+        <OperativeActionBar engine={engine} config={config} />
+      )}
+
+      {/* Popup BLOQUEANTE: solicitudes asignadas a este carretillero sin confirmar */}
+      {effectiveRole === 'CARRETILLERO' && (
+        <IncomingRequestModal requests={myUnacknowledged} onAcknowledge={acknowledgeRequest} />
+      )}
     </div>
   );
 };

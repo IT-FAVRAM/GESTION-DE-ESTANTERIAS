@@ -14,7 +14,8 @@
 
 import React, { useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { CART_DEFINITIONS } from '../../lib/firestoreSchema';
+import { useDeviceConfig } from '../../hooks/useDeviceConfig';
+import { CART_DEFINITIONS, type WarehouseSection } from '../../lib/firestoreSchema';
 import { buildOperativeConfig } from '../../lib/operative/operativeConfig';
 import { useOperativeShelf } from '../../hooks/useOperativeShelf';
 import OperativeShelfArea from '../operative/OperativeShelfArea';
@@ -22,14 +23,28 @@ import OperativeActionButtons from '../operative/OperativeActionButtons';
 
 interface CarrosViewProps {
   onBack?: () => void;
+  section?: WarehouseSection;
 }
 
-const CarrosView: React.FC<CarrosViewProps> = ({ onBack }) => {
-  const { role, displayName, operarioId, firebaseUser } = useAuth();
+const CarrosView: React.FC<CarrosViewProps> = ({ onBack, section }) => {
+  const { role, displayName, operarioId, firebaseUser, deviceId } = useAuth();
+  const { excludedCarts } = useDeviceConfig(deviceId);
   const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? '';
 
-  const [selectedCart, setSelectedCart] = useState<string>(CART_DEFINITIONS[0]?.code ?? '');
-  const cartDef = CART_DEFINITIONS.find((c) => c.code === selectedCart);
+  // Filtrar carros por sección (si se especifica) y por exclusiones del dispositivo
+  const availableCarts = useMemo(() => {
+    let carts = CART_DEFINITIONS;
+    if (section) {
+      carts = carts.filter((c) => c.section === section);
+    }
+    if (excludedCarts.length > 0) {
+      carts = carts.filter((c) => !excludedCarts.includes(c.code));
+    }
+    return carts;
+  }, [section, excludedCarts]);
+
+  const [selectedCart, setSelectedCart] = useState<string>(availableCarts[0]?.code ?? '');
+  const cartDef = availableCarts.find((c) => c.code === selectedCart);
 
   const config = useMemo(
     () => buildOperativeConfig(role ?? 'CARRETILLERO', { currentShelfCode: selectedCart }),
@@ -78,7 +93,7 @@ const CarrosView: React.FC<CarrosViewProps> = ({ onBack }) => {
           🛒 Selecciona un carro
         </p>
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {CART_DEFINITIONS.map((cart) => (
+          {availableCarts.map((cart) => (
             <button
               key={cart.code}
               onClick={() => selectCart(cart.code)}
@@ -109,7 +124,7 @@ const CarrosView: React.FC<CarrosViewProps> = ({ onBack }) => {
       {/* Área operativa bloqueada al carro seleccionado */}
       <div className="flex-1 min-h-0 overflow-hidden">
         {selectedCart ? (
-          <OperativeShelfArea engine={engine} config={config} fullscreenGrid />
+          <OperativeShelfArea engine={engine} config={config} fullscreenGrid userSection={null} />
         ) : (
           <div className="flex items-center justify-center h-full text-slate-500">
             Selecciona un carro

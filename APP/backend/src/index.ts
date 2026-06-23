@@ -28,6 +28,7 @@ export {
   adminOperate,
   deviceHeartbeat,
   resolveDeviceConfig,
+  resolveLoginEmail,
   sendAdminMessage,
   setupUser,
 } from './admin';
@@ -73,9 +74,13 @@ export {
 } from './ocr';
 
 export {
-  telegramWebhook,
-} from './telegram/webhook';
+  countPieces,
+} from './pieceCounter';
 
 export {
-  telegramWeeklyReport,
-} from './telegram/report';
+  chaperoOperate,
+} from './chapero';
+
+export {
+  onLocationDeleted,
+} from './photos';

@@ -6,6 +6,10 @@ interface ScanMethodPickerProps {
   actionLabel: string;
   onSelect: (method: ScanMethod) => void;
   onBatch?: () => void;
+  /** MOVER: alternativa a escanear — abre la lista de artículos de la estantería. */
+  onSelectList?: () => void;
+  /** UBICAR (carretillero/admin): flujo de SUBCONTRATACIÓN (foto etiqueta o código manual). */
+  onSubcontratacion?: () => void;
   onClose: () => void;
 }
 
@@ -14,6 +18,8 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
   actionLabel,
   onSelect,
   onBatch,
+  onSelectList,
+  onSubcontratacion,
   onClose,
 }) => {
   if (!open) return null;
@@ -43,9 +49,9 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
             onClick={() => onSelect('barcode')}
             className="w-full rounded-xl border-2 border-blue-300 hover:border-blue-600 bg-blue-50 px-4 py-3 text-left transition-colors shadow-sm hover:shadow-md"
           >
-            <span className="font-bold text-blue-900">📱 Escanear Código QR</span>
+            <span className="font-bold text-blue-900">📷 Escanear código (QR / barras)</span>
             <span className="block text-xs text-blue-700/80 mt-0.5">
-              Lee el QR con tu dispositivo (Artículo + OF)
+              Lee el código con la cámara o la pistola (Artículo + OF)
             </span>
           </button>
 
@@ -72,6 +78,48 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
               Introduce el código del artículo a mano
             </span>
           </button>
+
+          {/* MOVER: seleccionar de la lista de artículos de la estantería */}
+          {onSelectList && (
+            <button
+              type="button"
+              onClick={onSelectList}
+              className="w-full rounded-xl border-2 border-amber-200 hover:border-amber-500 bg-amber-50 px-4 py-3 text-left transition-colors"
+            >
+              <span className="font-bold text-amber-900">📋 Seleccionar de lista</span>
+              <span className="block text-xs text-amber-700/80 mt-0.5">
+                Elige el artículo entre los ya ubicados en la estantería
+              </span>
+            </button>
+          )}
+
+          {/* Lote: varios artículos en las mismas posiciones */}
+          {onBatch && (
+            <button
+              type="button"
+              onClick={onBatch}
+              className="w-full rounded-xl border-2 border-cyan-200 hover:border-cyan-500 bg-cyan-50 px-4 py-3 text-left transition-colors"
+            >
+              <span className="font-bold text-cyan-900">📚 Varios artículos (lote)</span>
+              <span className="block text-xs text-cyan-700/80 mt-0.5">
+                Escanéalos uno tras otro y ubícalos juntos en las mismas posiciones
+              </span>
+            </button>
+          )}
+
+          {/* Subcontratación: foto de la etiqueta (código amarillo) o código manual */}
+          {onSubcontratacion && (
+            <button
+              type="button"
+              onClick={onSubcontratacion}
+              className="w-full rounded-xl border-2 border-orange-300 hover:border-orange-500 bg-orange-50 px-4 py-3 text-left transition-colors"
+            >
+              <span className="font-bold text-orange-900">🏭 Subcontratación</span>
+              <span className="block text-xs text-orange-700/80 mt-0.5">
+                Foto de la etiqueta (lee el código amarillo) o escríbelo a mano
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Información */}

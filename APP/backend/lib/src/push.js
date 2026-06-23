@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.notifyUsersByRole = exports.notifyUsersByEmails = exports.sendPushToUsers = exports.getAppConfig = exports.getUsersByRole = exports.getUsersByEmails = void 0;
+exports.notifyUserById = exports.notifyUsersByRole = exports.notifyUsersByEmails = exports.sendPushToUsers = exports.getAppConfig = exports.getUserById = exports.getUsersByRole = exports.getUsersByEmails = void 0;
 const firebaseAdmin_1 = require("./firebaseAdmin");
 const authz_1 = require("./authz");
 const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
@@ -26,6 +26,14 @@ const getUsersByRole = async (role) => {
     return snapshot.docs;
 };
 exports.getUsersByRole = getUsersByRole;
+const getUserById = async (uid) => {
+    const cleanUid = String(uid || '').trim();
+    if (!cleanUid)
+        return [];
+    const doc = await firebaseAdmin_1.admin.firestore().collection('usuarios').doc(cleanUid).get();
+    return doc.exists ? [doc] : [];
+};
+exports.getUserById = getUserById;
 const getAppConfig = async () => {
     const snapshot = await firebaseAdmin_1.admin.firestore().collection('config').doc('app').get();
     return snapshot.exists ? snapshot.data() || {} : {};
@@ -125,4 +133,6 @@ const notifyUsersByEmails = async (emails, payload) => (0, exports.sendPushToUse
 exports.notifyUsersByEmails = notifyUsersByEmails;
 const notifyUsersByRole = async (role, payload) => (0, exports.sendPushToUsers)(await (0, exports.getUsersByRole)(role), payload);
 exports.notifyUsersByRole = notifyUsersByRole;
+const notifyUserById = async (uid, payload) => (0, exports.sendPushToUsers)(await (0, exports.getUserById)(uid), payload);
+exports.notifyUserById = notifyUserById;
 //# sourceMappingURL=push.js.map

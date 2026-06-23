@@ -23,6 +23,8 @@ interface ShelfGridCellProps {
   isAluminio?: boolean;
   isSelected?: boolean;
   isHighlighted?: boolean;
+  /** "articleCode|orderFab" del artículo buscado, para resaltarlo más oscuro entre varios de la misma celda. */
+  highlightedItemKey?: string | null;
   isDragOver?: boolean;
   compact?: boolean;
   showReprocessCosts?: boolean;
@@ -53,6 +55,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
   isAluminio = false,
   isSelected = false,
   isHighlighted = false,
+  highlightedItemKey = null,
   isDragOver = false,
   compact = false,
   showReprocessCosts = false,
@@ -67,6 +70,8 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
   const displayNum = Number.isNaN(posNum) ? position : posNum.toString().padStart(3, '0');
   const itemCount = location?.items.length ?? 0;
   const isEmpty = itemCount === 0;
+  // SUBCONTRATACIÓN: celda ocupada por al menos un artículo subcontratado → amarillo.
+  const hasSubcontratacion = !isEmpty && (location?.items?.some((it) => it.subcontratacion) ?? false);
   const isReproces = isReprocesosLocation(shelfCode, posNum);
   const isDraggable = !isEmpty && !!onCellDragStart;
 
@@ -100,8 +105,9 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
       cardBase = 'bg-cyan-500/20 border-cyan-300/80 ring-2 ring-cyan-300/80 shadow-[0_10px_26px_rgba(34,211,238,0.22)]';
       headerText = 'text-cyan-50';
     } else if (isHighlighted) {
-      cardBase = 'bg-amber-400/20 border-amber-200/80 ring-2 ring-amber-200/80 shadow-[0_10px_26px_rgba(251,191,36,0.2)]';
-      headerText = 'text-amber-50';
+      // Resultado de búsqueda: celda resaltada en ROSA para localizarla de un vistazo.
+      cardBase = 'bg-pink-400/30 border-pink-300/90 ring-2 ring-pink-300/90 shadow-[0_10px_26px_rgba(244,114,182,0.3)]';
+      headerText = 'text-pink-50';
     } else if (isUrgent) {
       cardBase = isEmpty ? 'bg-red-950/75 border-red-400/55' : 'bg-red-950/90 border-red-300/65';
       headerText = 'text-red-100';
@@ -114,6 +120,10 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
     } else if (isReproces) {
       cardBase = isEmpty ? 'bg-purple-950/60 border-purple-400/40' : 'bg-purple-950/85 border-purple-300/55';
       headerText = 'text-purple-100';
+    } else if (hasSubcontratacion) {
+      // Mismo color que el botón "Subcontratación" del flujo de ubicar (naranja).
+      cardBase = 'bg-orange-400/30 border-orange-300/85 ring-2 ring-orange-300/75 shadow-[0_10px_26px_rgba(251,146,60,0.24)]';
+      headerText = 'text-orange-50';
     } else if (!isEmpty) {
       cardBase = 'bg-slate-800/95 border-cyan-400/35 shadow-[0_0_16px_rgba(34,211,238,0.08)]';
       headerText = 'text-white';
@@ -128,7 +138,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
         onClick={handleClick}
         title={`${shelfCode} ${displayNum}${isEmpty ? ' · Vacía' : ` · ${itemCount} artículo(s)${itemCount > 1 ? ' · Arrastra en vista completa' : ''}`}`}
         className={`w-11 h-11 rounded-xl border-2 flex flex-col items-center justify-center relative
-          transition-all active:scale-95 hover:-translate-y-0.5 [touch-action:pan-y]
+          transition-all active:scale-95 hover:-translate-y-0.5 ${compactDraggable ? '[touch-action:pan-y]' : '[touch-action:pan-x_pan-y]'}
           ${compactDraggable ? 'cursor-grab active:cursor-grabbing' : ''}
           ${dragOverClass} ${cardBase}`}
         {...(compactDraggable ? dragProps : {})}
@@ -138,6 +148,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
         {!isEmpty && itemCount === 1 && <span className="w-2 h-2 rounded-full bg-cyan-300 mt-0.5 shadow-[0_0_10px_rgba(103,232,249,0.8)]" />}
         {!isEmpty && itemCount > 1 && <span className={`text-[8px] font-black mt-0.5 ${headerText}`}>{itemCount}</span>}
         {location?.nota && <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-amber-400 pointer-events-none" />}
+        {!!location?.photos?.length && <span className="absolute bottom-0.5 right-0.5 w-2 h-2 rounded-full bg-violet-400 shadow-[0_0_6px_rgba(167,139,250,0.9)] pointer-events-none" />}
       </button>
     );
   }
@@ -155,10 +166,11 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
       emptyCode = 'text-cyan-50';
       emptyHint = 'text-cyan-200/80';
     } else if (isHighlighted) {
-      emptyBorder = 'border-amber-200/80 ring-2 ring-amber-200/80';
-      emptyBg = 'bg-amber-400/15';
-      emptyCode = 'text-amber-50';
-      emptyHint = 'text-amber-200/85';
+      // Resultado de búsqueda: celda (vacía) resaltada en ROSA.
+      emptyBorder = 'border-pink-300/90 ring-2 ring-pink-300/90';
+      emptyBg = 'bg-pink-400/20';
+      emptyCode = 'text-pink-50';
+      emptyHint = 'text-pink-200/85';
     } else if (isUrgent) {
       emptyBorder = 'border-red-400/55 border-dashed';
       emptyBg = 'bg-red-950/45';
@@ -185,7 +197,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
       <div
         data-position={position}
         onClick={onPress ? handleClick : undefined}
-        className={`rounded-2xl border transition-all duration-200 overflow-hidden w-full relative [touch-action:pan-y]
+        className={`rounded-2xl border transition-all duration-200 overflow-hidden w-full relative [touch-action:pan-x_pan-y]
           hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20 ${onPress ? 'cursor-pointer' : 'cursor-default'}
           ${isDragOver ? 'ring-2 ring-emerald-300/90 bg-emerald-500/10' : ''}
           ${emptyBorder} ${emptyBg}`}
@@ -200,6 +212,11 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
           </span>
         </div>
         {location?.nota && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 pointer-events-none" />}
+        {!!location?.photos?.length && (
+          <span className="absolute top-1 left-1 text-[9px] leading-none bg-violet-500 text-white rounded-full px-1 py-0.5 flex items-center gap-0.5 shadow-sm pointer-events-none">
+            📷{location.photos.length > 1 ? location.photos.length : ''}
+          </span>
+        )}
       </div>
     );
   }
@@ -221,12 +238,13 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
     borderTop = 'border-cyan-200/35';
     countBadgeCls = 'bg-cyan-50 text-cyan-950';
   } else if (isHighlighted) {
-    cardBase = 'bg-amber-400/18 border-amber-200/80 ring-2 ring-amber-200/80 shadow-[0_14px_40px_rgba(251,191,36,0.2)]';
-    headerText = 'text-amber-50';
-    ofCls = 'text-amber-100';
-    itemBg = 'bg-amber-950/55 border border-amber-300/20';
-    borderTop = 'border-amber-200/35';
-    countBadgeCls = 'bg-amber-50 text-amber-950';
+    // Resultado de búsqueda: celda ocupada resaltada en ROSA (+ animate-pulse abajo).
+    cardBase = 'bg-pink-400/22 border-pink-300/90 ring-2 ring-pink-300/90 shadow-[0_14px_40px_rgba(244,114,182,0.26)]';
+    headerText = 'text-pink-50';
+    ofCls = 'text-pink-100';
+    itemBg = 'bg-pink-950/55 border border-pink-300/25';
+    borderTop = 'border-pink-200/35';
+    countBadgeCls = 'bg-pink-50 text-pink-950';
   } else if (isUrgent) {
     cardBase = 'bg-red-950/88 border-red-300/70 shadow-[0_14px_40px_rgba(127,29,29,0.3)]';
     headerText = 'text-red-100';
@@ -276,6 +294,19 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
         REPROC
       </span>
     );
+  } else if (hasSubcontratacion) {
+    // Mismo color que el botón "Subcontratación" del flujo de ubicar (naranja).
+    cardBase = 'bg-orange-500/25 border-orange-300/75 ring-1 ring-orange-300/50 shadow-[0_14px_40px_rgba(251,146,60,0.24)]';
+    headerText = 'text-orange-50';
+    ofCls = 'text-orange-100';
+    itemBg = 'bg-orange-950/55 border border-orange-300/25';
+    borderTop = 'border-orange-300/35';
+    countBadgeCls = 'bg-orange-100 text-orange-950';
+    badgeEl = (
+      <span className="px-1.5 py-0.5 text-[9px] font-black bg-orange-500/25 text-orange-200 border border-orange-400/30 rounded-md uppercase tracking-widest shrink-0">
+        🏭 SUBCON
+      </span>
+    );
   }
 
   if (isReproces && showReprocessCosts && !badgeEl) {
@@ -292,7 +323,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
   return (
     <div
       data-position={position}
-      className={`rounded-2xl border transition-all duration-200 overflow-hidden w-full relative [touch-action:pan-y]
+      className={`rounded-2xl border transition-all duration-200 overflow-hidden w-full relative ${isDraggable && !multiItem ? '[touch-action:pan-y]' : '[touch-action:pan-x_pan-y]'}
         hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/25
         ${isHighlighted ? 'animate-pulse' : ''}
         ${isDraggable && !multiItem ? 'cursor-grab active:cursor-grabbing' : (onPress ? 'cursor-pointer active:scale-[0.98]' : 'cursor-default')}
@@ -303,6 +334,11 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
       {...dropProps}
     >
       {location?.nota && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 z-10 pointer-events-none" />}
+      {!!location?.photos?.length && (
+        <span className="absolute top-1 left-1 z-10 text-[9px] leading-none bg-violet-500 text-white rounded-full px-1 py-0.5 flex items-center gap-0.5 shadow-sm pointer-events-none">
+          📷{location.photos.length > 1 ? location.photos.length : ''}
+        </span>
+      )}
       {/* REPROCESOS: Importe total en esquina superior derecha (si showReprocessCosts) */}
       {isReproces && showReprocessCosts && location && (() => {
         const totalImporte = location.items.reduce((sum, item) => {
@@ -341,10 +377,12 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
 
       {/* Items list */}
       <div className={`border-t px-2 pt-1.5 pb-2 space-y-1.5 ${borderTop}`}>
-        {location!.items.map((item, idx) => (
+        {location!.items.map((item, idx) => {
+          const isSearchedItem = !!highlightedItemKey && `${item.articleCode}|${item.orderFab}` === highlightedItemKey;
+          return (
           <div
             key={`${item.articleCode}-${item.orderFab}-${idx}`}
-            className={`rounded-xl px-2.5 py-2 relative ${itemBg}
+            className={`rounded-xl px-2.5 py-2 relative ${isSearchedItem ? 'bg-pink-600/55 border border-pink-300 ring-2 ring-pink-300/80' : itemBg}
               ${multiItem && onCellDragStart ? 'cursor-grab active:cursor-grabbing' : ''}`}
             draggable={multiItem && !!onCellDragStart}
             onDragStart={multiItem && onCellDragStart ? (e) => {
@@ -372,7 +410,8 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
               {item.locatedByName} · {formatDate(item.locatedAt)}
             </p>
           </div>
-        ))}
+          );
+        })}
         {onPress && (
           <button
             type="button"

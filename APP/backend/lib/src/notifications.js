@@ -8,6 +8,30 @@ const push_1 = require("./push");
 const normalize = (value) => (value || '').trim().toUpperCase();
 const STALE_ITEM_THRESHOLD_DAYS = 5;
 const STALE_ITEM_ALERT_INTERVAL_HOURS = 48;
+const PENDING_ALERTS_COLLECTION = 'pendingAlerts';
+/**
+ * Notifica a los jefes de sección de un aviso URGENTE con FALLBACK persistente:
+ * además del push, crea un doc en `pendingAlerts` por destinatario (acknowledged:false)
+ * y manda el push con el `alertId`. Así, si el jefe NO estaba conectado y se pierde el
+ * push, al volver a entrar la app le muestra un modal rojo bloqueante con el aviso.
+ * Si recibe el push en vivo, el frontend marca el `alertId` como reconocido y no se
+ * vuelve a mostrar.
+ */
+const notifyUrgentChiefsWithFallback = async (emails, payload) => {
+    const userDocs = await (0, push_1.getUsersByEmails)(emails);
+    await Promise.all(userDocs.map(async (doc) => {
+        const alertRef = await firebaseAdmin_1.admin.firestore().collection(PENDING_ALERTS_COLLECTION).add({
+            recipientUid: doc.id,
+            acknowledged: false,
+            createdAt: new Date().toISOString(),
+            title: payload.title,
+            body: payload.body,
+            data: payload.data || null,
+            kind: 'URGENT_LOCATION',
+        });
+        await (0, push_1.sendPushToUsers)([doc], Object.assign(Object.assign({}, payload), { data: Object.assign(Object.assign({}, (payload.data || {})), { alertId: alertRef.id }) }));
+    }));
+};
 const toMillis = (value) => {
     if (!value)
         return null;
@@ -88,6 +112,12 @@ exports.notifyPickupQueueCreated = functions.firestore
     const operarioName = String(data.operarioName || data.operarioId || '---');
     const requestId = String(context.params.requestId || '');
     const shelfCode = String(data.shelfCode || '');
+    const targetCarretilleroId = String(data.targetCarretilleroId || '').trim();
+    const destinationShelfName = String(data.destinationShelfName || '');
+    const destinationStation = data.destinationStation != null ? Number(data.destinationStation) : null;
+    const destText = destinationShelfName
+        ? `${destinationShelfName}${destinationStation ? ` (puesto ${destinationStation})` : ''}`
+        : `${shelfSection} — ${shelfName}`;
     let title;
     let body;
     let notifType;
@@ -100,20 +130,36 @@ exports.notifyPickupQueueCreated = functions.firestore
             ? `posición ${articlePositions.join(', posición ')}`
             : 'ubicación desconocida';
         title = `📦 ${operarioName} (${shelfSection}) solicita traslado`;
-        body = `Necesita: ${articleCode}${articleOrderFab ? ' ' + articleOrderFab : ''}.\nEstá en: ${articleShelfName}, ${posText}.\nLlevar a: ${shelfSection} — ${shelfName}.`;
+        body = `Necesita: ${articleCode}${articleOrderFab ? ' ' + articleOrderFab : ''}.\nEstá en: ${articleShelfName}, ${posText}.\nLlevar a: ${destText}.`;
         notifType = 'DELIVERY_REQUEST';
     }
     else {
-        const operarioId = String(data.operarioId || '---');
+        const articleToPickCode = String(data.articleToPickCode || '');
+        const articleToPickOrderFab = String(data.articleToPickOrderFab || '');
+        const pickupShelfName = String(data.pickupShelfName || '');
+        const pickupStation = data.pickupStation != null ? Number(data.pickupStation) : null;
+        const fromText = pickupShelfName
+            ? `${pickupShelfName}${pickupStation ? ` (puesto ${pickupStation})` : ''}`
+            : `${shelfSection} — ${shelfName}`;
         title = `🛑 ${operarioName} solicita recogida`;
-        body = `${shelfSection} — ${shelfName} (${operarioId}).`;
+        body = articleToPickCode
+            ? `Recoger: ${articleToPickCode}${articleToPickOrderFab ? ' ' + articleToPickOrderFab : ''}.\nEn: ${fromText}.\nLlevar a: ${destText}.`
+            : `Recoger en: ${fromText}.\nLlevar a: ${destText}.`;
         notifType = 'PICKUP_QUEUE_CREATED';
     }
-    await (0, push_1.notifyUsersByRole)('CARRETILLERO', {
+    const payload = {
         title,
         body,
         data: { type: notifType, requestId, shelfCode, shelfSection },
-    });
+    };
+    // Si la solicitud está asignada a un carretillero concreto, solo a él le llega
+    // el push (y el popup bloqueante). El resto la verá en su cola.
+    if (targetCarretilleroId) {
+        await (0, push_1.notifyUserById)(targetCarretilleroId, payload);
+    }
+    else {
+        await (0, push_1.notifyUsersByRole)('CARRETILLERO', payload);
+    }
     return null;
 });
 exports.notifySpecialLocationOccupancy = functions.firestore
@@ -123,16 +169,31 @@ exports.notifySpecialLocationOccupancy = functions.firestore
     if (!change.after.exists)
         return null;
     const shelfCode = normalize(context.params.shelfCode);
-    const position = parseLocationPosition(context.params.position);
+    const rawPosition = String(context.params.position);
+    const position = parseLocationPosition(rawPosition);
     if (!position)
         return null;
     const config = await (0, push_1.getAppConfig)();
     const urgentLocations = Array.isArray(config.urgentLocations) ? config.urgentLocations : [];
     const techReviewLocations = Array.isArray(config.techReviewLocations) ? config.techReviewLocations : [];
-    const locationId = `${shelfCode}-${String(context.params.position).padStart(3, '0')}`;
-    const isUrgent = urgentLocations.includes(locationId);
-    const isTechReview = techReviewLocations.includes(locationId);
-    const isSoldadura = ['SOL', 'RSO', 'SXP'].includes(shelfCode);
+    // Identificadores candidatos para casar contra config.{urgentLocations,techReviewLocations}.
+    // Formato canónico = `${shelfCode}-${posición 0-padded}` (p.ej. "PLE-001", "CAL-031"),
+    // pero las celdas urgentes de Prensas/Mecanizado se guardan con una posición en
+    // formato libre COMPARTIDA por ambas (p.ej. "URG MEC-PRE 001"). Casamos contra ambos
+    // formatos para que el aviso urgente salte a los dos jefes (están en chiefMapping
+    // PRENSAS_MECANIZADO) cuando se ubica algo en esa estantería de urgentes compartida.
+    const locationId = `${shelfCode}-${String(position).padStart(3, '0')}`;
+    const candidateIds = [
+        locationId,
+        rawPosition,
+        `${shelfCode}-${rawPosition}`, // "PRE-URG MEC-PRE 001"
+    ];
+    const matchesAny = (list) => list.some((entry) => candidateIds.includes(entry));
+    const isUrgent = matchesAny(urgentLocations);
+    const isTechReview = matchesAny(techReviewLocations);
+    // Solo la estantería PRINCIPAL de soldadura (SOL). RSO/SXP/CS quedan FUERA: SXP es
+    // su propia sección con jefe dedicado y RSO/CS no deben avisar al jefe de soldadura.
+    const isSoldadura = shelfCode === 'SOL';
     const isReprocesos = shelfCode === 'CAL' && position >= 1 && position <= 22;
     if (!isUrgent && !isTechReview && !isSoldadura && !isReprocesos)
         return null;
@@ -164,7 +225,8 @@ exports.notifySpecialLocationOccupancy = functions.firestore
             : [];
         const urgentChiefEmails = [...chiefEmails, ...extraUrgentEmails];
         await Promise.all([
-            (0, push_1.notifyUsersByEmails)(urgentChiefEmails, {
+            // Jefes de sección: push + fallback persistente (modal rojo al reentrar si offline).
+            notifyUrgentChiefsWithFallback(urgentChiefEmails, {
                 title: 'Articulo urgente ubicado',
                 body: `${articleCode} ${orderFab} ha sido ubicado en ${locationId}.`.trim(),
                 data: { type: 'URGENT_LOCATION', shelfCode, locationId, articleCode, orderFab },
@@ -276,56 +338,78 @@ exports.notifyConnectionDisconnect = functions.firestore
     });
     return null;
 });
-// Long offline detection (triggered when a device stays offline for 10+ minutes)
+// Detección de dispositivos sin conexión POR HEARTBEAT OBSOLETO (server-side).
+//
+// Por qué no basta `notifyConnectionDisconnect`: el log DISCONNECTED y el flag
+// `isOnline=false` los escribe el PROPIO dispositivo al caerse; estando offline esas
+// escrituras se ENCOLAN y solo llegan al servidor cuando el kiosko RECONECTA. Por eso
+// un kiosko que se queda sin conexión (o se apaga) nunca se reportaría a tiempo.
+//
+// Solución: el dispositivo escribe `lastSeen` cada 60s mientras está online (heartbeat).
+// Aquí detectamos los `conexion_estado` cuyo `lastSeen` quedó obsoleto (>5 min) — eso
+// SÍ es señal fiable de caída, sin depender de que el cliente escriba nada estando ya
+// offline — y avisamos al SUPERADMIN.
 exports.notifyLongDisconnection = functions.pubsub
-    .schedule('every 10 minutes')
+    .schedule('every 5 minutes')
     .timeZone('Europe/Madrid')
     .onRun(async () => {
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const now = Date.now();
+    const STALE_MS = 5 * 60 * 1000; // sin heartbeat > 5 min → sin conexión
+    const REALERT_MS = 60 * 60 * 1000; // no repetir el aviso del mismo equipo en 1h
+    const staleThreshold = new Date(now - STALE_MS).toISOString();
+    const reAlertThreshold = new Date(now - REALERT_MS).toISOString();
     const statusSnapshot = await firebaseAdmin_1.admin.firestore()
         .collection('conexion_estado')
-        .where('isOnline', '==', false)
-        .where('lastDisconnectedAt', '<=', tenMinutesAgo)
+        .where('lastSeen', '<=', staleThreshold)
         .get();
-    const now = Date.now();
-    const oneHourAgo = new Date(now - 60 * 60 * 1000).toISOString();
-    const offlineDevices = statusSnapshot.docs.map((doc) => (Object.assign({ id: doc.id }, doc.data())));
-    if (offlineDevices.length === 0)
-        return { checked: 0, critical: 0 };
-    const criticalDevices = offlineDevices.filter((device) => {
-        const disconnectTime = new Date(device.lastDisconnectedAt).getTime();
-        const isLongOffline = (now - disconnectTime) > 30 * 60 * 1000;
-        const notRecentlyAlerted = !device.lastCriticalAlertAt || device.lastCriticalAlertAt < oneHourAgo;
-        return isLongOffline && notRecentlyAlerted;
+    const staleDevices = statusSnapshot.docs
+        .map((doc) => (Object.assign({ id: doc.id }, doc.data())))
+        // Los PCs de administración se apagan con normalidad: no generan alarma.
+        .filter((d) => String(d.deviceType || '').toUpperCase() !== 'ADMIN')
+        .filter((d) => !d.lastCriticalAlertAt || d.lastCriticalAlertAt < reAlertThreshold);
+    if (staleDevices.length === 0)
+        return { checked: statusSnapshot.size, alerted: 0 };
+    const deviceList = staleDevices
+        .map((d) => {
+        const mins = d.lastSeen ? Math.floor((now - new Date(d.lastSeen).getTime()) / 60000) : null;
+        return `${d.deviceName || d.id} (${d.deviceType || 'desconocido'})${mins != null ? ` — ${mins}m sin conexión` : ''}`;
+    })
+        .join('\n');
+    await (0, push_1.notifyUsersByRole)('SUPERADMIN', {
+        title: '🔴 Kiosko sin conexión',
+        body: `${staleDevices.length} dispositivo(s) sin conexión:\n${deviceList}`,
+        data: {
+            type: 'CRITICAL_OFFLINE_ALERT',
+            deviceCount: String(staleDevices.length),
+        }
+    }).catch((err) => {
+        console.error('[notifyLongDisconnection] Error sending critical alert:', err);
     });
-    if (criticalDevices.length > 0) {
-        const deviceList = criticalDevices
-            .map((d) => `${d.deviceName} (${d.deviceType}) - ${Math.floor((now - new Date(d.lastDisconnectedAt).getTime()) / 60000)}m`)
-            .join('\n');
-        await (0, push_1.notifyUsersByRole)('SUPERADMIN', {
-            title: '🔴 Dispositivos críticos sin conexión',
-            body: `${criticalDevices.length} dispositivo(s) llevan más de 30 minutos sin conexión:\n${deviceList}`,
-            data: {
-                type: 'CRITICAL_OFFLINE_ALERT',
-                deviceCount: String(criticalDevices.length),
-            }
-        }).catch((err) => {
-            console.error('[notifyLongDisconnection] Error sending critical alert:', err);
-        });
-        const alertedAt = new Date(now).toISOString();
-        const db = firebaseAdmin_1.admin.firestore();
-        const batchUpdate = db.batch();
-        criticalDevices.forEach((device) => {
-            batchUpdate.update(db.collection('conexion_estado').doc(device.id), { lastCriticalAlertAt: alertedAt });
-        });
-        await batchUpdate.commit().catch((err) => console.error('[notifyLongDisconnection] batch update failed:', err));
-    }
-    return { checked: offlineDevices.length, critical: criticalDevices.length };
+    const alertedAt = new Date(now).toISOString();
+    const db = firebaseAdmin_1.admin.firestore();
+    const batchUpdate = db.batch();
+    staleDevices.forEach((device) => {
+        batchUpdate.update(db.collection('conexion_estado').doc(device.id), { lastCriticalAlertAt: alertedAt });
+    });
+    await batchUpdate.commit().catch((err) => console.error('[notifyLongDisconnection] batch update failed:', err));
+    return { checked: statusSnapshot.size, alerted: staleDevices.length };
 });
+const toStation = (value) => {
+    const n = Number.parseInt(String(value !== null && value !== void 0 ? value : ''), 10);
+    return Number.isNaN(n) ? null : n;
+};
 exports.pickupQueueOperate = functions.https.onCall(async (data, context) => {
     const actor = await (0, authz_1.resolveOperationalActor)(context, data === null || data === void 0 ? void 0 : data.session);
     const op = String((data === null || data === void 0 ? void 0 : data.op) || '');
     const payload = (data === null || data === void 0 ? void 0 : data.payload) || {};
+    if (op === 'carretilleros') {
+        const docs = await (0, push_1.getUsersByRole)('CARRETILLERO');
+        const carretilleros = docs.map((d) => {
+            const u = d.data() || {};
+            return { uid: d.id, name: String(u.displayName || u.email || d.id) };
+        });
+        return { ok: true, carretilleros };
+    }
     if (op === 'create') {
         const shelfCode = String((payload === null || payload === void 0 ? void 0 : payload.shelfCode) || actor.assignedShelf || '').trim().toUpperCase();
         const operarioId = String((payload === null || payload === void 0 ? void 0 : payload.operarioId) || actor.operarioId || actor.uid).trim();
@@ -335,21 +419,24 @@ exports.pickupQueueOperate = functions.https.onCall(async (data, context) => {
         if (!shelfCode || !operarioId) {
             throw new functions.https.HttpsError('invalid-argument', 'Datos incompletos para crear recogida.');
         }
-        // Validar autorización de estantería para ambos tipos
+        // Validar autorización de estantería del solicitante (no del origen/destino,
+        // que son la tarea que se le encarga al carretillero).
         (0, authz_1.assertActorMayOperateShelf)(actor, shelfCode);
         const createdAt = new Date().toISOString();
-        const docData = {
-            operarioId,
-            operarioName,
-            shelfSection: (0, authz_1.getWmsSectionForShelf)(shelfCode),
-            shelfCode,
+        const targetCarretilleroId = String((payload === null || payload === void 0 ? void 0 : payload.targetCarretilleroId) || '').trim();
+        const targetCarretilleroName = String((payload === null || payload === void 0 ? void 0 : payload.targetCarretilleroName) || '').trim();
+        const docData = Object.assign({ operarioId,
+            operarioName, shelfSection: (0, authz_1.getWmsSectionForShelf)(shelfCode), shelfCode,
             shelfName,
-            requestType,
-            status: 'PENDING',
-            createdAt,
-            completedAt: null,
-            completedBy: null,
-        };
+            requestType, status: 'PENDING', createdAt, completedAt: null, completedBy: null, acknowledged: false, acknowledgedAt: null, acknowledgedBy: null }, (targetCarretilleroId ? { targetCarretilleroId, targetCarretilleroName } : {}));
+        // Destino explícito (RECOGER y TRAER). La sección/estación las decide el cliente.
+        const destinationShelfCode = String((payload === null || payload === void 0 ? void 0 : payload.destinationShelfCode) || '').trim();
+        if (destinationShelfCode) {
+            docData.destinationShelfCode = destinationShelfCode;
+            docData.destinationShelfName = String((payload === null || payload === void 0 ? void 0 : payload.destinationShelfName) || destinationShelfCode).trim();
+            docData.destinationSection = String((payload === null || payload === void 0 ? void 0 : payload.destinationSection) || '').trim() || (0, authz_1.getWmsSectionForShelf)(destinationShelfCode);
+            docData.destinationStation = toStation(payload === null || payload === void 0 ? void 0 : payload.destinationStation);
+        }
         if (requestType === 'TRAER') {
             docData.articleCode = String((payload === null || payload === void 0 ? void 0 : payload.articleCode) || '').trim();
             docData.articleOrderFab = String((payload === null || payload === void 0 ? void 0 : payload.articleOrderFab) || '').trim();
@@ -357,6 +444,17 @@ exports.pickupQueueOperate = functions.https.onCall(async (data, context) => {
             docData.articlePositions = Array.isArray(payload === null || payload === void 0 ? void 0 : payload.articlePositions)
                 ? payload.articlePositions.map((p) => String(p))
                 : [];
+        }
+        else {
+            // RECOGER / SE LLEVE — artículo puede ser texto libre (no ubicado) + origen.
+            docData.articleToPickCode = String((payload === null || payload === void 0 ? void 0 : payload.articleToPickCode) || '').trim();
+            docData.articleToPickOrderFab = String((payload === null || payload === void 0 ? void 0 : payload.articleToPickOrderFab) || '').trim();
+            const pickupShelfName = String((payload === null || payload === void 0 ? void 0 : payload.pickupShelfName) || '').trim();
+            if (pickupShelfName) {
+                docData.pickupShelfName = pickupShelfName;
+                docData.pickupSection = String((payload === null || payload === void 0 ? void 0 : payload.pickupSection) || '').trim() || null;
+                docData.pickupStation = toStation(payload === null || payload === void 0 ? void 0 : payload.pickupStation);
+            }
         }
         const queueRef = await firebaseAdmin_1.admin.firestore().collection('pickupQueue').add(docData);
         await firebaseAdmin_1.admin.firestore().collection('history').add({
@@ -372,9 +470,32 @@ exports.pickupQueueOperate = functions.https.onCall(async (data, context) => {
             uid: actor.uid,
             role: actor.role,
             user: operarioName,
+            targetCarretilleroId: targetCarretilleroId || null,
             source: 'pickupQueueOperate',
         });
         return { ok: true, requestId: queueRef.id };
+    }
+    if (op === 'acknowledge') {
+        if (!['CARRETILLERO', 'ADMIN', 'SUPERADMIN'].includes(actor.role)) {
+            throw new functions.https.HttpsError('permission-denied', 'No tienes permisos para confirmar solicitudes.');
+        }
+        const requestId = String((payload === null || payload === void 0 ? void 0 : payload.requestId) || '').trim();
+        if (!requestId) {
+            throw new functions.https.HttpsError('invalid-argument', 'requestId requerido.');
+        }
+        const reqRef = firebaseAdmin_1.admin.firestore().collection('pickupQueue').doc(requestId);
+        await firebaseAdmin_1.admin.firestore().runTransaction(async (tx) => {
+            const reqSnap = await tx.get(reqRef);
+            if (!reqSnap.exists) {
+                throw new functions.https.HttpsError('not-found', 'Solicitud no encontrada.');
+            }
+            tx.update(reqRef, {
+                acknowledged: true,
+                acknowledgedAt: new Date().toISOString(),
+                acknowledgedBy: actor.uid,
+            });
+        });
+        return { ok: true };
     }
     if (op === 'complete') {
         if (!['CARRETILLERO', 'ADMIN', 'SUPERADMIN'].includes(actor.role)) {

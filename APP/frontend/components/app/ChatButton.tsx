@@ -58,9 +58,9 @@ const ChatButton: React.FC<ChatButtonProps> = ({ currentUid, currentRole }) => {
         <button
           onClick={handleOpen}
           aria-label="Abrir chat interno"
-          className="fixed bottom-5 right-5 z-50 h-14 w-14 rounded-full bg-cyan-600 text-white shadow-2xl flex items-center justify-center active:scale-95 transition-all hover:bg-cyan-500"
+          className="relative h-9 w-9 rounded-full bg-cyan-600 text-white shadow-md flex items-center justify-center active:scale-95 transition-all hover:bg-cyan-500 flex-shrink-0"
         >
-          <span className="text-2xl">💬</span>
+          <span className="text-base">💬</span>
           {totalUnread > 0 && (
             <span className="absolute -top-1 -right-1 min-w-[22px] h-[22px] px-1 rounded-full bg-red-500 text-white text-xs font-black flex items-center justify-center ring-2 ring-white dark:ring-slate-950">
               {totalUnread > 99 ? '99+' : totalUnread}

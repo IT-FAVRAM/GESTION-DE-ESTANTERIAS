@@ -260,7 +260,25 @@
       "Bash(grep -v \"node_modules\\\\|//\")",
       "Bash(dir APPfrontend *)",
       "PowerShell(tree .claude *)",
-      "Bash(xargs grep -l \"isReprocesosLocation\")"
+      "Bash(xargs grep -l \"isReprocesosLocation\")",
+      "Bash(chmod +x /tmp/create_user.sh)",
+      "Bash(/tmp/create_user.sh)",
+      "Bash(firebase auth:create-user *)",
+      "mcp__plugin_firebase_firebase__firebase_deploy_status",
+      "PowerShell(Get-ChildItem APP\\\\frontend\\\\components, APP\\\\frontend\\\\hooks, APP\\\\frontend\\\\domain, APP\\\\frontend\\\\lib -Recurse -File | Where-Object { $_.FullName -notmatch 'node_modules' } | Select-Object @{N='Path';E={$_.FullName.Replace\\('C:\\\\-- APLICACIONES DANI --\\\\APP -- ESTANTERIAS\\\\APP\\\\frontend\\\\',''\\)}}, Length | Format-Table -AutoSize)",
+      "Skill(run)",
+      "Skill(claude-api)",
+      "mcp__plugin_playwright_playwright__browser_resize",
+      "Bash(tsconfig\" | head -10)",
+      "Bash(npx ts-node *)",
+      "Bash(cat APP/backend/tsconfig.json)",
+      "Bash(find APP/backend/src -iname \"*plegadora*\" -o -iname \"*escribano*\")",
+      "Bash(echo \"exit:$?\")",
+      "Bash(Start-Sleep -Seconds 8)",
+      "Bash(rm -rf manual-screenshots)",
+      "Bash(mkdir -p manual-screenshots)",
+      "Bash(xargs grep -l \"SOLDADURA\")",
+      "Bash(grep -E \"✓|\\\\\\\\+|deploy complete|Hosting URL\")"
     ]
   },
   "enabledMcpjsonServers": [

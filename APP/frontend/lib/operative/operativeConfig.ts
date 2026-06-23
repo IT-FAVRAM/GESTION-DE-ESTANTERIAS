@@ -59,6 +59,25 @@ export interface RoleOperativeConfig {
   };
 }
 
+/**
+ * Bandeja de escaneo (scan-first) — disponible para todos los roles operativos
+ * que tienen pistola y barra de acciones, EXCEPTO:
+ *   - OPERARIO: opera en kiosko sin sidebar; su flujo es scan→ubicar directo.
+ *   - SOLO_VISUAL: sin permisos de escritura.
+ *
+ * Homogeneización de flujos: antes estaba restringida a CARRETILLERO + 2
+ * superadmins por email. Ahora JEFE_SECCION, CALIDAD y ADMIN/SUPERADMIN también
+ * la usan. Nota: JEFE_SECCION/CALIDAD son de ámbito limitado, así que el
+ * "Retirar de la bandeja" puede actuar sobre la ubicación GLOBAL del artículo
+ * (posiblemente en otra sección) — comportamiento aceptado en la homogeneización.
+ */
+export const SCAN_TRAY_SUPERADMIN_EMAILS = ['d.soler@favram.com', 'j.diaz@favram.com'];
+
+export function canUseScanTray(role: UserRole | null | undefined, _email?: string | null): boolean {
+  if (!role) return false;
+  return role !== 'OPERARIO' && role !== 'SOLO_VISUAL';
+}
+
 export interface BuildOperativeConfigOptions {
   /** Estantería bloqueada (kiosko/jefe) o sección de calidad. */
   lockedShelfCode?: string | null;
@@ -102,7 +121,8 @@ export function buildOperativeConfig(
           mover: true,
           reubicar: false,
           almacen: isPintura(lockedShelfCode, section) ? 'pintura' : 'none',
-          avisar: 'recogida+traer',
+          // Kioskos (OPERARIO): sin botón AVISAR — solo UBICAR / RETIRAR / MOVER.
+          avisar: 'none',
         },
         ubicar: { askMultiArticle: true, allowMultiSection: false },
         retirar: { askSectionFirst: false },

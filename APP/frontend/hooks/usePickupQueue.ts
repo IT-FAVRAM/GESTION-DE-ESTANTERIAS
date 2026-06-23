@@ -1,25 +1,21 @@
 /**
  * usePickupQueue — Cola de recogidas del carretillero
  * Gestor de Estanterías WMS v3.0
- * 
+ *
  * Suscripción en tiempo real a las solicitudes de recogida.
  * Las muestra agrupadas por sección y ordenadas por llegada.
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { 
-  collection, 
-  doc,
-  onSnapshot, 
-  addDoc, 
-  updateDoc, 
-  query, 
-  where, 
-  orderBy, 
+import {
+  collection,
+  onSnapshot,
+  query,
+  orderBy,
   limit,
-  type DocumentData 
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { useAuth } from './useAuth';
 import { resolveCurrentAuthSession } from '../domain/auth/authSessionResolver';
 import { pickupQueueApi } from '../lib/api/pickupQueueApi';
 import { parseCallableError } from '../lib/callableError';
@@ -29,7 +25,6 @@ import {
   type PickupRequestDoc,
   type PickupStatus,
   type WarehouseSection,
-  type HistoryEntryDoc,
   COLLECTIONS,
   getSectionForShelf,
   getShelfDefinition,
@@ -47,8 +42,46 @@ export interface GroupedPickups {
   requests: PickupRequest[];
 }
 
+/** Carretillero asignado (recibe popup + push; el resto lo ve en la cola). */
+export interface RequestTarget {
+  targetCarretilleroId?: string;
+  targetCarretilleroName?: string;
+}
+
+/** Destino explícito (RECOGER y TRAER). */
+export interface RequestDestination {
+  destinationShelfCode?: string;
+  destinationShelfName?: string;
+  destinationSection?: WarehouseSection;
+  destinationStation?: number | null;
+}
+
+export interface CreatePickupParams extends RequestTarget, RequestDestination {
+  operarioId: string;
+  operarioName: string;
+  shelfCode: string;            // estantería del solicitante (autorización)
+  articleToPickCode?: string;   // puede ser texto libre (no ubicado)
+  articleToPickOrderFab?: string;
+  // Origen — dónde recogerlo
+  pickupShelfName?: string;
+  pickupSection?: WarehouseSection;
+  pickupStation?: number | null;
+}
+
+export interface CreateDeliveryParams extends RequestTarget, RequestDestination {
+  operarioId: string;
+  operarioName: string;
+  shelfCode: string;            // estantería del solicitante (autorización)
+  shelfName: string;
+  articleCode: string;
+  articleOrderFab: string;
+  articleShelfName: string;
+  articlePositions: string[];
+}
+
 // ─── Section display names ───
 const SECTION_NAMES: Record<string, string> = {
+  PRENSAS_MECANIZADO: 'Prensas-Mecanizado',
   MECANIZADO: 'Mecanizado',
   PLEGADORA: 'Plegadora',
   SOLDADURA: 'Soldadura',
@@ -57,12 +90,14 @@ const SECTION_NAMES: Record<string, string> = {
   PINTURA: 'Pintura',
   LASER: 'Láser',
   CALIDAD: 'Calidad',
+  PUNZONADO: 'Punzonado',
   OTROS: 'Otros',
 };
 
 // ─── Hook ───
 
 export const usePickupQueue = () => {
+  const { firebaseUser } = useAuth();
   const [pendingRequests, setPendingRequests] = useState<PickupRequest[]>([]);
   const [completedRequests, setCompletedRequests] = useState<PickupRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -147,68 +182,91 @@ export const usePickupQueue = () => {
   // ─── Grouped by section ───
   const groupedPending = useMemo((): GroupedPickups[] => {
     const groups: Record<string, PickupRequest[]> = {};
-    
+
     for (const req of pendingRequests) {
       const section = req.shelfSection || 'OTROS';
       if (!groups[section]) groups[section] = [];
       groups[section].push(req);
     }
-    
+
     return Object.entries(groups)
       .map(([section, requests]) => ({
         section: section as WarehouseSection,
         sectionName: SECTION_NAMES[section] || section,
-        requests: requests.sort((a, b) => 
+        requests: requests.sort((a, b) =>
           new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         ),
       }))
       .sort((a, b) => {
-        // Sort groups by oldest request first
         const oldestA = a.requests[0]?.createdAt || '';
         const oldestB = b.requests[0]?.createdAt || '';
         return new Date(oldestA).getTime() - new Date(oldestB).getTime();
       });
   }, [pendingRequests]);
 
-  // ─── Create pickup request (operario sends this) ───
-  const createPickupRequest = useCallback(async (
-    operarioId: string,
-    operarioName: string,
-    shelfCode: string,
-    articleToPickCode?: string,
-    articleToPickOrderFab?: string,
-    destinationShelfCode?: string,
-    destinationShelfName?: string,
-  ): Promise<boolean> => {
+  // ─── Solicitudes asignadas a MÍ y aún no confirmadas ("Recibido") ───
+  // Alimentan el popup bloqueante del carretillero.
+  const myUnacknowledged = useMemo((): PickupRequest[] => {
+    const uid = firebaseUser?.uid;
+    if (!uid) return [];
+    return pendingRequests
+      .filter((r) => r.targetCarretilleroId === uid && r.acknowledged !== true)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }, [pendingRequests, firebaseUser?.uid]);
+
+  // ─── Create pickup request (SE LLEVE / RECOGER) ───
+  const createPickupRequest = useCallback(async (params: CreatePickupParams): Promise<boolean> => {
     try {
-      const shelfDef = getShelfDefinition(shelfCode);
-      const section = getSectionForShelf(shelfCode);
+      const shelfDef = getShelfDefinition(params.shelfCode);
+      const section = getSectionForShelf(params.shelfCode);
       const session = getOperationalSession();
 
       const payload: Record<string, unknown> = {
         requestType: 'RECOGER',
-        operarioId, operarioName, shelfCode,
-        shelfSection: section, shelfName: shelfDef?.name || shelfCode,
-        ...(articleToPickCode ? { articleToPickCode } : {}),
-        ...(articleToPickOrderFab ? { articleToPickOrderFab } : {}),
-        ...(destinationShelfCode ? { destinationShelfCode } : {}),
-        ...(destinationShelfName ? { destinationShelfName } : {}),
+        operarioId: params.operarioId,
+        operarioName: params.operarioName,
+        shelfCode: params.shelfCode,
+        shelfSection: section,
+        shelfName: shelfDef?.name || params.shelfCode,
+        ...(params.targetCarretilleroId ? {
+          targetCarretilleroId: params.targetCarretilleroId,
+          targetCarretilleroName: params.targetCarretilleroName || '',
+        } : {}),
+        ...(params.articleToPickCode ? { articleToPickCode: params.articleToPickCode } : {}),
+        ...(params.articleToPickOrderFab ? { articleToPickOrderFab: params.articleToPickOrderFab } : {}),
+        ...(params.pickupShelfName ? { pickupShelfName: params.pickupShelfName } : {}),
+        ...(params.pickupSection ? { pickupSection: params.pickupSection } : {}),
+        ...(params.pickupStation != null ? { pickupStation: params.pickupStation } : {}),
+        ...(params.destinationShelfCode ? { destinationShelfCode: params.destinationShelfCode } : {}),
+        ...(params.destinationShelfName ? { destinationShelfName: params.destinationShelfName } : {}),
+        ...(params.destinationSection ? { destinationSection: params.destinationSection } : {}),
+        ...(params.destinationStation != null ? { destinationStation: params.destinationStation } : {}),
       };
 
       if (!navigator.onLine) {
         const tempRequest: PickupRequest = {
           id: `offline-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
           requestType: 'RECOGER',
-          operarioId,
-          operarioName,
+          operarioId: params.operarioId,
+          operarioName: params.operarioName,
           shelfSection: section,
-          shelfCode,
-          shelfName: shelfDef?.name || shelfCode,
-          articleToPickCode,
-          articleToPickOrderFab,
-          destinationShelfCode,
-          destinationShelfName,
+          shelfCode: params.shelfCode,
+          shelfName: shelfDef?.name || params.shelfCode,
+          targetCarretilleroId: params.targetCarretilleroId,
+          targetCarretilleroName: params.targetCarretilleroName,
+          articleToPickCode: params.articleToPickCode,
+          articleToPickOrderFab: params.articleToPickOrderFab,
+          pickupShelfName: params.pickupShelfName,
+          pickupSection: params.pickupSection,
+          pickupStation: params.pickupStation ?? null,
+          destinationShelfCode: params.destinationShelfCode,
+          destinationShelfName: params.destinationShelfName,
+          destinationSection: params.destinationSection,
+          destinationStation: params.destinationStation ?? null,
           status: 'PENDING',
+          acknowledged: false,
+          acknowledgedAt: null,
+          acknowledgedBy: null,
           createdAt: new Date().toISOString(),
           completedAt: null,
           completedBy: null,
@@ -230,61 +288,98 @@ export const usePickupQueue = () => {
     }
   }, []);
 
-  // ─── Create delivery request — operario pide que le traigan un artículo ───
-  const createDeliveryRequest = useCallback(async (
-    operarioId: string,
-    operarioName: string,
-    requesterShelfCode: string,
-    requesterShelfName: string,
-    articleCode: string,
-    articleOrderFab: string,
-    articleShelfName: string,
-    articlePositions: string[],
-  ): Promise<boolean> => {
+  // ─── Create delivery request (ME TRAIGA / TRAER) ───
+  const createDeliveryRequest = useCallback(async (params: CreateDeliveryParams): Promise<boolean> => {
     try {
-      const section = getSectionForShelf(requesterShelfCode);
+      const section = getSectionForShelf(params.shelfCode);
       const session = getOperationalSession();
+
+      const payload: Record<string, unknown> = {
+        requestType: 'TRAER',
+        operarioId: params.operarioId,
+        operarioName: params.operarioName,
+        shelfCode: params.shelfCode,
+        shelfSection: section,
+        shelfName: params.shelfName,
+        articleCode: params.articleCode,
+        articleOrderFab: params.articleOrderFab,
+        articleShelfName: params.articleShelfName,
+        articlePositions: params.articlePositions,
+        ...(params.targetCarretilleroId ? {
+          targetCarretilleroId: params.targetCarretilleroId,
+          targetCarretilleroName: params.targetCarretilleroName || '',
+        } : {}),
+        ...(params.destinationShelfCode ? { destinationShelfCode: params.destinationShelfCode } : {}),
+        ...(params.destinationShelfName ? { destinationShelfName: params.destinationShelfName } : {}),
+        ...(params.destinationSection ? { destinationSection: params.destinationSection } : {}),
+        ...(params.destinationStation != null ? { destinationStation: params.destinationStation } : {}),
+      };
 
       if (!navigator.onLine) {
         const tempRequest: PickupRequest = {
           id: `offline-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-          operarioId,
-          operarioName,
-          shelfSection: section,
-          shelfCode: requesterShelfCode,
-          shelfName: requesterShelfName,
           requestType: 'TRAER',
-          articleCode,
-          articleOrderFab,
-          articleShelfName,
-          articlePositions,
+          operarioId: params.operarioId,
+          operarioName: params.operarioName,
+          shelfSection: section,
+          shelfCode: params.shelfCode,
+          shelfName: params.shelfName,
+          targetCarretilleroId: params.targetCarretilleroId,
+          targetCarretilleroName: params.targetCarretilleroName,
+          articleCode: params.articleCode,
+          articleOrderFab: params.articleOrderFab,
+          articleShelfName: params.articleShelfName,
+          articlePositions: params.articlePositions,
+          destinationShelfCode: params.destinationShelfCode,
+          destinationShelfName: params.destinationShelfName,
+          destinationSection: params.destinationSection,
+          destinationStation: params.destinationStation ?? null,
           status: 'PENDING',
+          acknowledged: false,
+          acknowledgedAt: null,
+          acknowledgedBy: null,
           createdAt: new Date().toISOString(),
           completedAt: null,
           completedBy: null,
         };
         setPendingRequests((prev) => [tempRequest, ...prev]);
-        enqueueOfflineOperation('SOLICITAR_TRASLADO', {
-          operarioId, operarioName,
-          shelfCode: requesterShelfCode, shelfSection: section, shelfName: requesterShelfName,
-          requestType: 'TRAER',
-          articleCode, articleOrderFab, articleShelfName, articlePositions,
-        }, session);
+        enqueueOfflineOperation('SOLICITAR_TRASLADO', payload, session);
         return true;
       }
 
-      const result = await pickupQueueApi.create({
-        operarioId, operarioName,
-        shelfCode: requesterShelfCode, shelfSection: section, shelfName: requesterShelfName,
-        requestType: 'TRAER',
-        articleCode, articleOrderFab, articleShelfName, articlePositions,
-      }, session);
+      const result = await pickupQueueApi.create(payload, session);
       if (!result?.ok) throw new Error('El servidor rechazó la solicitud de traslado');
       return true;
     } catch (err: unknown) {
       const msg = parseCallableError(err);
       console.error('[usePickupQueue] Create delivery error:', msg);
       setError(msg);
+      return false;
+    }
+  }, []);
+
+  // ─── Acknowledge ("Recibido" en el popup bloqueante) ───
+  const acknowledgeRequest = useCallback(async (requestId: string): Promise<boolean> => {
+    // Optimista: marcar como confirmada localmente para cerrar el popup ya.
+    setPendingRequests((prev) =>
+      prev.map((r) => (r.id === requestId ? { ...r, acknowledged: true } : r)),
+    );
+    try {
+      const session = getOperationalSession();
+      if (!navigator.onLine) {
+        enqueueOfflineOperation('CONFIRMAR_RECEPCION', { requestId }, session);
+        return true;
+      }
+      const result = await pickupQueueApi.acknowledge({ requestId }, session);
+      if (!result?.ok) throw new Error('El servidor rechazó la confirmación');
+      return true;
+    } catch (err: unknown) {
+      console.error('[usePickupQueue] Acknowledge error:', err);
+      setError(parseCallableError(err));
+      // Revertir el optimismo si falló
+      setPendingRequests((prev) =>
+        prev.map((r) => (r.id === requestId ? { ...r, acknowledged: false } : r)),
+      );
       return false;
     }
   }, []);
@@ -331,13 +426,13 @@ export const usePickupQueue = () => {
     pendingRequests,
     completedRequests,
     groupedPending,
+    myUnacknowledged,
     loading,
     error,
     pendingCount: pendingRequests.length,
     createPickupRequest,
     createDeliveryRequest,
+    acknowledgeRequest,
     completeRequest,
   };
 };
-
-

@@ -8,8 +8,8 @@ import { auditDatabase } from '../scripts/audit-BD-complete';
 const normalize = (value?: string | null) => String(value || '').trim();
 const normalizeRole = (value?: string | null) => String(value || '').trim().toUpperCase();
 
-const ALLOWED_ROLES = new Set(['OPERARIO', 'CARRETILLERO', 'JEFE_SECCION', 'CALIDAD', 'ADMIN', 'SUPERADMIN']);
-const ALLOWED_SECTIONS = new Set(['PRENSAS_MECANIZADO', 'PLEGADORA', 'SOLDADURA', 'ROBOT_PLEGADO', 'REPASADO', 'PINTURA', 'LASER', 'CALIDAD', 'OTROS', 'MECANIZADO', 'PRENSAS']);
+const ALLOWED_ROLES = new Set(['OPERARIO', 'CARRETILLERO', 'JEFE_SECCION', 'CALIDAD', 'ADMIN', 'SUPERADMIN', 'SOLO_VISUAL']);
+const ALLOWED_SECTIONS = new Set(['PRENSAS_MECANIZADO', 'PLEGADORA', 'SOLDADURA', 'SXP', 'ROBOT_PLEGADO', 'REPASADO', 'PINTURA', 'LASER', 'CALIDAD', 'OTROS', 'MECANIZADO', 'PRENSAS']);
 
 export const adminOperate = functions.https.onCall(async (data: any, context: any) => {
   await requireAllowedRoles(context, ['SUPERADMIN']);
@@ -64,6 +64,13 @@ export const adminOperate = functions.https.onCall(async (data: any, context: an
     if ('kioskId' in payload) {
       const effectiveType = String(updatePayload.type || payload?.type || '').trim().toUpperCase();
       updatePayload.kioskId = effectiveType === 'KIOSK' ? (normalize(payload?.kioskId) || null) : null;
+    }
+    if ('excludedCarts' in payload) {
+      const carts = Array.isArray(payload.excludedCarts) ? payload.excludedCarts : [];
+      updatePayload.excludedCarts = carts.map((c: any) => String(c || '').trim().toUpperCase()).filter((c: string) => c);
+    }
+    if (typeof payload?.visualOnly === 'boolean') {
+      updatePayload.visualOnly = payload.visualOnly;
     }
     if (Object.keys(updatePayload).length === 0) {
       throw new functions.https.HttpsError('invalid-argument', 'No hay cambios validos para actualizar.');
@@ -164,22 +171,17 @@ export const resolveDeviceConfig = functions.https.onCall(async (data: any, cont
     throw new functions.https.HttpsError('invalid-argument', 'deviceId requerido.');
   }
 
-  let deviceSnap = await admin.firestore().collection('dispositivos').doc(deviceId).get();
+  const deviceSnap = await admin.firestore().collection('dispositivos').doc(deviceId).get();
 
-  // Auto-registrar dispositivos desconocidos como KIOSK (lectura/consulta).
-  // Los dispositivos CARRETILLERO deben ser pre-registrados por un admin
-  // para evitar que dispositivos no autorizados obtengan permisos de operación.
+  // Dispositivo desconocido: NO se auto-registra. Antes se creaba como KIOSK, lo que
+  // (1) llenaba `dispositivos` de entradas "Auto-N" basura y (2) hacía que CUALQUIER
+  // navegador (p. ej. el PC de un responsable de Calidad) se tratara como kiosko,
+  // interfiriendo con su sesión. Los kioskos y tablets de carretillero se dan de alta
+  // EXPLÍCITAMENTE desde SuperAdmin (AdminDevicesTab → upsertDevice). Un dispositivo
+  // no registrado simplemente cae al login normal en el cliente (mismo comportamiento
+  // que ya tenía un kiosko sin estantería asignada), sin crear ningún documento.
   if (!deviceSnap.exists) {
-    const now = new Date().toISOString();
-    await admin.firestore().collection('dispositivos').doc(deviceId).set({
-      type: 'KIOSK',
-      name: `Auto-${deviceId.slice(-8)}`,
-      active: true,
-      assignedShelf: null,
-      lastSeen: now,
-    });
-    // Re-read after creation
-    deviceSnap = await admin.firestore().collection('dispositivos').doc(deviceId).get();
+    return { exists: false, claimsUpdated: false };
   }
 
   const device = deviceSnap.data() as {
@@ -352,4 +354,38 @@ export const setupUser = functions.https.onCall(async (data: any, context: any) 
     console.error('[setupUser] Error:', error.message);
     throw new functions.https.HttpsError('internal', error.message);
   }
+});
+
+/**
+ * Resuelve el email de un usuario a partir de su nombre de login (ej. "MARIO").
+ * Pública y sin auth: se llama ANTES de iniciar sesión, desde la pantalla de login.
+ * Las reglas de Firestore restringen `list` sobre `usuarios` a admins, así que esta
+ * búsqueda debe hacerse server-side con el Admin SDK. Solo devuelve el email
+ * (nunca rol, sección u otros campos) para no exponer datos de usuarios.
+ */
+export const resolveLoginEmail = functions.https.onCall(async (data: any) => {
+  const nameOrEmail = normalize(data?.nameOrEmail);
+  if (!nameOrEmail) {
+    throw new functions.https.HttpsError('invalid-argument', 'nameOrEmail requerido.');
+  }
+  if (nameOrEmail.includes('@')) {
+    return { email: nameOrEmail };
+  }
+
+  const lowerName = nameOrEmail.toLowerCase();
+  const db = admin.firestore();
+  const usuariosSnap = await db.collection('usuarios').get();
+
+  for (const doc of usuariosSnap.docs) {
+    const userData = doc.data();
+    const loginNames: string[] = userData.loginNames || [];
+    if (
+      loginNames.some((ln) => String(ln).toLowerCase() === lowerName) ||
+      (userData.displayName && String(userData.displayName).toLowerCase() === lowerName)
+    ) {
+      return { email: userData.email };
+    }
+  }
+
+  throw new functions.https.HttpsError('not-found', `Usuario "${nameOrEmail}" no encontrado`);
 });

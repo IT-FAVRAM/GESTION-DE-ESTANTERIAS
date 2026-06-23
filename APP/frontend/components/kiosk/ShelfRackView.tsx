@@ -89,15 +89,18 @@ interface RackSlotProps {
   onCellDragEnter?: (position: string) => void;
   onCellDragLeave?: () => void;
   onCellDrop?: (targetPosition: string) => void;
+  /** "articleCode|orderFab" del artículo buscado, para resaltarlo más oscuro entre varios de la misma celda. */
+  highlightedItemKey?: string | null;
 }
 
 const RackSlot: React.FC<RackSlotProps> = ({
   position, posNum, location, shelfCode,
   isUrgent, isTechReview, isAluminio, isSelected, isHighlighted, isDragOver,
   showReprocessCosts, onPress, createEmpty, minHeight, shelfSurface,
-  onCellDragStart, onCellDragEnter, onCellDragLeave, onCellDrop,
+  onCellDragStart, onCellDragEnter, onCellDragLeave, onCellDrop, highlightedItemKey,
 }) => {
   const items = location?.items ?? [];
+  const photos = location?.photos ?? [];
   const isEmpty = items.length === 0;
   const isReproces = typeof posNum === 'number' && isReprocesosLocation(shelfCode, posNum);
   const isDraggable = !isEmpty && !!onCellDragStart;
@@ -145,14 +148,15 @@ const RackSlot: React.FC<RackSlotProps> = ({
     posColor = 'rgba(14,165,233,0.9)';
     emptyColor = 'rgba(14,165,233,0.5)';
   } else if (isHighlighted) {
-    wrapBg = 'rgba(255,251,235,0.95)';
-    wrapBorder = 'rgba(234,179,8,0.7)';
-    wrapShadow = '0 0 0 2px rgba(234,179,8,0.35), inset 0 1px 3px rgba(0,0,0,0.04)';
-    itemBg = 'rgba(254,243,199,0.9)';
-    artColor = '#713f12';
-    ofColor = '#92400e';
-    posColor = 'rgba(234,179,8,0.9)';
-    emptyColor = 'rgba(234,179,8,0.5)';
+    // Resultado de búsqueda: celda resaltada en ROSA.
+    wrapBg = 'rgba(253,242,248,0.95)';
+    wrapBorder = 'rgba(236,72,153,0.75)';
+    wrapShadow = '0 0 0 2px rgba(236,72,153,0.4), inset 0 1px 3px rgba(0,0,0,0.04)';
+    itemBg = 'rgba(251,207,232,0.9)';
+    artColor = '#831843';
+    ofColor = '#9d174d';
+    posColor = 'rgba(236,72,153,0.95)';
+    emptyColor = 'rgba(236,72,153,0.55)';
   } else if (isUrgent) {
     wrapBg = isEmpty ? 'rgba(255,241,242,0.9)' : 'rgba(254,226,226,0.95)';
     wrapBorder = isEmpty ? 'rgba(239,68,68,0.35)' : 'rgba(239,68,68,0.65)';
@@ -203,6 +207,7 @@ const RackSlot: React.FC<RackSlotProps> = ({
 
   return (
     <div
+      data-position={position}
       role={onPress || isDraggable ? 'button' : undefined}
       tabIndex={onPress ? 0 : undefined}
       onClick={onPress ? handleClick : undefined}
@@ -219,7 +224,10 @@ const RackSlot: React.FC<RackSlotProps> = ({
         boxShadow: isDragOver ? '0 0 0 2px rgba(52,211,153,0.4)' : wrapShadow,
         cursor: isDraggable ? 'grab' : (onPress ? 'pointer' : 'default'),
         transition: 'filter 0.12s, transform 0.1s, background 0.1s, border 0.1s',
-        touchAction: 'pan-y',
+        // Solo reservar el eje horizontal para el drag-and-drop cuando la celda
+        // es arrastrable (vista admin). En operativa hay que permitir el pan
+        // horizontal para desplazar la estantería tocando cualquier hueco.
+        touchAction: isDraggable ? 'pan-y' : 'pan-x pan-y',
       }}
       onMouseEnter={e => { if (onPress || isDraggable) (e.currentTarget as HTMLDivElement).style.filter = 'brightness(1.15)'; }}
       onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.filter = 'brightness(1)'; }}
@@ -227,11 +235,16 @@ const RackSlot: React.FC<RackSlotProps> = ({
       {...dropProps}
     >
       {/* Posición + badge */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 5px 0', gap: 3, flexShrink: 0 }}>
-        <span style={{ fontSize: 8, fontWeight: 900, fontFamily: 'monospace', color: posColor, lineHeight: 1 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 5px 2px', gap: 3, flexShrink: 0 }}>
+        <span style={{ fontSize: 14, fontWeight: 900, fontFamily: 'monospace', color: posColor, lineHeight: 1, letterSpacing: '0.05em' }}>
           {position}
         </span>
         {badgeEl}
+        {photos.length > 0 && (
+          <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', background: '#8b5cf6', borderRadius: 8, padding: '1px 4px', lineHeight: 1, display: 'inline-flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+            📷{photos.length > 1 ? photos.length : ''}
+          </span>
+        )}
         {isReproces && showReprocessCosts && !badgeEl && (
           <span style={{ fontSize: 8, color: '#fbbf24', fontWeight: 700, lineHeight: 1 }}>€</span>
         )}
@@ -250,17 +263,20 @@ const RackSlot: React.FC<RackSlotProps> = ({
         </div>
       ) : (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '3px 4px 2px', gap: 2, minHeight: 0 }}>
-          {items.map((item, i) => (
+          {items.map((item, i) => {
+            const isSearchedItem = !!highlightedItemKey && `${item.articleCode}|${item.orderFab}` === highlightedItemKey;
+            return (
             <div
               key={`${item.articleCode}-${item.orderFab}-${i}`}
               style={{
-                background: itemBg,
+                background: isSearchedItem ? 'rgba(219,39,119,0.32)' : itemBg,
                 borderRadius: 3,
                 padding: '3px 5px',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
-                borderLeft: `3px solid ${artColor}`,
+                borderLeft: `3px solid ${isSearchedItem ? '#831843' : artColor}`,
+                boxShadow: isSearchedItem ? '0 0 0 1.5px rgba(190,24,93,0.85)' : undefined,
                 overflow: 'hidden',
                 flexShrink: 0,
               }}
@@ -277,7 +293,8 @@ const RackSlot: React.FC<RackSlotProps> = ({
                 </p>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -288,7 +305,7 @@ const RackSlot: React.FC<RackSlotProps> = ({
             height: '100%',
             width: isEmpty ? '0%' : `${Math.min((items.length / 3) * 100, 100)}%`,
             background: isSelected ? 'rgba(34,211,238,0.9)'
-              : isHighlighted ? 'rgba(251,191,36,0.9)'
+              : isHighlighted ? 'rgba(236,72,153,0.95)'
               : isUrgent ? 'rgba(239,68,68,0.85)'
               : (isTechReview || isAluminio) ? 'rgba(245,158,11,0.85)'
               : items.length <= 1 ? 'rgba(16,185,129,0.9)'
@@ -323,6 +340,7 @@ export interface ShelfRackViewProps {
   onCellDragEnter?: (position: string) => void;
   onCellDragLeave?: () => void;
   onCellDrop?: (targetPosition: string) => void;
+  highlightedItemKey?: string | null;
 }
 
 const ShelfRackView: React.FC<ShelfRackViewProps> = ({
@@ -340,6 +358,7 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
   onCellDragEnter,
   onCellDragLeave,
   onCellDrop,
+  highlightedItemKey,
 }) => {
   const pk = getPaletteKey(shelfCode, block.zoneName);
   const palette = PALETTES[pk];
@@ -454,6 +473,7 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
                     onCellDragEnter={onCellDragEnter}
                     onCellDragLeave={onCellDragLeave}
                     onCellDrop={onCellDrop}
+                    highlightedItemKey={highlightedItemKey}
                   />
                 );
               })}

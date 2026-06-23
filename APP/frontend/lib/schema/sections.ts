@@ -2,6 +2,7 @@ export type WarehouseSection =
   | 'PRENSAS_MECANIZADO'
   | 'PLEGADORA'
   | 'SOLDADURA'
+  | 'SXP'
   | 'AUTOPLEGADORA'
   | 'REPASADO'
   | 'PINTURA'
@@ -15,6 +16,7 @@ export const SECTION_DISPLAY_NAMES: Record<WarehouseSection, string> = {
   PRENSAS_MECANIZADO: 'Prensas-Mecanizado',
   PLEGADORA: 'Plegadora',
   SOLDADURA: 'Soldadura',
+  SXP: 'Soldadura Puntos',
   AUTOPLEGADORA: 'Autoplegadora',
   REPASADO: 'Repasado',
   PINTURA: 'Pintura',
@@ -32,12 +34,16 @@ export const SHELF_TO_SECTION: Record<string, WarehouseSection> = {
   RPL: 'AUTOPLEGADORA',
   SOL: 'SOLDADURA',
   RSO: 'SOLDADURA',
-  SXP: 'SOLDADURA',
+  SXP: 'SXP',
   REP: 'REPASADO',
   PIN: 'PINTURA',
   ZIN: 'REPASADO',
   CAL: 'CALIDAD',
   COM: 'OTROS',
+  CS: 'SOLDADURA',
+  CP1: 'PLEGADORA',
+  CP2: 'PLEGADORA',
+  CRP: 'AUTOPLEGADORA',
 };
 
 /**
@@ -61,5 +67,34 @@ export const getShelvesForSection = (section: WarehouseSection): string[] =>
   Object.entries(SHELF_TO_SECTION)
     .filter(([code, sec]) => sec === section && !DATA_ONLY_SHELVES.has(code))
     .map(([code]) => code);
+
+/**
+ * Mapa de secciones que pueden tener acceso adicional a otras secciones.
+ * Usado para jefes que necesitan acceder a múltiples secciones.
+ * Ej: Jefe de PLEGADORA también accede a AUTOPLEGADORA.
+ */
+const CROSS_SECTION_ACCESS: Partial<Record<WarehouseSection, WarehouseSection[]>> = {
+  // PLEGADORA y AUTOPLEGADORA son secciones contiguas que se operan en conjunto:
+  // el acceso es bidireccional (cada jefe ve las estanterías y carros de la otra).
+  'PLEGADORA': ['AUTOPLEGADORA'],
+  'AUTOPLEGADORA': ['PLEGADORA'],
+  // El jefe de SOLDADURA conserva acceso a Soldadura Puntos (SXP), que ahora es
+  // su propia sección con jefe dedicado (H / Mario). El jefe de SXP ve solo SXP.
+  'SOLDADURA': ['SXP'],
+};
+
+/**
+ * Devuelve todas las estanterías accesibles para una sección,
+ * incluyendo las de la sección primaria + las de secciones adicionales.
+ */
+export const getAccessibleShelvesForSection = (section: WarehouseSection): string[] => {
+  const shelves = getShelvesForSection(section);
+  const additionalSections = CROSS_SECTION_ACCESS[section] || [];
+  for (const addSection of additionalSections) {
+    const additionalShelves = getShelvesForSection(addSection);
+    shelves.push(...additionalShelves);
+  }
+  return shelves;
+};
 
 

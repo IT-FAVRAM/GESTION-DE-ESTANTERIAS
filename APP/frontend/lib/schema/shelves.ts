@@ -136,7 +136,7 @@ export const SHELF_DEFINITIONS: Shelf[] = [
           subtitle: 'Urgentes (001-006) en filas inferiores',
           zoneName: 'ESTANTERIA 1',
           rows: [
-            [15, 16],
+            [15, 16, null, null],
             [13, 14, 29, 30],
             [11, 12, 27, 28],
             [9,  10, 25, 26],
@@ -301,7 +301,7 @@ export const SHELF_DEFINITIONS: Shelf[] = [
   {
     code: 'SXP',
     name: 'Soldadura Puntos',
-    section: 'SOLDADURA',
+    section: 'SXP',
     type: 'shelf',
     locationCount: 10,
     layout: {
@@ -346,23 +346,23 @@ export const SHELF_DEFINITIONS: Shelf[] = [
     locationCount: 35,
     layout: {
       zones: [
-        { name: 'GENERAL', range: [1, 21], color: '#f97316' },
-        { name: 'AUTOPLEGADO', range: [22, 35], color: '#f97316' }
+        { name: 'ESTANTERIA 2', range: [1, 14], color: '#f97316' },
+        { name: 'ESTANTERIA 1', range: [15, 35], color: '#f97316' }
       ],
       physicalBlocks: [
         {
           id: 'rpl-main',
           title: 'Estantería 1 Autoplegadora',
-          subtitle: '001-021 · 7 filas · 3 columnas',
-          zoneName: 'GENERAL',
-          rows: [[19, 20, 21], [16, 17, 18], [13, 14, 15], [10, 11, 12], [7, 8, 9], [4, 5, 6], [1, 2, 3]],
+          subtitle: '015-035 · 7 filas · 3 columnas',
+          zoneName: 'ESTANTERIA 1',
+          rows: [[33, 34, 35], [30, 31, 32], [27, 28, 29], [24, 25, 26], [21, 22, 23], [18, 19, 20], [15, 16, 17]],
         },
         {
           id: 'rpl-autoplegado',
           title: 'Estantería 2 Autoplegado',
-          subtitle: '022-035 · 7 filas · 2 columnas',
-          zoneName: 'AUTOPLEGADO',
-          rows: [[34, 35], [32, 33], [30, 31], [28, 29], [26, 27], [24, 25], [22, 23]],
+          subtitle: '001-014 · 7 filas · 2 columnas',
+          zoneName: 'ESTANTERIA 2',
+          rows: [[13, 14], [11, 12], [9, 10], [7, 8], [5, 6], [3, 4], [1, 2]],
         },
       ],
     },
@@ -436,46 +436,8 @@ export const SHELF_DEFINITIONS: Shelf[] = [
 
 export const CART_DEFINITIONS: Shelf[] = [
   {
-    code: 'RSOL',
-    name: '01 - Repuestos Soldadura',
-    section: 'SOLDADURA',
-    type: 'cart',
-    locationCount: 8,
-    layout: {
-      zones: [{ name: 'BALDAS', range: [1, 8], color: '#10b981' }],
-      physicalBlocks: [
-        {
-          id: 'rsol-main',
-          title: '01 - Repuestos Soldadura',
-          subtitle: '8 baldas',
-          zoneName: 'BALDAS',
-          rows: [[1], [2], [3], [4], [5], [6], [7], [8]],
-        },
-      ],
-    },
-  },
-  {
-    code: 'CSOL',
-    name: '02 - Carro Soldadura',
-    section: 'SOLDADURA',
-    type: 'cart',
-    locationCount: 8,
-    layout: {
-      zones: [{ name: 'BALDAS', range: [1, 8], color: '#10b981' }],
-      physicalBlocks: [
-        {
-          id: 'csol-main',
-          title: '02 - Carro Soldadura',
-          subtitle: '8 baldas',
-          zoneName: 'BALDAS',
-          rows: [[1], [2], [3], [4], [5], [6], [7], [8]],
-        },
-      ],
-    },
-  },
-  {
-    code: 'CSXP',
-    name: '03 - Carro SXP',
+    code: 'CS',
+    name: 'Carro Soldadura',
     section: 'SOLDADURA',
     type: 'cart',
     locationCount: 4,
@@ -483,8 +445,8 @@ export const CART_DEFINITIONS: Shelf[] = [
       zones: [{ name: 'BALDAS', range: [1, 4], color: '#10b981' }],
       physicalBlocks: [
         {
-          id: 'csxp-main',
-          title: '03 - Carro SXP',
+          id: 'cs-main',
+          title: 'Carro Soldadura',
           subtitle: '4 baldas',
           zoneName: 'BALDAS',
           rows: [[1], [2], [3], [4]],
@@ -493,8 +455,46 @@ export const CART_DEFINITIONS: Shelf[] = [
     },
   },
   {
-    code: 'CRPL',
-    name: '04 - Carro Autoplegadora',
+    code: 'CP1',
+    name: 'Carro Plegadora 1',
+    section: 'PLEGADORA',
+    type: 'cart',
+    locationCount: 4,
+    layout: {
+      zones: [{ name: 'BALDAS', range: [1, 4], color: '#10b981' }],
+      physicalBlocks: [
+        {
+          id: 'cp1-main',
+          title: 'Carro Plegadora 1',
+          subtitle: '4 baldas',
+          zoneName: 'BALDAS',
+          rows: [[1], [2], [3], [4]],
+        },
+      ],
+    },
+  },
+  {
+    code: 'CP2',
+    name: 'Carro Plegadora 2',
+    section: 'PLEGADORA',
+    type: 'cart',
+    locationCount: 4,
+    layout: {
+      zones: [{ name: 'BALDAS', range: [1, 4], color: '#10b981' }],
+      physicalBlocks: [
+        {
+          id: 'cp2-main',
+          title: 'Carro Plegadora 2',
+          subtitle: '4 baldas',
+          zoneName: 'BALDAS',
+          rows: [[1], [2], [3], [4]],
+        },
+      ],
+    },
+  },
+  {
+    code: 'CRP',
+    name: 'Carro Plegadora Amada',
     section: 'AUTOPLEGADORA',
     type: 'cart',
     locationCount: 4,
@@ -502,8 +502,8 @@ export const CART_DEFINITIONS: Shelf[] = [
       zones: [{ name: 'BALDAS', range: [1, 4], color: '#10b981' }],
       physicalBlocks: [
         {
-          id: 'crpl-main',
-          title: '04 - Carro Autoplegadora',
+          id: 'crp-main',
+          title: 'Carro Plegadora Amada',
           subtitle: '4 baldas',
           zoneName: 'BALDAS',
           rows: [[1], [2], [3], [4]],
@@ -516,6 +516,12 @@ export const CART_DEFINITIONS: Shelf[] = [
 export const ALL_SHELVES: Shelf[] = [...SHELF_DEFINITIONS, ...CART_DEFINITIONS];
 
 // ── HELPERS ──────────────────────────────────────────────────────────────────
+
+/** Devuelve los carros disponibles para una sección, opcionalmente excluyendo algunos */
+export const getCartsForSection = (section: WarehouseSection, excludedCarts?: string[]): string[] =>
+  CART_DEFINITIONS
+    .filter(cart => cart.section === section && !(excludedCarts?.includes(cart.code)))
+    .map(cart => cart.code);
 
 /** Genera el ID de ubicacion compuesto: "shelfCode-position" */
 export const getLocationDocId = (shelfCode: string, position: number | string): string => {

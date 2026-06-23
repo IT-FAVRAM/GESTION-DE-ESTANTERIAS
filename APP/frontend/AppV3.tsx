@@ -13,18 +13,20 @@
 
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useAuth } from './hooks/useAuth';
-import { useFormFactor } from './hooks/useFormFactor';
 import { useInitializeCriticalData } from './hooks/useInitializeCriticalData';
 import type { AdminTab } from './components/admin/adminShared';
 import OfflineIndicator from './components/common/OfflineIndicator';
 import OfflineDebugPanel from './components/common/OfflineDebugPanel';
 import { initPushNotifications, listenForegroundMessages, refreshTokenOnFocus } from './lib/pushService';
+import { playNotificationSound } from './lib/notificationSound';
 import { useConnectionMonitor } from './hooks/useConnectionMonitor';
 import AppLoadingScreen from './components/app/AppLoadingScreen';
 import PushToast from './components/app/PushToast';
 import ChatButton from './components/app/ChatButton';
 import { UrgentAlertsBar } from './components/app/UrgentAlertsBar';
 import { useUrgentAlerts } from './hooks/useUrgentAlerts';
+import { usePendingUrgentAlerts, acknowledgePendingAlert } from './hooks/usePendingUrgentAlerts';
+import UrgentMissedAlertModal from './components/app/UrgentMissedAlertModal';
 
 // ── Lazy-loaded views — cada rol sólo descarga su código ──────────────────────
 const UnifiedLogin      = lazy(() => import('./components/auth/UnifiedLogin'));
@@ -36,12 +38,14 @@ const AdminShelfBrowser = lazy(() => import('./components/admin/AdminShelfBrowse
 const ArticleTimeline   = lazy(() => import('./components/admin/ArticleTimeline'));
 const ManagerInfoView   = lazy(() => import('./components/app/ManagerInfoView'));
 const JefeSeccionView   = lazy(() => import('./components/app/JefeSeccionView'));
+const PunzonadoView     = lazy(() => import('./components/app/PunzonadoView'));
 const AdminHomeView     = lazy(() => import('./components/app/AdminHomeView'));
 const CalidadView       = lazy(() => import('./components/app/CalidadView'));
+const SoloVisualView    = lazy(() => import('./components/app/SoloVisualView'));
+const KioskoSetupPage   = lazy(() => import('./components/app/KioskoSetupPage'));
 
 const AppV3: React.FC = () => {
   const state = useAuth();
-  const formFactor = useFormFactor();
   const {
     loading,
     isAuthenticated,
@@ -71,7 +75,20 @@ const AppV3: React.FC = () => {
     enabled: isAuthenticated && !loading,
   });
 
-  useInitializeCriticalData();
+  // Solo precachear/sincronizar cuando la sesión está autenticada y resuelta.
+  // Arrancarlo durante la fase anónima dejaba el listener de items muerto
+  // (permission-denied no reintenta) → "permisos insuficientes" + datos en blanco.
+  useInitializeCriticalData(isAuthenticated && !loading);
+
+  // ─── Detectar setup de kiosko por URL (ej: ?setup=REPASADO) ───
+  const setupSection = new URLSearchParams(window.location.search).get('setup');
+  if (setupSection) {
+    return (
+      <Suspense fallback={<AppLoadingScreen />}>
+        <KioskoSetupPage section={setupSection} />
+      </Suspense>
+    );
+  }
 
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showShelfBrowser, setShowShelfBrowser] = useState(false);
@@ -82,6 +99,17 @@ const AppV3: React.FC = () => {
   const [adminPanelTab, setAdminPanelTab] = useState<AdminTab>('reports');
   const [pushNotif, setPushNotif] = useState<{ title: string; body: string } | null>(null);
   const { alerts, resolveAlert } = useUrgentAlerts();
+
+  // Fallback persistente de avisos urgentes para jefes de sección: modal rojo al
+  // reentrar si el push se perdió por no estar conectado.
+  const { alerts: missedUrgentAlerts, acknowledgeAll: acknowledgeMissedUrgent } = usePendingUrgentAlerts(
+    firebaseUser?.uid ?? null,
+    isAuthenticated && role === 'JEFE_SECCION' && authMethod === 'email',
+  );
+  const urgentMissedModal = missedUrgentAlerts.length > 0
+    ? <UrgentMissedAlertModal alerts={missedUrgentAlerts} onAcknowledge={acknowledgeMissedUrgent} />
+    : null;
+
   const urgencyBar = isAuthenticated && alerts.length > 0
     ? <UrgentAlertsBar alerts={alerts} currentUid={firebaseUser?.uid ?? null} currentRole={role} onResolve={resolveAlert} />
     : null;
@@ -105,7 +133,16 @@ const AppV3: React.FC = () => {
 
     listenForegroundMessages((msg) => {
       if (!mounted) return;
+      // Sonido de aviso (en primer plano FCM no reproduce sonido del sistema).
+      const isUrgent = msg.data?.priority === 'high'
+        || (msg.data?.type ?? '').toUpperCase().includes('URGENT');
+      playNotificationSound(isUrgent);
       setPushNotif({ title: msg.title || '', body: msg.body || '' });
+      // Aviso urgente recibido EN VIVO: marca su fallback persistente como reconocido
+      // para que no reaparezca como "perdido" en el modal rojo del próximo inicio.
+      if (msg.data?.alertId) {
+        acknowledgePendingAlert(msg.data.alertId).catch(() => { /* no crítico */ });
+      }
       if (msg.data?.type !== 'ADMIN_MESSAGE') {
         setTimeout(() => setPushNotif(null), 10000);
       }
@@ -169,8 +206,7 @@ const AppV3: React.FC = () => {
           <OfflineIndicator />
           <OfflineDebugPanel />
           <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
-          <CarretilleroView />
-          {chatFab}
+          <CarretilleroView chatButton={chatFab} />
         </>
       </Suspense>
     );
@@ -181,11 +217,10 @@ const AppV3: React.FC = () => {
     return (
       <Suspense fallback={<AppLoadingScreen />}>
         {urgencyBar}
-        {chatFab}
         {showCarrosAdminMode ? (
           <CarrosView onBack={() => setShowCarrosAdminMode(false)} />
         ) : showOperativeMode ? (
-          <CarretilleroView onBack={() => { setShowOperativeMode(false); setOperativeInitialTab('shelves'); }} initialTab={operativeInitialTab} />
+          <CarretilleroView chatButton={chatFab} onBack={() => { setShowOperativeMode(false); setOperativeInitialTab('shelves'); }} initialTab={operativeInitialTab} />
         ) : showShelfBrowser ? (
           <AdminShelfBrowser onBack={() => setShowShelfBrowser(false)} onOpenCarros={() => { setShowShelfBrowser(false); setShowCarrosAdminMode(true); }} />
         ) : showTimeline ? (
@@ -193,7 +228,7 @@ const AppV3: React.FC = () => {
         ) : showAdminPanel ? (
           <SuperAdminPanel onClose={() => setShowAdminPanel(false)} role={role} initialTab={adminPanelTab} currentDeviceId={deviceId} isolatedTab />
         ) : (
-          <AdminHomeView role={role} displayName={displayName} notification={pushNotif} onCloseNotification={() => setPushNotif(null)} onOpenPanel={openAdminPanel} onOpenShelfBrowser={() => setShowShelfBrowser(true)} onOpenTimeline={() => setShowTimeline(true)} onOpenOperativeMode={() => setShowOperativeMode(true)} onLogout={logout} />
+          <AdminHomeView chatButton={chatFab} role={role} displayName={displayName} notification={pushNotif} onCloseNotification={() => setPushNotif(null)} onOpenPanel={openAdminPanel} onOpenShelfBrowser={() => setShowShelfBrowser(true)} onOpenTimeline={() => setShowTimeline(true)} onOpenOperativeMode={() => setShowOperativeMode(true)} onLogout={logout} />
         )}
       </Suspense>
     );
@@ -207,8 +242,8 @@ const AppV3: React.FC = () => {
           <OfflineIndicator />
           <OfflineDebugPanel />
           <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
-          <JefeSeccionView />
-          {chatFab}
+          {(section || '').toUpperCase() === 'PUNZONADO' ? <PunzonadoView chatButton={chatFab} /> : <JefeSeccionView chatButton={chatFab} />}
+          {urgentMissedModal}
         </>
       </Suspense>
     );
@@ -218,11 +253,24 @@ const AppV3: React.FC = () => {
     return (
       <Suspense fallback={<AppLoadingScreen />}>
         <>
+          {urgencyBar}
           <OfflineIndicator />
           <OfflineDebugPanel />
           <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
           <CalidadView />
           {chatFab}
+        </>
+      </Suspense>
+    );
+  }
+
+  if (role === 'SOLO_VISUAL') {
+    return (
+      <Suspense fallback={<AppLoadingScreen />}>
+        <>
+          <OfflineIndicator />
+          <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
+          <SoloVisualView />
         </>
       </Suspense>
     );

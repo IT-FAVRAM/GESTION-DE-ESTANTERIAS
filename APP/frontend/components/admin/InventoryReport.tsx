@@ -4,12 +4,22 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
-import ExcelJS from 'exceljs';
 import { useAnalytics } from '../../hooks/useAnalytics';
 import { db } from '../../lib/firebase';
 import { COLLECTIONS, SHELF_DEFINITIONS, type LocationDoc } from '../../lib/firestoreSchema';
 import { LeadTimeReport } from '../views/LeadTimeReport';
 import ProfessionalInventoryExport from './ProfessionalInventoryExport';
+
+// exceljs (~900KB) bajo demanda al generar el informe, no al abrir el panel.
+// (CommonJS → interop default/namespace.)
+let _excelJs: typeof import('exceljs') | null = null;
+const loadExcelJS = async (): Promise<typeof import('exceljs')> => {
+  if (!_excelJs) {
+    const mod = await import('exceljs');
+    _excelJs = ((mod as { default?: typeof import('exceljs') }).default ?? mod);
+  }
+  return _excelJs;
+};
 
 type ReportTab = 'overview' | 'performance' | 'alerts';
 
@@ -97,7 +107,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ onClose }) => {
     setExporting(true);
 
     try {
-      const wb = new ExcelJS.Workbook();
+      const wb = new (await loadExcelJS()).Workbook();
       const today = new Date().toISOString().split('T')[0];
       const dateStr = new Date().toLocaleDateString('es-ES', {
         year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
@@ -171,7 +181,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ onClose }) => {
     setExporting(true);
 
     try {
-      const wb = new ExcelJS.Workbook();
+      const wb = new (await loadExcelJS()).Workbook();
       const today = new Date().toISOString().split('T')[0];
       const dateStr = new Date().toLocaleDateString('es-ES', {
         year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',

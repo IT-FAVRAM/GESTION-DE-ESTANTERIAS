@@ -33,9 +33,9 @@ describe('parseLocationId', () => {
     expect(parseLocationId('')).toBeNull();
   });
 
-  it('handles multi-segment codes (RSOL-001)', () => {
-    const result = parseLocationId('RSOL-001');
-    expect(result?.shelfCode).toBe('RSOL');
+  it('handles multi-segment codes (CS-001)', () => {
+    const result = parseLocationId('CS-001');
+    expect(result?.shelfCode).toBe('CS');
     expect(result?.position).toBe('001');
   });
 });
@@ -90,19 +90,26 @@ describe('isReprocesosLocation', () => {
 // ── isUrgentLocation ──────────────────────────────────────────────────────────
 
 describe('isUrgentLocation', () => {
-  it('identifies MEC urgent zone (positions 1-4) as urgent', () => {
-    expect(isUrgentLocation('MEC', 1)).toBe(true);
-    expect(isUrgentLocation('MEC', 4)).toBe(true);
+  // MEC ya no existe como estantería (consolidación PRENSAS-MECANIZADO → PRE).
+  // La zona urgente numérica de referencia es PLE URGENTE (1-6); las urgentes
+  // de PRE son posiciones string compartidas ('URG MEC-PRE 001'..004).
+  it('identifies PLE urgent zone (positions 1-6) as urgent', () => {
+    expect(isUrgentLocation('PLE', 1)).toBe(true);
+    expect(isUrgentLocation('PLE', 6)).toBe(true);
   });
 
-  it('does not flag MEC non-urgent positions', () => {
-    expect(isUrgentLocation('MEC', 5)).toBe(false);
-    expect(isUrgentLocation('MEC', 34)).toBe(false);
+  it('does not flag PLE non-urgent positions', () => {
+    expect(isUrgentLocation('PLE', 7)).toBe(false);
+    expect(isUrgentLocation('PLE', 64)).toBe(false);
   });
 
   it('works with locationId string form', () => {
-    expect(isUrgentLocation('MEC-001')).toBe(true);
-    expect(isUrgentLocation('MEC-005')).toBe(false);
+    expect(isUrgentLocation('PLE-001')).toBe(true);
+    expect(isUrgentLocation('PLE-007')).toBe(false);
+  });
+
+  it('identifies PRE shared urgent string positions by URG prefix', () => {
+    expect(isUrgentLocation('PRE-URG MEC-PRE 001')).toBe(true);
   });
 
   it('returns false for unknown shelf codes', () => {
@@ -111,18 +118,18 @@ describe('isUrgentLocation', () => {
 
   it('respects config.urgentLocations (adds to zone definition, not replaces)', () => {
     const config = {
-      urgentLocations: ['MEC-010'],
+      urgentLocations: ['PLE-010'],
       techReviewLocations: [],
       chiefMapping: {},
       qualityEmails: [],
       operarioRefreshInterval: 300000,
     };
-    // MEC-010 is in the config override → urgent
-    expect(isUrgentLocation('MEC-010', config)).toBe(true);
-    // MEC-001 is in the hardcoded urgent zone (1-4) → still urgent regardless of config
-    expect(isUrgentLocation('MEC-001', config)).toBe(true);
-    // MEC-005 is not in config, not in urgent zone → not urgent
-    expect(isUrgentLocation('MEC-005', config)).toBe(false);
+    // PLE-010 is in the config override → urgent
+    expect(isUrgentLocation('PLE-010', config)).toBe(true);
+    // PLE-001 is in the hardcoded urgent zone (1-6) → still urgent regardless of config
+    expect(isUrgentLocation('PLE-001', config)).toBe(true);
+    // PLE-020 is not in config, not in urgent zone → not urgent
+    expect(isUrgentLocation('PLE-020', config)).toBe(false);
   });
 });
 
@@ -188,10 +195,10 @@ describe('isAluminioLocation', () => {
 
 describe('getShelfDefinition', () => {
   it('returns definition for known shelves', () => {
-    const shelf = getShelfDefinition('MEC');
+    const shelf = getShelfDefinition('PRE');
     expect(shelf).toBeDefined();
-    expect(shelf?.code).toBe('MEC');
-    expect(shelf?.section).toBe('MECANIZADO');
+    expect(shelf?.code).toBe('PRE');
+    expect(shelf?.section).toBe('PRENSAS_MECANIZADO');
   });
 
   it('returns undefined for unknown code', () => {
@@ -199,7 +206,7 @@ describe('getShelfDefinition', () => {
   });
 
   it('returns cart definitions', () => {
-    const cart = getShelfDefinition('RSOL');
+    const cart = getShelfDefinition('CS');
     expect(cart).toBeDefined();
     expect(cart?.type).toBe('cart');
   });
@@ -208,17 +215,21 @@ describe('getShelfDefinition', () => {
 // ── generatePositions ─────────────────────────────────────────────────────────
 
 describe('generatePositions', () => {
-  it('generates 0-padded positions up to locationCount', () => {
+  it('generates all PRE positions (4 URG compartidas + 9 prensas + 33 mecanizado = 46)', () => {
     const pre = getShelfDefinition('PRE')!;
     const positions = generatePositions(pre);
-    expect(positions).toHaveLength(9);
-    expect(positions[0]).toBe('001');
-    expect(positions[8]).toBe('009');
+    expect(positions).toHaveLength(46);
+    // Las urgentes compartidas son posiciones string y van primero (bloque URG)
+    expect(positions[0]).toBe('URG MEC-PRE 001');
+    // Las numéricas van 0-padded
+    expect(positions).toContain('001');
+    expect(positions).toContain('009');
+    expect(positions).toContain('046');
   });
 
-  it('generates 34 positions for MEC', () => {
-    const mec = getShelfDefinition('MEC')!;
-    expect(generatePositions(mec)).toHaveLength(34);
+  it('generates 4 positions for carts (CS)', () => {
+    const cs = getShelfDefinition('CS')!;
+    expect(generatePositions(cs)).toEqual(['001', '002', '003', '004']);
   });
 });
 

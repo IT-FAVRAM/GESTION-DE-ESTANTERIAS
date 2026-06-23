@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.telegramWeeklyReport = exports.telegramWebhook = exports.ocrImage = exports.suppliesOperate = exports.cartsOperate = exports.inboundOrdersOperate = exports.deleteUrgentAlert = exports.resolveUrgentAlert = exports.createUrgentAlert = exports.chatSendConversationMessage = exports.chatCreateConversation = exports.removePinnedUrgency = exports.setPinnedUrgency = exports.chatSendMessage = exports.productionOperate = exports.setupUser = exports.sendAdminMessage = exports.resolveDeviceConfig = exports.deviceHeartbeat = exports.adminOperate = exports.userPushReport = exports.leadTimeDataset = exports.leadTimeReporting = exports.pickupQueueOperate = exports.notifyLongDisconnection = exports.notifyConnectionDisconnect = exports.notifyCarretilleroRequest = exports.notifySpecialLocationOccupancy = exports.notifyPickupQueueCreated = exports.checkStaleItems = exports.updateReproceso = exports.cartOperate = exports.shelfOperate = exports.onShelfLocationWrite = exports.onAssignmentWrite = exports.inventoryOperate = void 0;
+exports.onLocationDeleted = exports.chaperoOperate = exports.countPieces = exports.ocrImage = exports.suppliesOperate = exports.cartsOperate = exports.inboundOrdersOperate = exports.deleteUrgentAlert = exports.resolveUrgentAlert = exports.createUrgentAlert = exports.chatSendConversationMessage = exports.chatCreateConversation = exports.removePinnedUrgency = exports.setPinnedUrgency = exports.chatSendMessage = exports.productionOperate = exports.setupUser = exports.sendAdminMessage = exports.resolveLoginEmail = exports.resolveDeviceConfig = exports.deviceHeartbeat = exports.adminOperate = exports.userPushReport = exports.leadTimeDataset = exports.leadTimeReporting = exports.pickupQueueOperate = exports.notifyLongDisconnection = exports.notifyConnectionDisconnect = exports.notifyCarretilleroRequest = exports.notifySpecialLocationOccupancy = exports.notifyPickupQueueCreated = exports.checkStaleItems = exports.updateReproceso = exports.cartOperate = exports.shelfOperate = exports.onShelfLocationWrite = exports.onAssignmentWrite = exports.inventoryOperate = void 0;
 // runtime: nodejs22
 var inventory_1 = require("./inventory");
 Object.defineProperty(exports, "inventoryOperate", { enumerable: true, get: function () { return inventory_1.inventoryOperate; } });
@@ -25,6 +25,7 @@ var admin_1 = require("./admin");
 Object.defineProperty(exports, "adminOperate", { enumerable: true, get: function () { return admin_1.adminOperate; } });
 Object.defineProperty(exports, "deviceHeartbeat", { enumerable: true, get: function () { return admin_1.deviceHeartbeat; } });
 Object.defineProperty(exports, "resolveDeviceConfig", { enumerable: true, get: function () { return admin_1.resolveDeviceConfig; } });
+Object.defineProperty(exports, "resolveLoginEmail", { enumerable: true, get: function () { return admin_1.resolveLoginEmail; } });
 Object.defineProperty(exports, "sendAdminMessage", { enumerable: true, get: function () { return admin_1.sendAdminMessage; } });
 Object.defineProperty(exports, "setupUser", { enumerable: true, get: function () { return admin_1.setupUser; } });
 var production_1 = require("./production");
@@ -49,8 +50,10 @@ var supplies_1 = require("./supplies");
 Object.defineProperty(exports, "suppliesOperate", { enumerable: true, get: function () { return supplies_1.suppliesOperate; } });
 var ocr_1 = require("./ocr");
 Object.defineProperty(exports, "ocrImage", { enumerable: true, get: function () { return ocr_1.ocrImage; } });
-var webhook_1 = require("./telegram/webhook");
-Object.defineProperty(exports, "telegramWebhook", { enumerable: true, get: function () { return webhook_1.telegramWebhook; } });
-var report_1 = require("./telegram/report");
-Object.defineProperty(exports, "telegramWeeklyReport", { enumerable: true, get: function () { return report_1.telegramWeeklyReport; } });
+var pieceCounter_1 = require("./pieceCounter");
+Object.defineProperty(exports, "countPieces", { enumerable: true, get: function () { return pieceCounter_1.countPieces; } });
+var chapero_1 = require("./chapero");
+Object.defineProperty(exports, "chaperoOperate", { enumerable: true, get: function () { return chapero_1.chaperoOperate; } });
+var photos_1 = require("./photos");
+Object.defineProperty(exports, "onLocationDeleted", { enumerable: true, get: function () { return photos_1.onLocationDeleted; } });
 //# sourceMappingURL=index.js.map

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.setupUser = exports.deviceHeartbeat = exports.sendAdminMessage = exports.resolveDeviceConfig = exports.adminOperate = void 0;
+exports.resolveLoginEmail = exports.setupUser = exports.deviceHeartbeat = exports.sendAdminMessage = exports.resolveDeviceConfig = exports.adminOperate = void 0;
 const functions = require("firebase-functions");
 const firebaseAdmin_1 = require("./firebaseAdmin");
 const authz_1 = require("./authz");
@@ -9,8 +9,8 @@ const migrate_SOL_structure_1 = require("../scripts/migrate-SOL-structure");
 const audit_BD_complete_1 = require("../scripts/audit-BD-complete");
 const normalize = (value) => String(value || '').trim();
 const normalizeRole = (value) => String(value || '').trim().toUpperCase();
-const ALLOWED_ROLES = new Set(['OPERARIO', 'CARRETILLERO', 'JEFE_SECCION', 'CALIDAD', 'ADMIN', 'SUPERADMIN']);
-const ALLOWED_SECTIONS = new Set(['PRENSAS_MECANIZADO', 'PLEGADORA', 'SOLDADURA', 'ROBOT_PLEGADO', 'REPASADO', 'PINTURA', 'LASER', 'CALIDAD', 'OTROS', 'MECANIZADO', 'PRENSAS']);
+const ALLOWED_ROLES = new Set(['OPERARIO', 'CARRETILLERO', 'JEFE_SECCION', 'CALIDAD', 'ADMIN', 'SUPERADMIN', 'SOLO_VISUAL']);
+const ALLOWED_SECTIONS = new Set(['PRENSAS_MECANIZADO', 'PLEGADORA', 'SOLDADURA', 'SXP', 'ROBOT_PLEGADO', 'REPASADO', 'PINTURA', 'LASER', 'CALIDAD', 'OTROS', 'MECANIZADO', 'PRENSAS']);
 exports.adminOperate = functions.https.onCall(async (data, context) => {
     await (0, authz_1.requireAllowedRoles)(context, ['SUPERADMIN']);
     const op = String((data === null || data === void 0 ? void 0 : data.op) || '');
@@ -61,6 +61,13 @@ exports.adminOperate = functions.https.onCall(async (data, context) => {
         if ('kioskId' in payload) {
             const effectiveType = String(updatePayload.type || (payload === null || payload === void 0 ? void 0 : payload.type) || '').trim().toUpperCase();
             updatePayload.kioskId = effectiveType === 'KIOSK' ? (normalize(payload === null || payload === void 0 ? void 0 : payload.kioskId) || null) : null;
+        }
+        if ('excludedCarts' in payload) {
+            const carts = Array.isArray(payload.excludedCarts) ? payload.excludedCarts : [];
+            updatePayload.excludedCarts = carts.map((c) => String(c || '').trim().toUpperCase()).filter((c) => c);
+        }
+        if (typeof (payload === null || payload === void 0 ? void 0 : payload.visualOnly) === 'boolean') {
+            updatePayload.visualOnly = payload.visualOnly;
         }
         if (Object.keys(updatePayload).length === 0) {
             throw new functions.https.HttpsError('invalid-argument', 'No hay cambios validos para actualizar.');
@@ -155,21 +162,16 @@ exports.resolveDeviceConfig = functions.https.onCall(async (data, context) => {
     if (!deviceId) {
         throw new functions.https.HttpsError('invalid-argument', 'deviceId requerido.');
     }
-    let deviceSnap = await firebaseAdmin_1.admin.firestore().collection('dispositivos').doc(deviceId).get();
-    // Auto-registrar dispositivos desconocidos como KIOSK (lectura/consulta).
-    // Los dispositivos CARRETILLERO deben ser pre-registrados por un admin
-    // para evitar que dispositivos no autorizados obtengan permisos de operación.
+    const deviceSnap = await firebaseAdmin_1.admin.firestore().collection('dispositivos').doc(deviceId).get();
+    // Dispositivo desconocido: NO se auto-registra. Antes se creaba como KIOSK, lo que
+    // (1) llenaba `dispositivos` de entradas "Auto-N" basura y (2) hacía que CUALQUIER
+    // navegador (p. ej. el PC de un responsable de Calidad) se tratara como kiosko,
+    // interfiriendo con su sesión. Los kioskos y tablets de carretillero se dan de alta
+    // EXPLÍCITAMENTE desde SuperAdmin (AdminDevicesTab → upsertDevice). Un dispositivo
+    // no registrado simplemente cae al login normal en el cliente (mismo comportamiento
+    // que ya tenía un kiosko sin estantería asignada), sin crear ningún documento.
     if (!deviceSnap.exists) {
-        const now = new Date().toISOString();
-        await firebaseAdmin_1.admin.firestore().collection('dispositivos').doc(deviceId).set({
-            type: 'KIOSK',
-            name: `Auto-${deviceId.slice(-8)}`,
-            active: true,
-            assignedShelf: null,
-            lastSeen: now,
-        });
-        // Re-read after creation
-        deviceSnap = await firebaseAdmin_1.admin.firestore().collection('dispositivos').doc(deviceId).get();
+        return { exists: false, claimsUpdated: false };
     }
     const device = deviceSnap.data();
     const result = {
@@ -314,5 +316,33 @@ exports.setupUser = functions.https.onCall(async (data, context) => {
         console.error('[setupUser] Error:', error.message);
         throw new functions.https.HttpsError('internal', error.message);
     }
+});
+/**
+ * Resuelve el email de un usuario a partir de su nombre de login (ej. "MARIO").
+ * Pública y sin auth: se llama ANTES de iniciar sesión, desde la pantalla de login.
+ * Las reglas de Firestore restringen `list` sobre `usuarios` a admins, así que esta
+ * búsqueda debe hacerse server-side con el Admin SDK. Solo devuelve el email
+ * (nunca rol, sección u otros campos) para no exponer datos de usuarios.
+ */
+exports.resolveLoginEmail = functions.https.onCall(async (data) => {
+    const nameOrEmail = normalize(data === null || data === void 0 ? void 0 : data.nameOrEmail);
+    if (!nameOrEmail) {
+        throw new functions.https.HttpsError('invalid-argument', 'nameOrEmail requerido.');
+    }
+    if (nameOrEmail.includes('@')) {
+        return { email: nameOrEmail };
+    }
+    const lowerName = nameOrEmail.toLowerCase();
+    const db = firebaseAdmin_1.admin.firestore();
+    const usuariosSnap = await db.collection('usuarios').get();
+    for (const doc of usuariosSnap.docs) {
+        const userData = doc.data();
+        const loginNames = userData.loginNames || [];
+        if (loginNames.some((ln) => String(ln).toLowerCase() === lowerName) ||
+            (userData.displayName && String(userData.displayName).toLowerCase() === lowerName)) {
+            return { email: userData.email };
+        }
+    }
+    throw new functions.https.HttpsError('not-found', `Usuario "${nameOrEmail}" no encontrado`);
 });
 //# sourceMappingURL=admin.js.map

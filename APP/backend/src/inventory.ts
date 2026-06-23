@@ -345,6 +345,9 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
   const shelfCode = normalize(payload?.shelfCode || actor.assignedShelf);
   const articleCode = String(payload?.articleCode || '').trim();
   const orderFab = String(payload?.orderFab || '').trim();
+  // SUBCONTRATACIÓN: artículo de etiqueta de subcontratación (código amarillo, sin OF).
+  // Cuando es true se permite OF vacía y se marca el ítem para trazabilidad.
+  const subcontratacion = payload?.subcontratacion === true;
   const operarioId = String(payload?.operarioId || actor.operarioId || actor.uid).trim();
   const operarioName = String(payload?.operarioName || actor.operarioName || actor.email || actor.uid).trim();
   const now = new Date().toISOString();
@@ -371,7 +374,7 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
 
   if (op === 'ubicar') {
     const position = String(payload?.position || '').trim();
-    if (!position || !articleCode || !orderFab) {
+    if (!position || !articleCode || (!orderFab && !subcontratacion)) {
       throw new functions.https.HttpsError('invalid-argument', 'Datos incompletos para ubicar.');
     }
     const locationId = `${shelfCode}-${position}`;
@@ -387,7 +390,7 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         twinLocRef ? tx.get(twinLocRef) : Promise.resolve(undefined),
       ]);
       const currentItems = locSnap.exists ? ((locSnap.data()?.items || []) as any[]) : [];
-      const newItem = { presenceId: presenceRef.id, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now };
+      const newItem = { presenceId: presenceRef.id, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, ...(subcontratacion ? { subcontratacion: true } : {}) };
       tx.set(locRef, {
         position,
         items: [...currentItems, newItem],
@@ -398,7 +401,7 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
       // ✅ FIX #6: Usar shelfCodes array para soportar ubicaciones compartidas
       const shelfCodes = getShelfCodesForPosition(shelfCode, position);
       const normalizedShelfCode = normalizeShelfCodeForSearch(shelfCode);
-      tx.set(presenceRef, { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode: normalizedShelfCode, shelfCodes, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true });
+      tx.set(presenceRef, { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode: normalizedShelfCode, shelfCodes, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true, ...(subcontratacion ? { subcontratacion: true } : {}) });
       if (aggregateSnap.exists) {
         const aggregate = aggregateSnap.data() as any;
         const currentIds: string[] = aggregate.activePresenceIds || [];
@@ -442,7 +445,7 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
     const positions = rawPositions.map((value: unknown) => String(value).trim()).filter(Boolean);
     const importe = payload?.importe as number | undefined;
     const cantidad = payload?.cantidad as number | undefined;
-    if (!articleCode || !orderFab || positions.length === 0) {
+    if (!articleCode || (!orderFab && !subcontratacion) || positions.length === 0) {
       throw new functions.https.HttpsError('invalid-argument', 'Datos incompletos para ubicar múltiple.');
     }
     if (positions.length > 100) {
@@ -507,6 +510,7 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         const locationItem: any = { presenceId: presenceRef.id, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now };
         if (importe !== undefined) locationItem.unitCost = importe;
         if (cantidad !== undefined) locationItem.quantity = cantidad;
+        if (subcontratacion) locationItem.subcontratacion = true;
         
         const newItems = [...currentItems, locationItem];
         pendingItemsByPath.set(locRef.path, newItems);
@@ -525,6 +529,7 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         const presenceDoc: any = { presenceId: presenceRef.id, aggregateKey, articleCode, orderFab, locationIds: [locationId], shelfCode: normalizedShelfCode, shelfCodes, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now, active: true };
         if (importe !== undefined) presenceDoc.unitCost = importe;
         if (cantidad !== undefined) presenceDoc.quantity = cantidad;
+        if (subcontratacion) presenceDoc.subcontratacion = true;
         tx.set(presenceRef, presenceDoc);
 
         totalPresencesAdded++;
@@ -555,7 +560,9 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
   }
 
   if (op === 'retirar') {
-    if (!articleCode || !orderFab) {
+    // OF puede ir vacía para artículos de SUBCONTRATACIÓN y CAL (aggregateKey
+    // `CODE__` sólo casa con ítems sin OF, así que es seguro no exigirla).
+    if (!articleCode) {
       throw new functions.https.HttpsError('invalid-argument', 'Datos incompletos para retirar.');
     }
     const aggregateKey = `${normalize(articleCode)}__${normalize(orderFab)}`;
@@ -627,7 +634,8 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
 
   if (op === 'retirarDeUbicacion') {
     const position = String(payload?.position || '').trim();
-    if (!articleCode || !orderFab || !position) {
+    // OF puede ir vacía (SUBCONTRATACIÓN / CAL); la baja se hace por presenceId.
+    if (!articleCode || !position) {
       throw new functions.https.HttpsError('invalid-argument', 'Datos incompletos para retirar de ubicacion.');
     }
     const locRef = db.collection('shelves').doc(shelfCode).collection('locations').doc(position);
@@ -700,7 +708,12 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
       .where('shelfCode', '==', shelfCode)
       .get();
     const activePresences = presenceSnapshot.docs.map((snap) => ({ ref: snap.ref, data: snap.data() as any }));
-    if (activePresences.length === 0 || activePresences.length !== newPositions.length) {
+    // Apilado: un único destino acepta todas las presencias (todas se mueven a
+    // la misma posición). Si hay varios destinos, deben coincidir 1:1.
+    const targetPositions: string[] = newPositions.length === 1 && activePresences.length > 1
+      ? activePresences.map(() => newPositions[0])
+      : newPositions;
+    if (activePresences.length === 0 || activePresences.length !== targetPositions.length) {
       throw new functions.https.HttpsError('failed-precondition', 'Las presencias activas no coinciden con los destinos.');
     }
     await db.runTransaction(async (tx) => {
@@ -714,7 +727,7 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         const locRef = db.collection('shelves').doc(shelfCode).collection('locations').doc(position);
         return { presence, locationId, position, locRef };
       });
-      const newLocData = newPositions.map((position: string, index: number) => ({
+      const newLocData = targetPositions.map((position: string, index: number) => ({
         position,
         locationId: `${shelfCode}-${position}`,
         locRef: db.collection('shelves').doc(shelfCode).collection('locations').doc(position),

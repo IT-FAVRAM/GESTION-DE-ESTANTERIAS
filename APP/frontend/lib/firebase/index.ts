@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import {
   initializeFirestore,
   getFirestore,
@@ -8,6 +8,7 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { getFunctions } from 'firebase/functions';
+import { getStorage } from 'firebase/storage';
 import { getMessaging, isSupported, type Messaging } from 'firebase/messaging';
 
 const firebaseConfig = {
@@ -23,6 +24,11 @@ const firebaseConfig = {
 export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
+// Forzar persistencia local por defecto — TODAS las sesiones sobreviven cierre de navegador
+setPersistence(auth, browserLocalPersistence).catch((err) => {
+  console.warn('[firebase] setPersistence failed:', err);
+});
+
 // Use modern persistent cache API (replaces deprecated enableMultiTabIndexedDbPersistence)
 const initDb = (): Firestore => {
   try {
@@ -37,6 +43,7 @@ const initDb = (): Firestore => {
 
 export const db = initDb();
 export const functions = getFunctions(app);
+export const storage = getStorage(app);
 
 export const getMessagingInstance = async (): Promise<Messaging | null> => {
   try {

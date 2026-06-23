@@ -52,14 +52,34 @@ service cloud.firestore {
       return userRole() == 'SUPERADMIN';
     }
 
+    function userSection() {
+      return userDocExists()
+        ? get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.section
+        : null;
+    }
+
+    function canEditNotesAtLocation(shelfCode) {
+      let role = userRole();
+      // ADMIN/SUPERADMIN/CARRETILLERO en cualquier ubicación;
+      // JEFE_SECCION solo con sección definida (validación fine-grained en frontend);
+      // CALIDAD solo en CAL.
+      return role in ['ADMIN', 'SUPERADMIN', 'CARRETILLERO']
+          || (role == 'JEFE_SECCION' && userSection() != null)
+          || (role == 'CALIDAD' && shelfCode == 'CAL');
+    }
+
     // ── ACCESS POLICY HELPERS ─────────────────────────────────────────────────
 
     function canReadWarehouseState() {
-      return isValidatedDevice() || isRegisteredUser();
+      return isValidatedDevice() || isRegisteredUser() || isSuperAdmin();
     }
 
     function canReadHistory() {
       return isOperationalUser() || isMonitoringUser();
+    }
+
+    function canAccessAnyData() {
+      return isSuperAdmin() || isAdminLike();
     }
 
     // Valida los campos opcionales de un documento de estado de conexión.
@@ -117,8 +137,12 @@ service cloud.firestore {
     }
 
     match /dispositivos/{deviceId} {
-      allow get, list: if isAdminLike();
-      allow write:     if false;
+      // Los kioskos (dispositivos validados) necesitan leer su propia config para
+      // obtener allowedShelves / excludedCarts / visualOnly (useDeviceConfig).
+      // `list` sigue restringido a admins; `get` de un doc concreto es seguro.
+      allow get:   if isAdminLike() || isValidatedDevice();
+      allow list:  if isAdminLike();
+      allow write: if false;
     }
 
     match /kiosks/{kioskId} {
@@ -134,8 +158,25 @@ service cloud.firestore {
 
       match /locations/{position} {
         allow read:  if canReadWarehouseState();
-        allow write: if false;
+        // Permitir actualizar SOLO los campos "nota" y/o "photos" con restricciones de rol.
+        // Las fotos de ubicación (sección SOLDADURA) se escriben desde el cliente igual
+        // que las notas; el binario vive en Storage, aquí solo el array de metadatos.
+        allow update: if isRegisteredUser()
+                         && canEditNotesAtLocation(shelfCode)
+                         && request.resource.data.diff(resource.data).changedKeys().hasOnly(['nota', 'photos']);
+        // Permitir crear el doc de una ubicación VACÍA solo para adjuntarle nota y/o fotos
+        // (posiciones sin doc previo). Forma acotada: sin items, mismos roles que notas.
+        allow create: if isRegisteredUser()
+                         && canEditNotesAtLocation(shelfCode)
+                         && request.resource.data.keys().hasOnly(['position', 'items', 'isEmpty', 'nota', 'photos'])
+                         && request.resource.data.items.size() == 0;
+        allow delete: if false;
       }
+    }
+
+    match /chapero_positions/{positionId} {
+      allow read:  if canReadWarehouseState() || isSuperAdmin();
+      allow write: if isSuperAdmin();
     }
 
     match /items/{document=**} {
@@ -239,6 +280,19 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── AVISOS PERSISTENTES (fallback modal rojo) ────────────────────────────
+    // Creados por Cloud Function (notifySpecialLocationOccupancy) para los avisos
+    // URGENTES a jefes de sección. El destinatario puede leer los suyos y marcarlos
+    // como reconocidos (acknowledged). Creación/borrado solo vía backend (admin SDK).
+    match /pendingAlerts/{alertId} {
+      allow read:   if request.auth != null && resource.data.recipientUid == request.auth.uid;
+      allow update: if request.auth != null
+                       && resource.data.recipientUid == request.auth.uid
+                       && request.resource.data.recipientUid == resource.data.recipientUid
+                       && request.resource.data.diff(resource.data).changedKeys().hasOnly(['acknowledged', 'acknowledgedAt']);
+      allow create, delete: if false;
+    }
+
     // ── LOGS Y AUDITORÍA ADMIN ───────────────────────────────────────────────
     // Escritura exclusiva de Cloud Functions. Lectura restringida a admins.
 
@@ -285,7 +339,7 @@ service cloud.firestore {
           && d.senderName is string
           && d.senderName.size() >= 1
           && d.senderRole is string
-          && d.senderRole in ['ADMIN', 'SUPERADMIN', 'JEFE_SECCION', 'CARRETILLERO', 'CALIDAD', 'OPERARIO']
+          && d.senderRole in ['ADMIN', 'SUPERADMIN', 'JEFE_SECCION', 'CARRETILLERO', 'CALIDAD', 'OPERARIO', 'SOLO_VISUAL']
           && d.readBy is list
           && d.readBy.size() == 1
           && d.readBy[0] == request.auth.uid;
@@ -303,7 +357,7 @@ service cloud.firestore {
           && d.senderName.size() >= 1
           && d.senderName.size() <= 120
           && d.senderRole is string
-          && d.senderRole in ['ADMIN', 'SUPERADMIN', 'JEFE_SECCION', 'CARRETILLERO', 'CALIDAD', 'OPERARIO']
+          && d.senderRole in ['ADMIN', 'SUPERADMIN', 'JEFE_SECCION', 'CARRETILLERO', 'CALIDAD', 'OPERARIO', 'SOLO_VISUAL']
           && d.readBy is list
           && d.readBy.size() == 1
           && d.readBy[0] == request.auth.uid;

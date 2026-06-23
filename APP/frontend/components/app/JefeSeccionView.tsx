@@ -8,26 +8,33 @@
 
 import React, { useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { SHELF_DEFINITIONS, getShelvesForSection, type WarehouseSection } from '../../lib/firestoreSchema';
+import { SHELF_DEFINITIONS, getShelvesForSection, getAccessibleShelvesForSection, type WarehouseSection } from '../../lib/firestoreSchema';
 import { SECTION_TO_SHELF, normalizeLegacySection } from '../../domain/auth/sectionShelf';
-import { buildOperativeConfig } from '../../lib/operative/operativeConfig';
+import { buildOperativeConfig, canUseScanTray } from '../../lib/operative/operativeConfig';
 import { useOperativeShelf } from '../../hooks/useOperativeShelf';
 import OperativeShelfArea from '../operative/OperativeShelfArea';
 import OperativeActionButtons from '../operative/OperativeActionButtons';
+import OperativeActionBar from '../operative/OperativeActionBar';
+import AppHeader from '../common/AppHeader';
+import { useFormFactor } from '../../hooks/useFormFactor';
+import { getShelfDisplayName } from '../../lib/shelfDisplayNames';
 
 interface JefeSeccionViewProps {
   onBack?: () => void;
+  chatButton?: React.ReactNode;
 }
 
 /** Componente interno que se renderiza solo cuando hay shelfCode válido */
 const JefeSeccionOperativo: React.FC<{
   shelfCode: string;
-  onShelfChange: (code: string) => void;
+  onShelfChange: (code: string, force?: boolean) => void;
   sectionShelfCodes: string[];
   onBack?: () => void;
-}> = ({ shelfCode, onShelfChange, sectionShelfCodes, onBack }) => {
+  chatButton?: React.ReactNode;
+}> = ({ shelfCode, onShelfChange, sectionShelfCodes, onBack, chatButton }) => {
   const { displayName, operarioId, firebaseUser, section, logout } = useAuth();
   const effectiveOperarioId = operarioId ?? firebaseUser?.uid ?? '';
+  const isTouch = useFormFactor() !== 'desktop';
 
   const shelfDef = SHELF_DEFINITIONS.find((s) => s.code === shelfCode);
 
@@ -42,74 +49,72 @@ const JefeSeccionOperativo: React.FC<{
     setShelfCode: onShelfChange,
     operarioId: effectiveOperarioId,
     displayName,
+    enableScanTray: canUseScanTray('JEFE_SECCION', firebaseUser?.email),
   });
 
-  const handleShelfChange = (code: string) => {
+  const handleShelfChange = (code: string, force?: boolean) => {
     engine.cancelAction();
-    onShelfChange(code);
+    onShelfChange(code, force);
   };
 
   return (
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
-      <header className="flex-shrink-0 bg-white border-b border-slate-200 px-3 py-2 shadow-sm">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
-            <span className="text-2xl">🏭</span>
-            <div className="min-w-0">
-              <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none truncate">
-                {shelfDef?.name ?? shelfCode ?? 'Mi Sección'}
-              </h1>
-              <p className="text-[10px] text-slate-500 truncate leading-none mt-0.5">{displayName} · {operarioId}</p>
-            </div>
-          </div>
+      <AppHeader
+        icon="🏭"
+        title={shelfDef?.name ?? shelfCode ?? 'Mi Sección'}
+        subtitle={`${displayName} · ${operarioId}`}
+        center={isTouch ? undefined : <OperativeActionButtons engine={engine} config={config} />}
+        chatButton={chatButton}
+        onBack={onBack}
+        onLogout={logout}
+      />
 
-          {/* Selector de estantería si la sección tiene varias */}
-          {sectionShelfCodes.length > 1 && (
-            <div className="flex gap-1 flex-shrink-0">
-              {sectionShelfCodes.map((code) => {
-                const def = SHELF_DEFINITIONS.find((s) => s.code === code);
-                return (
-                  <button
-                    key={code}
-                    onClick={() => handleShelfChange(code)}
-                    className={`px-2.5 py-1.5 text-xs font-black rounded-lg transition-all ${
-                      shelfCode === code
-                        ? 'bg-sky-600 text-white shadow-sm'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {def?.name ?? code}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          <OperativeActionButtons engine={engine} config={config} />
-
-          <button
-            onClick={onBack ? onBack : logout}
-            className="px-2 py-1 text-[11px] font-bold bg-slate-100 text-slate-700 rounded-lg whitespace-nowrap flex-shrink-0">
-            {onBack ? 'Volver' : 'Salir'}
-          </button>
+      {/* Pestañas de estantería: solo en táctil. En escritorio se usa el sidebar
+          lateral de OperativeShelfArea (enableShelfSidebar) para no duplicar. */}
+      {isTouch && sectionShelfCodes.length > 1 && (
+        <div className="bg-white border-b border-slate-200 px-3 py-2 flex gap-2 overflow-x-auto">
+          {sectionShelfCodes.map((code) => (
+            <button
+              key={code}
+              onClick={() => handleShelfChange(code)}
+              className={`px-3 py-1.5 text-xs font-black rounded-lg flex-shrink-0 transition-all ${
+                shelfCode === code
+                  ? 'bg-sky-600 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {getShelfDisplayName(code)}
+            </button>
+          ))}
         </div>
-      </header>
+      )}
 
       <main className="flex-1 min-h-0 min-w-0 w-full overflow-hidden">
-        <OperativeShelfArea engine={engine} config={config} fullscreenGrid />
+        <OperativeShelfArea
+          engine={engine}
+          config={config}
+          fullscreenGrid
+          userSection={section}
+          setShelfCode={handleShelfChange}
+          accessibleShelves={sectionShelfCodes}
+          enableShelfSidebar
+        />
       </main>
+
+      {isTouch && <OperativeActionBar engine={engine} config={config} />}
     </div>
   );
 };
 
-const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack }) => {
+const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack, chatButton }) => {
   const { section, assignedShelf, logout } = useAuth();
 
-  // Determina las estanterías accesibles para la sección del usuario
+  // Determina las estanterías accesibles para la sección del usuario,
+  // incluyendo secciones adicionales (p.ej. Jefe de PLEGADORA también accede a AUTOPLEGADORA)
   const sectionShelfCodes = useMemo(() => {
     if (!section) return [];
     const normalized = (normalizeLegacySection(section) ?? section) as WarehouseSection;
-    const codesFromSection = getShelvesForSection(normalized as Parameters<typeof getShelvesForSection>[0]);
+    const codesFromSection = getAccessibleShelvesForSection(normalized as Parameters<typeof getAccessibleShelvesForSection>[0]);
     if (codesFromSection.length > 0) return codesFromSection;
     // Fallback: algunas secciones (p.ej. PUNZONADO) comparten su estantería
     // canónica con otra sección (PUNZONADO → PLE) y no aparecen en el mapa
@@ -138,8 +143,11 @@ const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack }) => {
   // primer render dejaba `shelfCode` en null para siempre y mostraba
   // "Sección no configurada" aunque la sección sí estuviera asignada (regresión b8e661a).
   const [selectedShelf, setSelectedShelf] = useState<string | null>(null);
-  const shelfCode =
-    selectedShelf && sectionShelfCodes.includes(selectedShelf) ? selectedShelf : initialShelf;
+  const [forceShelf, setForceShelf] = useState<string | null>(null);
+  // Si forceShelf está activo (navegación por búsqueda), usarlo directamente.
+  // Si no, validar contra sectionShelfCodes.
+  const shelfCode = forceShelf
+    || (selectedShelf && sectionShelfCodes.includes(selectedShelf) ? selectedShelf : initialShelf);
 
   // Si no tiene sección válida, mostrar error
   if (!hasValidSection || !shelfCode) {
@@ -168,9 +176,17 @@ const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack }) => {
   return (
     <JefeSeccionOperativo
       shelfCode={shelfCode}
-      onShelfChange={setSelectedShelf}
+      onShelfChange={(code, force) => {
+        if (force) {
+          setForceShelf(code);
+        } else {
+          setForceShelf(null);
+          setSelectedShelf(code);
+        }
+      }}
       sectionShelfCodes={sectionShelfCodes}
       onBack={onBack}
+      chatButton={chatButton}
     />
   );
 };

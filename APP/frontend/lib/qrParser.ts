@@ -16,6 +16,8 @@ export interface ParsedScan {
   articleCode: string;
   /** Orden de fabricación (ej: "OF25-07221") */
   orderFab: string;
+  /** true si proviene de una etiqueta de SUBCONTRATACIÓN (código amarillo, sin OF) */
+  subcontratacion?: boolean;
 }
 
 export interface ScanResult {
@@ -39,6 +41,12 @@ export type ScanParseResult = ScanResult | ScanError;
  * Grupo 2: orden de fabricación (OFxx-nnnnn)
  */
 const MAIN_PATTERN = /^(.+?)\s*\/\/\s*(OF\d{2}-\d+)$/i;
+
+/**
+ * Patrón del QR físico de FAVRAM: artículo <pipe> OFxx-nnnnn
+ * El QR devuelve siempre el par literal "ARTÍCULO | OFxx-nnnnn".
+ */
+const PIPE_PATTERN = /^(.+?)\s*\|\s*(OF\d{2}-\d+)$/i;
 
 /**
  * Patrón alternativo con otros separadores: artículo <espacio>-<espacio> OFxx-nnnnn
@@ -80,7 +88,12 @@ export const parseScanInput = (rawInput: string): ScanParseResult => {
   
   // Intentar patrón principal (// como separador)
   let match = cleaned.match(MAIN_PATTERN);
-  
+
+  if (!match) {
+    // QR físico de FAVRAM: "ARTÍCULO | OFxx-nnnnn"
+    match = cleaned.match(PIPE_PATTERN);
+  }
+
   if (!match) {
     // Intentar patrón alternativo (- como separador, solo si tiene OF)
     match = cleaned.match(ALT_PATTERN);
@@ -189,14 +202,17 @@ const extractArticleCode = (text: string): string => {
     .replace(/\s+/g, ' ')
     .trim();
   const tokens = cleanedNoLabels.split(/\s+/).filter(Boolean);
+  // Un código de artículo siempre lleva dígitos — sin este filtro, residuos de
+  // etiquetas como "O.F." o "Nº" acababan devueltos como artículo.
+  const hasDigits = (t: string) => (t.match(/\d/g) || []).length >= 2;
   // 1º: token alfanumérico (letra+número) más largo — artículos industriales típicos
   let articleCode = tokens
     .filter((t) => /[A-Z].*\d|\d.*[A-Z]/.test(t) && t.length >= 4)
     .sort((a, b) => b.length - a.length)[0];
-  // 2º: token más largo de al menos 4 chars
-  if (!articleCode) articleCode = tokens.filter((t) => t.length >= 4).sort((a, b) => b.length - a.length)[0];
-  // 3º: primer token disponible
-  if (!articleCode) articleCode = tokens[0];
+  // 2º: token numérico/mixto más largo de al menos 4 chars
+  if (!articleCode) articleCode = tokens.filter((t) => t.length >= 4 && hasDigits(t)).sort((a, b) => b.length - a.length)[0];
+  // 3º: primer token con dígitos
+  if (!articleCode) articleCode = tokens.find(hasDigits) || '';
   return articleCode || '';
 };
 
@@ -285,6 +301,138 @@ export const parseScanFromLines = (lines: string[]): ScanParseResult => {
   return {
     success: false,
     error: 'No se encontró ningún código OFxx-nnnnn en las líneas.',
+    rawInput,
+  };
+};
+
+// ─── Hoja de Ruta (Solmicro) ─────────────────────────────────────────────────
+
+/** Token con pinta de fecha: 24/06/2026, 24-06-26 o pegada (24062026 / 20260624). */
+const isDateLikeToken = (t: string): boolean => {
+  if (/^\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}$/.test(t)) return true;
+  if (/^[0-3]\d(0\d|1[0-2])(19|20)\d{2}$/.test(t)) return true; // ddmmyyyy
+  if (/^(19|20)\d{2}(0\d|1[0-2])[0-3]\d$/.test(t)) return true; // yyyymmdd
+  return false;
+};
+
+/**
+ * ¿Puede este token ser un código de artículo? El formato es LIBRE (numérico,
+ * alfanumérico, con guiones/puntos...) — solo se descarta lo que seguro NO es
+ * un artículo: fechas, OFs, palabras sin ningún dígito (etiquetas,
+ * descripciones) y números cortos (años, centros tipo 1200, cantidades).
+ */
+const isPlausibleHojaArticle = (raw: string): boolean => {
+  const t = raw.replace(/[.,:;]+$/g, '');
+  if (t.length < 4 || t.length > 25) return false;
+  if (/^OF\d{2}/.test(t)) return false; // es una OF
+  if (isDateLikeToken(t)) return false; // es una fecha
+  if (!/\d/.test(t)) return false; // los códigos siempre llevan algún dígito
+  if (/^\d{1,5}$/.test(t)) return false; // años (2026), centros (1200), cantidades
+  return true;
+};
+
+/**
+ * Parser específico para la Hoja de Ruta de Solmicro (FAVRAM): el operario
+ * fotografía el recuadro de cabecera con "O.F. Nº: OF26-05481" y
+ * "Artículo: 20230110001".
+ *
+ * El FORMATO del artículo es libre — lo que se le enseña al parser es DÓNDE
+ * mirar. Estrategia (de más a menos confianza):
+ *  1. OF anclada a su etiqueta "O.F. Nº" (ignora las OFs del bloque
+ *     "Histórico OFs" del pie, que son de órdenes ANTERIORES).
+ *  2. Artículo: el valor pegado a la etiqueta "Artículo:" en la misma línea.
+ *  3. Si Vision separó etiqueta y valor: primer código plausible en las
+ *     líneas inmediatamente posteriores a la etiqueta.
+ *  4. Votación por frecuencia: el artículo se repite en la cabecera y en cada
+ *     fase de la hoja — el token con pinta de código más repetido gana
+ *     (descartando fechas, OFs y números cortos).
+ *
+ * Acepta líneas OCR (ideal, en orden de lectura) o un string multilínea.
+ * Devuelve ScanError si falta alguno de los dos campos — el llamador debe
+ * caer entonces a parseScanFromLines / parseScanInputLenient.
+ */
+export const parseHojaDeRuta = (input: string[] | string): ScanParseResult => {
+  const rawLines = Array.isArray(input) ? input : String(input || '').split(/\r?\n/);
+  const rawInput = rawLines.join('\n');
+  const norm = rawLines.map((l) => normalizeOcrText(l)).filter((l) => l.length > 0);
+  if (norm.length === 0) {
+    return { success: false, error: 'Sin texto OCR', rawInput };
+  }
+
+  // Las OFs a partir de "Histórico OFs" no son la OF actual de la hoja.
+  const histIdx = norm.findIndex((l) => /HIST[OÓ]RIC/.test(l));
+  const ofScope = histIdx === -1 ? norm : norm.slice(0, histIdx);
+
+  // ── OF: 1º línea con etiqueta "O.F. Nº", 2º primera OF del documento ──
+  let orderFab = '';
+  for (const l of ofScope) {
+    if (/\bO\.?\s*F\.?\s*N/.test(l)) {
+      orderFab = extractOF(l);
+      if (orderFab) break;
+    }
+  }
+  if (!orderFab) {
+    for (const l of ofScope) {
+      orderFab = extractOF(l);
+      if (orderFab) break;
+    }
+  }
+
+  // ── Artículo 1º: el valor pegado a la etiqueta "Artículo:" (formato libre) ──
+  let articleCode = '';
+  for (const l of norm) {
+    const m = l.match(/ART[IÍ]?CULO\s*[:.\-]?\s*(\S+)/);
+    if (m && isPlausibleHojaArticle(m[1])) {
+      articleCode = m[1].replace(/[.,:;]+$/g, '');
+      break;
+    }
+  }
+
+  // ── 2º: etiqueta sin valor en su línea (Vision los separó) — buscar el
+  //    primer código plausible en las líneas siguientes a la etiqueta ──
+  if (!articleCode) {
+    const labelIdx = norm.findIndex((l) => /ART[IÍ]?CULO/.test(l));
+    if (labelIdx !== -1) {
+      for (let i = labelIdx; i < Math.min(norm.length, labelIdx + 4) && !articleCode; i++) {
+        for (const tok of norm[i].split(/\s+/)) {
+          const t = tok.replace(/[.,:;]+$/g, '');
+          if (isPlausibleHojaArticle(t)) {
+            articleCode = t;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // ── 3º: votación por frecuencia entre tokens con pinta de código —
+  //    el artículo se repite en la cabecera y en cada fase de la hoja.
+  //    Empate → gana el que aparece más arriba (la cabecera es lo primero). ──
+  if (!articleCode) {
+    const votes = new Map<string, { count: number; firstIdx: number }>();
+    norm.forEach((l, idx) => {
+      for (const tok of l.split(/\s+/)) {
+        const t = tok.replace(/[.,:;]+$/g, '');
+        if (!isPlausibleHojaArticle(t)) continue;
+        const v = votes.get(t);
+        if (v) v.count += 1;
+        else votes.set(t, { count: 1, firstIdx: idx });
+      }
+    });
+    const best = [...votes.entries()].sort(
+      (a, b) => b[1].count - a[1].count || a[1].firstIdx - b[1].firstIdx,
+    )[0];
+    if (best) articleCode = best[0];
+  }
+
+  if (orderFab && articleCode) {
+    return { success: true, data: { articleCode, orderFab } };
+  }
+  return {
+    success: false,
+    error: !orderFab
+      ? 'No se encontró la O.F. en la hoja de ruta.'
+      : `Se encontró ${orderFab} pero no el código de artículo.`,
     rawInput,
   };
 };

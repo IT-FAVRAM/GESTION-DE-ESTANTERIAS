@@ -51,7 +51,9 @@ export const getOperationalSession = (): OperationalSession | undefined => {
     }
   }
 
-  // Fallback legacy: sessionStorage (por si otra parte del sistema lo escribe)
+  // Fallback legacy: sessionStorage (DEPRECATED con persistencia local)
+  // Con setPersistence(browserLocalPersistence), todas las sesiones se guardan en localStorage.
+  // Este fallback a sessionStorage es heredado y puede removerse en futuras versiones.
   const rawSession = window.sessionStorage.getItem(OPERARIO_SESSION_KEY);
   if (!rawSession) {
     return undefined;

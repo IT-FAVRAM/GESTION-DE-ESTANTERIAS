@@ -1,8 +1,27 @@
+export interface LocationPhoto {
+  /** UUID generado en cliente */
+  id: string;
+  /** URL de descarga de Firebase Storage */
+  url: string;
+  /** Ruta en Storage: locations/{shelfCode}/{position}/{uuid}.jpg */
+  storagePath: string;
+  /** operarioId de quien la subió */
+  uploadedBy: string;
+  /** displayName de quien la subió */
+  uploadedByName: string;
+  /** timestamp Unix (ms) */
+  uploadedAt: number;
+  /** Pie de foto opcional */
+  caption?: string;
+}
+
 export interface LocationDoc {
   position: string;
   items: LocationItem[];
   isEmpty: boolean;
   nota?: string;
+  /** Fotos asociadas a la UBICACIÓN (no al artículo). Solo sección SOLDADURA. */
+  photos?: LocationPhoto[];
 }
 
 export interface LocationItem {
@@ -16,6 +35,10 @@ export interface LocationItem {
   quantity?: number;
   /** Importe unitario en EUR (solo para ubicaciones de reproceso CAL 001-022) */
   unitCost?: number;
+  /** true si se introdujo manualmente como texto libre (sin código de barras) */
+  isFreeText?: boolean;
+  /** true si el artículo proviene de una etiqueta de SUBCONTRATACIÓN (código amarillo, sin OF) */
+  subcontratacion?: boolean;
 }
 
 export interface ItemDoc {
@@ -32,6 +55,8 @@ export interface ItemDoc {
   removedAt?: string;
   removedBy?: string;
   lastAlertAt?: string;
+  /** true si es un artículo de SUBCONTRATACIÓN (código amarillo, sin OF) */
+  subcontratacion?: boolean;
 }
 
 export interface ItemAggregateDoc {
@@ -60,6 +85,7 @@ export interface ShelfLocationState {
   isEmpty: boolean;
   locationId: string;
   nota?: string;
+  photos?: LocationPhoto[];
 }
 
 

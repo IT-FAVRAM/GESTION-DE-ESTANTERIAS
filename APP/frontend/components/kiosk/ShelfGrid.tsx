@@ -23,6 +23,8 @@ interface ShelfGridProps {
   onCellPress?: (location: ShelfLocationState) => void;
   selectedPositions?: string[];
   highlightedPositions?: string[];
+  /** "articleCode|orderFab" del artículo buscado, para resaltarlo más oscuro entre varios de la misma celda. */
+  highlightedItemKey?: string | null;
   dragOverPosition?: string | null;
   compact?: boolean;
   showReprocessCosts?: boolean;
@@ -211,19 +213,25 @@ const MobileBlockNav = React.memo(({ blocks, activeIdx, onSelect, alwaysShow = f
         <span className="text-[10px] font-mono text-slate-400 shrink-0 tabular-nums">{activeIdx + 1}/{count}</span>
       </div>
 
-      <div className="flex items-center gap-1 shrink-0 px-1">
+      <div className="flex items-center shrink-0">
         {blocks.map((b, i) => (
           <button
             key={b.id}
             type="button"
             aria-label={b.title}
+            aria-current={i === activeIdx ? 'true' : undefined}
             onClick={() => onSelect(i)}
-            className={`rounded-full transition-all duration-200 ${
-              i === activeIdx
-                ? 'w-5 h-1.5 bg-sky-500'
-                : 'w-1.5 h-1.5 bg-slate-300 hover:bg-slate-400'
-            }`}
-          />
+            className="group p-2 flex items-center justify-center shrink-0"
+          >
+            {/* El punto visual queda pequeño; el botón aporta un área táctil mayor. */}
+            <span
+              className={`block rounded-full transition-all duration-200 ${
+                i === activeIdx
+                  ? 'w-5 h-1.5 bg-sky-500'
+                  : 'w-1.5 h-1.5 bg-slate-300 group-hover:bg-slate-400'
+              }`}
+            />
+          </button>
         ))}
       </div>
 
@@ -257,6 +265,7 @@ interface BlockProps {
   locationMap: Map<string, ShelfLocationState>;
   selectedPositions: string[];
   highlightedPositions: string[];
+  highlightedItemKey?: string | null;
   dragOverPosition?: string | null;
   onCellPress?: (location: ShelfLocationState) => void;
   isCollapsed: boolean;
@@ -276,6 +285,7 @@ const Block = React.memo(({
   locationMap,
   selectedPositions,
   highlightedPositions,
+  highlightedItemKey,
   dragOverPosition,
   onCellPress,
   isCollapsed,
@@ -360,7 +370,7 @@ const Block = React.memo(({
 
           {/* Expand chevron at top (← = "click to expand") */}
           <svg
-            className={`w-3 h-3 -rotate-90 shrink-0 transition-transform duration-200 ${stripChevronCls}`}
+            className={`w-4 h-4 -rotate-90 shrink-0 transition-transform duration-200 ${stripChevronCls}`}
             fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -368,7 +378,7 @@ const Block = React.memo(({
 
           {/* Title reading top → bottom */}
           <span
-            className={`text-[8px] font-mono font-black tracking-widest uppercase flex-1 py-2 leading-none ${stripTitleCls}`}
+            className={`text-[11px] font-mono font-black tracking-widest uppercase flex-1 py-2 leading-none ${stripTitleCls}`}
             style={{ writingMode: 'vertical-lr' }}
           >
             {block.title}
@@ -376,10 +386,10 @@ const Block = React.memo(({
 
           {/* Count + accent dot at bottom */}
           <div className="flex flex-col items-center gap-1 shrink-0">
-            <span className={`text-[7px] font-mono tabular-nums leading-none ${stripStatsCls}`}>
+            <span className={`text-[9px] font-mono tabular-nums leading-none ${stripStatsCls}`}>
               {occupiedCount}/{allPos.length}
             </span>
-            <div className={`w-1 h-1 rounded-full ${stripAccentCls} opacity-50`} />
+            <div className={`w-1.5 h-1.5 rounded-full ${stripAccentCls} opacity-50`} />
           </div>
         </button>
       )}
@@ -394,6 +404,7 @@ const Block = React.memo(({
               locationMap={locationMap}
               selectedPositions={selectedPositions}
               highlightedPositions={highlightedPositions}
+              highlightedItemKey={highlightedItemKey}
               dragOverPosition={dragOverPosition}
               onCellPress={onCellPress}
               showReprocessCosts={showReprocessCosts}
@@ -419,6 +430,7 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
   onCellPress,
   selectedPositions = [],
   highlightedPositions = [],
+  highlightedItemKey = null,
   dragOverPosition = null,
   compact = false,
   showReprocessCosts = false,
@@ -429,31 +441,112 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
   onCellDragLeave,
   onCellDrop,
 }) => {
+  // Estado de colapso persistido por estantería: el operario que siempre
+  // colapsa una zona no tiene que rehacerlo en cada recarga/cambio de sección.
+  const collapseStorageKey = shelfDef?.code ? `wms.collapsed.${shelfDef.code}` : null;
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [activeMobileBlockIdx, setActiveMobileBlockIdx] = useState(0);
   const gridContainerRef = useRef<HTMLDivElement>(null);
 
-  // Reset navigation index when the shelf changes
-  useEffect(() => { setActiveMobileBlockIdx(0); }, [shelfDef?.code]);
+  // Reset navigation index when the shelf changes + restaurar colapso guardado
+  useEffect(() => {
+    setActiveMobileBlockIdx(0);
+    if (!collapseStorageKey) {
+      setCollapsedSections(new Set());
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(collapseStorageKey);
+      setCollapsedSections(raw ? new Set(JSON.parse(raw) as string[]) : new Set());
+    } catch {
+      setCollapsedSections(new Set());
+    }
+  }, [collapseStorageKey]);
 
-  // BA7: Auto-scroll al primer highlight cuando cambian las posiciones destacadas
+  // BA7: Auto-scroll al primer highlight cuando cambian las posiciones destacadas.
+  // Retry con requestAnimationFrame + timeout para cubrir el caso en que las celdas
+  // nuevas aún no están en el DOM al primer paint (navegación cross-shelf desde el buscador).
   useEffect(() => {
     if (highlightedPositions.length === 0 || !gridContainerRef.current) return;
     const firstHighlight = highlightedPositions[0];
-    const cell = gridContainerRef.current.querySelector(`[data-position="${firstHighlight}"]`);
-    if (cell) {
-      cell.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    const scrollTo = () => {
+      const cell = gridContainerRef.current?.querySelector(`[data-position="${firstHighlight}"]`);
+      if (cell) {
+        cell.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+        return true;
+      }
+      return false;
+    };
+    // Primer intento inmediato
+    scrollTo();
+    // Reintentos sucesivos: cubren tanto la carga asíncrona de celdas como la
+    // transición CSS (300ms) de expandir un bloque/zona colapsado, durante la
+    // cual la celda ya está en el DOM pero con altura 0 (posición incorrecta).
+    let cancelled = false;
+    const raf = requestAnimationFrame(() => { if (!cancelled) scrollTo(); });
+    const timers = [120, 250, 380].map((ms) => setTimeout(() => { if (!cancelled) scrollTo(); }, ms));
+    return () => { cancelled = true; cancelAnimationFrame(raf); timers.forEach(clearTimeout); };
+  }, [highlightedPositions, locations, collapsedSections, activeMobileBlockIdx]);
+
+  // Si el highlight cae en una sección colapsada o, en modo kiosko, en un
+  // bloque físico distinto del activo, la celda existe en el DOM pero con
+  // altura 0 / oculta: hay que expandirla / saltar al bloque correcto para
+  // que la navegación por búsqueda lleve a una vista realmente visible.
+  useEffect(() => {
+    if (highlightedPositions.length === 0) return;
+    const firstHighlight = highlightedPositions[0];
+    const blocks = shelfDef?.layout.physicalBlocks ?? [];
+    const posKey = (p: number | string | null) =>
+      p === null ? null : (typeof p === 'string' ? p : p.toString().padStart(3, '0'));
+
+    if (blocks.length > 0) {
+      const containingBlock = blocks.find((b) =>
+        b.rows.some((row) => row.some((p) => posKey(p) === firstHighlight)),
+      );
+      if (!containingBlock) return;
+
+      const regular = blocks.filter((b) => !b.fullWidth);
+      const regularIdx = regular.findIndex((b) => b.id === containingBlock.id);
+      if (regularIdx >= 0) setActiveMobileBlockIdx(regularIdx);
+
+      setCollapsedSections((prev) => {
+        if (!prev.has(containingBlock.id)) return prev;
+        const next = new Set(prev);
+        next.delete(containingBlock.id);
+        if (collapseStorageKey) {
+          try { window.localStorage.setItem(collapseStorageKey, JSON.stringify([...next])); } catch { /* cuota / modo privado */ }
+        }
+        return next;
+      });
+    } else {
+      const zones = shelfDef?.layout.zones ?? [];
+      const posInt = parseInt(firstHighlight, 10);
+      const zone = zones.find((z) => !Number.isNaN(posInt) && posInt >= z.range[0] && posInt <= z.range[1]);
+      if (!zone) return;
+      const zoneId = `zone-${zone.name}`;
+      setCollapsedSections((prev) => {
+        if (!prev.has(zoneId)) return prev;
+        const next = new Set(prev);
+        next.delete(zoneId);
+        if (collapseStorageKey) {
+          try { window.localStorage.setItem(collapseStorageKey, JSON.stringify([...next])); } catch { /* cuota / modo privado */ }
+        }
+        return next;
+      });
     }
-  }, [highlightedPositions]);
+  }, [highlightedPositions, shelfDef, collapseStorageKey]);
 
   const toggleSection = useCallback((id: string) => {
     setCollapsedSections((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      if (collapseStorageKey) {
+        try { window.localStorage.setItem(collapseStorageKey, JSON.stringify([...next])); } catch { /* cuota / modo privado */ }
+      }
       return next;
     });
-  }, []);
+  }, [collapseStorageKey]);
 
   const locationMap = useMemo(() => {
     const map = new Map<string, ShelfLocationState>();
@@ -482,7 +575,8 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
       6: 'grid-cols-6',
       7: 'grid-cols-7',
     };
-    return colMap[maxCols] || `grid-cols-${maxCols}`;
+    // Tailwind no genera clases dinámicas: >7 columnas cae a 7 (no romper el grid)
+    return colMap[maxCols] || 'grid-cols-7';
   }, []);
 
   // ── Compact mode ────────────────────────────────────────────────────────────
@@ -507,11 +601,12 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
                           position={pos}
                           location={loc}
                           shelfCode={shelfDef?.code}
-                          isUrgent={isStr || isUrgentLocation(shelfDef?.code || '', posNum as number)}
+                          isUrgent={isStr ? /URG/i.test(pos) : isUrgentLocation(shelfDef?.code || '', posNum as number)}
                           isTechReview={!isStr && isTechReviewLocation(shelfDef?.code || '', posNum as number)}
                           isAluminio={!isStr && isAluminioLocation(shelfDef?.code || '', posNum as number)}
                           isSelected={selectedPositions.includes(pos)}
                           isHighlighted={highlightedPositions.includes(pos)}
+                          highlightedItemKey={highlightedItemKey}
                           compact
                           showReprocessCosts={showReprocessCosts}
                           onPress={onCellPress}
@@ -540,6 +635,7 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
             isAluminio={isAluminioLocation(shelfDef?.code || '', parseInt(loc.position, 10))}
             isSelected={selectedPositions.includes(loc.position)}
             isHighlighted={highlightedPositions.includes(loc.position)}
+            highlightedItemKey={highlightedItemKey}
             compact
             showReprocessCosts={showReprocessCosts}
             onPress={onCellPress}
@@ -606,7 +702,7 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
                  : forceSingleBlock
                  ? 'w-full min-w-0'
                  : isCollapsed
-                 ? 'flex-1 min-w-0 md:flex-none md:w-8 md:self-stretch md:transition-all md:duration-300'
+                 ? 'flex-1 min-w-0 md:flex-none md:w-12 md:self-stretch md:transition-all md:duration-300'
                  : 'flex-1 min-w-0 md:transition-all md:duration-300';
                return (
                  <div
@@ -619,6 +715,7 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
                       locationMap={locationMap}
                       selectedPositions={selectedPositions}
                       highlightedPositions={highlightedPositions}
+                      highlightedItemKey={highlightedItemKey}
                       dragOverPosition={dragOverPosition}
                       onCellPress={onCellPress}
                       isCollapsed={isCollapsed}
@@ -686,6 +783,7 @@ const isUrgentZone = zone.isUrgent ?? false;
                            isAluminio={isAluminioLocation(shelfDef?.code || '', posInt)}
                            isSelected={selectedPositions.includes(pos)}
                            isHighlighted={highlightedPositions.includes(pos)}
+                           highlightedItemKey={highlightedItemKey}
                            isDragOver={dragOverPosition === pos}
                            showReprocessCosts={showReprocessCosts}
                            onPress={onCellPress}

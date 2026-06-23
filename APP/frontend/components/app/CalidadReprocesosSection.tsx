@@ -1,12 +1,19 @@
 import React from 'react';
 import { formatEuros } from '../../lib/api/reprocesosApi';
 
+interface OldestReprocesoItem {
+  articleCode: string;
+  orderFab: string;
+  locatedByName: string;
+  days: number;
+}
+
 interface CalidadReprocesosSectionProps {
   canViewReprocessCosts: boolean;
   canEditReprocesses: boolean;
   totalImporte: number;
   totalPiezas: number;
-  oldestDays?: number;
+  oldestItem?: OldestReprocesoItem | null;
 }
 
 const CalidadReprocesosSection: React.FC<CalidadReprocesosSectionProps> = ({
@@ -14,7 +21,7 @@ const CalidadReprocesosSection: React.FC<CalidadReprocesosSectionProps> = ({
   canEditReprocesses,
   totalImporte,
   totalPiezas,
-  oldestDays,
+  oldestItem,
 }) => (
   <>
     {canViewReprocessCosts && (
@@ -29,16 +36,19 @@ const CalidadReprocesosSection: React.FC<CalidadReprocesosSectionProps> = ({
             <p className="text-[10px] text-amber-600 font-bold mt-1">Dinero en reproceso</p>
           </div>
         </div>
-        {oldestDays !== undefined && oldestDays > 0 && (
+        {oldestItem && oldestItem.days > 0 && (
           <p className={`mt-2 text-xs font-bold px-3 py-2 rounded-lg inline-block ${
-            oldestDays > 30
+            oldestItem.days > 30
               ? 'bg-red-100 text-red-700'
-              : oldestDays > 7
+              : oldestItem.days > 7
               ? 'bg-amber-200 text-amber-800'
               : 'bg-amber-100 text-amber-700'
           }`}>
-            ⏱ Artículo más antiguo: {oldestDays} día{oldestDays !== 1 ? 's' : ''} sin mover
-            {oldestDays > 30 ? ' — dinero parado ⚠️' : ''}
+            ⏱ Artículo más antiguo: <strong>{oldestItem.articleCode}</strong>
+            {oldestItem.orderFab ? ` (OF ${oldestItem.orderFab})` : ''}
+            {' — '}{oldestItem.days} día{oldestItem.days !== 1 ? 's' : ''} sin mover
+            {oldestItem.locatedByName ? ` — ubicado por ${oldestItem.locatedByName}` : ''}
+            {oldestItem.days > 30 ? ' — dinero parado ⚠️' : ''}
           </p>
         )}
       </div>

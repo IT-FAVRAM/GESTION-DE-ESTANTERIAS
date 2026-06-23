@@ -6,11 +6,12 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { collection, query, where, limit, getDocs } from 'firebase/firestore';
+import { collection, query, where, limit, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { COLLECTIONS, type ItemDoc } from '../lib/firestoreSchema';
+import { COLLECTIONS, type ItemDoc, type HistoryEntryDoc } from '../lib/firestoreSchema';
 import { parseLocationId } from '../lib/schema/shelves';
 import { listenForCacheUpdates } from '../lib/offline/bidirectionalSync';
+import { canonicalizeShelfCode } from '../domain/auth/sectionShelf';
 
 export type GlobalSearchResult = {
   articleCode: string;
@@ -21,6 +22,13 @@ export type GlobalSearchResult = {
   locationIds: string[];
   matchesCurrentShelf: boolean;
   matchLabel: string;
+  /** true si el artículo es de SUBCONTRATACIÓN (código amarillo, sin OF) */
+  subcontratacion?: boolean;
+  // Ghost result (fallback a última ubicación conocida)
+  isGhost?: boolean;
+  lastLocation?: { shelfCode: string; position: string; timestamp: number; operarioName?: string };
+  lastWithdrawal?: { shelfCode: string; position: string; timestamp: number; operarioName?: string };
+  hasMultipleLocations?: boolean;
 };
 
 type UseGlobalSearchReturn = {
@@ -47,23 +55,29 @@ const groupAndFilter = (
     aggregateKey: string;
     shelfCode: string;
     locationIds: string[];
+    subcontratacion?: boolean;
   }>();
 
   items.forEach((item) => {
+    // Códigos legacy (MEC/PME) se fusionan en su vista canónica (PRE) para que
+    // un artículo ubicado antes de la consolidación PRENSAS-MECANIZADO siga
+    // siendo navegable: la estantería 'MEC' ya no existe en SHELF_DEFINITIONS.
+    const canonicalShelfCode = canonicalizeShelfCode(item.shelfCode) ?? item.shelfCode;
     const aggregateKey = `${item.articleCode}|${item.orderFab}`;
-    const groupKey = `${aggregateKey}|${item.shelfCode}`;
+    const groupKey = `${aggregateKey}|${canonicalShelfCode}`;
 
     const existing = groupedResults.get(groupKey);
     if (existing) {
       const combinedLocationIds = Array.from(new Set([...existing.locationIds, ...item.locationIds]));
-      groupedResults.set(groupKey, { ...existing, locationIds: combinedLocationIds });
+      groupedResults.set(groupKey, { ...existing, locationIds: combinedLocationIds, subcontratacion: existing.subcontratacion || item.subcontratacion });
     } else {
       groupedResults.set(groupKey, {
         articleCode: item.articleCode,
         orderFab: item.orderFab,
         aggregateKey,
-        shelfCode: item.shelfCode,
+        shelfCode: canonicalShelfCode,
         locationIds: [...item.locationIds],
+        subcontratacion: item.subcontratacion,
       });
     }
   });
@@ -71,13 +85,14 @@ const groupAndFilter = (
   const filteredResults: GlobalSearchResult[] = [];
 
   groupedResults.forEach((group) => {
-    const { articleCode, orderFab, aggregateKey, shelfCode, locationIds } = group;
+    const { articleCode, orderFab, aggregateKey, shelfCode, locationIds, subcontratacion } = group;
     const matchesQuery = searchTerms.some((term) => articleCode.includes(term) || orderFab.includes(term));
     if (!matchesQuery) return;
 
     const positionObjects = locationIds
       .map((id) => parseLocationId(id))
       .filter((pos): pos is { shelfCode: string; position: string } => pos !== null)
+      .map((pos) => ({ ...pos, shelfCode: canonicalizeShelfCode(pos.shelfCode) ?? pos.shelfCode }))
       .sort((a, b) => {
         if (a.shelfCode !== b.shelfCode) return a.shelfCode.localeCompare(b.shelfCode);
         return parseInt(a.position, 10) - parseInt(b.position, 10);
@@ -91,10 +106,15 @@ const groupAndFilter = (
     filteredResults.push({
       articleCode, orderFab, aggregateKey, shelfCode,
       positions: uniquePositions, locationIds, matchesCurrentShelf, matchLabel,
+      ...(subcontratacion ? { subcontratacion: true } : {}),
     });
   });
 
   filteredResults.sort((a, b) => {
+    // No-ghost results primero
+    if (!a.isGhost && b.isGhost) return -1;
+    if (a.isGhost && !b.isGhost) return 1;
+    // Entre los del mismo tipo, current shelf first
     if (a.matchesCurrentShelf && !b.matchesCurrentShelf) return -1;
     if (!a.matchesCurrentShelf && b.matchesCurrentShelf) return 1;
     return a.matchLabel.localeCompare(b.matchLabel);
@@ -177,7 +197,106 @@ export const useGlobalSearchWithCache = (
         }
 
         const items = Array.from(docMap.values());
-        setResults(groupAndFilter(items, searchTerms, currentShelfCode));
+        let results = groupAndFilter(items, searchTerms, currentShelfCode);
+
+        // Si no hay resultados activos, buscar en history (fallback)
+        if (results.length === 0) {
+          try {
+            const historyArticleQuery = query(
+              collection(db, COLLECTIONS.HISTORY),
+              where('articleCode', '>=', trimmed),
+              where('articleCode', '<=', trimmed + ''),
+              orderBy('timestamp', 'desc'),
+              limit(20),
+            );
+
+            const historySnap = await getDocs(historyArticleQuery);
+            if (historySnap.docs.length > 0) {
+              const ghostMap = new Map<string, {
+                articleCode: string;
+                orderFab: string;
+                lastLocation?: { shelfCode: string; position: string; timestamp: number; operarioName?: string };
+                lastWithdrawal?: { shelfCode: string; position: string; timestamp: number; operarioName?: string };
+                locationHistory: Set<string>;
+              }>();
+
+              historySnap.docs.forEach((historyDoc) => {
+                const data = historyDoc.data() as HistoryEntryDoc;
+                const matchesQuery = searchTerms.some((term) =>
+                  data.articleCode.includes(term) || data.orderFab.includes(term)
+                );
+                if (!matchesQuery) return;
+
+                const key = `${data.articleCode}|${data.orderFab}`;
+                let entry = ghostMap.get(key);
+
+                if (!entry) {
+                  entry = {
+                    articleCode: data.articleCode,
+                    orderFab: data.orderFab,
+                    locationHistory: new Set(),
+                  };
+                  ghostMap.set(key, entry);
+                }
+
+                const timestamp = new Date(data.timestamp).getTime();
+
+                if ((data.action === 'UBICAR' || data.action === 'UBICAR_MULTI') && data.toLocation && !entry.lastLocation) {
+                  const parsed = parseLocationId(data.toLocation);
+                  if (parsed) {
+                    const shelfCode = canonicalizeShelfCode(parsed.shelfCode) ?? parsed.shelfCode;
+                    entry.lastLocation = {
+                      shelfCode,
+                      position: parsed.position,
+                      timestamp,
+                      operarioName: data.operarioName,
+                    };
+                    entry.locationHistory.add(shelfCode);
+                  }
+                }
+
+                if ((data.action === 'RETIRAR' || data.action === 'RETIRAR_DE_UBICACION') && data.fromLocation && !entry.lastWithdrawal) {
+                  const parsed = parseLocationId(data.fromLocation);
+                  if (parsed) {
+                    entry.lastWithdrawal = {
+                      shelfCode: canonicalizeShelfCode(parsed.shelfCode) ?? parsed.shelfCode,
+                      position: parsed.position,
+                      timestamp,
+                      operarioName: data.operarioName,
+                    };
+                  }
+                }
+              });
+
+              ghostMap.forEach((entry) => {
+                if (entry.lastLocation || entry.lastWithdrawal) {
+                  const shelfCode = entry.lastLocation?.shelfCode || entry.lastWithdrawal?.shelfCode || '';
+                  const position = entry.lastLocation?.position || entry.lastWithdrawal?.position || '';
+                  const matchLabel = `${entry.articleCode} ${entry.orderFab}`.trim();
+
+                  results.push({
+                    articleCode: entry.articleCode,
+                    orderFab: entry.orderFab,
+                    aggregateKey: `${entry.articleCode}|${entry.orderFab}`,
+                    shelfCode,
+                    positions: position ? [`${shelfCode}_${position}`] : [],
+                    locationIds: [],
+                    matchesCurrentShelf: shelfCode === currentShelfCode,
+                    matchLabel,
+                    isGhost: true,
+                    lastLocation: entry.lastLocation,
+                    lastWithdrawal: entry.lastWithdrawal,
+                    hasMultipleLocations: entry.locationHistory.size > 1,
+                  });
+                }
+              });
+            }
+          } catch (historyErr) {
+            console.warn('[useGlobalSearchWithCache] History fallback failed', historyErr);
+          }
+        }
+
+        setResults(results);
         setIsCached(false);
         setCacheAge(null);
 

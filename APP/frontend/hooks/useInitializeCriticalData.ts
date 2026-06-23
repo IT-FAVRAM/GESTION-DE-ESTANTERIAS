@@ -21,7 +21,14 @@ export interface InitializationStatus {
   error: string | null;
 }
 
-export const useInitializeCriticalData = (): InitializationStatus => {
+/**
+ * @param enabled Solo arranca el precaché + la sincronización cuando la sesión
+ *   está resuelta y autenticada. CRUCIAL: si esto corre durante la fase anónima
+ *   (antes del login con email), `canReadWarehouseState()` deniega los reads y el
+ *   listener `onSnapshot` de items MUERE de forma permanente (Firestore no
+ *   reintenta tras un permission-denied), dejando la app sin datos hasta recargar.
+ */
+export const useInitializeCriticalData = (enabled: boolean = true): InitializationStatus => {
   const [status, setStatus] = useState<InitializationStatus>({
     isInitializing: true,
     itemsLoaded: false,
@@ -32,6 +39,9 @@ export const useInitializeCriticalData = (): InitializationStatus => {
   });
 
   useEffect(() => {
+    // No precachear ni abrir listeners hasta que la sesión esté autenticada.
+    if (!enabled) return;
+
     let isMounted = true;
 
     const initializeCaches = async () => {
@@ -84,19 +94,21 @@ export const useInitializeCriticalData = (): InitializationStatus => {
           console.error('[useInitializeCriticalData] Error caching config', e);
         }
 
-        // Precachear ubicaciones (desde subcolecc iones de estanterías)
+        // Precachear ubicaciones (desde subcolecciones de estanterías).
+        // Las locations de cada estantería se descargan EN PARALELO (antes era un
+        // bucle secuencial await-por-estantería = N viajes encadenados).
         try {
-          const allLocations: any[] = [];
           const shelvesSnap = await getDocs(collection(db, COLLECTIONS.SHELVES));
 
-          for (const shelfDoc of shelvesSnap.docs) {
-            const locationsSnap = await getDocs(
-              collection(db, COLLECTIONS.SHELVES, shelfDoc.id, 'locations')
-            );
-            locationsSnap.docs.forEach((doc) => {
-              allLocations.push({ ...doc.data(), shelfCode: shelfDoc.id });
-            });
-          }
+          const perShelfLocations = await Promise.all(
+            shelvesSnap.docs.map(async (shelfDoc) => {
+              const locationsSnap = await getDocs(
+                collection(db, COLLECTIONS.SHELVES, shelfDoc.id, 'locations')
+              );
+              return locationsSnap.docs.map((doc) => ({ ...doc.data(), shelfCode: shelfDoc.id }));
+            })
+          );
+          const allLocations = perShelfLocations.flat();
 
           localStorage.setItem('wms-locations-cache', JSON.stringify(allLocations));
           localStorage.setItem('wms-locations-cache-timestamp', new Date().toISOString());
@@ -140,7 +152,7 @@ export const useInitializeCriticalData = (): InitializationStatus => {
         console.warn('[useInitializeCriticalData] Cleanup error:', e);
       });
     };
-  }, []);
+  }, [enabled]);
 
   return status;
 };

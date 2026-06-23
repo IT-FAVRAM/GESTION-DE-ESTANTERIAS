@@ -27,22 +27,59 @@ const WMS_SHELF_SECTION = {
     PRE: 'PRENSAS_MECANIZADO',
     PME: 'PRENSAS_MECANIZADO',
     PLE: 'PLEGADORA',
+    CP1: 'PLEGADORA',
+    CP2: 'PLEGADORA',
     SOL: 'SOLDADURA',
+    CS: 'SOLDADURA',
     RSO: 'SOLDADURA',
-    SXP: 'SOLDADURA',
+    SXP: 'SXP',
     REP: 'REPASADO',
     PIN: 'PINTURA',
     ZIN: 'REPASADO',
     CAL: 'CALIDAD',
     COM: 'OTROS',
     RPL: 'AUTOPLEGADORA',
+    CRP: 'AUTOPLEGADORA',
     LASER: 'LASER',
+};
+/**
+ * Secciones que pueden tener acceso adicional a otras secciones.
+ * Usado para jefes que necesitan acceder a múltiples secciones.
+ * Ej: Jefe de PLEGADORA también accede a AUTOPLEGADORA.
+ */
+const CROSS_SECTION_ACCESS = {
+    // PLEGADORA ↔ AUTOPLEGADORA: acceso bidireccional (secciones contiguas que se
+    // operan en conjunto). Cada jefe puede operar estanterías y carros de la otra.
+    'PLEGADORA': ['AUTOPLEGADORA'],
+    'AUTOPLEGADORA': ['PLEGADORA'],
+    // El jefe de SOLDADURA conserva acceso a Soldadura Puntos (SXP), ahora sección
+    // propia con jefe dedicado (H / Mario). El jefe de SXP opera solo SXP.
+    'SOLDADURA': ['SXP'],
+};
+/**
+ * Estanterías de kiosk que pueden operar en estanterías adicionales.
+ * Ej: Kiosk 'PLE' también puede operar en CP1, CP2 (carros PLEGADORA) y CRP, RPL (AUTOPLEGADORA).
+ */
+const KIOSK_ADDITIONAL_SHELVES = {
+    'PLE': ['CP1', 'CP2', 'CRP', 'RPL'],
 };
 const getWmsSectionForShelf = (shelfCode) => {
     const code = normalize(shelfCode);
     return WMS_SHELF_SECTION[code] || 'OTROS';
 };
 exports.getWmsSectionForShelf = getWmsSectionForShelf;
+/**
+ * Resuelve las secciones accesibles para una sección primaria.
+ * Incluye la sección primaria + cualquier sección adicional del mapa.
+ */
+function getAccessibleSections(primarySection) {
+    const accessible = [normalize(primarySection)];
+    const additional = CROSS_SECTION_ACCESS[normalize(primarySection)];
+    if (additional) {
+        accessible.push(...additional.map(normalize));
+    }
+    return accessible;
+}
 /** Valida que el actor puede operar sobre la estantería indicada (shelfOperate / pickup). */
 const assertActorMayOperateShelf = (actor, shelfCode) => {
     const shelf = normalize(shelfCode);
@@ -52,10 +89,33 @@ const assertActorMayOperateShelf = (actor, shelfCode) => {
     if (actor.role === 'CALIDAD' && shelf !== 'CAL') {
         throw new functions.https.HttpsError('permission-denied', 'Calidad solo puede operar la estantería CAL.');
     }
+    if (actor.role === 'OPERARIO') {
+        const assignedShelfUpper = normalize(actor.assignedShelf);
+        if (!assignedShelfUpper) {
+            throw new functions.https.HttpsError('permission-denied', 'Operario sin estantería asignada.');
+        }
+        // Puede operar en su estantería principal
+        if (assignedShelfUpper === shelf)
+            return;
+        // Puede operar en las estanterías adicionales configuradas en el dispositivo
+        // (device.allowedShelves) — fuente de verdad única, igual que el frontend.
+        const deviceAllowed = (actor.allowedShelves || []).map((s) => normalize(s));
+        if (deviceAllowed.includes(shelf))
+            return;
+        // Compatibilidad: mapa estático de estanterías adicionales por kiosko.
+        const additionalShelves = KIOSK_ADDITIONAL_SHELVES[assignedShelfUpper];
+        if (additionalShelves && additionalShelves.includes(shelf))
+            return;
+        throw new functions.https.HttpsError('permission-denied', `Operario no autorizado para la estantería ${shelf}.`);
+    }
     if (actor.role === 'JEFE_SECCION') {
         const actorSection = normalizeLegacySection(actor.section) || normalize(actor.section);
         const shelfSection = normalize((0, exports.getWmsSectionForShelf)(shelf));
-        if (!actorSection || actorSection !== shelfSection) {
+        if (!actorSection) {
+            throw new functions.https.HttpsError('permission-denied', 'Jefe sin sección asignada.');
+        }
+        const accessibleSections = getAccessibleSections(actorSection);
+        if (!accessibleSections.includes(shelfSection)) {
             throw new functions.https.HttpsError('permission-denied', 'No puedes operar estanterías fuera de tu sección.');
         }
     }
@@ -160,6 +220,7 @@ const resolveOperationalActor = async (context, session) => {
         section: role === 'OPERARIO' ? (0, exports.getWmsSectionForShelf)(device.assignedShelf) : null,
         deviceId,
         assignedShelf: device.assignedShelf || null,
+        allowedShelves: Array.isArray(device.allowedShelves) ? device.allowedShelves : null,
         operarioId,
         operarioName: operarioName || operarioId,
     };

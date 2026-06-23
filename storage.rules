@@ -1,0 +1,28 @@
+rules_version = '2';
+
+// Cloud Storage Security Rules.
+//
+// NOTA IMPORTANTE: las Storage Rules NO pueden leer Firestore ni el rol del
+// usuario (esta app guarda el rol en usuarios/{uid}, no en custom claims del
+// token). Por eso aquí solo validamos: autenticado + image/* + tamaño máximo.
+// La frontera de seguridad por rol está en firestore.rules: una foto solo es
+// visible si su metadato entra en el array `photos` del doc de la ubicación,
+// que sí está gateado por rol (canEditNotesAtLocation).
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Fotos de ubicaciones: locations/{shelfCode}/{position}/{photoId}.jpg
+    match /locations/{shelfCode}/{position}/{photoId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && request.resource.size < 6 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null;
+    }
+
+    // Todo lo demás: denegado.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
