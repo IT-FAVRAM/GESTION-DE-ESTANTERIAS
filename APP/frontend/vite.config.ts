@@ -54,7 +54,10 @@ export default defineConfig(({ mode }) => {
       },
     ],
     build: {
-      target: 'es2015',
+      // es2020: las tablets/kioskos son Android modernos y el admin usa navegador
+      // actual. Evita transpilar optional-chaining/nullish/async nativos → bundle
+      // menor y más rápido. (Si algún dispositivo MUY antiguo fallara, volver a es2015.)
+      target: 'es2020',
       chunkSizeWarningLimit: 1500,
       rollupOptions: {
         output: {

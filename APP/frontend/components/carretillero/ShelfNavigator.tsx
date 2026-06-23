@@ -12,7 +12,8 @@ import { useAuth } from '../../hooks/useAuth';
 import ShelfGrid from '../kiosk/ShelfGrid';
 import KioskSearchBar from '../kiosk/KioskSearchBar';
 import ScannerInput from '../kiosk/ScannerInput';
-import CameraQRScanner from '../common/CameraQRScanner';
+// Lazy: html5-qrcode es pesado y solo se necesita al abrir la cámara.
+const CameraQRScanner = React.lazy(() => import('../common/CameraQRScanner'));
 const CameraOCRScanner = React.lazy(() => import('../common/CameraOCRScanner'));
 import ScanMethodPicker from '../common/ScanMethodPicker';
 import type { ScanMethod } from '../../lib/types/scan';
@@ -745,10 +746,12 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
       />
 
       {showCameraQR && (
-        <CameraQRScanner
-          onScan={(text) => { setShowCameraQR(false); handleScan(parseScanInput(text)); }}
-          onClose={() => { setShowCameraQR(false); setScannerActive(true); }}
-        />
+        <React.Suspense fallback={<div className="p-4 text-center">Cargando escáner…</div>}>
+          <CameraQRScanner
+            onScan={(text) => { setShowCameraQR(false); handleScan(parseScanInput(text)); }}
+            onClose={() => { setShowCameraQR(false); setScannerActive(true); }}
+          />
+        </React.Suspense>
       )}
       {showCameraOCR && (
         <React.Suspense fallback={<div className="p-4 text-center">Cargando escáner OCR...</div>}>
