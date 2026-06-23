@@ -42,8 +42,8 @@ El precaché descargaba todas las estanterías y luego, en bucle `await`, las `l
 
 | Prioridad | Hallazgo | Acción propuesta | Riesgo |
 |-----------|----------|------------------|--------|
-| 🟡 Media | **`CarretilleroPicker` 400 kB** = html5-qrcode, arrastrado por `ShelfNavigator` (import estático de `CameraQRScanner`). | Hacer lazy también en `ShelfNavigator` (carros). | Bajo |
-| 🟡 Media | **`build.target: 'es2015'`** fuerza transpilación/polyfills extra. Las tablets son Android modernas. | Subir a `es2020` → bundle más pequeño y rápido. | Bajo-medio (verificar dispositivos antiguos) |
+| ✅ HECHO | ~~`ShelfNavigator` arrastraba html5-qrcode estático~~ | Hecho lazy → QR 100% bajo demanda (commit fbb5023). | — |
+| ✅ HECHO | ~~`build.target: 'es2015'`~~ | Subido a `es2020` (commit fbb5023). | — |
 | 🟡 Media | **Doble caché de datos**: `useInitializeCriticalData` vuelca todos los items+locations a `localStorage` con `JSON.stringify` síncrono (bloquea el hilo principal en el arranque) **además** de la persistencia IndexedDB de Firestore ya activada (`persistentLocalCache`). | Evaluar si el localStorage manual es redundante; si lo es, eliminarlo o mover a IndexedDB/worker. | Medio (toca offline) |
 | 🟢 Baja | **`useShelf.ts` tiene 13 listeners `onSnapshot`.** | Revisar si pueden consolidarse o si alguno puede ser one-shot (`getDocs`). | Medio |
 | 🟢 Baja | **Baja memoización** (solo 5 `React.memo` en toda la app). Grids de 160+ celdas (`ShelfGrid`, `ChaperoGrid`) re-renderizan en cascada. | `React.memo` en celdas + `useCallback` en handlers de celda. | Bajo |
