@@ -38,6 +38,7 @@ import { REQUEST_SECTIONS, type RequestSection } from '../../lib/operative/reque
 import type { CarretilleroOption } from '../../lib/api/pickupQueueApi';
 import AddShelfPositionModal from './AddShelfPositionModal';
 import ScanTray from './ScanTray';
+import OperativeKpiStrip from './OperativeKpiStrip';
 import LocationPhotoGallery from '../common/LocationPhotoGallery';
 import PhotoCarousel from '../common/PhotoCarousel';
 import { SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
@@ -494,6 +495,16 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             'bg-red-500/20 text-red-700'}`}>
           {feedback.message}
         </div>
+      )}
+
+      {/* ── Franja de KPIs (solo escritorio, idle) ── */}
+      {action === 'idle' && isDesktop && !loading && (
+        <OperativeKpiStrip
+          locations={locations}
+          shelfDef={shelfDef}
+          shelfName={shelfDef?.name ?? shelfCode}
+          urgentCount={urgentAlerts.length}
+        />
       )}
 
       {/* ── Buscador (idle) ── */}
