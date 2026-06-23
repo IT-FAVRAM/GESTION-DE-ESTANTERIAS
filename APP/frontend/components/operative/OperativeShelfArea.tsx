@@ -11,6 +11,7 @@
  */
 
 import React, { useCallback, useEffect, useRef } from 'react';
+import { ScanLine } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { COLLECTIONS } from '../../lib/schema/collections';
@@ -301,7 +302,10 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
               )
             )}
             {scannerActive && !scanData && !(action === 'ubicar' && config.reprocesos?.cellFirst && !pendingCell) && (
-              <span className="text-xs text-sky-600 animate-pulse font-bold">📡 Esperando escáner…</span>
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-sky-100 border border-sky-300 text-sky-700 text-sm font-bold animate-pulse">
+                <ScanLine className="w-5 h-5" aria-hidden />
+                Listo para escanear…
+              </span>
             )}
             {scanData && (
               <span className="text-xs text-slate-800 font-bold truncate">{scanData.articleCode} · {scanData.orderFab}</span>
@@ -523,8 +527,14 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
       {/* ── Grid ── */}
       <div className="flex-1 min-h-0 min-w-0 w-full overflow-y-auto overscroll-contain p-2 sm:p-4 [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent] flex flex-col gap-4">
         {loading ? (
-          <div className="flex items-center justify-center h-40">
-            <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+          // Skeleton del grid: transmite "cargando" sin salto de layout ni spinner.
+          <div className="animate-pulse" aria-busy="true" aria-label="Cargando estantería">
+            <div className="h-6 w-40 bg-slate-200 rounded mb-4" />
+            <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+              {Array.from({ length: 24 }).map((_, i) => (
+                <div key={i} className="aspect-square bg-slate-200 rounded-lg" />
+              ))}
+            </div>
           </div>
         ) : (
           <ShelfGrid
