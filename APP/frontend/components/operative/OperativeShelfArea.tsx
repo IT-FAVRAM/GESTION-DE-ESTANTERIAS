@@ -39,6 +39,7 @@ import type { CarretilleroOption } from '../../lib/api/pickupQueueApi';
 import AddShelfPositionModal from './AddShelfPositionModal';
 import ScanTray from './ScanTray';
 import OperativeKpiStrip from './OperativeKpiStrip';
+import OperativeShelfSidebar from './OperativeShelfSidebar';
 import LocationPhotoGallery from '../common/LocationPhotoGallery';
 import PhotoCarousel from '../common/PhotoCarousel';
 import { SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
@@ -69,6 +70,12 @@ interface OperativeShelfAreaProps {
    * (carretillero/admin) se ignora: puede navegar a cualquier estantería.
    */
   accessibleShelves?: string[] | null;
+  /**
+   * Activa el sidebar de navegación de estanterías en escritorio (#2 layout 2
+   * paneles). Opt-in: solo lo usan vistas que NO tienen ya su propia navegación
+   * lateral (p.ej. JEFE_SECCION). Carretillero/Admin tienen aside propio.
+   */
+  enableShelfSidebar?: boolean;
 }
 
 const padPos = (p: string) => parseInt(p, 10);
@@ -81,7 +88,7 @@ const positionNumber = (posStr: string): string => {
   return Number.isNaN(n) ? raw : String(n);
 };
 
-const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config, setShelfCode, fullscreenGrid = true, forceSingleBlock = false, userSection = null, accessibleShelves = null }) => {
+const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config, setShelfCode, fullscreenGrid = true, forceSingleBlock = false, userSection = null, accessibleShelves = null, enableShelfSidebar = false }) => {
   const {
     operarioId, displayName,
     action, scanData, selectedPositions, scannerActive, processing, feedback,
@@ -181,6 +188,33 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
     // Sin lista de accesibles: no navegar
     return false;
   }, [setShelfCode, config.shelfScope, accessibleShelves]);
+
+  // Estanterías navegables para el sidebar de escritorio (#2 layout 2 paneles).
+  // Ámbito total → todas las estanterías reales (excluye carros y COM).
+  // Ámbito limitado → solo las accesibles (sección + adicionales).
+  const navigableShelves = React.useMemo(() => {
+    if (!setShelfCode) return [];
+    if (config.shelfScope === 'all') {
+      return SHELF_DEFINITIONS
+        .filter((s) => s.type === 'shelf' && s.code !== 'COM')
+        .map((s) => ({ code: s.code, name: s.name }));
+    }
+    if (accessibleShelves && accessibleShelves.length > 0) {
+      return accessibleShelves
+        .map((code) => SHELF_DEFINITIONS.find((s) => s.code.toUpperCase() === code.toUpperCase()))
+        .filter((s): s is typeof SHELF_DEFINITIONS[number] => !!s)
+        .map((s) => ({ code: s.code, name: s.name }));
+    }
+    return [];
+  }, [setShelfCode, config.shelfScope, accessibleShelves]);
+
+  // El sidebar solo aparece si la vista lo activa, en escritorio y con >1 destino.
+  const showShelfSidebar = enableShelfSidebar && isDesktop && navigableShelves.length > 1;
+
+  const handleSidebarSelect = useCallback((code: string) => {
+    cancelAction();
+    setShelfCode?.(code);
+  }, [cancelAction, setShelfCode]);
 
   const reprocesosCosts = !!config.reprocesos?.showCosts;
   const canMultiSection = config.ubicar.allowMultiSection;
@@ -287,7 +321,17 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
     pendingAction === 'reubicar' ? 'Reubicar artículo' : 'Escanear';
 
   return (
-    <div className="flex flex-col h-full w-full min-w-0 overflow-hidden">
+    <div className="flex flex-row h-full w-full min-w-0 overflow-hidden">
+      {/* ── Sidebar de estanterías (solo escritorio, #2 layout 2 paneles) ── */}
+      {showShelfSidebar && (
+        <OperativeShelfSidebar
+          shelves={navigableShelves}
+          currentCode={shelfCode}
+          onSelect={handleSidebarSelect}
+        />
+      )}
+      {/* ── Columna principal (estado, KPIs, buscador, grid, modales) ── */}
+      <div className="flex flex-col flex-1 h-full min-w-0 overflow-hidden">
       {/* ── Barra de estado de acción ── */}
       {action !== 'idle' && !batchMode && (
         <div className="flex-shrink-0 px-3 py-2 bg-white border-b border-slate-200 flex items-center justify-between gap-2">
@@ -1009,6 +1053,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
           onClose={() => setShowPhotoCarousel(false)}
         />
       )}
+      </div>
     </div>
   );
 };

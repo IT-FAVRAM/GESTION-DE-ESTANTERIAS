@@ -69,7 +69,9 @@ const JefeSeccionOperativo: React.FC<{
         onLogout={logout}
       />
 
-      {sectionShelfCodes.length > 1 && (
+      {/* Pestañas de estantería: solo en táctil. En escritorio se usa el sidebar
+          lateral de OperativeShelfArea (enableShelfSidebar) para no duplicar. */}
+      {isTouch && sectionShelfCodes.length > 1 && (
         <div className="bg-white border-b border-slate-200 px-3 py-2 flex gap-2 overflow-x-auto">
           {sectionShelfCodes.map((code) => (
             <button
@@ -95,6 +97,7 @@ const JefeSeccionOperativo: React.FC<{
           userSection={section}
           setShelfCode={handleShelfChange}
           accessibleShelves={sectionShelfCodes}
+          enableShelfSidebar
         />
       </main>
 
