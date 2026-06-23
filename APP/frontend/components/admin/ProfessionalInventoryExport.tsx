@@ -5,9 +5,19 @@
 
 import React, { useCallback, useRef, useState } from 'react';
 import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
-import ExcelJS from 'exceljs';
 import { db } from '../../lib/firebase';
 import { COLLECTIONS, SHELF_DEFINITIONS, type LocationDoc, type LocationItem } from '../../lib/firestoreSchema';
+
+// exceljs (~900KB) se carga BAJO DEMANDA al exportar/importar, no al abrir el
+// panel admin. Cacheado tras la primera carga. (CommonJS → interop default/namespace.)
+let _excelJs: typeof import('exceljs') | null = null;
+const loadExcelJS = async (): Promise<typeof import('exceljs')> => {
+  if (!_excelJs) {
+    const mod = await import('exceljs');
+    _excelJs = ((mod as { default?: typeof import('exceljs') }).default ?? mod);
+  }
+  return _excelJs;
+};
 
 interface ProfessionalInventoryExportProps {
   onExportComplete?: () => void;
@@ -34,7 +44,7 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
     setProgress('Iniciando...');
 
     try {
-      const wb = new ExcelJS.Workbook();
+      const wb = new (await loadExcelJS()).Workbook();
       const today = new Date();
       const dateStr = today.toLocaleDateString('es-ES', {
         year: 'numeric',
@@ -350,7 +360,7 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
     reader.onload = async (e) => {
       try {
         const buf = e.target?.result as ArrayBuffer;
-        const wb = new ExcelJS.Workbook();
+        const wb = new (await loadExcelJS()).Workbook();
         await wb.xlsx.load(buf);
 
         const sheetName = 'INVENTARIO_GLOBAL';

@@ -21,9 +21,11 @@ import ScannerInput from '../kiosk/ScannerInput';
 import ScanMethodPicker from '../common/ScanMethodPicker';
 import SubcontratacionCapture from './SubcontratacionCapture';
 import ConfirmationModal from '../common/ConfirmationModal';
-import CameraQRScanner from '../common/CameraQRScanner';
+// Escáneres de cámara/QR: lazy. Arrastran html5-qrcode/tesseract (pesados) y solo
+// se abren bajo demanda, así no lastran la carga del área de estanterías.
+const CameraQRScanner = React.lazy(() => import('../common/CameraQRScanner'));
 const CameraOCRScanner = React.lazy(() => import('../common/CameraOCRScanner'));
-import QRScanner from '../common/QRScanner';
+const QRScanner = React.lazy(() => import('../common/QRScanner'));
 import RetirarArticleList from '../kiosk/RetirarArticleList';
 import RetirarCellModal from '../kiosk/RetirarCellModal';
 import HistoryModal from '../kiosk/HistoryModal';
@@ -648,10 +650,12 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
       />
 
       {showCameraQR && (
-        <CameraQRScanner
-          onScan={(text) => { setShowCameraQR(false); handleScan(parseScanInput(text)); }}
-          onClose={() => { setShowCameraQR(false); setScannerActive(true); }}
-        />
+        <React.Suspense fallback={<div className="p-4 text-center">Cargando escáner…</div>}>
+          <CameraQRScanner
+            onScan={(text) => { setShowCameraQR(false); handleScan(parseScanInput(text)); }}
+            onClose={() => { setShowCameraQR(false); setScannerActive(true); }}
+          />
+        </React.Suspense>
       )}
       {showCameraOCR && (
         <React.Suspense fallback={<div className="p-4 text-center">Cargando escáner OCR...</div>}>
@@ -682,12 +686,14 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
       )}
 
       {showBarcodeForm && (
-        <QRScanner
-          active={showBarcodeForm}
-          disabled={processing}
-          onScan={(result) => { setShowBarcodeForm(false); handleScan(result); }}
-          onClose={() => { setShowBarcodeForm(false); setScannerActive(true); }}
-        />
+        <React.Suspense fallback={<div className="p-4 text-center">Cargando escáner…</div>}>
+          <QRScanner
+            active={showBarcodeForm}
+            disabled={processing}
+            onScan={(result) => { setShowBarcodeForm(false); handleScan(result); }}
+            onClose={() => { setShowBarcodeForm(false); setScannerActive(true); }}
+          />
+        </React.Suspense>
       )}
 
       {showRetirarArticleList && (

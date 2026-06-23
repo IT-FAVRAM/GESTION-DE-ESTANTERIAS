@@ -56,6 +56,24 @@ export default defineConfig(({ mode }) => {
     build: {
       target: 'es2015',
       chunkSizeWarningLimit: 1500,
+      rollupOptions: {
+        output: {
+          // Separa el vendor que CASI NUNCA cambia (firebase, react) en chunks
+          // propios y estables: así un cambio de código de la app no invalida la
+          // caché del navegador de ~300KB de firebase. Solo se reasignan libs que
+          // se cargan SIEMPRE de inicio; las pesadas dinámicas (exceljs, tesseract,
+          // html5-qrcode) se dejan a Rollup para preservar su lazy-loading.
+          manualChunks(id: string) {
+            if (id.includes('node_modules/firebase') || id.includes('node_modules/@firebase')) {
+              return 'vendor-firebase';
+            }
+            if (/node_modules\/(react|react-dom|scheduler|react-router|react-router-dom)\//.test(id)) {
+              return 'vendor-react';
+            }
+            return undefined;
+          },
+        },
+      },
     },
     resolve: {
       alias: {
