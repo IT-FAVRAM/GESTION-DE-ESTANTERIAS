@@ -45,6 +45,8 @@ import { parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
 import { validateContiguity } from '../../lib/contiguityValidator';
 import { useScannerCapture } from '../../hooks/useScannerCapture';
 import { useUrgentAlerts } from '../../hooks/useUrgentAlerts';
+import { useFormFactor } from '../../hooks/useFormFactor';
+import { useOperativeKeyboardShortcuts } from '../../hooks/useOperativeKeyboardShortcuts';
 import type { GlobalSearchResult } from '../../hooks/useGlobalSearchWithCache';
 import type { RoleOperativeConfig } from '../../lib/operative/operativeConfig';
 import type { UseOperativeShelfReturn } from '../../hooks/useOperativeShelf';
@@ -119,6 +121,11 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
   } = engine;
 
   const { alerts: urgentAlerts } = useUrgentAlerts();
+
+  // Atajos de teclado para power-users de escritorio (U/R/M, /, Esc). No-op en
+  // kioskos/tablets táctiles para no interferir con el flujo de producción.
+  const isDesktop = useFormFactor() === 'desktop';
+  useOperativeKeyboardShortcuts(engine, config, isDesktop);
 
   // Modal de historial de movimientos
   const [showHistoryModal, setShowHistoryModal] = React.useState(false);
@@ -491,7 +498,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
 
       {/* ── Buscador (idle) ── */}
       {action === 'idle' && (
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0" data-op-search>
           <KioskSearchBar
             locations={locations}
             onHighlight={handleSearchHighlight}

@@ -54,17 +54,17 @@ const OperativeActionButtons: React.FC<OperativeActionButtonsProps> = ({ engine,
   return (
     <div className={container}>
       {a.ubicar && (
-        <button onClick={() => engine.startAction('ubicar')} className={`${base} ${BTN.ubicar.cls}`}>
+        <button onClick={() => engine.startAction('ubicar')} title="Ubicar (atajo: U)" className={`${base} ${BTN.ubicar.cls}`}>
           <BTN.ubicar.Icon className={iconCls} aria-hidden /> {BTN.ubicar.label}
         </button>
       )}
       {a.retirar && (
-        <button onClick={() => engine.startAction('retirar')} className={`${base} ${BTN.retirar.cls}`}>
+        <button onClick={() => engine.startAction('retirar')} title="Retirar (atajo: R)" className={`${base} ${BTN.retirar.cls}`}>
           <BTN.retirar.Icon className={iconCls} aria-hidden /> {BTN.retirar.label}
         </button>
       )}
       {a.mover && (
-        <button onClick={() => engine.startAction('mover')} className={`${base} ${BTN.mover.cls}`}>
+        <button onClick={() => engine.startAction('mover')} title="Mover (atajo: M)" className={`${base} ${BTN.mover.cls}`}>
           <BTN.mover.Icon className={iconCls} aria-hidden /> {BTN.mover.label}
         </button>
       )}
