@@ -56,7 +56,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     <div className="flex items-center justify-between gap-2 min-h-10">
       {/* Marca + título */}
       <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
-        {icon && <span className="text-2xl flex-shrink-0">{icon}</span>}
+        {icon && <span className="text-2xl flex-shrink-0" aria-hidden>{icon}</span>}
         <div className="min-w-0">
           <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none truncate">
             {title}
@@ -84,9 +84,10 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             className={`text-slate-500 hover:text-slate-900 transition-colors flex items-center justify-center ${
               touch ? 'min-h-11 min-w-11 text-base' : 'px-2 py-1 text-[10px]'
             }`}
-            title="Info"
+            title="Información del dispositivo"
+            aria-label="Información del dispositivo"
           >
-            ℹ️
+            <span aria-hidden>ℹ️</span>
           </button>
         )}
         {(onBack || onLogout) && (

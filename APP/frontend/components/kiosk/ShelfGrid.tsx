@@ -213,19 +213,25 @@ const MobileBlockNav = React.memo(({ blocks, activeIdx, onSelect, alwaysShow = f
         <span className="text-[10px] font-mono text-slate-400 shrink-0 tabular-nums">{activeIdx + 1}/{count}</span>
       </div>
 
-      <div className="flex items-center gap-1 shrink-0 px-1">
+      <div className="flex items-center shrink-0">
         {blocks.map((b, i) => (
           <button
             key={b.id}
             type="button"
             aria-label={b.title}
+            aria-current={i === activeIdx ? 'true' : undefined}
             onClick={() => onSelect(i)}
-            className={`rounded-full transition-all duration-200 ${
-              i === activeIdx
-                ? 'w-5 h-1.5 bg-sky-500'
-                : 'w-1.5 h-1.5 bg-slate-300 hover:bg-slate-400'
-            }`}
-          />
+            className="group p-2 flex items-center justify-center shrink-0"
+          >
+            {/* El punto visual queda pequeño; el botón aporta un área táctil mayor. */}
+            <span
+              className={`block rounded-full transition-all duration-200 ${
+                i === activeIdx
+                  ? 'w-5 h-1.5 bg-sky-500'
+                  : 'w-1.5 h-1.5 bg-slate-300 group-hover:bg-slate-400'
+              }`}
+            />
+          </button>
         ))}
       </div>
 
@@ -595,7 +601,7 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
                           position={pos}
                           location={loc}
                           shelfCode={shelfDef?.code}
-                          isUrgent={isStr || isUrgentLocation(shelfDef?.code || '', posNum as number)}
+                          isUrgent={isStr ? /URG/i.test(pos) : isUrgentLocation(shelfDef?.code || '', posNum as number)}
                           isTechReview={!isStr && isTechReviewLocation(shelfDef?.code || '', posNum as number)}
                           isAluminio={!isStr && isAluminioLocation(shelfDef?.code || '', posNum as number)}
                           isSelected={selectedPositions.includes(pos)}

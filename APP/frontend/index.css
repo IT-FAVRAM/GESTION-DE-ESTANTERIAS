@@ -50,6 +50,33 @@
             font-size: 16px;
         }
     }
+
+    /* Foco visible por teclado: anillo de accesibilidad consistente en todos los
+       controles interactivos. Solo aparece con navegación por teclado
+       (:focus-visible), no al hacer clic con ratón/táctil. */
+    button:focus-visible,
+    a:focus-visible,
+    [role="button"]:focus-visible,
+    [tabindex]:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible {
+        outline: 2px solid #0891b2; /* cyan-600 */
+        outline-offset: 2px;
+    }
+}
+
+/* Respeta a quienes reducen el movimiento del sistema: desactiva animaciones y
+   transiciones (animate-pulse/spin, scale, etc.) para evitar mareo/distracción. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
 }
 
 @layer utilities {
