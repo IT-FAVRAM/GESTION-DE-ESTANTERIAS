@@ -30,6 +30,7 @@ exports.chaperoOperate = functions.https.onCall(async (data, context) => {
         const positionId = String((payload === null || payload === void 0 ? void 0 : payload.positionId) || '').trim();
         const material = String((payload === null || payload === void 0 ? void 0 : payload.material) || '').trim().toUpperCase();
         const spec = typeof (payload === null || payload === void 0 ? void 0 : payload.spec) === 'string' ? payload.spec.trim().toUpperCase() : undefined;
+        const albaran = typeof (payload === null || payload === void 0 ? void 0 : payload.albaran) === 'string' ? payload.albaran.trim() : undefined;
         const espesor = String((payload === null || payload === void 0 ? void 0 : payload.espesor) || '').trim();
         const locatedByName = String((payload === null || payload === void 0 ? void 0 : payload.locatedByName) || actor.operarioName || actor.email || actor.uid).trim();
         if (!positionId)
@@ -38,6 +39,8 @@ exports.chaperoOperate = functions.https.onCall(async (data, context) => {
             throw new functions.https.HttpsError('invalid-argument', 'material es requerido.');
         if (!espesor)
             throw new functions.https.HttpsError('invalid-argument', 'espesor es requerido.');
+        if (!albaran)
+            throw new functions.https.HttpsError('invalid-argument', 'albaran es requerido.');
         const itemId = generateItemId(actor.uid);
         const newItem = {
             id: itemId,
@@ -49,6 +52,8 @@ exports.chaperoOperate = functions.https.onCall(async (data, context) => {
         };
         if (spec)
             newItem.spec = spec;
+        if (albaran)
+            newItem.albaran = albaran;
         const posRef = db.collection('chapero_positions').doc(positionId);
         await db.runTransaction(async (tx) => {
             var _a, _b, _c, _d;
@@ -69,6 +74,7 @@ exports.chaperoOperate = functions.https.onCall(async (data, context) => {
                 material,
                 espesor,
                 spec: spec !== null && spec !== void 0 ? spec : null,
+                albaran: albaran !== null && albaran !== void 0 ? albaran : null,
                 locatedByName,
                 itemId,
             });

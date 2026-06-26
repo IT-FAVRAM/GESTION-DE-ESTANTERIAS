@@ -35,7 +35,7 @@ const WMS_SHELF_SECTION = {
     SXP: 'SXP',
     REP: 'REPASADO',
     PIN: 'PINTURA',
-    ZIN: 'REPASADO',
+    ZIN: 'ZINCADO',
     CAL: 'CALIDAD',
     COM: 'OTROS',
     RPL: 'AUTOPLEGADORA',

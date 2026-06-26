@@ -35,12 +35,14 @@ export const chaperoOperate = functions.https.onCall(async (data: any, context: 
     const positionId = String(payload?.positionId || '').trim();
     const material = String(payload?.material || '').trim().toUpperCase();
     const spec = typeof payload?.spec === 'string' ? payload.spec.trim().toUpperCase() : undefined;
+    const albaran = typeof payload?.albaran === 'string' ? payload.albaran.trim() : undefined;
     const espesor = String(payload?.espesor || '').trim();
     const locatedByName = String(payload?.locatedByName || actor.operarioName || actor.email || actor.uid).trim();
 
     if (!positionId) throw new functions.https.HttpsError('invalid-argument', 'positionId es requerido.');
     if (!material) throw new functions.https.HttpsError('invalid-argument', 'material es requerido.');
     if (!espesor) throw new functions.https.HttpsError('invalid-argument', 'espesor es requerido.');
+    if (!albaran) throw new functions.https.HttpsError('invalid-argument', 'albaran es requerido.');
 
     const itemId = generateItemId(actor.uid);
     const newItem: Record<string, unknown> = {
@@ -52,6 +54,7 @@ export const chaperoOperate = functions.https.onCall(async (data: any, context: 
       locatedAt: now,
     };
     if (spec) newItem.spec = spec;
+    if (albaran) newItem.albaran = albaran;
 
     const posRef = db.collection('chapero_positions').doc(positionId);
     await db.runTransaction(async (tx) => {
@@ -73,6 +76,7 @@ export const chaperoOperate = functions.https.onCall(async (data: any, context: 
         material,
         espesor,
         spec: spec ?? null,
+        albaran: albaran ?? null,
         locatedByName,
         itemId,
       });
