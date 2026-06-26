@@ -278,7 +278,12 @@
       "Bash(rm -rf manual-screenshots)",
       "Bash(mkdir -p manual-screenshots)",
       "Bash(xargs grep -l \"SOLDADURA\")",
-      "Bash(grep -E \"✓|\\\\\\\\+|deploy complete|Hosting URL\")"
+      "Bash(grep -E \"✓|\\\\\\\\+|deploy complete|Hosting URL\")",
+      "WebFetch(domain:github.com)",
+      "Bash(npm --version)",
+      "Bash(git log *)",
+      "Bash(find . -maxdepth 3 -name \"firebase.json\" -not -path \"*/node_modules/*\")",
+      "Bash(find . -maxdepth 3 -name \".firebaserc\" -not -path \"*/node_modules/*\")"
     ]
   },
   "enabledMcpjsonServers": [
