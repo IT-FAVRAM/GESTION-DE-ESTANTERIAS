@@ -623,6 +623,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         showCameraButtons={batchMode}
         dualField
         ofOptional={scanArticleOnly}
+        kioskMode={forceSingleBlock}
       />
 
       {/* ── Modales ── */}
@@ -647,6 +648,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             : undefined
         }
         onClose={handleScanMethodPickerClose}
+        kioskMode={forceSingleBlock}
       />
 
       {showCameraQR && (

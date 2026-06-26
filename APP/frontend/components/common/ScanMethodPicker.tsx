@@ -11,6 +11,8 @@ interface ScanMethodPickerProps {
   /** UBICAR (carretillero/admin): flujo de SUBCONTRATACIÓN (foto etiqueta o código manual). */
   onSubcontratacion?: () => void;
   onClose: () => void;
+  /** Modo kiosko: solo mostrar opción manual. */
+  kioskMode?: boolean;
 }
 
 const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
@@ -21,8 +23,21 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
   onSelectList,
   onSubcontratacion,
   onClose,
+  kioskMode = false,
 }) => {
-  if (!open) return null;
+  const selectRef = React.useRef<boolean>(false);
+
+  if (!open) {
+    selectRef.current = false;
+    return null;
+  }
+
+  // En modo kiosko, abrir directamente la entrada manual sin mostrar el picker
+  if (kioskMode && !selectRef.current) {
+    selectRef.current = true;
+    setTimeout(() => onSelect('manual'), 0);
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">

@@ -27,6 +27,8 @@ interface ScannerInputProps {
   dualField?: boolean;
   /** Si true, el campo OF es opcional (flujo calidad: "sin OF"). */
   ofOptional?: boolean;
+  /** Modo kiosko: centrar el formulario en medio de la pantalla. */
+  kioskMode?: boolean;
 }
 
 const ScannerInput: React.FC<ScannerInputProps> = ({
@@ -38,6 +40,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
   showCameraButtons = true,
   dualField = false,
   ofOptional = false,
+  kioskMode = false,
 }) => {
   // Modo single-field
   const [input, setInput] = useState('');
@@ -249,6 +252,55 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
   // ── Dual-field render ────────────────────────────────────────────────────
 
   if (dualField) {
+    // En modo kiosko, centrar el formulario en la pantalla
+    if (kioskMode) {
+      return (
+        <div className="fixed inset-0 z-[50] flex items-center justify-center bg-black/20 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-cyan-300 p-6 space-y-4">
+            <h2 className="text-center text-2xl font-black text-slate-900">Ubicar artículo</h2>
+            <div className="space-y-2.5">
+              <input
+                ref={inputRef}
+                type="text"
+                value={articleInput}
+                onChange={(e) => setArticleInput(e.target.value)}
+                onKeyDown={handleArticleKeyDown}
+                placeholder="Código artículo"
+                disabled={disabled}
+                autoFocus
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="characters"
+                spellCheck={false}
+                className="w-full px-4 py-3 text-lg bg-slate-50 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500 disabled:opacity-50"
+              />
+              <input
+                ref={ofRef}
+                type="text"
+                value={ofInput}
+                onChange={(e) => setOfInput(e.target.value)}
+                onKeyDown={handleOfKeyDown}
+                placeholder={ofOptional ? "Sin OF (opcional)" : "Nº OF  (ej: OF25-1234)"}
+                disabled={disabled}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="characters"
+                spellCheck={false}
+                className={`w-full px-4 py-3 text-lg bg-slate-50 border rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 disabled:opacity-50 ${ofOptional ? 'border-amber-300 focus:border-amber-500 focus:ring-amber-500' : 'border-slate-300 focus:border-cyan-500 focus:ring-cyan-500'}`}
+              />
+            </div>
+            <button
+              onClick={handleDualSubmit}
+              disabled={disabled || !articleInput.trim()}
+              className="w-full px-4 py-3 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white rounded-lg font-black text-xl transition-colors"
+            >
+              ✅ Ubicar
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex-shrink-0 bg-white border-t-2 border-cyan-500 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] p-4 space-y-2.5">
         <div className="flex gap-2 items-stretch">

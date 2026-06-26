@@ -164,8 +164,8 @@ export const useAnalytics = (): AnalyticsSnapshot => {
     const leadTimeBySection = normalizeLeadTime(leadTime);
 
     const uniquePairs = new Set<string>();
-    const sectionAccumulator = new Map<string, { uniqueItems: number; placements: number }>();
-    const shelfAccumulator = new Map<string, number>();
+    const sectionAccumulator = new Map<string, { uniqueItems: number; placements: number; occupiedLocationIds: Set<string> }>();
+    const shelfAccumulator = new Map<string, { placements: number; occupiedLocationIds: Set<string> }>();
     const staleItems: StaleItemView[] = [];
     const repeatedPairAccumulator = new Map<string, RepeatedPairView>();
 
@@ -176,12 +176,16 @@ export const useAnalytics = (): AnalyticsSnapshot => {
       const daysInLocation = diffDaysFromNow(item.locatedAt);
       uniquePairs.add(aggregateKey);
 
-      const sectionStats = sectionAccumulator.get(section) || { uniqueItems: 0, placements: 0 };
+      const sectionStats = sectionAccumulator.get(section) || { uniqueItems: 0, placements: 0, occupiedLocationIds: new Set<string>() };
       sectionStats.uniqueItems += 1;
       sectionStats.placements += shelfPlacements;
+      item.locationIds.forEach(locId => sectionStats.occupiedLocationIds.add(`${item.shelfCode}:${locId}`));
       sectionAccumulator.set(section, sectionStats);
 
-      shelfAccumulator.set(item.shelfCode, (shelfAccumulator.get(item.shelfCode) || 0) + shelfPlacements);
+      const shelfStats = shelfAccumulator.get(item.shelfCode) || { placements: 0, occupiedLocationIds: new Set<string>() };
+      shelfStats.placements += shelfPlacements;
+      item.locationIds.forEach(locId => shelfStats.occupiedLocationIds.add(locId));
+      shelfAccumulator.set(item.shelfCode, shelfStats);
 
       const repeatedPair = repeatedPairAccumulator.get(aggregateKey) || {
         articleCode: item.articleCode,
@@ -233,11 +237,12 @@ export const useAnalytics = (): AnalyticsSnapshot => {
       .map(([section, stats]) => {
         const sectionShelves = ALL_SHELVES.filter((shelf) => shelf.section === section);
         const sectionCapacity = sectionShelves.reduce((sum, shelf) => sum + shelf.locationCount, 0);
+        const occupiedLocationsCount = stats.occupiedLocationIds.size;
         return {
           section,
           uniqueItems: stats.uniqueItems,
           placements: stats.placements,
-          occupancyRate: sectionCapacity === 0 ? 0 : stats.placements / sectionCapacity,
+          occupancyRate: sectionCapacity === 0 ? 0 : occupiedLocationsCount / sectionCapacity,
           avgLeadTimeDays: leadTimeBySection.get(section) ?? null,
         };
       })
@@ -245,13 +250,15 @@ export const useAnalytics = (): AnalyticsSnapshot => {
 
     const shelfMetrics: ShelfMetric[] = ALL_SHELVES
       .map((shelf) => {
-        const placements = shelfAccumulator.get(shelf.code) || 0;
+        const shelfStats = shelfAccumulator.get(shelf.code) || { placements: 0, occupiedLocationIds: new Set<string>() };
+        const placements = shelfStats.placements;
+        const occupiedLocationsCount = shelfStats.occupiedLocationIds.size;
         return {
           shelfCode: shelf.code,
           shelfName: SHELF_NAMES.get(shelf.code) || shelf.code,
           section: shelf.section,
           placements,
-          occupancyRate: shelf.locationCount === 0 ? 0 : placements / shelf.locationCount,
+          occupancyRate: shelf.locationCount === 0 ? 0 : occupiedLocationsCount / shelf.locationCount,
         };
       })
       .sort((left, right) => right.occupancyRate - left.occupancyRate);

@@ -8,6 +8,8 @@
 import React, { useState, useEffect } from 'react';
 import { usePickupQueue, type PickupRequest, type GroupedPickups } from '../../hooks/usePickupQueue';
 import { useAuth } from '../../hooks/useAuth';
+import { inventoryApi } from '../../lib/api/inventoryApi';
+import { getOperationalSession } from '../../lib/operationalSession';
 
 const timeAgo = (dateStr: string): string => {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -50,67 +52,68 @@ const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId
 
   if (isTraer) {
     return (
-      <div className="bg-slate-900 border border-blue-500/30 rounded-2xl p-4">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/15 flex items-center justify-center shrink-0">
-              <span className="text-lg">📦</span>
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold text-blue-400 bg-blue-500/15 px-1.5 py-0.5 rounded-full uppercase tracking-wider">
-                  Traer
-                </span>
-                <span className="text-xs text-slate-500">{timeAgo(req.createdAt)}</span>
-              </div>
-              <p className="text-xs text-slate-400 mt-0.5">
-                {req.operarioName} · {req.shelfName}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => onComplete(req.id)}
-            disabled={processingId === req.id}
-            className="shrink-0 px-3 py-2 bg-blue-600 text-white text-sm font-bold
-              rounded-xl hover:bg-blue-500 active:scale-95 transition-all
-              disabled:opacity-50 flex items-center gap-1.5 shadow-md"
-          >
-            {processingId === req.id ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : <span>✓</span>}
-            HECHO
-          </button>
+      <div className="bg-gradient-to-br from-blue-950 to-slate-900 border-2 border-blue-500/40 rounded-2xl p-4 shadow-lg hover:border-blue-500/60 transition-colors">
+        {/* Title with who's asking */}
+        <div className="mb-3">
+          <p className="text-xs font-bold text-blue-300 uppercase tracking-widest">Solicitud de {req.operarioName}</p>
+          <p className="text-sm text-slate-400 mt-0.5">{timeAgo(req.createdAt)}</p>
         </div>
-        {/* Article info */}
-        {req.articleCode && (
-          <div className="mt-3 bg-blue-950/40 border border-blue-500/20 rounded-xl p-3">
-            <p className="font-black text-white font-mono text-base leading-tight">
-              {req.articleCode}
-            </p>
-            {req.articleOrderFab && (
-              <p className="text-xs text-slate-400 font-mono mt-0.5">OF: {req.articleOrderFab}</p>
-            )}
-            {req.articleShelfName && (
-              <div className="mt-2 flex items-baseline gap-1.5">
-                <span className="text-[11px] text-blue-400">📍</span>
-                <div>
-                  <span className="text-xs font-bold text-blue-300">{req.articleShelfName}</span>
-                  {req.articlePositions && req.articlePositions.length > 0 && (
-                    <span className="text-xs text-slate-400 ml-1">
-                      — {req.articlePositions.length === 1
-                        ? `posición ${req.articlePositions[0]}`
-                        : `posiciones ${req.articlePositions.join(', ')}`}
-                    </span>
-                  )}
-                </div>
+
+        {/* Step-by-step visual flow */}
+        <div className="space-y-2.5 mb-4">
+          {/* Step 1: Where to pick from */}
+          {req.articleShelfName && (
+            <div className="flex items-start gap-2.5 bg-blue-950/60 border border-blue-500/20 rounded-xl p-2.5">
+              <span className="text-lg mt-0.5 shrink-0">1️⃣</span>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Ir a</p>
+                <p className="text-sm font-black text-blue-200">{req.articleShelfName}</p>
+                {req.articlePositions && req.articlePositions.length > 0 && (
+                  <p className="text-xs text-blue-300 mt-0.5">
+                    Posición{req.articlePositions.length > 1 ? 'es' : ''}: <span className="font-bold">{req.articlePositions.join(', ')}</span>
+                  </p>
+                )}
               </div>
-            )}
-            <p className="text-[11px] text-slate-400 mt-2">
-              → Llevar a: <span className="text-emerald-300 font-bold">{destText}</span>
-            </p>
+            </div>
+          )}
+
+          {/* Step 2: What to pick */}
+          {req.articleCode && (
+            <div className="flex items-start gap-2.5 bg-blue-950/60 border border-blue-500/20 rounded-xl p-2.5">
+              <span className="text-lg mt-0.5 shrink-0">2️⃣</span>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Coger</p>
+                <p className="text-sm font-bold text-white font-mono">{req.articleCode}</p>
+                {req.articleOrderFab && (
+                  <p className="text-xs text-slate-400 mt-0.5">OF: {req.articleOrderFab}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Where to deliver */}
+          <div className="flex items-start gap-2.5 bg-emerald-950/40 border border-emerald-500/30 rounded-xl p-2.5">
+            <span className="text-lg mt-0.5 shrink-0">3️⃣</span>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Llevar a</p>
+              <p className="text-sm font-black text-emerald-200">{destText}</p>
+            </div>
           </div>
-        )}
+        </div>
+
+        {/* Action button - prominent */}
+        <button
+          onClick={() => onComplete(req.id)}
+          disabled={processingId === req.id}
+          className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white text-sm font-black
+            rounded-xl active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg"
+        >
+          {processingId === req.id ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : <span>✓</span>}
+          {processingId === req.id ? 'Procesando...' : 'MARCAR COMO HECHO'}
+        </button>
+
         <MetaBadges req={req} />
       </div>
     );
@@ -120,51 +123,63 @@ const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId
   const hasDetails = !!(req.articleToPickCode || req.destinationShelfName || req.pickupShelfName);
   const fromText = `${req.pickupShelfName || req.shelfName}${stationLabel(req.pickupStation)}`;
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center shrink-0">
-            <span className="text-lg">🔔</span>
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold text-orange-400 bg-orange-500/15 px-1.5 py-0.5 rounded-full uppercase tracking-wider">
-                Recoger
-              </span>
-              <span className="text-xs text-slate-500">{timeAgo(req.createdAt)}</span>
-            </div>
-            <p className="text-sm font-bold text-white mt-0.5">{req.operarioName}</p>
-          </div>
-        </div>
-        <button
-          onClick={() => onComplete(req.id)}
-          disabled={processingId === req.id}
-          className="shrink-0 px-4 py-2.5 bg-emerald-600 text-white text-sm font-bold
-            rounded-xl hover:bg-emerald-500 active:scale-95 transition-all
-            disabled:opacity-50 flex items-center gap-2 shadow-lg"
-        >
-          {processingId === req.id ? (
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          ) : <span>✓</span>}
-          HECHO
-        </button>
+    <div className="bg-gradient-to-br from-orange-950 to-slate-900 border-2 border-orange-500/40 rounded-2xl p-4 shadow-lg hover:border-orange-500/60 transition-colors">
+      {/* Title with who's asking */}
+      <div className="mb-3">
+        <p className="text-xs font-bold text-orange-300 uppercase tracking-widest">Solicitud de {req.operarioName}</p>
+        <p className="text-sm text-slate-400 mt-0.5">{timeAgo(req.createdAt)}</p>
       </div>
+
+      {/* Step-by-step visual flow */}
       {hasDetails && (
-        <div className="mt-3 bg-orange-950/30 border border-orange-500/20 rounded-xl p-3">
+        <div className="space-y-2.5 mb-4">
+          {/* Step 1: Where to pick from */}
+          <div className="flex items-start gap-2.5 bg-orange-950/60 border border-orange-500/20 rounded-xl p-2.5">
+            <span className="text-lg mt-0.5 shrink-0">1️⃣</span>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Ir a</p>
+              <p className="text-sm font-black text-orange-200">{fromText}</p>
+            </div>
+          </div>
+
+          {/* Step 2: What to pick */}
           {req.articleToPickCode && (
-            <p className="font-black text-white font-mono text-base leading-tight">{req.articleToPickCode}</p>
+            <div className="flex items-start gap-2.5 bg-orange-950/60 border border-orange-500/20 rounded-xl p-2.5">
+              <span className="text-lg mt-0.5 shrink-0">2️⃣</span>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Coger</p>
+                <p className="text-sm font-bold text-white font-mono">{req.articleToPickCode}</p>
+                {req.articleToPickOrderFab && (
+                  <p className="text-xs text-slate-400 mt-0.5">OF: {req.articleToPickOrderFab}</p>
+                )}
+              </div>
+            </div>
           )}
-          {req.articleToPickOrderFab && (
-            <p className="text-xs text-slate-400 font-mono mt-0.5">OF: {req.articleToPickOrderFab}</p>
-          )}
-          <p className="text-[11px] text-slate-400 mt-2">
-            Recoger en: <span className="text-amber-300 font-bold">{fromText}</span>
-          </p>
-          <p className="text-[11px] text-slate-400 mt-1">
-            → Llevar a: <span className="text-emerald-300 font-bold">{destText}</span>
-          </p>
+
+          {/* Step 3: Where to deliver */}
+          <div className="flex items-start gap-2.5 bg-emerald-950/40 border border-emerald-500/30 rounded-xl p-2.5">
+            <span className="text-lg mt-0.5 shrink-0">3️⃣</span>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Llevar a</p>
+              <p className="text-sm font-black text-emerald-200">{destText}</p>
+            </div>
+          </div>
         </div>
       )}
+
+      {/* Action button - prominent */}
+      <button
+        onClick={() => onComplete(req.id)}
+        disabled={processingId === req.id}
+        className="w-full px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-black
+          rounded-xl active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg"
+      >
+        {processingId === req.id ? (
+          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        ) : <span>✓</span>}
+        {processingId === req.id ? 'Procesando...' : 'MARCAR COMO HECHO'}
+      </button>
+
       <MetaBadges req={req} />
     </div>
   );
@@ -176,11 +191,13 @@ interface PickupQueueProps {
 
 const PickupQueue: React.FC<PickupQueueProps> = ({ currentShelf }) => {
   const { groupedPending, completedRequests, loading, completeRequest, pendingCount } = usePickupQueue();
-  const { firebaseUser } = useAuth();
+  const { firebaseUser, operarioId, displayName } = useAuth();
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
   const [lastShelf, setLastShelf] = useState<string | undefined>(currentShelf);
   const [shelfChanged, setShelfChanged] = useState(false);
+  const [withdrawalModal, setWithdrawalModal] = useState<PickupRequest | null>(null);
+  const [withdrawalProcessing, setWithdrawalProcessing] = useState(false);
 
   useEffect(() => {
     if (currentShelf !== lastShelf && lastShelf !== undefined) {
@@ -199,10 +216,59 @@ const PickupQueue: React.FC<PickupQueueProps> = ({ currentShelf }) => {
     .filter(g => g.requests.length > 0);
 
   const handleComplete = async (requestId: string) => {
+    const req = groupedPending.flatMap(g => g.requests).find(r => r.id === requestId);
+    if (!req) return;
+
+    // Si es TRAER, preguntar si quiere retirar el artículo
+    if (req.requestType === 'TRAER') {
+      setWithdrawalModal(req);
+      return;
+    }
+
+    // Si es RECOGER, simplemente completar
     if (processingId || !firebaseUser) return;
     setProcessingId(requestId);
     await completeRequest(requestId, firebaseUser.uid);
     setProcessingId(null);
+  };
+
+  const handleWithdrawalConfirm = async (shouldWithdraw: boolean) => {
+    if (!withdrawalModal || !firebaseUser) return;
+    setWithdrawalProcessing(true);
+
+    try {
+      if (shouldWithdraw && withdrawalModal.articleCode && withdrawalModal.articleShelfName && withdrawalModal.articlePositions?.length) {
+        // Retirar el artículo
+        const session = getOperationalSession();
+        const withdrawResult = await inventoryApi.retirarDeUbicacion(
+          {
+            shelfCode: withdrawalModal.articleShelfName,
+            articleCode: withdrawalModal.articleCode,
+            orderFab: withdrawalModal.articleOrderFab || 'SIN-OF',
+            position: withdrawalModal.articlePositions[0],
+            operarioId: operarioId || firebaseUser.uid,
+            operarioName: displayName || 'Carretillero',
+          },
+          session
+        );
+
+        if (!withdrawResult?.ok) {
+          throw new Error('No se pudo retirar el artículo');
+        }
+      }
+
+      // Completar la solicitud
+      const result = await completeRequest(withdrawalModal.id, firebaseUser.uid);
+      if (result) {
+        setWithdrawalModal(null);
+      }
+    } catch (err: any) {
+      console.error('Error en entrega:', err);
+      // Mostrar error al usuario
+      alert(`Error: ${err.message || 'No se pudo completar la entrega'}`);
+    } finally {
+      setWithdrawalProcessing(false);
+    }
   };
 
   if (loading) {
@@ -213,8 +279,35 @@ const PickupQueue: React.FC<PickupQueueProps> = ({ currentShelf }) => {
     );
   }
 
+  const totalRecogidas = recogidasPending.reduce((n, g) => n + g.requests.length, 0);
+  const totalTraidas = trairadasPending.reduce((n, g) => n + g.requests.length, 0);
+  const totalPending = totalRecogidas + totalTraidas;
+
   return (
     <div className="p-4 pb-20 space-y-6">
+      {/* Resumen visual claro */}
+      {totalPending > 0 && (
+        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-2 border-slate-700 rounded-2xl p-4 shadow-lg">
+          <p className="text-sm font-bold text-slate-300 uppercase tracking-widest mb-3">Tareas pendientes</p>
+          <div className="grid grid-cols-2 gap-3">
+            {totalRecogidas > 0 && (
+              <div className="bg-orange-950/50 border border-orange-500/30 rounded-xl p-3">
+                <p className="text-2xl font-black text-orange-400">{totalRecogidas}</p>
+                <p className="text-xs text-orange-300 font-bold mt-1">RECOGIDAS</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Ir a buscar y traer</p>
+              </div>
+            )}
+            {totalTraidas > 0 && (
+              <div className="bg-blue-950/50 border border-blue-500/30 rounded-xl p-3">
+                <p className="text-2xl font-black text-blue-400">{totalTraidas}</p>
+                <p className="text-xs text-blue-300 font-bold mt-1">TRAÍDAS</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Ir a llevar artículos</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {shelfChanged && (
         <div className="bg-amber-950/50 border border-amber-500/50 rounded-xl p-3 flex items-start gap-3">
           <span className="text-xl shrink-0">⚠️</span>
@@ -233,13 +326,14 @@ const PickupQueue: React.FC<PickupQueueProps> = ({ currentShelf }) => {
           </button>
         </div>
       )}
+
       {/* Sub-sección: RECOGIDAS */}
       <div>
         <h2 className="text-lg font-black text-white flex items-center gap-2 mb-4">
           🔔 Recogidas
-          {recogidasPending.reduce((n, g) => n + g.requests.length, 0) > 0 && (
-            <span className="px-2 py-0.5 bg-orange-500 text-white text-sm font-bold rounded-full">
-              {recogidasPending.reduce((n, g) => n + g.requests.length, 0)}
+          {totalRecogidas > 0 && (
+            <span className="px-3 py-1 bg-orange-500 text-white text-sm font-bold rounded-full">
+              {totalRecogidas}
             </span>
           )}
         </h2>
@@ -348,6 +442,69 @@ const PickupQueue: React.FC<PickupQueueProps> = ({ currentShelf }) => {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Modal: Confirmar retiro */}
+      {withdrawalModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-gradient-to-br from-blue-950 to-slate-900 border-2 border-blue-500/40 rounded-2xl shadow-2xl p-6 space-y-6">
+            <div className="space-y-2">
+              <p className="text-sm font-bold text-blue-300 uppercase tracking-widest">El artículo sigue ubicado en:</p>
+              <p className="text-2xl font-black text-white">{withdrawalModal.articleShelfName}</p>
+            </div>
+
+            <div className="bg-blue-950/60 border border-blue-500/20 rounded-xl p-4">
+              <p className="text-xs font-bold text-slate-400 uppercase mb-2">Artículo:</p>
+              <p className="text-base font-mono font-bold text-white mb-3">{withdrawalModal.articleCode}</p>
+              {withdrawalModal.articleOrderFab && (
+                <p className="text-xs text-slate-400">OF: {withdrawalModal.articleOrderFab}</p>
+              )}
+            </div>
+
+            <p className="text-center text-lg font-black text-white">
+              ¿QUIERES QUE LO RETIRE?
+            </p>
+
+            <div className="space-y-2">
+              <button
+                onClick={() => handleWithdrawalConfirm(true)}
+                disabled={withdrawalProcessing}
+                className="w-full px-4 py-4 bg-emerald-600 hover:bg-emerald-500 text-white text-base font-black
+                  rounded-xl active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {withdrawalProcessing ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Procesando...
+                  </>
+                ) : (
+                  <>
+                    <span>✓</span>
+                    SÍ
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => handleWithdrawalConfirm(false)}
+                disabled={withdrawalProcessing}
+                className="w-full px-4 py-4 bg-slate-700 hover:bg-slate-600 text-white text-base font-black
+                  rounded-xl active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {withdrawalProcessing ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Procesando...
+                  </>
+                ) : (
+                  <>
+                    <span>✕</span>
+                    NO, SOLO MARCAR COMO ENTREGADO
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
