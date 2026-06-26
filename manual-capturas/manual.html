@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A4 portrait; margin: 7mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #0f172a; }
+  body { width: 196mm; }
+
+  .hero {
+    background: linear-gradient(120deg, #0b2545 0%, #13315c 55%, #1d4e89 100%);
+    color: #fff; border-radius: 12px; padding: 12px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .hero h1 { font-size: 21px; font-weight: 800; letter-spacing: .3px; line-height: 1.05; }
+  .hero .sub { font-size: 10.5px; color: #b6d0f0; margin-top: 3px; font-weight: 600; }
+  .hero .badges { display: flex; gap: 6px; }
+  .pill { font-size: 10px; font-weight: 800; color: #fff; padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
+  .pill.g { background: #16a34a; } .pill.r { background: #e11d48; } .pill.b { background: #2563eb; }
+
+  .screen { margin-top: 8px; border: 1px solid #dbe4f0; border-radius: 10px; overflow: hidden; }
+  .screen img { width: 100%; display: block; }
+
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 9px; margin-top: 9px; align-items: stretch; }
+
+  .card { border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; min-height: 128mm; }
+  .card .body { flex: 1; display: flex; flex-direction: column; }
+  .card .head { color: #fff; padding: 7px 10px; display: flex; align-items: center; gap: 7px; }
+  .card.g .head { background: #16a34a; } .card.r .head { background: #e11d48; } .card.b .head { background: #2563eb; }
+  .card .head .n { background: rgba(255,255,255,.25); width: 20px; height: 20px; border-radius: 6px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; }
+  .card .head .t { font-size: 14px; font-weight: 800; letter-spacing: .3px; }
+  .card .head .t small { display:block; font-size: 8.5px; font-weight:600; opacity:.85; letter-spacing:0; }
+
+  .card .body { padding: 9px 10px; }
+  ol.steps { list-style: none; counter-reset: s; display: flex; flex-direction: column; gap: 6px; }
+  ol.steps li { counter-increment: s; position: relative; padding-left: 22px; font-size: 10px; line-height: 1.3; color: #1e293b; }
+  ol.steps li::before {
+    content: counter(s); position: absolute; left: 0; top: -1px;
+    width: 16px; height: 16px; border-radius: 50%; color: #fff; font-size: 9.5px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .g ol.steps li::before { background: #16a34a; } .r ol.steps li::before { background: #e11d48; } .b ol.steps li::before { background: #2563eb; }
+  ol.steps b { font-weight: 800; }
+
+  .shot { margin-top: 8px; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+  .shot .frame { width: 100%; border: 1px solid #e6edf6; border-radius: 8px; overflow: hidden; background: #f4f7fb; }
+  .shot img { width: 100%; display: block; }
+  .cap { font-size: 8.5px; font-weight: 700; color: #475569; text-align: center; }
+
+  .band { margin-top: 9px; border: 1px solid #b7ebcb; background: #ecfdf3; border-radius: 10px; padding: 8px 12px; display: flex; align-items: center; gap: 12px; }
+  .band .lbl { font-size: 10px; font-weight: 800; color: #14532d; line-height: 1.25; flex-shrink: 0; max-width: 46mm; }
+  .band .lbl small { display: block; font-weight: 600; color: #2f6b48; font-size: 8.5px; }
+  .band .frame { flex: 1; border: 1px solid #cfeedd; border-radius: 8px; overflow: hidden; background: #fff; }
+  .band .frame img { width: 100%; display: block; }
+
+  .foot { margin-top: 9px; border: 1.5px dashed #c8d4e3; border-radius: 10px; padding: 8px 12px; display: flex; gap: 14px; align-items: center; }
+  .foot .ico { font-size: 18px; }
+  .foot .tips { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 18px; font-size: 9.5px; color: #334155; }
+  .foot .tips b { color: #0b2545; }
+  .credit { text-align: center; font-size: 8px; color: #94a3b8; margin-top: 6px; letter-spacing: .4px; }
+</style>
+</head>
+<body>
+
+  <div class="hero">
+    <div>
+      <h1>GUÍA RÁPIDA · KIOSKO DE ESTANTERÍAS</h1>
+      <div class="sub">Cómo UBICAR, RETIRAR y BUSCAR un artículo · paso a paso</div>
+    </div>
+    <div class="badges">
+      <span class="pill g">▣ UBICAR</span>
+      <span class="pill r">◨ RETIRAR</span>
+      <span class="pill b">🔍 BUSCAR</span>
+    </div>
+  </div>
+
+  <div class="screen">
+    <img src="crop/principal.png" alt="Pantalla principal del kiosko">
+  </div>
+
+  <div class="grid3">
+
+    <!-- UBICAR -->
+    <div class="card g">
+      <div class="head"><span class="n">1</span><span class="t">UBICAR<small>guardar un artículo en la estantería</small></span></div>
+      <div class="body">
+        <ol class="steps">
+          <li>Pulsa el botón verde <b>UBICAR</b>.</li>
+          <li>Elige cómo capturar: <b>QR/pistola</b>, <b>cámara</b>, <b>a mano</b> o <b>lote</b>.</li>
+          <li>Escribe o escanea el <b>código</b> y la <b>OF</b>.</li>
+          <li><b>Toca la celda</b> donde lo dejas.</li>
+          <li>Pulsa <b>✓ Ubicar</b> para guardar.</li>
+        </ol>
+        <div class="shot">
+          <div class="frame"><img src="crop/ubicar-opciones.png" alt="Opciones de captura"></div>
+          <div class="cap">Elige cómo capturar el artículo</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RETIRAR -->
+    <div class="card r">
+      <div class="head"><span class="n">2</span><span class="t">RETIRAR<small>sacar artículos de la estantería</small></span></div>
+      <div class="body">
+        <ol class="steps">
+          <li>Pulsa el botón rojo <b>RETIRAR</b>.</li>
+          <li>Verás la lista de artículos por <b>posición</b>.</li>
+          <li><b>Toca</b> para marcar los que sacas (casilla roja).</li>
+          <li>Pulsa <b>RETIRAR · X artículos</b> abajo.</li>
+          <li>Confirma y listo.</li>
+        </ol>
+        <div class="shot">
+          <div class="frame"><img src="crop/retirar.png" alt="Seleccionar artículos a retirar"></div>
+          <div class="cap">Marca con la casilla y pulsa RETIRAR</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BUSCAR -->
+    <div class="card b">
+      <div class="head"><span class="n">3</span><span class="t">BUSCAR<small>localizar dónde está un artículo</small></span></div>
+      <div class="body">
+        <ol class="steps">
+          <li>Escribe <b>código, nombre u OF</b> en la barra de búsqueda.</li>
+          <li>Cada resultado muestra su <b>ubicación</b> (estantería · pos.).</li>
+          <li>Insignia verde <b>«Está»</b> = sigue ubicado ahí.</li>
+          <li>Ve a esa <b>posición</b> y recógelo.</li>
+        </ol>
+        <div class="shot">
+          <div class="frame"><img src="crop/buscar.png" alt="Resultados de búsqueda con ubicación"></div>
+          <div class="cap">Cada resultado indica su ubicación</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="band">
+    <div class="lbl">Para terminar de UBICAR<small>toca la celda de la estantería y pulsa ✓ Ubicar</small></div>
+    <div class="frame"><img src="crop/ubicar-confirm.png" alt="Barra de confirmación Ubicar"></div>
+  </div>
+
+  <div class="foot">
+    <div class="ico">💡</div>
+    <div class="tips">
+      <div><b>Cancelar:</b> botón rojo arriba a la derecha, en cualquier momento.</div>
+      <div><b>Posiciones:</b> formato fila-columna (p. ej. 001, 002…).</div>
+      <div><b>QR / pistola:</b> la forma más rápida y precisa de capturar.</div>
+      <div><b>¿Dudas?:</b> avisa al responsable de tu sección.</div>
+    </div>
+  </div>
+
+  <div class="credit">WMS CONTROL · Gestión de Almacén — capturas reales de la aplicación</div>
+
+</body>
+</html>
