@@ -137,7 +137,11 @@ export const notifyPickupQueueCreated = functions.firestore
     let body: string;
     let notifType: string;
 
-    if (requestType === 'TRAER') {
+    if (requestType === 'RECEPCION') {
+      title = `📦 Material en Recepciones`;
+      body = `${operarioName} avisa: hay material recepcionado. Ve a Recepciones a recogerlo.`;
+      notifType = 'RECEPCION_REQUEST';
+    } else if (requestType === 'TRAER') {
       const articleCode = String(data.articleCode || 'Artículo');
       const articleOrderFab = String(data.articleOrderFab || '');
       const articleShelfName = String(data.articleShelfName || 'estantería desconocida');
@@ -478,7 +482,10 @@ export const pickupQueueOperate = functions.https.onCall(async (data: any, conte
       docData.destinationSection = String(payload?.destinationSection || '').trim() || getWmsSectionForShelf(destinationShelfCode);
       docData.destinationStation = toStation(payload?.destinationStation);
     }
-    if (requestType === 'TRAER') {
+    if (requestType === 'RECEPCION') {
+      // RECEPCIÓN — sin datos que indicar: el carretillero solo va a Recepciones a
+      // por el material recepcionado. No lleva artículo, origen ni destino.
+    } else if (requestType === 'TRAER') {
       docData.articleCode = String(payload?.articleCode || '').trim();
       docData.articleOrderFab = String(payload?.articleOrderFab || '').trim();
       docData.articleShelfName = String(payload?.articleShelfName || '').trim();

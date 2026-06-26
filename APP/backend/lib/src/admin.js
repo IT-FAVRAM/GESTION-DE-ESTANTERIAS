@@ -9,7 +9,7 @@ const migrate_SOL_structure_1 = require("../scripts/migrate-SOL-structure");
 const audit_BD_complete_1 = require("../scripts/audit-BD-complete");
 const normalize = (value) => String(value || '').trim();
 const normalizeRole = (value) => String(value || '').trim().toUpperCase();
-const ALLOWED_ROLES = new Set(['OPERARIO', 'CARRETILLERO', 'JEFE_SECCION', 'CALIDAD', 'ADMIN', 'SUPERADMIN', 'SOLO_VISUAL']);
+const ALLOWED_ROLES = new Set(['OPERARIO', 'CARRETILLERO', 'JEFE_SECCION', 'CALIDAD', 'ADMIN', 'SUPERADMIN', 'SOLO_VISUAL', 'RECEPCIONES']);
 const ALLOWED_SECTIONS = new Set(['PRENSAS_MECANIZADO', 'PLEGADORA', 'SOLDADURA', 'SXP', 'ROBOT_PLEGADO', 'REPASADO', 'ZINCADO', 'PINTURA', 'LASER', 'CALIDAD', 'OTROS', 'MECANIZADO', 'PRENSAS']);
 exports.adminOperate = functions.https.onCall(async (data, context) => {
     await (0, authz_1.requireAllowedRoles)(context, ['SUPERADMIN']);

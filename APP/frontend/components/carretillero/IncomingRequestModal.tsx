@@ -30,6 +30,7 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({ requests, o
   if (!req) return null;
 
   const isTraer = req.requestType === 'TRAER';
+  const isRecepcion = req.requestType === 'RECEPCION';
   const remaining = requests.length - 1;
 
   const articleCode = isTraer ? req.articleCode : req.articleToPickCode;
@@ -47,6 +48,53 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({ requests, o
     await onAcknowledge(req.id);
     setProcessing(false);
   };
+
+  // RECEPCIÓN — popup simple: solo ir a Recepciones a por el material recepcionado.
+  if (isRecepcion) {
+    return (
+      <div className="fixed inset-0 z-[100] flex flex-col bg-slate-950/98 backdrop-blur-md">
+        <div className="px-5 py-4 bg-teal-600 animate-pulse">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-black text-white">📦 MATERIAL EN RECEPCIONES</h2>
+            {remaining > 0 && (
+              <span className="px-2.5 py-1 rounded-full bg-white/25 text-white text-sm font-black">
+                +{remaining} más
+              </span>
+            )}
+          </div>
+          <p className="text-white/90 text-sm mt-0.5 font-bold">Avisa: {req.operarioName}</p>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-6 flex flex-col items-center justify-center text-center gap-5">
+          <span className="text-7xl">📦</span>
+          <p className="text-3xl font-black text-white leading-tight">Ve a Recepciones</p>
+          <p className="text-lg text-slate-300 font-bold max-w-xs">Hay material recepcionado para recoger.</p>
+        </div>
+
+        <div className="px-5 pb-safe pt-3 border-t border-slate-800">
+          <button
+            onClick={handleAck}
+            disabled={processing}
+            className="w-full h-20 rounded-3xl bg-gradient-to-r from-emerald-500 to-emerald-600
+              text-white font-black text-2xl shadow-xl shadow-emerald-950/40
+              active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-3"
+          >
+            {processing ? (
+              <>
+                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Confirmando…
+              </>
+            ) : (
+              <>✓ RECIBIDO</>
+            )}
+          </button>
+          <p className="text-center text-xs text-slate-500 mt-3">
+            Pulsa RECIBIDO para aceptar. Luego confírmala como HECHO en tu cola cuando la realices.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-slate-950/98 backdrop-blur-md">

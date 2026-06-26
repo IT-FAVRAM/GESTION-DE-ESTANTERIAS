@@ -42,6 +42,7 @@ const PunzonadoView     = lazy(() => import('./components/app/PunzonadoView'));
 const AdminHomeView     = lazy(() => import('./components/app/AdminHomeView'));
 const CalidadView       = lazy(() => import('./components/app/CalidadView'));
 const SoloVisualView    = lazy(() => import('./components/app/SoloVisualView'));
+const RecepcionesView   = lazy(() => import('./components/app/RecepcionesView'));
 const KioskoSetupPage   = lazy(() => import('./components/app/KioskoSetupPage'));
 
 const AppV3: React.FC = () => {
@@ -259,6 +260,18 @@ const AppV3: React.FC = () => {
           <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
           <CalidadView />
           {chatFab}
+        </>
+      </Suspense>
+    );
+  }
+
+  if (role === 'RECEPCIONES') {
+    return (
+      <Suspense fallback={<AppLoadingScreen />}>
+        <>
+          <OfflineIndicator />
+          <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
+          <RecepcionesView />
         </>
       </Suspense>
     );

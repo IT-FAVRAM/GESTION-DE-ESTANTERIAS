@@ -48,7 +48,43 @@ const stationLabel = (station?: number | null) => (station ? ` · puesto ${stati
 
 const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId }) => {
   const isTraer = req.requestType === 'TRAER';
+  const isRecepcion = req.requestType === 'RECEPCION';
   const destText = `${req.destinationShelfName || req.shelfName}${stationLabel(req.destinationStation)}`;
+
+  // RECEPCIÓN — sin datos que indicar: solo ir a Recepciones a por material recepcionado.
+  if (isRecepcion) {
+    return (
+      <div className="bg-gradient-to-br from-teal-950 to-slate-900 border-2 border-teal-500/40 rounded-2xl p-4 shadow-lg hover:border-teal-500/60 transition-colors">
+        <div className="mb-3">
+          <p className="text-xs font-bold text-teal-300 uppercase tracking-widest">Aviso de {req.operarioName}</p>
+          <p className="text-sm text-slate-400 mt-0.5">{timeAgo(req.createdAt)}</p>
+        </div>
+
+        <div className="flex items-start gap-2.5 bg-teal-950/60 border border-teal-500/20 rounded-xl p-3 mb-4">
+          <span className="text-2xl mt-0.5 shrink-0">📦</span>
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Ir a</p>
+            <p className="text-base font-black text-teal-200">Recepciones</p>
+            <p className="text-xs text-slate-400 mt-0.5">Hay material recepcionado para recoger.</p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => onComplete(req.id)}
+          disabled={processingId === req.id}
+          className="w-full px-4 py-3 bg-teal-600 hover:bg-teal-500 text-white text-sm font-black
+            rounded-xl active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg"
+        >
+          {processingId === req.id ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : <span>✓</span>}
+          {processingId === req.id ? 'Procesando...' : 'MARCAR COMO HECHO'}
+        </button>
+
+        <MetaBadges req={req} />
+      </div>
+    );
+  }
 
   if (isTraer) {
     return (
@@ -206,9 +242,9 @@ const PickupQueue: React.FC<PickupQueueProps> = ({ currentShelf }) => {
     setLastShelf(currentShelf);
   }, [currentShelf, lastShelf]);
 
-  // Derivar dos arrays filtrados: Recogidas (RECOGER) y Traídas (TRAER)
+  // Derivar dos arrays filtrados: Recogidas (RECOGER + RECEPCIÓN) y Traídas (TRAER)
   const recogidasPending = groupedPending
-    .map(g => ({ ...g, requests: g.requests.filter(r => r.requestType === 'RECOGER') }))
+    .map(g => ({ ...g, requests: g.requests.filter(r => r.requestType === 'RECOGER' || r.requestType === 'RECEPCION') }))
     .filter(g => g.requests.length > 0);
 
   const trairadasPending = groupedPending

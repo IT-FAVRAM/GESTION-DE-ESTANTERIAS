@@ -35,6 +35,7 @@ const AdminUsersTab: React.FC<AdminUsersTabProps> = ({ users }) => (
                 <option value="CALIDAD">Calidad</option>
                 <option value="ADMIN">Admin</option>
                 <option value="SUPERADMIN">SuperAdmin</option>
+                <option value="RECEPCIONES">Recepciones</option>
               </select>
 
               {user.role === 'JEFE_SECCION' && (

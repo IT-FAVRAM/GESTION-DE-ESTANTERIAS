@@ -106,6 +106,7 @@ const buildGuestSession = (role: UserRole, section?: WarehouseSection, kioskId?:
     ADMIN: 'Admin Desarrollo',
     SUPERADMIN: 'Superadmin Desarrollo',
     SOLO_VISUAL: 'Solo Visual Desarrollo',
+    RECEPCIONES: 'Recepciones',
   };
 
   return {

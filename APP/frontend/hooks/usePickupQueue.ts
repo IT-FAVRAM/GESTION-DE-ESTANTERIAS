@@ -359,6 +359,46 @@ export const usePickupQueue = () => {
     }
   }, []);
 
+  // ─── Create recepción request (RECEPCIÓN — material recepcionado para recoger) ───
+  // Sin datos que indicar: el carretillero solo tiene que ir a Recepciones a por el
+  // material recepcionado. Igual que el resto de avisos, se asigna a un carretillero.
+  const createRecepcionRequest = useCallback(async (params: {
+    operarioId: string;
+    operarioName: string;
+    targetCarretilleroId?: string;
+    targetCarretilleroName?: string;
+  }): Promise<boolean> => {
+    try {
+      const session = getOperationalSession();
+      const RECEPCION_SHELF = 'REC';
+      const payload: Record<string, unknown> = {
+        requestType: 'RECEPCION',
+        operarioId: params.operarioId,
+        operarioName: params.operarioName,
+        shelfCode: RECEPCION_SHELF,
+        shelfName: 'Recepciones',
+        ...(params.targetCarretilleroId ? {
+          targetCarretilleroId: params.targetCarretilleroId,
+          targetCarretilleroName: params.targetCarretilleroName || '',
+        } : {}),
+      };
+
+      if (!navigator.onLine) {
+        enqueueOfflineOperation('AVISAR_CARRETILLERO', payload, session);
+        return true;
+      }
+
+      const result = await pickupQueueApi.create(payload, session);
+      if (!result?.ok) throw new Error('El servidor rechazó el aviso de recepción');
+      return true;
+    } catch (err: unknown) {
+      const msg = parseCallableError(err);
+      console.error('[usePickupQueue] Create recepción error:', msg);
+      setError(msg);
+      return false;
+    }
+  }, []);
+
   // ─── Acknowledge ("Recibido" en el popup bloqueante) ───
   const acknowledgeRequest = useCallback(async (requestId: string): Promise<boolean> => {
     // Optimista: marcar como confirmada localmente para cerrar el popup ya.
@@ -433,6 +473,7 @@ export const usePickupQueue = () => {
     pendingCount: pendingRequests.length,
     createPickupRequest,
     createDeliveryRequest,
+    createRecepcionRequest,
     acknowledgeRequest,
     completeRequest,
   };

@@ -10,9 +10,16 @@ const toMillis = (value?: string | null) => {
   return Number.isNaN(time) ? null : time;
 };
 
+// Acciones que ABREN un ciclo (artículo entra/permanece en estantería) y que lo
+// CIERRAN (artículo sale). Compartidas por el agregado y el dataset detallado para
+// que KPIs y tabla provengan EXACTAMENTE de la misma fuente (historial real
+// UBICAR/RETIRAR), no del módulo de producción (assigned/removed) que apenas se usa.
+const OPEN_ACTIONS = new Set(['UBICAR', 'UBICAR_MULTI']);
+const CLOSE_ACTIONS = new Set(['RETIRAR', 'RETIRAR_DE_UBICACION']);
+
 export const leadTimeReporting = functions.https.onCall(async (_data: any, context: any) => {
-  await requireAllowedRoles(context, ['ADMIN', 'SUPERADMIN']);
-  const historySnapshot = await admin.firestore().collection('history').orderBy('timestamp', 'asc').limit(5000).get();
+  await requireAllowedRoles(context, ['ADMIN', 'SUPERADMIN', 'JEFE_SECCION']);
+  const historySnapshot = await admin.firestore().collection('history').orderBy('timestamp', 'asc').limit(8000).get();
   const openCycles = new Map<string, { startedAt: number; shelfCode: string }>();
   const bySection = new Map<string, { totalDays: number; count: number }>();
   const byShelf = new Map<string, { totalDays: number; count: number }>();
@@ -24,8 +31,8 @@ export const leadTimeReporting = functions.https.onCall(async (_data: any, conte
     const timestamp = toMillis(entry.timestamp);
     if (!articleCode || !orderFab || !timestamp) return;
     const key = `${articleCode}__${orderFab}`;
-    if (action === 'UBICAR') return void openCycles.set(key, { startedAt: timestamp, shelfCode: normalize(entry.shelfCode) });
-    if (action !== 'RETIRAR') return;
+    if (OPEN_ACTIONS.has(action)) return void openCycles.set(key, { startedAt: timestamp, shelfCode: normalize(entry.shelfCode) });
+    if (!CLOSE_ACTIONS.has(action)) return;
     const opened = openCycles.get(key);
     if (!opened || timestamp <= opened.startedAt) return;
     const diffDays = (timestamp - opened.startedAt) / (1000 * 60 * 60 * 24);
@@ -44,46 +51,70 @@ export const leadTimeReporting = functions.https.onCall(async (_data: any, conte
 });
 
 export const leadTimeDataset = functions.https.onCall(async (data: any, context: any) => {
-  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be logged in.');
-  const role = normalizeRole(context.auth.token.role as string);
-  if (!['ADMIN', 'JEFE_SECCION', 'SUPERADMIN'].includes(role)) throw new functions.https.HttpsError('permission-denied', 'Only Admins/Jefes can access reports.');
-  const { dateFrom, dateTo } = data;
-  if (!dateFrom || !dateTo) throw new functions.https.HttpsError('invalid-argument', 'Missing date range.');
-  const historyRef = admin.firestore().collection('history');
-  const snapshot = await historyRef.where('timestamp', '>=', dateFrom).where('timestamp', '<=', dateTo).orderBy('timestamp', 'asc').get();
+  // Autorización robusta: usa la ficha de `usuarios` como fallback. Antes leía
+  // SOLO el claim `token.role`, que muchos admins (login por email) no tienen
+  // seteado → permission-denied. Por eso "no funcionaba para admins".
+  await requireAllowedRoles(context, ['ADMIN', 'SUPERADMIN', 'JEFE_SECCION']);
 
-  // Build in-memory maps keyed by barcode to avoid N+1 Firestore queries.
-  // Track the most recent 'assigned' event per barcode seen so far, then close
-  // the cycle when a 'removed'/'process_finished' event is encountered.
-  const lastEntry = new Map<string, { timestamp: string; orderId: string }>();
-  const rows = [];
+  const { dateFrom, dateTo } = data || {};
+  if (!dateFrom || !dateTo) throw new functions.https.HttpsError('invalid-argument', 'Falta el rango de fechas.');
+  const fromMs = toMillis(dateFrom);
+  const toMs = toMillis(dateTo);
+  if (fromMs === null || toMs === null) throw new functions.https.HttpsError('invalid-argument', 'Rango de fechas inválido.');
 
-  for (const doc of snapshot.docs) {
+  // Cogemos los eventos MÁS RECIENTES hasta `dateTo` (desc + reverse a asc) para
+  // capturar también el UBICAR de artículos colocados antes del rango pero que
+  // salieron dentro de él. Acotado para no leer todo el historial.
+  const snapshot = await admin.firestore().collection('history')
+    .where('timestamp', '<=', dateTo)
+    .orderBy('timestamp', 'desc')
+    .limit(20000)
+    .get();
+  const docsAsc = snapshot.docs.slice().reverse();
+
+  // Ciclo = UBICAR/UBICAR_MULTI (entrada) → RETIRAR/RETIRAR_DE_UBICACION (salida),
+  // por artículo+OF. Misma lógica que el agregado leadTimeReporting.
+  const openCycles = new Map<string, { startedAt: number; shelfCode: string }>();
+  const rows: Array<{
+    barcode: string; orderId: string; entryDate: string; exitDate: string;
+    durationDays: number; shelfCode: string; section: string;
+  }> = [];
+
+  for (const doc of docsAsc) {
     const entry = doc.data() as any;
-    const { barcode, action, timestamp, orderId } = entry;
-    if (!barcode || !timestamp) continue;
+    const action = normalize(entry.action);
+    const articleCode = normalize(entry.articleCode);
+    const orderFab = normalize(entry.orderFab);
+    const ts = toMillis(entry.timestamp);
+    if (!articleCode || !orderFab || ts === null) continue;
+    const key = `${articleCode}__${orderFab}`;
 
-    if (action === 'assigned') {
-      lastEntry.set(barcode, { timestamp, orderId: orderId || 'N/A' });
+    if (OPEN_ACTIONS.has(action)) {
+      openCycles.set(key, { startedAt: ts, shelfCode: normalize(entry.shelfCode) });
       continue;
     }
+    if (!CLOSE_ACTIONS.has(action)) continue;
 
-    if (action === 'removed' || action === 'process_finished') {
-      const entryEvent = lastEntry.get(barcode);
-      if (!entryEvent) continue;
-      rows.push({
-        barcode,
-        orderId: orderId || entryEvent.orderId,
-        entryDate: entryEvent.timestamp,
-        exitDate: timestamp,
-        durationDays: (new Date(timestamp).getTime() - new Date(entryEvent.timestamp).getTime()) / (1000 * 60 * 60 * 24),
-      });
-      lastEntry.delete(barcode);
-      if (rows.length >= 500) break;
-    }
+    const opened = openCycles.get(key);
+    if (!opened || ts <= opened.startedAt) continue;
+    openCycles.delete(key);
+    // Solo filas cuya SALIDA cae dentro del rango solicitado.
+    if (ts < fromMs || ts > toMs) continue;
+
+    const shelfCode = opened.shelfCode || normalize(entry.shelfCode);
+    rows.push({
+      barcode: entry.articleCode || articleCode,
+      orderId: entry.orderFab || orderFab,
+      entryDate: new Date(opened.startedAt).toISOString(),
+      exitDate: new Date(ts).toISOString(),
+      durationDays: Number(((ts - opened.startedAt) / (1000 * 60 * 60 * 24)).toFixed(2)),
+      shelfCode,
+      section: getWmsSectionForShelf(shelfCode),
+    });
   }
 
-  return { rows };
+  rows.sort((a, b) => b.durationDays - a.durationDays);
+  return { rows, generatedAt: new Date().toISOString() };
 });
 
 export const userPushReport = functions.https.onCall(async (_data: any, context: any) => {

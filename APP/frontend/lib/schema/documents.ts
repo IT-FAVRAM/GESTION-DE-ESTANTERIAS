@@ -1,7 +1,7 @@
 import type { WarehouseSection } from './sections';
 
 export type PickupStatus = 'PENDING' | 'COMPLETED';
-export type PickupRequestType = 'RECOGER' | 'TRAER';
+export type PickupRequestType = 'RECOGER' | 'TRAER' | 'RECEPCION';
 
 export interface PickupRequestDoc {
   operarioId: string;
