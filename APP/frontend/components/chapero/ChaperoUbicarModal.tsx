@@ -3,7 +3,7 @@ import { CHAPERO_MATERIALS, CHAPERO_ESPESORES } from '../../lib/schema/chapero';
 
 interface ChaperoUbicarModalProps {
   positionId: string;
-  onConfirm: (material: string, espesor: string, spec?: string) => void;
+  onConfirm: (material: string, espesor: string, spec?: string, albaran?: string) => void;
   onClose: () => void;
   loading?: boolean;
 }
@@ -14,14 +14,15 @@ const ChaperoUbicarModal: React.FC<ChaperoUbicarModalProps> = ({ positionId, onC
   const [espesor, setEspesor] = useState('1.0');
   const [customEspesor, setCustomEspesor] = useState('');
   const [spec, setSpec] = useState('');
+  const [albaran, setAlbaran] = useState('');
 
   const effectiveMaterial = material === 'OTRO' ? customMaterial.trim().toUpperCase() : material;
   const effectiveEspesor = espesor === 'custom' ? customEspesor.trim() : espesor;
-  const canConfirm = effectiveMaterial && effectiveEspesor && !loading;
+  const canConfirm = !!effectiveMaterial && !!effectiveEspesor && !!albaran.trim() && !loading;
 
   const handleConfirm = () => {
     if (!canConfirm) return;
-    onConfirm(effectiveMaterial, effectiveEspesor, spec.trim() || undefined);
+    onConfirm(effectiveMaterial, effectiveEspesor, spec.trim() || undefined, albaran.trim());
   };
 
   return (
@@ -76,6 +77,18 @@ const ChaperoUbicarModal: React.FC<ChaperoUbicarModalProps> = ({ positionId, onC
             />
           </div>
 
+          {/* Nº de albarán */}
+          <div>
+            <label className="block text-xs font-black uppercase text-slate-500 mb-1.5">Nº de albarán *</label>
+            <input
+              type="text"
+              value={albaran}
+              onChange={(e) => setAlbaran(e.target.value)}
+              placeholder="Ej: A-2026-00123"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
+            />
+          </div>
+
           {/* Espesor */}
           <div>
             <label className="block text-xs font-black uppercase text-slate-500 mb-1.5">Espesor (mm) *</label>
@@ -121,6 +134,7 @@ const ChaperoUbicarModal: React.FC<ChaperoUbicarModalProps> = ({ positionId, onC
               <span className="font-black">{effectiveMaterial}</span>
               {spec.trim() && <span className="text-slate-500"> {spec.trim().toUpperCase()}</span>}
               <span className="text-slate-500"> · {effectiveEspesor} mm</span>
+              {albaran.trim() && <span className="text-slate-500"> · Alb. {albaran.trim()}</span>}
             </div>
           )}
         </div>

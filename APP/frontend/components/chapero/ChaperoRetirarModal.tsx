@@ -72,6 +72,7 @@ const ChaperoRetirarModal: React.FC<ChaperoRetirarModalProps> = ({ positionId, i
                   </p>
                   <p className="text-[10px] text-slate-400 mt-0.5">
                     {item.locatedByName} · {new Date(item.locatedAt).toLocaleDateString('es-ES')}
+                    {item.albaran && <> · Alb. {item.albaran}</>}
                   </p>
                 </div>
               </div>

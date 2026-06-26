@@ -54,10 +54,11 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
   const [pendingEspesor, setPendingEspesor] = useState<string>('1.0');
   const [customEspesor, setCustomEspesor] = useState('');
   const [pendingSpec, setPendingSpec] = useState('');
+  const [pendingAlbaran, setPendingAlbaran] = useState('');
 
   const effectiveMaterial = pendingMaterial === 'OTRO' ? customMaterial.trim().toUpperCase() : pendingMaterial;
   const effectiveEspesor = pendingEspesor === 'custom' ? customEspesor.trim() : pendingEspesor;
-  const ubicarReady = !!(effectiveMaterial && effectiveEspesor);
+  const ubicarReady = !!(effectiveMaterial && effectiveEspesor && pendingAlbaran.trim());
 
   const showFeedback = (type: 'ok' | 'err', msg: string) => {
     setFeedback({ type, msg });
@@ -86,10 +87,10 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
       if (mode === 'idle') return;
 
       if (mode === 'ubicar') {
-        if (!ubicarReady) { showFeedback('err', 'Selecciona material y espesor primero'); return; }
+        if (!ubicarReady) { showFeedback('err', 'Selecciona material, espesor y nº de albarán primero'); return; }
         setOpLoading(true);
         const locatedByName = displayName || operarioId || 'Desconocido';
-        const ok = await ubicar(pos.positionId, effectiveMaterial, effectiveEspesor, locatedByName, pendingSpec.trim() || undefined);
+        const ok = await ubicar(pos.positionId, effectiveMaterial, effectiveEspesor, locatedByName, pendingSpec.trim() || undefined, pendingAlbaran.trim());
         setOpLoading(false);
         if (ok) showFeedback('ok', `${effectiveMaterial} ${effectiveEspesor}mm → ${pos.positionId}`);
         else showFeedback('err', 'Error al colocar la chapa');
@@ -112,7 +113,7 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
         setSelectedPos(pos);
       }
     },
-    [mode, moverOrigin, ubicarReady, effectiveMaterial, effectiveEspesor, pendingSpec, displayName, operarioId, ubicar],
+    [mode, moverOrigin, ubicarReady, effectiveMaterial, effectiveEspesor, pendingSpec, pendingAlbaran, displayName, operarioId, ubicar],
   );
 
   const handleRetirarConfirm = async (itemIds: string[]) => {
@@ -238,7 +239,7 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
             </div>
           ) : (
             <div className="bg-emerald-600 text-white text-xs font-bold text-center py-1.5 rounded-lg">
-              Selecciona material y espesor
+              Selecciona material, espesor y nº de albarán
             </div>
           )}
 
@@ -323,6 +324,15 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
               )}
             </div>
           </div>
+
+          {/* Nº de albarán — obligatorio */}
+          <input
+            type="text"
+            value={pendingAlbaran}
+            onChange={(e) => setPendingAlbaran(e.target.value)}
+            placeholder="Nº de albarán (obligatorio)…"
+            className="w-full rounded-lg border border-emerald-300 bg-white px-2.5 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+          />
 
           {/* Especificación — fila completa, discreta */}
           <input
