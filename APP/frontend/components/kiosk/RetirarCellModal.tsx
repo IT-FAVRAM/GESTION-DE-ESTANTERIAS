@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import type { LocationItem } from '../../lib/schema/locations';
+import { fetchParcialesByPresence, type ParcialInfo } from '../../lib/parciales';
 
 interface RetirarCellModalProps {
   open: boolean;
@@ -41,6 +42,20 @@ const RetirarCellModal: React.FC<RetirarCellModalProps> = ({
         setSelectedKeys(new Set());
       }
     }
+  }, [open, items]);
+
+  // Parciales: orden de llegada de cada artículo+OF en toda la nave (Parcial N de M).
+  const [parciales, setParciales] = useState<Map<string, ParcialInfo>>(new Map());
+  useEffect(() => {
+    if (!open || items.length === 0) {
+      setParciales(new Map());
+      return;
+    }
+    let cancelled = false;
+    fetchParcialesByPresence(items.map((i) => ({ articleCode: i.articleCode, orderFab: i.orderFab })))
+      .then((map) => { if (!cancelled) setParciales(map); })
+      .catch(() => { /* no crítico: simplemente no se muestra el badge */ });
+    return () => { cancelled = true; };
   }, [open, items]);
 
   const handleToggle = useCallback((key: string) => {
@@ -141,9 +156,20 @@ const RetirarCellModal: React.FC<RetirarCellModalProps> = ({
 
                   {/* Item info */}
                   <div className="flex-1 min-w-0">
-                    <p className="font-black text-white text-base font-mono leading-tight truncate">
-                      {item.articleCode}
-                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-black text-white text-base font-mono leading-tight truncate">
+                        {item.articleCode}
+                      </p>
+                      {(() => {
+                        const p = item.presenceId ? parciales.get(item.presenceId) : undefined;
+                        if (!p || p.total <= 1) return null;
+                        return (
+                          <span className="shrink-0 text-[10px] font-black uppercase tracking-wide text-amber-300 bg-amber-500/15 border border-amber-500/40 rounded-md px-1.5 py-0.5">
+                            Parcial {p.index}/{p.total}
+                          </span>
+                        );
+                      })()}
+                    </div>
                     <p className="text-sm text-red-300 font-mono mt-0.5">
                       {item.orderFab}
                     </p>

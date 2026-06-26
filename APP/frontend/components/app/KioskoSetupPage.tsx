@@ -35,7 +35,7 @@ const KioskoSetupPage: React.FC<KioskoSetupPageProps> = ({ section, onComplete }
             deviceId: dId,
             type: 'KIOSK',
             name: `Kiosko ${section}`,
-            assignedShelf: section === 'REPASADO' ? 'REP' : section,
+            assignedShelf: section === 'REPASADO' ? 'REP' : section === 'ZINCADO' ? 'ZIN' : section,
             active: true,
           },
         });

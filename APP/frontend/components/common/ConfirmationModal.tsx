@@ -34,6 +34,12 @@ interface ConfirmationModalProps {
     onClick: () => void;
     variant?: ConfirmVariant;
   };
+  /** Segundo botón extra opcional, para avisos con 3 acciones reales (confirm + 2 extra). */
+  extraButton2?: {
+    text: string;
+    onClick: () => void;
+    variant?: ConfirmVariant;
+  };
   /** Si está procesando */
   loading?: boolean;
   /** Si se puede cerrar con el fondo */
@@ -76,6 +82,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   onConfirm,
   cancelText = 'CANCELAR',
   extraButton,
+  extraButton2,
   loading = false,
   dismissable = true,
   hideCancel = false,
@@ -148,6 +155,24 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
               `}
             >
               {extraButton.text}
+            </button>
+          )}
+
+          {/* Extra button 2 — misma idea que extraButton, para una tercera acción real */}
+          {extraButton2 && (
+            <button
+              type="button"
+              onClick={extraButton2.onClick}
+              disabled={loading}
+              className={`
+                w-full h-14 rounded-2xl text-lg font-bold
+                transition-all active:scale-[0.98] disabled:opacity-50
+                ${extraButton2.variant
+                  ? `${VARIANT_STYLES[extraButton2.variant].btn} shadow-lg font-black`
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'}
+              `}
+            >
+              {extraButton2.text}
             </button>
           )}
 

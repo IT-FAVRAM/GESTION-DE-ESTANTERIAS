@@ -205,6 +205,16 @@ const RackSlot: React.FC<RackSlotProps> = ({
     }
   }
 
+  // Zona de SUELO — acabado de hormigón para diferenciarla de un hueco de balda.
+  const isFloor = position === 'SUELO';
+  if (isFloor && !isSelected && !isHighlighted) {
+    wrapBg = 'repeating-linear-gradient(45deg, #e7e5e4, #e7e5e4 10px, #d6d3d1 10px, #d6d3d1 20px)';
+    wrapBorder = 'rgba(120,113,108,0.65)';
+    wrapShadow = 'inset 0 2px 6px rgba(0,0,0,0.12)';
+    posColor = 'rgba(68,64,60,0.95)';
+    emptyColor = 'rgba(120,113,108,0.85)';
+  }
+
   return (
     <div
       data-position={position}
@@ -378,17 +388,28 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
   const slotGap = compact ? 3 : 4;
   const calculatedMinWidth = POST_W * 2 + (compact ? 8 : 12) + maxCols * SLOT_MIN_W + (maxCols - 1) * slotGap;
 
+  const floorPos = block.floorPosition;
+
   return (
     <div
       style={{
         width: `max(100%, ${calculatedMinWidth}px)`,
         display: 'flex',
-        borderRadius: 10,
-        overflow: 'hidden',
-        boxShadow: '0 4px 24px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.08)',
-        background: '#F5F2EC',
+        flexDirection: 'column',
+        gap: compact ? 3 : 4,
       }}
     >
+      {/* ── Rack (postes + cuerpo) ────────────────────────────────────────── */}
+      <div
+        style={{
+          width: '100%',
+          display: 'flex',
+          borderRadius: 10,
+          overflow: 'hidden',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.08)',
+          background: '#F5F2EC',
+        }}
+      >
       {/* ── Poste izquierdo ───────────────────────────────────────────────── */}
       <div
         style={{
@@ -458,7 +479,7 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
                     posNum={posNum}
                     location={locationMap.get(pos)}
                     shelfCode={shelfCode}
-                    isUrgent={isStringSlot || isUrgentLocation(shelfCode, posNum as number)}
+                    isUrgent={isStringSlot ? /URG/i.test(pos) : isUrgentLocation(shelfCode, posNum as number)}
                     isTechReview={!isStringSlot && isTechReviewLocation(shelfCode, posNum as number)}
                     isAluminio={!isStringSlot && isAluminioLocation(shelfCode, posNum as number)}
                     isSelected={selectedPositions.includes(pos)}
@@ -516,6 +537,43 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
           boxShadow: `inset 2px 0 4px rgba(0,0,0,0.4), inset -2px 0 3px ${palette.postReflect}`,
         }}
       />
+      </div>
+
+      {/* ── Franja de SUELO — a lo ancho de toda la estantería, bajo el rack ── */}
+      {floorPos && (
+        <div
+          style={{
+            width: '100%',
+            display: 'flex',
+            borderRadius: 8,
+            overflow: 'hidden',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.10)',
+          }}
+        >
+          <RackSlot
+            position={floorPos}
+            posNum={floorPos}
+            location={locationMap.get(floorPos)}
+            shelfCode={shelfCode}
+            isUrgent={false}
+            isTechReview={false}
+            isAluminio={false}
+            isSelected={selectedPositions.includes(floorPos)}
+            isHighlighted={highlightedPositions.includes(floorPos)}
+            isDragOver={dragOverPosition === floorPos}
+            showReprocessCosts={showReprocessCosts}
+            onPress={onCellPress}
+            createEmpty={createEmptyLocation}
+            minHeight={compact ? 48 : 66}
+            shelfSurface={palette.shelfSurface}
+            onCellDragStart={onCellDragStart}
+            onCellDragEnter={onCellDragEnter}
+            onCellDragLeave={onCellDragLeave}
+            onCellDrop={onCellDrop}
+            highlightedItemKey={highlightedItemKey}
+          />
+        </div>
+      )}
     </div>
   );
 };

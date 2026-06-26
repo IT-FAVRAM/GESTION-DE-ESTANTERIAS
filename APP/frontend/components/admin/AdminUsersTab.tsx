@@ -48,6 +48,7 @@ const AdminUsersTab: React.FC<AdminUsersTabProps> = ({ users }) => (
                   <option value="PLEGADORA">Plegadora</option>
                   <option value="SOLDADURA">Soldadura</option>
                   <option value="REPASADO">Repasado</option>
+                  <option value="ZINCADO">Zincado</option>
                   <option value="PINTURA">Pintura</option>
                   <option value="LASER">Laser</option>
                   <option value="AUTOPLEGADORA">Autoplegadora</option>

@@ -934,6 +934,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         confirmText={confirmModal.confirmText}
         onConfirm={confirmModal.onConfirm}
         extraButton={confirmModal.extraButton}
+        extraButton2={confirmModal.extraButton2}
         hideCancel={confirmModal.hideCancel}
         loading={processing}
       />

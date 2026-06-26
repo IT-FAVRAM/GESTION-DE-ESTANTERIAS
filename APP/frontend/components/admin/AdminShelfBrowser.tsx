@@ -235,10 +235,11 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
               .join('\n');
             setConfirmModal({
               open: true,
-              title: '⚠️ Artículo ya ubicado',
-              message: `${formatArticleDisplay(article, of)} ya figura en el sistema:\n\n${locationText}\n\n¿Confirmas que ya NO se encuentra ahí y quieres ubicarlo en un nuevo sitio?`,
-              icon: '⚠️',
+              title: '📦 Ya está ubicado',
+              message: `${formatArticleDisplay(article, of)} ya está en:\n${locationText}`,
+              icon: '📦',
               variant: 'warning',
+              confirmText: '➕ Añadir en un sitio nuevo',
               onConfirm: () => setConfirmModal((p) => ({ ...p, open: false })),
               extraButton: {
                 text: 'Cancelar',
@@ -820,7 +821,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
                   <button onClick={() => startAction('retirar')} className="px-2 py-1 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-500 transition-colors whitespace-nowrap">📤 Retirar</button>
                   <button onClick={() => startAction('reubicar')} className="px-2 py-1 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-500 transition-colors whitespace-nowrap">🔁 Reubic.</button>
                   <button onClick={startMoverSeccion} className="px-2 py-1 bg-violet-600 text-white rounded-lg text-xs font-bold hover:bg-violet-500 transition-colors whitespace-nowrap hidden sm:flex">🚀 Mover§</button>
-                  <button onClick={() => startAction('almacen')} className="px-2 py-1 bg-purple-600 text-white rounded-lg text-xs font-bold hover:bg-purple-500 transition-colors whitespace-nowrap">🏭 Almacén</button>
+                  {/* Función ALMACÉN oculta a petición (no eliminada, ver startAction('almacen')) */}
                   <button onClick={handleAvisar} className="px-2 py-1 bg-orange-500 text-white rounded-lg text-xs font-bold hover:bg-orange-400 transition-colors whitespace-nowrap">🔔 Avisar</button>
                 </>
               )}

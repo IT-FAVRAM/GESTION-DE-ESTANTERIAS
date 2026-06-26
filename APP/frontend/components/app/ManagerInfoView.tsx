@@ -18,6 +18,7 @@ const SECTION_LABEL: Record<WarehouseSection, string> = {
   SXP: 'Soldadura Puntos',
   AUTOPLEGADORA: 'Autoplegadora',
   REPASADO: 'Repasado',
+  ZINCADO: 'Zincado',
   PINTURA: 'Pintura',
   LASER: 'Láser',
   CALIDAD: 'Calidad',
