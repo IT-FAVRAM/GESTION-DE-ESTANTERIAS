@@ -465,15 +465,28 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
         setError('Selecciona un hueco por presencia activa, o un único hueco para apilarlas todas.');
         return false;
       }
+      // Vista combinada PRE+MEC: el shelfCode FÍSICO real depende de la posición
+      // (014-046 → MEC), no del shelfCode de la vista (siempre 'PRE'). Resolver
+      // origen y destino reales y bloquear si cruzan PRE↔MEC — el backend de
+      // 'mover' asume una sola estantería física; cruzar requiere REUBICAR
+      // (admin). Sin esta resolución, mover a/desde un hueco de Mecanizado
+      // escribía en un documento huérfano bajo PRE (bug detectado en pruebas).
+      const sourceShelf = getTargetShelf(activePresences[0].position);
+      const destShelves = normalizedPositions.map((p) => getTargetShelf(p));
+      const realShelfCode = destShelves.find((s) => s !== sourceShelf) ? null : sourceShelf;
+      if (!realShelfCode) {
+        setError('No se puede mover entre Prensas y Mecanizado con esta acción; usa REUBICAR (admin).');
+        return false;
+      }
       const session = getOperationalSession();
       if (!navigator.onLine) {
-        enqueueOfflineOperation('MOVER', { shelfCode, articleCode, orderFab, newPositions: normalizedPositions, operarioId, operarioName }, session);
-        setLocations((prev) => applyMover(prev, shelfCode, articleCode, orderFab, normalizedPositions, operarioId, operarioName));
+        enqueueOfflineOperation('MOVER', { shelfCode: realShelfCode, articleCode, orderFab, newPositions: normalizedPositions, operarioId, operarioName }, session);
+        setLocations((prev) => applyMover(prev, realShelfCode, articleCode, orderFab, normalizedPositions, operarioId, operarioName));
         return true;
       }
 
       // Online: NO optimistic update — onSnapshot fires automatically and is the single source of truth.
-      const moverResult = await inventoryApi.mover({ shelfCode, articleCode, orderFab, newPositions: normalizedPositions, operarioId, operarioName }, session);
+      const moverResult = await inventoryApi.mover({ shelfCode: realShelfCode, articleCode, orderFab, newPositions: normalizedPositions, operarioId, operarioName }, session);
       if (!moverResult?.ok) {
         throw new Error(`Fallo al mover artículo en Firestore: ${moverResult?.ok === false ? 'backend rechazó la operación' : 'sin respuesta del servidor'}`);
       }
@@ -485,7 +498,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
       setLocations(previousLocations);
       return false;
     }
-  }, [locations, shelfCode, validateShelfAccess]);
+  }, [locations, shelfCode, validateShelfAccess, getTargetShelf]);
 
   const findArticle = useCallback(
     (articleCode: string, orderFab: string): ShelfLocationState[] =>

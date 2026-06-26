@@ -5,6 +5,7 @@ export type WarehouseSection =
   | 'SXP'
   | 'AUTOPLEGADORA'
   | 'REPASADO'
+  | 'ZINCADO'
   | 'PINTURA'
   | 'LASER'
   | 'CALIDAD'
@@ -19,6 +20,7 @@ export const SECTION_DISPLAY_NAMES: Record<WarehouseSection, string> = {
   SXP: 'Soldadura Puntos',
   AUTOPLEGADORA: 'Autoplegadora',
   REPASADO: 'Repasado',
+  ZINCADO: 'Zincado',
   PINTURA: 'Pintura',
   LASER: 'Láser',
   CALIDAD: 'Calidad',
@@ -37,7 +39,7 @@ export const SHELF_TO_SECTION: Record<string, WarehouseSection> = {
   SXP: 'SXP',
   REP: 'REPASADO',
   PIN: 'PINTURA',
-  ZIN: 'REPASADO',
+  ZIN: 'ZINCADO',
   CAL: 'CALIDAD',
   COM: 'OTROS',
   CS: 'SOLDADURA',

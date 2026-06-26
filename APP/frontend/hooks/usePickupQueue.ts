@@ -87,6 +87,7 @@ const SECTION_NAMES: Record<string, string> = {
   SOLDADURA: 'Soldadura',
   AUTOPLEGADORA: 'Autoplegadora',
   REPASADO: 'Repasado',
+  ZINCADO: 'Zincado',
   PINTURA: 'Pintura',
   LASER: 'Láser',
   CALIDAD: 'Calidad',

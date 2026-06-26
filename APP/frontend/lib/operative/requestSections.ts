@@ -28,6 +28,7 @@ export const REQUEST_SECTIONS: RequestSection[] = [
   { code: 'SOLDADURA',     name: 'Soldadura',      section: 'SOLDADURA',          emoji: '🔥', isSoldadura: true },
   { code: 'AUTOPLEGADORA', name: 'Autoplegadora',  section: 'AUTOPLEGADORA',      emoji: '🤖' },
   { code: 'REPASADO',      name: 'Repasado',       section: 'REPASADO',           emoji: '🔧' },
+  { code: 'ZINCADO',       name: 'Zincado',        section: 'ZINCADO',            emoji: '🧪' },
   { code: 'PINTURA',       name: 'Pintura',        section: 'PINTURA',            emoji: '🎨' },
   { code: 'LASER',         name: 'Láser',          section: 'LASER',              emoji: '⚡' },
   { code: 'CALIDAD',       name: 'Calidad',        section: 'CALIDAD',            emoji: '✅' },

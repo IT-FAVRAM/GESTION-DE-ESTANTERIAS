@@ -34,6 +34,8 @@ export interface ShelfPhysicalBlock {
   zoneName?: string;
   fullWidth?: boolean;
   rows: Array<Array<SlotDef>>;
+  /** Ubicación de SUELO: franja a sangre a lo ancho de toda la estantería, bajo el rack. */
+  floorPosition?: string;
 }
 
 // ── SHELF DEFINITIONS ────────────────────────────────────────────────────────
@@ -274,7 +276,7 @@ export const SHELF_DEFINITIONS: Shelf[] = [
     name: 'Pintura',
     section: 'PINTURA',
     type: 'shelf',
-    locationCount: 39,
+    locationCount: 40,
     layout: {
       zones: [
         { name: 'DENTRO', range: [1, 27], color: '#3b82f6' },
@@ -284,9 +286,14 @@ export const SHELF_DEFINITIONS: Shelf[] = [
         {
           id: 'pin-dentro',
           title: 'Estanteria 1',
-          subtitle: 'Dentro · 001-027',
+          subtitle: 'Dentro · 001-027 + suelo',
           zoneName: 'DENTRO',
-          rows: [[19, 20, 21, 22, 23, 24, 25, 26, 27], [10, 11, 12, 13, 14, 15, 16, 17, 18], [1, 2, 3, 4, 5, 6, 7, 8, 9]],
+          rows: [
+            [19, 20, 21, 22, 23, 24, 25, 26, 27],
+            [10, 11, 12, 13, 14, 15, 16, 17, 18],
+            [1, 2, 3, 4, 5, 6, 7, 8, 9],
+          ],
+          floorPosition: 'SUELO',
         },
         {
           id: 'pin-fuera',
@@ -417,7 +424,7 @@ export const SHELF_DEFINITIONS: Shelf[] = [
   {
     code: 'ZIN',
     name: 'Zincado',
-    section: 'REPASADO',
+    section: 'ZINCADO',
     type: 'shelf',
     locationCount: 5,
     layout: {

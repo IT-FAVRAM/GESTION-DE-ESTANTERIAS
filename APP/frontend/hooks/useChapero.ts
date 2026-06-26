@@ -22,6 +22,7 @@ export interface UseChaperoReturn {
     espesor: string,
     locatedByName: string,
     spec?: string,
+    albaran?: string,
   ) => Promise<boolean>;
   retirar: (positionId: string, itemIds: string[]) => Promise<boolean>;
   mover: (fromPositionId: string, toPositionId: string) => Promise<boolean>;
@@ -98,10 +99,11 @@ export const useChapero = (): UseChaperoReturn => {
   };
 
   const ubicar = useCallback(
-    async (positionId: string, material: string, espesor: string, locatedByName: string, spec?: string): Promise<boolean> => {
+    async (positionId: string, material: string, espesor: string, locatedByName: string, spec?: string, albaran?: string): Promise<boolean> => {
       try {
         const payload: Record<string, unknown> = { positionId, material, espesor, locatedByName };
         if (spec) payload.spec = spec;
+        if (albaran) payload.albaran = albaran;
         await chaperoApi.ubicar(payload, getSession());
         return true;
       } catch (err: unknown) {

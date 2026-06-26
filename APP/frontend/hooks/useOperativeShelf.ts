@@ -65,6 +65,7 @@ export interface ConfirmModalState {
   confirmText?: string;
   onConfirm: () => void;
   extraButton?: { text: string; onClick: () => void; variant?: 'success' | 'danger' | 'warning' | 'info' };
+  extraButton2?: { text: string; onClick: () => void; variant?: 'success' | 'danger' | 'warning' | 'info' };
   onClose?: () => void;
   /** Oculta el botón CANCELAR cuando confirm + extraButton ya son las dos únicas opciones. */
   hideCancel?: boolean;
@@ -144,6 +145,10 @@ export function useOperativeShelf({
   // ── Estado de flujo ────────────────────────────────────────────────────────
   const [action, setAction] = useState<OperativeAction>('idle');
   const [scanData, setScanData] = useState<ScanData | null>(null);
+  // Si el aviso "ya ubicado" se resuelve como REUBICAR, guarda el origen (otra
+  // estantería/posición) para que, al confirmar la posición destino, se ejecute
+  // un mover real (op 'reubicar') en vez de añadir un parcial nuevo.
+  const [pendingReubicarFrom, setPendingReubicarFrom] = useState<{ shelfCode: string; position: string } | null>(null);
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
   const [scannerActive, setScannerActive] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -300,6 +305,7 @@ export function useOperativeShelf({
     setProcessing(false);
     setAction('idle');
     setScanData(null);
+    setPendingReubicarFrom(null);
     setSelectedCell(null);
     setSelectedPositions([]);
     setScannerActive(false);
@@ -905,6 +911,7 @@ export function useOperativeShelf({
   // ── start ─────────────────────────────────────────────────────────────────
   const startAction = (next: OperativeAction) => {
     setScanData(null);
+    setPendingReubicarFrom(null);
     setSelectedCell(null);
     setSelectedPositions([]);
     setBatchMode(false);
@@ -989,6 +996,98 @@ export function useOperativeShelf({
     }
   };
 
+  /**
+   * Comprueba si el artículo ya está ubicado en la nave y, si es así, muestra un
+   * aviso corto con 3 salidas posibles:
+   *  - 'add': añadirlo aquí también (parcial nuevo, NO se toca el original).
+   *  - 'reubicar': el original ya no está allí en realidad → mover esa ubicación
+   *    a la posición que se escoja a continuación (solo si hay 1 ubicación previa,
+   *    para que no sea ambiguo cuál mover).
+   *  - 'cancel': cancelar el escaneo.
+   * Se usa tanto en UBICAR individual (con reubicar) como en lote (sin reubicar).
+   */
+  const warnIfAlreadyLocated = async (
+    articleCode: string,
+    orderFab: string,
+    allowReubicar: boolean,
+  ): Promise<{ action: 'add' | 'reubicar' | 'cancel'; from?: GlobalArticleLocation }> => {
+    setProcessing(true);
+    let globalLocs: GlobalArticleLocation[] = [];
+    try {
+      globalLocs = await findArticleGlobal(articleCode, orderFab);
+    } catch {
+      showToast('error', 'No se pudo verificar ubicaciones previas');
+      setProcessing(false);
+      return { action: 'add' }; // no bloquear por un fallo de verificación
+    }
+    setProcessing(false);
+    if (globalLocs.length === 0) return { action: 'add' };
+
+    // Cada ubicación previa del mismo artículo+OF es un "parcial" ya existente.
+    const parcialesActuales = globalLocs.length;
+    const nuevoParcial = parcialesActuales + 1;
+    const locationText = globalLocs
+      .map((l) => `• ${l.shelfName} — pos. ${displayPos(l.position)}`)
+      .join('\n');
+    // Reubicar solo tiene sentido si hay UNA única ubicación previa (si no, no
+    // sabríamos cuál de las varias mover). Si la ubicación previa está en OTRA
+    // estantería, el backend solo permite el movimiento cross-estantería a
+    // ADMIN/SUPERADMIN (op 'reubicar'); dentro de la misma estantería cualquier
+    // rol puede hacerlo (op 'mover'), así que ahí sí se ofrece siempre.
+    const onlyPrevious = globalLocs[0];
+    const sameShelf = onlyPrevious?.shelfCode === shelfCode;
+    const canReubicar = allowReubicar && globalLocs.length === 1 && (sameShelf || config.actions.reubicar);
+
+    return await new Promise((resolve) => {
+      const close = () => setConfirmModal((p) => ({ ...p, open: false }));
+      setConfirmModal({
+        open: true,
+        title: '📦 Ya está ubicado',
+        message: `${formatArticleDisplay(articleCode, orderFab)} ya está en:\n${locationText}`,
+        icon: '📦',
+        variant: 'info',
+        confirmText: `➕ Añadir aquí (Parcial ${nuevoParcial})`,
+        onConfirm: () => { close(); resolve({ action: 'add' }); },
+        extraButton: canReubicar
+          ? { text: '🔄 Ya no está allí — reubicar aquí', onClick: () => { close(); resolve({ action: 'reubicar', from: globalLocs[0] }); } }
+          : { text: 'Cancelar', onClick: () => { close(); resolve({ action: 'cancel' }); } },
+        extraButton2: canReubicar
+          ? { text: 'Cancelar', onClick: () => { close(); resolve({ action: 'cancel' }); } }
+          : undefined,
+        hideCancel: true,
+        onClose: () => { close(); resolve({ action: 'cancel' }); },
+      });
+    });
+  };
+
+  /** Mueve la ubicación previa (`from`) a `positions` en la estantería actual.
+   *  Si es la MISMA estantería, usa el op 'mover' (disponible para cualquier
+   *  rol); si es OTRA estantería, usa el op 'reubicar' (solo ADMIN/SUPERADMIN
+   *  en backend — por eso solo se ofrece el botón en ese caso, ver canReubicar). */
+  const doReubicarFromWarning = async (
+    articleCode: string,
+    orderFab: string,
+    from: { shelfCode: string; position: string },
+    positions: string[],
+  ): Promise<boolean> => {
+    if (from.shelfCode === shelfCode) {
+      return await mover(articleCode, orderFab, positions, operarioId, displayName);
+    }
+    try {
+      const access = await validateShelfAccess('operate');
+      if (!access.ok) return false;
+      const fn = httpsCallable(functions, 'shelfOperate');
+      const result = await fn({
+        op: 'reubicar',
+        payload: { articleCode, orderFab, shelfCode: from.shelfCode, fromShelfCode: from.shelfCode, toShelfCode: shelfCode, newPositions: positions },
+        session: { operarioId, operarioName: displayName },
+      });
+      return !!(result.data as { ok?: boolean })?.ok;
+    } catch {
+      return false;
+    }
+  };
+
   // ── Scan ──────────────────────────────────────────────────────────────────
   const handleScan = async (result: ScanParseResult) => {
     if (!result.success) {
@@ -1012,6 +1111,13 @@ export function useOperativeShelf({
         showToast('error', `${articleCode} ${orderFab} ya está en el lote`);
         reactivate();
         return;
+      }
+      // Aviso "ya ubicado" también en lote: si el artículo ya está en la nave,
+      // dejar claro que se añade como un parcial más (no se quita del original).
+      // En lote no se ofrece "reubicar" (ambiguo con varios artículos a la vez).
+      if (!subcontratacion) {
+        const { action: warnAction } = await warnIfAlreadyLocated(articleCode, orderFab, false);
+        if (warnAction !== 'add') { reactivate(); return; }
       }
       setBatchArticles((prev) => {
         const newLength = prev.length + 1;
@@ -1043,38 +1149,20 @@ export function useOperativeShelf({
         setShowReprocesosUbicacionModal(true);
         return;
       }
-      setProcessing(true);
-      try {
-        const globalLocs = await findArticleGlobal(articleCode, orderFab);
-        if (globalLocs.length > 0) {
-          const locationText = globalLocs.map((l) => `• ${l.shelfName} — pos. ${displayPos(l.position)}`).join('\n');
-          // Descartar este escaneo y volver a esperar el siguiente
-          const discardScan = () => {
-            setScanData(null);
-            setScannerActive(true);
-            setConfirmModal((p) => ({ ...p, open: false }));
-          };
-          setConfirmModal({
-            open: true,
-            title: '⚠️ Artículo ya ubicado',
-            message: `${formatArticleDisplay(articleCode, orderFab)} ya figura en el sistema:\n\n${locationText}\n\n¿Confirmas que ya NO se encuentra ahí y quieres ubicarlo en un nuevo sitio?`,
-            icon: '⚠️',
-            variant: 'warning',
-            confirmText: 'Sí, ubicar de nuevo',
-            onConfirm: () => {
-              // PERMITE DUPLICADOS: Continuar sin reintentar verificación (usuario confirmó)
-              setConfirmModal((p) => ({ ...p, open: false }));
-              // Mantener scanData y permitir seleccionar posición
-            },
-            extraButton: { text: 'NO, descartar escaneo', onClick: discardScan },
-            hideCancel: true,
-            onClose: discardScan,
-          });
+      // Subcontratación (sin OF) no se comprueba; el resto sí.
+      setPendingReubicarFrom(null);
+      if (!subcontratacion) {
+        const { action: warnAction, from } = await warnIfAlreadyLocated(articleCode, orderFab, true);
+        if (warnAction === 'cancel') {
+          // Cancelar este escaneo y volver a esperar el siguiente
+          setScanData(null);
+          setScannerActive(true);
+          return;
         }
-      } catch {
-        showToast('error', 'No se pudo verificar ubicaciones previas');
-      } finally {
-        setProcessing(false);
+        if (warnAction === 'reubicar' && from) {
+          setPendingReubicarFrom({ shelfCode: from.shelfCode, position: from.position });
+        }
+        // proceder: se mantiene scanData y el usuario selecciona posición
       }
       return;
     }
@@ -1354,14 +1442,18 @@ export function useOperativeShelf({
     setShowAddShelfModal(false);
     const { articleCode, orderFab, subcontratacion } = scanData;
     const positions = [...selectedPositions];
+    const reubicarFrom = pendingReubicarFrom;
+    setPendingReubicarFrom(null);
 
-    const ok = await doUbicarCurrentShelf(articleCode, orderFab, positions, importe, cantidad, subcontratacion);
-    const failedSections = ok ? await ubicarAdditionalSections(articleCode, orderFab) : [];
+    const ok = reubicarFrom
+      ? await doReubicarFromWarning(articleCode, orderFab, reubicarFrom, positions)
+      : await doUbicarCurrentShelf(articleCode, orderFab, positions, importe, cantidad, subcontratacion);
+    const failedSections = ok && !reubicarFrom ? await ubicarAdditionalSections(articleCode, orderFab) : [];
     processingRef.current = false;
     setProcessing(false);
 
     if (!ok) {
-      finishAction('error', `Error al ubicar ${articleCode}`);
+      finishAction('error', reubicarFrom ? `Error al reubicar ${articleCode}` : `Error al ubicar ${articleCode}`);
       return;
     }
 
@@ -1382,7 +1474,7 @@ export function useOperativeShelf({
     // Homogeneización: SIN modal "¿ubicar otro?". Tras ubicar con éxito se vuelve
     // directamente a idle. Para ubicar otro, el usuario pulsa UBICAR de nuevo (o
     // usa la bandeja de escaneo). Ahorra 1 clic en cada operación.
-    finishAction('success', `✅ ${articleCode} ubicado correctamente`);
+    finishAction('success', reubicarFrom ? `✅ ${articleCode} reubicado correctamente` : `✅ ${articleCode} ubicado correctamente`);
     // SOLDADURA: al finalizar, abrir la celda ubicada para poder adjuntarle una foto
     // (la galería vive en el modal de celda). resetFlow() ya limpió selectedCell; este
     // setSelectedCell posterior gana en el mismo tick.

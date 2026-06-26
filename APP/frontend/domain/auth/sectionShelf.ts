@@ -35,6 +35,7 @@ export const SECTION_TO_SHELF: Partial<Record<WarehouseSection, string>> = {
   SXP: 'SXP',
   AUTOPLEGADORA: 'RPL',
   REPASADO: 'REP',
+  ZINCADO: 'ZIN',
   PINTURA: 'PIN',
   LASER: 'LASER',
   CALIDAD: 'CAL',

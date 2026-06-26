@@ -90,6 +90,13 @@ export interface BuildOperativeConfigOptions {
   currentShelfCode?: string | null;
 }
 
+/**
+ * Interruptor único para la función ALMACÉN (enviar artículo a almacén global).
+ * Oculta el botón/acción para TODOS los roles que lo tuvieran disponible, sin
+ * borrar la lógica — para reactivarla basta volver a poner esto en `true`.
+ */
+const ALMACEN_FEATURE_ENABLED = false;
+
 const PINTURA_SHELF = 'PIN';
 
 const isPintura = (shelfCode?: string | null, section?: string | null): boolean => {
@@ -120,7 +127,7 @@ export function buildOperativeConfig(
           retirar: true,
           mover: true,
           reubicar: false,
-          almacen: isPintura(lockedShelfCode, section) ? 'pintura' : 'none',
+          almacen: ALMACEN_FEATURE_ENABLED && isPintura(lockedShelfCode, section) ? 'pintura' : 'none',
           // Kioskos (OPERARIO): sin botón AVISAR — solo UBICAR / RETIRAR / MOVER.
           avisar: 'none',
         },
@@ -138,7 +145,7 @@ export function buildOperativeConfig(
           retirar: true,
           mover: true,
           reubicar: false,
-          almacen: 'full',
+          almacen: ALMACEN_FEATURE_ENABLED ? 'full' : 'none',
           // El carretillero ES la carretilla: no se avisa a sí mismo.
           avisar: 'none',
         },
@@ -199,7 +206,7 @@ export function buildOperativeConfig(
           retirar: true,
           mover: true,
           reubicar: true,
-          almacen: 'full',
+          almacen: ALMACEN_FEATURE_ENABLED ? 'full' : 'none',
           avisar: 'recogida+traer',
         },
         ubicar: { askMultiArticle: true, allowMultiSection: !onCAL },
