@@ -961,7 +961,12 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         const twinRef = twinLocRefFor(db, toShelfCode, position);
         mirrorAppend(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, movedItem, pendingItemsByPath);
         const normalizedToShelfCode = normalizeShelfCodeForSearch(toShelfCode);
-        tx.update(presence.ref, { locationIds: [locationId], shelfCode: normalizedToShelfCode, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now });
+        // Actualizar TAMBIÉN shelfCodes (no solo el escalar shelfCode): `retirar`
+        // busca presencias por `shelfCodes array-contains`, así que si aquí no se
+        // reasignara, tras un reubicar cross-sección el artículo quedaría no-retirable
+        // en la sección destino (fantasma). Espejo de lo que hace la op `mover`.
+        const shelfCodesDest = getShelfCodesForPosition(toShelfCode, position);
+        tx.update(presence.ref, { locationIds: [locationId], shelfCode: normalizedToShelfCode, shelfCodes: shelfCodesDest, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now });
       }
 
       if (aggregateSnap?.exists) {
