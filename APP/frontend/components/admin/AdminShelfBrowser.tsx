@@ -227,7 +227,14 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
           }
           // Ghost check cuando ya hay artículo en el input
           setProcessing(true);
-          const globalLocs = await findArticleGlobal(article, of);
+          let globalLocs: Awaited<ReturnType<typeof findArticleGlobal>> = [];
+          try {
+            globalLocs = await findArticleGlobal(article, of);
+          } catch {
+            setProcessing(false);
+            setFeedback({ type: 'error', msg: 'No se pudo verificar ubicaciones previas. Inténtalo de nuevo.' });
+            return;
+          }
           setProcessing(false);
           if (globalLocs.length > 0) {
             const locationText = globalLocs

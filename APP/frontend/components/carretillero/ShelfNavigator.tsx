@@ -257,7 +257,16 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
     // Ghost article check before ubicar
     if (action === 'ubicar') {
       setProcessing(true);
-      const globalLocs = await findArticleGlobal(articleCode, orderFab);
+      let globalLocs: Awaited<ReturnType<typeof findArticleGlobal>> = [];
+      try {
+        globalLocs = await findArticleGlobal(articleCode, orderFab);
+      } catch {
+        setProcessing(false);
+        showToast('error', 'No se pudo verificar ubicaciones previas. Inténtalo de nuevo.');
+        setScanData(null);
+        setScannerActive(true);
+        return;
+      }
       setProcessing(false);
       if (globalLocs.length > 0) {
         const locationText = globalLocs

@@ -1016,9 +1016,25 @@ export function useOperativeShelf({
     try {
       globalLocs = await findArticleGlobal(articleCode, orderFab);
     } catch {
-      showToast('error', 'No se pudo verificar ubicaciones previas');
       setProcessing(false);
-      return { action: 'add' }; // no bloquear por un fallo de verificación
+      // No pudimos verificar si ya está ubicado (offline o error de lectura). NO
+      // colocamos un duplicado en silencio: pedimos confirmación EXPLÍCITA. Antes
+      // este camino devolvía {action:'add'} y podía crear fantasmas sin avisar.
+      return await new Promise((resolve) => {
+        const close = () => setConfirmModal((p) => ({ ...p, open: false }));
+        setConfirmModal({
+          open: true,
+          title: '⚠️ No se pudo verificar',
+          message: `No se pudo comprobar si ${formatArticleDisplay(articleCode, orderFab)} ya está ubicado en otro sitio (sin conexión o error de lectura).\n\nSi lo colocas ahora y ya estaba en otro sitio, quedará DUPLICADO.`,
+          icon: '⚠️',
+          variant: 'warning',
+          confirmText: 'Colocar de todos modos',
+          onConfirm: () => { close(); resolve({ action: 'add' }); },
+          extraButton: { text: 'Cancelar', onClick: () => { close(); resolve({ action: 'cancel' }); } },
+          hideCancel: true,
+          onClose: () => { close(); resolve({ action: 'cancel' }); },
+        });
+      });
     }
     setProcessing(false);
     if (globalLocs.length === 0) return { action: 'add' };
