@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, auth } from '../lib/firebase';
 import { COLLECTIONS, type KioskDoc } from '../lib/firestoreSchema';
 
 export interface UseKioskReturn {
@@ -53,7 +53,21 @@ export const useKiosk = (kioskId: string | null | undefined, allowedShelves?: st
       try {
         setLoading(true);
         const kioskRef = doc(db, COLLECTIONS.KIOSKS, kioskId);
-        const kioskSnap = await getDoc(kioskRef);
+        let kioskSnap;
+        try {
+          kioskSnap = await getDoc(kioskRef);
+        } catch (err: any) {
+          // Los kioskos leen su config con el claim `validatedDevice`. En un arranque
+          // en frío (cerrar y volver a abrir la app) esta lectura puede dispararse
+          // antes de que el token tenga el claim propagado, dando permission-denied.
+          // Forzamos un refresh del token y reintentamos una vez (igual que useDeviceConfig).
+          if (err?.code === 'permission-denied' && auth.currentUser) {
+            await auth.currentUser.getIdToken(true).catch(() => {});
+            kioskSnap = await getDoc(kioskRef);
+          } else {
+            throw err;
+          }
+        }
 
         if (kioskSnap.exists()) {
           const kioskData = kioskSnap.data() as KioskDoc;
