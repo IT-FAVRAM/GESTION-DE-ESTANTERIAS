@@ -9,6 +9,7 @@
 import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { COLLECTIONS, type ItemDoc, type LocationDoc } from '../firestoreSchema';
+import { isSameArticle } from '../articleIdentity';
 import type { OfflineQueueEntry } from './offlineQueue';
 
 export type ConflictResolution = 'auto_resolved' | 'needs_manual_review' | 'discarded';
@@ -31,13 +32,28 @@ const getItemsFromServer = async (): Promise<ItemDoc[]> => {
   }
 };
 
-const getLocationFromServer = async (locationId: string): Promise<LocationDoc | null> => {
+/**
+ * Lee el doc de una ubicación concreta. IMPORTANTE: `locations` es una
+ * SUBcolección bajo `shelves/{shelfCode}/locations/{position}`, NO una colección
+ * raíz. Leerla como raíz (bug anterior) devolvía siempre `null` y hacía que una
+ * retirada offline fallida se auto-descartara como "ubicación vaciada" → el
+ * fantasma nunca se borraba.
+ *
+ * Devuelve `undefined` si no se pudo verificar (falta shelfCode/position o error
+ * de lectura) — distinto de `null` (doc no existe), para que el llamador no asuma
+ * éxito ante una lectura fallida.
+ */
+const getLocationFromServer = async (
+  shelfCode: string,
+  position: string,
+): Promise<LocationDoc | null | undefined> => {
+  if (!shelfCode || !position) return undefined;
   try {
-    const snap = await getDoc(doc(db, COLLECTIONS.LOCATIONS, locationId));
+    const snap = await getDoc(doc(db, COLLECTIONS.SHELVES, shelfCode, COLLECTIONS.LOCATIONS, position));
     return snap.exists() ? (snap.data() as LocationDoc) : null;
   } catch (error) {
-    console.warn('[conflictResolver] Error fetching location, assuming success', error);
-    return null;
+    console.warn('[conflictResolver] Error fetching location', error);
+    return undefined;
   }
 };
 
@@ -159,22 +175,26 @@ export const analyzeConflict = async (
       }
 
       case 'RETIRAR_DE_UBICACION': {
-        const locationId = String(entry.payload.locationId || '');
-        const location = await getLocationFromServer(locationId);
+        const shelfCode = String(entry.payload.shelfCode || '');
+        const position = String(entry.payload.position || '');
+        const location = await getLocationFromServer(shelfCode, position);
 
-        if (!location) {
+        // No se pudo verificar (falta shelfCode/position o error de lectura) → NO
+        // asumir éxito: la retirada pudo fallar y dejar un fantasma. Revisión manual.
+        if (location === undefined) {
           return {
-            resolution: 'auto_resolved',
-            reason: 'Ubicación no existe o fue vaciada',
-            recommendation: 'Operación completada',
-            confidence: 1.0,
+            resolution: 'needs_manual_review',
+            reason: 'No se pudo verificar la ubicación en el servidor',
+            recommendation: 'Comprueba manualmente si el artículo sigue en esa ubicación',
+            confidence: 0,
           };
         }
 
-        // Location still has items — check if the specific article is still there
-        const articleStillThere = Array.isArray(location.items) && location.items.some(
-          (i: any) => i.articleCode === entry.payload.articleCode &&
-                      i.orderFab === entry.payload.orderFab
+        // location === null → el doc no existe (ubicación nunca usada o vaciada);
+        // el artículo no puede estar ahí → retirada efectiva. Si existe, comprobar
+        // si el artículo concreto sigue presente (comparación normalizada).
+        const articleStillThere = !!location && Array.isArray(location.items) && location.items.some(
+          (i: any) => isSameArticle(i.articleCode, i.orderFab, String(entry.payload.articleCode || ''), String(entry.payload.orderFab || ''))
         );
 
         if (!articleStillThere) {
