@@ -1,0 +1,18 @@
+[mcp_servers.firebase]
+command = "npx"
+args = [
+    "-y",
+    "firebase-tools",
+    "mcp",
+]
+
+[mcp_servers.firebase.env]
+GOOGLE_APPLICATION_CREDENTIALS = ""
+
+[mcp_servers.ruflo]
+command = "npx"
+args = [
+    "ruflo@latest",
+    "mcp",
+    "start",
+]

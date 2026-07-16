@@ -439,6 +439,33 @@ export const SHELF_DEFINITIONS: Shelf[] = [
       ],
     },
   },
+  {
+    code: 'UTS',
+    name: 'Útiles Soldadura',
+    section: 'SOLDADURA',
+    type: 'shelf',
+    locationCount: 12,
+    layout: {
+      zones: [{ name: 'UTILIDADES', range: [1, 12], color: '#8b5cf6' }],
+      physicalBlocks: [
+        {
+          id: 'uts-main',
+          title: 'Útiles Soldadura',
+          subtitle: '2 columnas x 6 filas · UTIL SOL. 001-012',
+          zoneName: 'UTILIDADES',
+          fullWidth: true,
+          rows: [
+            ['UTIL SOL. 011', 'UTIL SOL. 012'],
+            ['UTIL SOL. 009', 'UTIL SOL. 010'],
+            ['UTIL SOL. 007', 'UTIL SOL. 008'],
+            ['UTIL SOL. 005', 'UTIL SOL. 006'],
+            ['UTIL SOL. 003', 'UTIL SOL. 004'],
+            ['UTIL SOL. 001', 'UTIL SOL. 002'],
+          ],
+        },
+      ],
+    },
+  },
 ];
 
 export const CART_DEFINITIONS: Shelf[] = [

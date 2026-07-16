@@ -36,6 +36,7 @@ export const SHELF_TO_SECTION: Record<string, WarehouseSection> = {
   RPL: 'AUTOPLEGADORA',
   SOL: 'SOLDADURA',
   RSO: 'SOLDADURA',
+  UTS: 'SOLDADURA',
   SXP: 'SXP',
   REP: 'REPASADO',
   PIN: 'PINTURA',

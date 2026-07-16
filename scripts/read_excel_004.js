@@ -1,0 +1,15 @@
+const XLSX = require('xlsx');
+const path = require('path');
+
+const excelPath = 'f:\\01_ADMINISTRACIÓN\\05 DIRECCION = INVERSIONES\\2026\\00 AUTOMATIZACIONES IA --\\004 ESTANTERIAS\\004 ESTANTERIAS.xlsx';
+const wb = XLSX.readFile(excelPath);
+
+console.log('Hojas en el archivo Excel:');
+console.log(wb.SheetNames);
+
+wb.SheetNames.forEach(sheetName => {
+  console.log(`\n=== Hoja: ${sheetName} ===`);
+  const ws = wb.Sheets[sheetName];
+  const data = XLSX.utils.sheet_to_json(ws);
+  console.log(JSON.stringify(data, null, 2));
+});
