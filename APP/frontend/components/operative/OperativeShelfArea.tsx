@@ -39,6 +39,8 @@ import SoldaduraStationPicker from '../common/SoldaduraStationPicker';
 import { REQUEST_SECTIONS, type RequestSection } from '../../lib/operative/requestSections';
 import type { CarretilleroOption } from '../../lib/api/pickupQueueApi';
 import AddShelfPositionModal from './AddShelfPositionModal';
+import UtilesSoldaduraModal from './UtilesSoldaduraModal';
+import { useUtilesSoldadura } from '../../hooks/useUtilesSoldadura';
 import ScanTray from './ScanTray';
 import OperativeKpiStrip from './OperativeKpiStrip';
 import OperativeShelfSidebar from './OperativeShelfSidebar';
@@ -112,6 +114,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
     showRecogidaModal, setShowRecogidaModal, showTraerModal, setShowTraerModal,
     showCarretilleroPicker, selectedCarretillero, handleAvisarCarretilleroPicked,
     successModal, dismissSuccess,
+    utilSoldaduraModalOpen, setUtilSoldaduraModalOpen, utilSoldaduraPosition,
     moverNeeded, highlightedPositions,
     setScannerActive, setHighlightedSearch,
     cancelAction, applyScanMethod, beginBatchMode, showToast,
@@ -131,6 +134,9 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
   } = engine;
 
   const { alerts: urgentAlerts } = useUrgentAlerts();
+
+  // Estantería Útiles Soldadura (UTS): hook para texto libre
+  const { locations: utsLocations, addText: addUtsText, removeText: removeUtsText, updateText: updateUtsText } = useUtilesSoldadura();
 
   // Atajos de teclado para power-users de escritorio (U/R/M, /, Esc). No-op en
   // kioskos/tablets táctiles para no interferir con el flujo de producción.
@@ -922,6 +928,18 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
           onClose={() => { setShowTraerModal(false); cancelAction(); }}
           onConfirm={handleTraerConfirm}
           loading={processing}
+        />
+      )}
+
+      {/* Estantería Útiles Soldadura (UTS): flujo directo de texto */}
+      {shelfCode === 'UTS' && (
+        <UtilesSoldaduraModal
+          open={utilSoldaduraModalOpen}
+          position={utilSoldaduraPosition}
+          currentText={utsLocations.find((loc) => loc.position === utilSoldaduraPosition)?.text}
+          onClose={() => setUtilSoldaduraModalOpen(false)}
+          onSave={(text) => updateUtsText(utilSoldaduraPosition, text)}
+          onRemove={() => removeUtsText(utilSoldaduraPosition)}
         />
       )}
 

@@ -230,20 +230,109 @@ shelves/
 - UTIL SOL. 011 (izquierda)
 - UTIL SOL. 012 (derecha)
 
-### Interacción:
-1. Pulsar en ubicación
-2. Si está vacía: mostrar opción "AÑADIR"
-3. Si tiene texto: mostrar texto + opción "RETIRAR"
-4. Modal simple con campo de texto y botones
+### Flujo de Interacción (INVERSO al de artículos):
+
+**DIFERENCIA CRÍTICA:** UTS NO usa el flujo normal (Analizar Artículo → Ubicación).
+UTS es **solo texto libre**, sin artículos ni órdenes de fabricación.
+
+#### Paso 1: Pulsar en Ubicación
+- Usuario pulsa directamente en una ubicación (UTIL SOL. 001, etc.)
+- No hay "Analizar Artículo" ni búsqueda de OF/artículo
+
+#### Paso 2: Evaluar contenido actual
+- **Si está VACÍA:** 
+  - Abrir modal UtilesSoldaduraModal
+  - Mostrar campo de texto vacío
+  - Botón "AÑADIR" para meter texto
+  - Botón "CERRAR" para cancelar
+  
+- **Si tiene TEXTO:**
+  - Mostrar el texto actual (lectura)
+  - Opción "¿Desea AÑADIR MÁS texto aquí?" → abre modal en modo edición
+  - Opción "¿Desea RETIRAR este texto?" → pide confirmación y lo borra
+
+#### Paso 3: Modal UtilesSoldaduraModal
+- Campo textarea para editar/crear texto
+- Botones:
+  - "ACTUALIZAR" (si ya hay texto)
+  - "AÑADIR" (si está vacía)
+  - "RETIRAR" (si hay contenido, opcional)
+  - "CERRAR" (cancelar sin guardar)
+
+#### Características clave:
+- ✅ SIN búsqueda de artículos
+- ✅ SIN OF ni códigos de fabricación
+- ✅ SIN selección de cantidad
+- ✅ SOLO texto libre (descripciones, notas, herramientas)
+- ✅ Guardado inmediato en Firestore (shelves/UTS/locations/{position})
 
 ---
+
+## Implementación Técnica del Flujo
+
+### En `useOperativeShelf.ts`:
+
+```typescript
+// Detectar si es UTS
+const isUtsShelf = shelfCode === 'UTS';
+
+// Override del handleCellPress para UTS
+if (isUtsShelf) {
+  // En lugar del flujo normal:
+  // 1. NO abrir "Analizar Artículo"
+  // 2. Abrir directamente UtilesSoldaduraModal
+  // 3. Pasar la posición actual (p.ej., "UTIL SOL. 001")
+  
+  setUtilSoldaduraModalOpen(true);
+  setSelectedUtilPosition(position);
+  setUtilSoldaduraCurrentText(textFromFirestore[position] || '');
+  return;
+}
+
+// Flujo normal para otras estanterías sigue como siempre
+```
+
+### En `OperativeShelfArea.tsx`:
+
+```typescript
+import UtilesSoldaduraModal from './UtilesSoldaduraModal';
+import { useUtilesSoldadura } from '../hooks/useUtilesSoldadura';
+
+// Dentro del componente:
+const { locations, addText, removeText, updateText } = useUtilesSoldadura();
+const [utilModalOpen, setUtilModalOpen] = useState(false);
+const [selectedPosition, setSelectedPosition] = useState<string>('');
+
+// Renderizar modal adicional (además del normal):
+{utilModalOpen && (
+  <UtilesSoldaduraModal
+    open={utilModalOpen}
+    position={selectedPosition}
+    currentText={locations.find(l => l.position === selectedPosition)?.text}
+    onClose={() => setUtilModalOpen(false)}
+    onSave={(text) => updateText(selectedPosition, text)}
+    onRemove={() => removeText(selectedPosition)}
+  />
+)}
+```
+
+### Requisitos:
+
+1. **Detección de UTS:** Hook useOperativeShelf debe reconocer `shelfCode === 'UTS'`
+2. **Bypass del flujo normal:** No mostrar "Analizar Artículo" para UTS
+3. **Modal directo:** Abrir UtilesSoldaduraModal automáticamente
+4. **Sin validación de artículo:** No buscar en BD de artículos/órdenes
+5. **Guardado en ubicación correcta:** `shelves/UTS/locations/{position}`
 
 ## Testing Plan
 
 1. **Test Unitario:** Verificar que UTS aparece en SHELF_DEFINITIONS
 2. **Test Integración:** Probar que la estantería se carga correctamente
-3. **Test UI:** Verificar que el modal de texto funciona
-4. **Test Funcional:** Probar flujo completo de añadir/retirar texto
+3. **Test Flujo:** Verificar flujo inverso:
+   - Pulsar ubicación → Abre modal (sin "Analizar Artículo")
+   - Meter texto → Guardar → Ver en grid
+   - Pulsar ubicación con texto → Opción RETIRAR
+4. **Test UI:** Verificar que el modal de texto funciona sin búsqueda de artículos
 5. **Test Visual:** Verificar que el layout es correcto (2x6)
 
 ---

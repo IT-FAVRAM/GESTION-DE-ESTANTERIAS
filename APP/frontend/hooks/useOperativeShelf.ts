@@ -225,6 +225,10 @@ export function useOperativeShelf({
   const [successModal, setSuccessModal] = useState<{ title: string; message: string } | null>(null);
   const dismissSuccess = useCallback(() => setSuccessModal(null), []);
 
+  // Estantería Útiles Soldadura (UTS): modal de texto directo
+  const [utilSoldaduraModalOpen, setUtilSoldaduraModalOpen] = useState(false);
+  const [utilSoldaduraPosition, setUtilSoldaduraPosition] = useState<string>('');
+
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cellFirstTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1279,6 +1283,13 @@ export function useOperativeShelf({
   };
 
   const handleCellPress = (loc: ShelfLocationState) => {
+    // Estantería Útiles Soldadura (UTS): flujo invertido — ubicación primero, texto directo
+    if (shelfCode === 'UTS') {
+      setUtilSoldaduraPosition(loc.position);
+      setUtilSoldaduraModalOpen(true);
+      return;
+    }
+
     // Editor de reprocesos (calidad) al tocar celda de reprocesos en idle
     if (action === 'idle' && reprocesosEnabled && isReprocesosLocation(shelfCode, padPos(loc.position))) {
       if (!config.reprocesos?.askImporteCantidad) {
@@ -1850,6 +1861,9 @@ export function useOperativeShelf({
     showCarretilleroPicker, setShowCarretilleroPicker,
     selectedCarretillero, handleAvisarCarretilleroPicked,
     successModal, dismissSuccess,
+    // Estantería Útiles Soldadura (UTS)
+    utilSoldaduraModalOpen, setUtilSoldaduraModalOpen,
+    utilSoldaduraPosition, setUtilSoldaduraPosition,
     moverNeeded, highlightedPositions,
     // setters/handlers de búsqueda y escáner
     setScannerActive, setHighlightedSearch,
