@@ -222,6 +222,23 @@ export function buildOperativeConfig(
       };
     }
 
+    case 'RECEPCIONES':
+      return {
+        role,
+        shelfScope: 'all',
+        actions: {
+          ubicar: true,
+          retirar: true,
+          mover: true,
+          reubicar: false,
+          almacen: 'none',
+          avisar: 'recogida',
+        },
+        ubicar: { askMultiArticle: true, allowMultiSection: true },
+        retirar: { askSectionFirst: true },
+        mover: { loop: true },
+      };
+
     default:
       // Fallback defensivo: rol desconocido → solo lectura/avisar recogida.
       return {

@@ -123,7 +123,7 @@ const AppV3: React.FC = () => {
   // ─── Init Push Notifications ───
   useEffect(() => {
     if (!isAuthenticated || !role || authMethod !== 'email') return;
-    if (!['JEFE_SECCION', 'CALIDAD', 'CARRETILLERO', 'ADMIN', 'SUPERADMIN'].includes(role)) return;
+    if (!['JEFE_SECCION', 'CALIDAD', 'CARRETILLERO', 'ADMIN', 'SUPERADMIN', 'RECEPCIONES'].includes(role)) return;
 
     let mounted = true;
     let cleanupForeground: (() => void) | null = null;
@@ -269,9 +269,11 @@ const AppV3: React.FC = () => {
     return (
       <Suspense fallback={<AppLoadingScreen />}>
         <>
+          {urgencyBar}
           <OfflineIndicator />
+          <OfflineDebugPanel />
           <PushToast notification={pushNotif} onClose={() => setPushNotif(null)} />
-          <RecepcionesView />
+          <CarretilleroView chatButton={chatFab} />
         </>
       </Suspense>
     );

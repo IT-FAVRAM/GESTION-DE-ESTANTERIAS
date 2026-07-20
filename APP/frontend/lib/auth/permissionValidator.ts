@@ -90,8 +90,8 @@ export const canAccessShelf = (ctx: PermissionContext, shelfCode: string): boole
     return accessibleSections.includes(targetSection);
   }
 
-  // CARRETILLERO, ADMIN, SUPERADMIN pueden acceder a todo
-  if (['CARRETILLERO', 'ADMIN', 'SUPERADMIN'].includes(ctx.role)) return true;
+  // CARRETILLERO, ADMIN, SUPERADMIN, RECEPCIONES pueden acceder a todo
+  if (['CARRETILLERO', 'ADMIN', 'SUPERADMIN', 'RECEPCIONES'].includes(ctx.role)) return true;
 
   return false;
 };
@@ -136,8 +136,8 @@ export const canEmptyShelf = (ctx: PermissionContext, shelfCode: string): boolea
 export const canMoveAcrossWarehouses = (ctx: PermissionContext): boolean => {
   if (!ctx.role) return false;
 
-  // CARRETILLERO, ADMIN, SUPERADMIN pueden mover entre almacenes (scope='all')
-  if (['CARRETILLERO', 'ADMIN', 'SUPERADMIN'].includes(ctx.role)) return true;
+  // CARRETILLERO, ADMIN, SUPERADMIN, RECEPCIONES pueden mover entre almacenes (scope='all')
+  if (['CARRETILLERO', 'ADMIN', 'SUPERADMIN', 'RECEPCIONES'].includes(ctx.role)) return true;
 
   return false;
 };

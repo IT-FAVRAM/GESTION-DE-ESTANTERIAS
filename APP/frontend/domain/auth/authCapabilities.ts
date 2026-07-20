@@ -9,6 +9,7 @@ const OPERATIVE_ROLES: UserRole[] = [
   'JEFE_SECCION',
   'ADMIN',
   'SUPERADMIN',
+  'RECEPCIONES',
 ];
 
 export const resolveCapabilities = (
@@ -36,7 +37,7 @@ export const resolveCapabilities = (
   return {
     canViewReprocessCosts: isCalidad || isAdminLevel,
     canEditReprocesses: isCalidad || isAdminLevel,
-    canBrowseAllShelves: role === 'CARRETILLERO' || isAdminLevel || role === 'JEFE_SECCION',
+    canBrowseAllShelves: role === 'CARRETILLERO' || isAdminLevel || role === 'JEFE_SECCION' || role === 'RECEPCIONES',
     canOperateShelf: canOperate,
     // Gestión de fotos de ubicación (SOLDADURA): admin-level y carretillero en
     // cualquier shelf de soldadura; jefe de sección solo si su sección es SOLDADURA.
