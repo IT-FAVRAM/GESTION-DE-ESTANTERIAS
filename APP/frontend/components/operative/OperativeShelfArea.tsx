@@ -648,7 +648,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         }
         onSelectList={pendingAction === 'mover' ? chooseMoverFromList : undefined}
         onSubcontratacion={
-          ['CARRETILLERO', 'ADMIN', 'SUPERADMIN'].includes(config.role) && !batchMode &&
+          ['CARRETILLERO', 'ADMIN', 'SUPERADMIN', 'RECEPCIONES'].includes(config.role) && !batchMode &&
           (pendingAction === 'ubicar' || (action === 'ubicar' && !!pendingCell))
             ? beginSubcontratacion
             : undefined

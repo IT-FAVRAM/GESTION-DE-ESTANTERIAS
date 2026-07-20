@@ -164,15 +164,17 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
                 })()}
               </div>
 
-              <div className="flex-shrink-0 border-t border-slate-300 pb-2">
-                <p className="px-3 pt-3 pb-1 text-[11px] font-black uppercase tracking-widest text-slate-500">Chapero</p>
-                <button onClick={openChapero}
-                  className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${
-                    activeTab === 'chapero' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-200'
-                  }`}>
-                  🔩 Chapero
-                </button>
-              </div>
+              {effectiveRole !== 'RECEPCIONES' && (
+                <div className="flex-shrink-0 border-t border-slate-300 pb-2">
+                  <p className="px-3 pt-3 pb-1 text-[11px] font-black uppercase tracking-widest text-slate-500">Chapero</p>
+                  <button onClick={openChapero}
+                    className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${
+                      activeTab === 'chapero' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-200'
+                    }`}>
+                    🔩 Chapero
+                  </button>
+                </div>
+              )}
               <div className="flex-shrink-0 border-t border-slate-300 pb-2">
                 <p className="px-3 pt-3 pb-1 text-[11px] font-black uppercase tracking-widest text-slate-500">Carros</p>
                 <button onClick={() => setActiveTab('carts')}
