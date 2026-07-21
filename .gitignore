@@ -40,6 +40,11 @@ service-account*.json
 firebase-adminsdk*.json
 bot/.env
 
+# ERP Bridge — credenciales y artefactos del servicio local (NUNCA subir)
+bridge/.env
+bridge/daemon/
+bridge/*-service-account.json
+
 # Artefacto Windows (redirecciones "> NUL" mal escapadas)
 nul
 

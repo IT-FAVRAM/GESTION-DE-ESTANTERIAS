@@ -1,0 +1,22 @@
+{
+  "name": "erp-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Puente entre Firestore (nube) y la API del ERP en la LAN (10.0.0.19:8000)",
+  "main": "index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node -r dotenv/config index.js",
+    "install-service": "node install-service.js",
+    "uninstall-service": "node install-service.js --uninstall"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "firebase-admin": "^13.0.0"
+  },
+  "optionalDependencies": {
+    "node-windows": "^1.0.0-beta.8"
+  }
+}

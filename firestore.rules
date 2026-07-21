@@ -207,6 +207,36 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── ERP: autorrelleno de artículo por OF ─────────────────────────────────
+    // Canal de petición/respuesta con el bridge local (ver bridge/README.md).
+    // La app SOLO puede encargar una consulta ({status:'pending'}); los
+    // resultados los escribe el bridge con el Admin SDK, que no pasa por reglas.
+    match /erp_lookups/{ofId} {
+      allow read: if canReadWarehouseState();
+
+      // Encargar una consulta nueva. Se acotan las claves para que nadie pueda
+      // inyectar un `articles` falso y envenenar la caché que ven los demás.
+      allow create: if canReadWarehouseState()
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.of == ofId
+                    && request.resource.data.keys().hasOnly(['of', 'status', 'requestedAt', 'requestedBy']);
+
+      // Repetir la consulta de una OF ya cacheada: mismas restricciones.
+      allow update: if canReadWarehouseState()
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.of == ofId
+                    && request.resource.data.diff(resource.data)
+                         .affectedKeys().hasOnly(['of', 'status', 'requestedAt', 'requestedBy']);
+
+      allow delete: if false;
+    }
+
+    // Latido del bridge: solo para diagnóstico desde el panel de admin.
+    match /erp_bridge/{document=**} {
+      allow read:  if isAdminLike();
+      allow write: if false;
+    }
+
     // ── CONNECTION MONITORING ────────────────────────────────────────────────
     // Cada dispositivo escribe su propio doc (keyed por auth.uid).
     // Solo ADMIN/SUPERADMIN pueden leer la coleccion completa.
