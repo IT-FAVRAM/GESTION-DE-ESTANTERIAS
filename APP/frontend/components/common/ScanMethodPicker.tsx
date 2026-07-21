@@ -1,5 +1,6 @@
 import React from 'react';
 import type { ScanMethod } from '../../lib/types/scan';
+import { FEATURE_CAMERA_QR_SCAN } from '../../lib/featureFlags';
 
 interface ScanMethodPickerProps {
   open: boolean;
@@ -58,17 +59,21 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
         </div>
 
         <div className="p-4 space-y-2">
-          {/* QR Scanner - Opción principal */}
-          <button
-            type="button"
-            onClick={() => onSelect('barcode')}
-            className="w-full rounded-xl border-2 border-blue-300 hover:border-blue-600 bg-blue-50 px-4 py-3 text-left transition-colors shadow-sm hover:shadow-md"
-          >
-            <span className="font-bold text-blue-900">📷 Escanear código (QR / barras)</span>
-            <span className="block text-xs text-blue-700/80 mt-0.5">
-              Lee el código con la cámara o la pistola (Artículo + OF)
-            </span>
-          </button>
+          {/* Escaneo con cámara — oculto tras FEATURE_CAMERA_QR_SCAN.
+              El ERP no puede imprimir etiquetas con OF + artículo, así que no
+              hay nada que leer. La pistola USB no pasa por aquí y sigue activa. */}
+          {FEATURE_CAMERA_QR_SCAN && (
+            <button
+              type="button"
+              onClick={() => onSelect('barcode')}
+              className="w-full rounded-xl border-2 border-blue-300 hover:border-blue-600 bg-blue-50 px-4 py-3 text-left transition-colors shadow-sm hover:shadow-md"
+            >
+              <span className="font-bold text-blue-900">📷 Escanear código (QR / barras)</span>
+              <span className="block text-xs text-blue-700/80 mt-0.5">
+                Lee el código con la cámara o la pistola (Artículo + OF)
+              </span>
+            </button>
+          )}
 
           {/* OCR como opción alternativa */}
           <button
@@ -140,7 +145,10 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
         {/* Información */}
         <div className="px-4 py-3 bg-slate-50 border-t border-slate-100">
           <p className="text-xs text-slate-600">
-            💡 <strong>Tip:</strong> Usa el QR para la mejor precisión
+            💡 <strong>Tip:</strong>{' '}
+            {FEATURE_CAMERA_QR_SCAN
+              ? 'Usa el QR para la mejor precisión'
+              : 'Escribe el nº de OF y el artículo se rellena solo'}
           </p>
         </div>
       </div>

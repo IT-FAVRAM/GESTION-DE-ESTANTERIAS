@@ -5,6 +5,10 @@ import { parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
 import { REQUEST_SECTIONS, type RequestSection } from '../../lib/operative/requestSections';
 import SoldaduraStationPicker from '../common/SoldaduraStationPicker';
 import CameraQRScanner from '../common/CameraQRScanner';
+import { FEATURE_CAMERA_QR_SCAN } from '../../lib/featureFlags';
+import { useOfLookup } from '../../hooks/useOfLookup';
+import OfLookupIndicator from '../erp/OfLookupIndicator';
+import type { ErpOfArticle } from '../../lib/erp/ofLookupApi';
 const CameraOCRScanner = React.lazy(() => import('../common/CameraOCRScanner'));
 
 export interface TraerSelection {
@@ -69,6 +73,18 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
   const [query, setQuery] = useState('');
   const [manualArticleCode, setManualArticleCode] = useState('');
   const [manualOrderFab, setManualOrderFab] = useState('');
+
+  // Autorrelleno del artículo desde el ERP al teclear la OF (entrada manual).
+  const applyErpArticle = useCallback((article: ErpOfArticle) => {
+    setManualArticleCode(article.code.toUpperCase());
+  }, []);
+
+  const ofLookup = useOfLookup(manualOrderFab, {
+    enabled: open,
+    onResolved: (article) => {
+      setManualArticleCode((current) => (current.trim() ? current : article.code.toUpperCase()));
+    },
+  });
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [selected, setSelected] = useState<GlobalSearchResult | null>(null);
   const [scannerBuffer, setScannerBuffer] = useState('');
@@ -545,6 +561,17 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
                     text-base text-white placeholder-slate-500 font-mono
                     focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
                 />
+                <div className="mt-2">
+                  <OfLookupIndicator
+                    status={ofLookup.status}
+                    article={ofLookup.article}
+                    articles={ofLookup.articles}
+                    normalizedOf={ofLookup.normalizedOf}
+                    typedArticle={manualArticleCode}
+                    onPickArticle={applyErpArticle}
+                    tone="dark"
+                  />
+                </div>
               </div>
 
               {scanError && (
@@ -568,14 +595,18 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
               </div>
 
               <div className="flex gap-2">
-                <button
-                  onClick={() => setShowCameraQR(true)}
-                  disabled={loading}
-                  className="flex-1 h-14 rounded-xl bg-cyan-700/40 border border-cyan-600/40 text-white font-bold
-                    hover:bg-cyan-700/60 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  <span className="text-xl">📷</span> QR/Barras
-                </button>
+                {/* Cámara QR oculta tras FEATURE_CAMERA_QR_SCAN — el ERP no puede
+                    imprimir etiquetas con OF + artículo. La pistola USB sigue activa. */}
+                {FEATURE_CAMERA_QR_SCAN && (
+                  <button
+                    onClick={() => setShowCameraQR(true)}
+                    disabled={loading}
+                    className="flex-1 h-14 rounded-xl bg-cyan-700/40 border border-cyan-600/40 text-white font-bold
+                      hover:bg-cyan-700/60 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <span className="text-xl">📷</span> QR/Barras
+                  </button>
+                )}
                 <button
                   onClick={() => setShowCameraOCR(true)}
                   disabled={loading}

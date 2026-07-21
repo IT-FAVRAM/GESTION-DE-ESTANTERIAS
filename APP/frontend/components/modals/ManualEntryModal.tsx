@@ -1,6 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { CloseIcon } from './Icons';
+import { useOfLookup } from '../../hooks/useOfLookup';
+import OfLookupIndicator from '../erp/OfLookupIndicator';
+import type { ErpOfArticle } from '../../lib/erp/ofLookupApi';
 
 interface ManualEntryModalProps {
   onSubmit: (barcode: string, orderId: string) => void;
@@ -13,6 +16,20 @@ const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ onSubmit, onClose, 
   const [barcode, setBarcode] = useState('');
   const [orderId, setOrderId] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // Autorrelleno del artículo desde el ERP al teclear la OF. En modo texto libre
+  // no hay OF real, así que ni se consulta.
+  const applyErpArticle = useCallback((article: ErpOfArticle) => {
+    setBarcode(article.code.toUpperCase());
+    setError(null);
+  }, []);
+
+  const ofLookup = useOfLookup(orderId, {
+    enabled: !isFreeTextMode,
+    onResolved: (article) => {
+      setBarcode((current) => (current.trim() ? current : article.code.toUpperCase()));
+    },
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,6 +107,17 @@ const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ onSubmit, onClose, 
                 autoComplete="off"
                 spellCheck="false"
               />
+              <div className="mt-2">
+                <OfLookupIndicator
+                  status={ofLookup.status}
+                  article={ofLookup.article}
+                  articles={ofLookup.articles}
+                  normalizedOf={ofLookup.normalizedOf}
+                  typedArticle={barcode}
+                  onPickArticle={applyErpArticle}
+                  tone="dark"
+                />
+              </div>
             </div>
           )}
 

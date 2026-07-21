@@ -1,7 +1,10 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { CloseIcon, TrashIcon, PlusCircleIcon, CheckIcon } from './Icons';
 import { BatchItem } from '../types/batch';
+import { useOfLookup } from '../../hooks/useOfLookup';
+import OfLookupIndicator from '../erp/OfLookupIndicator';
+import type { ErpOfArticle } from '../../lib/erp/ofLookupApi';
 
 interface BatchScannerProps {
   onComplete: (items: BatchItem[]) => void;
@@ -15,6 +18,18 @@ const BatchScanner: React.FC<BatchScannerProps> = ({ onComplete, onClose, mode =
   const [articleInput, setArticleInput] = useState('');
   const [orderInput, setOrderInput] = useState('');
   const articleRef = useRef<HTMLInputElement>(null);
+
+  // Autorrelleno del artículo desde el ERP al teclear la OF del ítem en curso.
+  const applyErpArticle = useCallback((article: ErpOfArticle) => {
+    setArticleInput(article.code.toUpperCase());
+  }, []);
+
+  const ofLookup = useOfLookup(orderInput, {
+    enabled: isFormOpen,
+    onResolved: (article) => {
+      setArticleInput((current) => (current.trim() ? current : article.code.toUpperCase()));
+    },
+  });
 
   const title = mode === 'request' ? "Crear Solicitud" : "Escaneo de Lote";
   const actionLabel = mode === 'request' ? "REVISAR SOLICITUD" : "FINALIZAR Y UBICAR";
@@ -69,6 +84,15 @@ const BatchScanner: React.FC<BatchScannerProps> = ({ onComplete, onClose, mode =
             onKeyDown={(e) => e.key === 'Enter' && articleInput.trim() && orderInput.trim() && handleAddItem()}
             placeholder="Orden Fabricación (OF)"
             className="w-full px-4 py-3 bg-slate-900 border border-slate-600 text-white font-bold rounded-xl uppercase outline-none focus:border-purple-500"
+          />
+          <OfLookupIndicator
+            status={ofLookup.status}
+            article={ofLookup.article}
+            articles={ofLookup.articles}
+            normalizedOf={ofLookup.normalizedOf}
+            typedArticle={articleInput}
+            onPickArticle={applyErpArticle}
+            tone="dark"
           />
           <div className="flex gap-3">
             <button onClick={() => setIsFormOpen(false)} className="flex-1 py-3 bg-rose-700 text-rose-300 font-bold rounded-xl hover:bg-rose-600">

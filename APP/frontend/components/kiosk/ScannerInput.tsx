@@ -6,9 +6,13 @@
  * lo que facilita la entrada manual sin necesidad de recordar el formato "// ".
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { ScanParseResult } from '../../lib/qrParser';
 import { parseScanInput } from '../../lib/qrParser';
+import { FEATURE_CAMERA_QR_SCAN } from '../../lib/featureFlags';
+import { useOfLookup } from '../../hooks/useOfLookup';
+import OfLookupIndicator from '../erp/OfLookupIndicator';
+import type { ErpOfArticle } from '../../lib/erp/ofLookupApi';
 
 interface ScannerInputProps {
   onScan: (result: ScanParseResult) => void;
@@ -65,6 +69,20 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
       inputRef.current.focus();
     }
   }, [active]);
+
+  // ── Autorrelleno del artículo desde el ERP ───────────────────────────────
+  // El operario teclea la OF y el artículo llega solo. Solo rellena si el campo
+  // está vacío: jamás pisa lo que haya escrito o escaneado.
+  const applyErpArticle = useCallback((article: ErpOfArticle) => {
+    setArticleInput(article.code.toUpperCase());
+  }, []);
+
+  const ofLookup = useOfLookup(ofInput, {
+    enabled: dualField && !ofOptional,
+    onResolved: (article) => {
+      setArticleInput((current) => (current.trim() ? current : article.code.toUpperCase()));
+    },
+  });
 
   // Limpiar al desactivar
   useEffect(() => {
@@ -288,6 +306,15 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
                 spellCheck={false}
                 className={`w-full px-4 py-3 text-lg bg-slate-50 border rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 disabled:opacity-50 ${ofOptional ? 'border-amber-300 focus:border-amber-500 focus:ring-amber-500' : 'border-slate-300 focus:border-cyan-500 focus:ring-cyan-500'}`}
               />
+              <OfLookupIndicator
+                status={ofLookup.status}
+                article={ofLookup.article}
+                articles={ofLookup.articles}
+                normalizedOf={ofLookup.normalizedOf}
+                typedArticle={articleInput}
+                onPickArticle={applyErpArticle}
+                tone="light"
+              />
             </div>
             <button
               onClick={handleDualSubmit}
@@ -334,6 +361,15 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
               spellCheck={false}
               className={`w-full px-3 py-2.5 bg-slate-50 border rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 disabled:opacity-50 text-sm ${ofOptional ? 'border-amber-300 focus:border-amber-500 focus:ring-amber-500' : 'border-slate-300 focus:border-cyan-500 focus:ring-cyan-500'}`}
             />
+            <OfLookupIndicator
+              status={ofLookup.status}
+              article={ofLookup.article}
+              articles={ofLookup.articles}
+              normalizedOf={ofLookup.normalizedOf}
+              typedArticle={articleInput}
+              onPickArticle={applyErpArticle}
+              tone="light"
+            />
           </div>
           <button
             onClick={handleDualSubmit}
@@ -345,7 +381,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
         </div>
 
         <div className="flex gap-2">
-          {showCameraButtons && onOpenQRCamera && (
+          {FEATURE_CAMERA_QR_SCAN && showCameraButtons && onOpenQRCamera && (
             <button
               onClick={onOpenQRCamera}
               disabled={disabled}
