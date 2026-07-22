@@ -622,6 +622,11 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
       </div>
 
       {/* ── Escáner (pistola/teclado) ── */}
+      {/* El formulario "escribir manualmente" usa siempre el diseño grande de
+          kiosko (OF primero, en grande) sea cual sea el rol — carretillero y
+          jefe de sección piden el mismo tamaño que ven los kioskos físicos.
+          `forceSingleBlock` solo controla el layout del grid de la estantería,
+          no este formulario. */}
       <ScannerInput
         onScan={handleScan}
         active={scannerActive}
@@ -629,7 +634,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         showCameraButtons={batchMode}
         dualField
         ofOptional={scanArticleOnly}
-        kioskMode={forceSingleBlock}
+        kioskMode
         onCancel={cancelAction}
       />
 

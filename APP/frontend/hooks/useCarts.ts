@@ -17,7 +17,8 @@ export const CARTS_CONFIG = [
     { id: 'CS', name: 'Carro Soldadura', shelves: 4 },
     { id: 'CP1', name: 'Carro Plegado 1', shelves: 4 },
     { id: 'CP2', name: 'Carro Plegado 2', shelves: 4 },
-    { id: 'CRP', name: 'Carro Robot Plegado', shelves: 4 },
+    { id: 'CAM', name: 'Carro Plegadora Amada', shelves: 4 },
+    { id: 'CRP', name: 'Carro Robot de Plegado', shelves: 4 },
 ];
 
 export const useCarts = (cartId: string | null) => {

@@ -72,16 +72,17 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
   const freeTextArticleRef = useRef<HTMLInputElement>(null);
   const freeTextRefRef = useRef<HTMLInputElement>(null);
 
-  // Foco al activar. En kiosko con dual-field la OF va primero (el artículo
-  // llega solo desde el ERP), así que el foco inicial es el campo OF.
+  // Foco al activar. Con dual-field la OF va primero (el artículo llega solo
+  // desde el ERP) tanto en kiosko como fuera de él, así que el foco inicial es
+  // el campo OF en cualquier pantalla donde se ubique por texto.
   useEffect(() => {
     if (!active) return;
-    if (kioskMode && dualField) {
+    if (dualField) {
       ofRef.current?.focus();
     } else {
       inputRef.current?.focus();
     }
-  }, [active, kioskMode, dualField]);
+  }, [active, dualField]);
 
   // ── Autorrelleno del artículo desde el ERP ───────────────────────────────
   // El operario teclea la OF y el artículo llega solo. Nunca pisa lo que el
@@ -154,20 +155,23 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
     // El prefijo precargado ("OF26-") sin dígitos detrás cuenta como vacío.
     const of = ofRaw === defaultOfPrefix() ? '' : ofRaw;
 
-    if (!article) {
-      onScan({ success: false, error: 'El código del artículo es obligatorio', rawInput: '' });
-      return;
-    }
-
-    // Fallback: pistola escaneó todo junto en el campo artículo (contiene "//")
-    if (article.includes('//')) {
-      const combined = of ? article : article;
-      const result = parseScanInput(combined);
+    // Fallback: la pistola escaneó el código completo con "//" de una vez.
+    // Puede caer en cualquiera de los dos campos según cuál tuviera el foco
+    // (la OF va primero y se enfoca sola, pero un doble-scan rápido podría
+    // pillar el artículo con foco todavía).
+    const scannedCombined = article.includes('//') ? article : ofRaw.includes('//') ? ofRaw : null;
+    if (scannedCombined) {
+      const result = parseScanInput(scannedCombined);
       onScan(result);
       setArticleInput('');
       setOfInput(ofOptional ? '' : defaultOfPrefix());
       lastAutoFilledRef.current = null;
-      inputRef.current?.focus();
+      ofRef.current?.focus();
+      return;
+    }
+
+    if (!article) {
+      onScan({ success: false, error: 'El código del artículo es obligatorio', rawInput: '' });
       return;
     }
 
@@ -183,23 +187,27 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
     setArticleInput('');
     setOfInput(ofOptional ? '' : defaultOfPrefix());
     lastAutoFilledRef.current = null;
-    inputRef.current?.focus();
+    ofRef.current?.focus();
   };
 
-  const handleArticleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  // La OF va siempre primero (se teclea antes: el artículo llega solo desde
+  // el ERP), tanto en kiosko como fuera de él — mismo comportamiento en
+  // cualquier pantalla donde se ubique por texto.
+  // Enter en la OF pasa al artículo; Enter en el artículo confirma.
+  const handleOfKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      // Si la pistola escaneó el código completo con "//", procesar directamente
-      if (articleInput.includes('//')) {
+      // Si la pistola escaneó el código completo con "//" y cayó aquí
+      // (la OF tiene el foco por defecto), procesar directamente.
+      if (ofInput.includes('//')) {
         handleDualSubmit();
         return;
       }
-      // Si no, pasar al campo OF
-      ofRef.current?.focus();
+      inputRef.current?.focus();
     }
   };
 
-  const handleOfKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleArticleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       handleDualSubmit();
@@ -213,22 +221,6 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
     const el = e.target;
     const end = el.value.length;
     requestAnimationFrame(() => el.setSelectionRange(end, end));
-  };
-
-  // En kiosko la OF va primero (se teclea antes: el artículo llega solo).
-  // Enter en la OF pasa al artículo; Enter en el artículo confirma.
-  const handleKioskOfKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      inputRef.current?.focus();
-    }
-  };
-
-  const handleKioskArticleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleDualSubmit();
-    }
   };
 
   // ── Handlers para modo texto libre ───────────────────────────────────────
@@ -368,7 +360,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
                   type="text"
                   value={ofInput}
                   onChange={(e) => setOfInput(e.target.value)}
-                  onKeyDown={handleKioskOfKeyDown}
+                  onKeyDown={handleOfKeyDown}
                   onFocus={handleOfFocus}
                   placeholder={ofOptional ? 'Sin OF (opcional)' : 'OF25-1234'}
                   disabled={disabled}
@@ -398,7 +390,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
                   type="text"
                   value={articleInput}
                   onChange={(e) => setArticleInput(e.target.value)}
-                  onKeyDown={handleKioskArticleKeyDown}
+                  onKeyDown={handleArticleKeyDown}
                   placeholder="Se rellena solo al escribir la OF"
                   disabled={disabled}
                   autoComplete="off"
@@ -437,33 +429,20 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
         <div className="flex gap-2 items-stretch">
           <div className="flex-1 flex flex-col gap-1.5">
             <input
-              ref={inputRef}
+              ref={ofRef}
               type="text"
-              value={articleInput}
-              onChange={(e) => setArticleInput(e.target.value)}
-              onKeyDown={handleArticleKeyDown}
-              placeholder="Código artículo"
+              value={ofInput}
+              onChange={(e) => setOfInput(e.target.value)}
+              onKeyDown={handleOfKeyDown}
+              onFocus={handleOfFocus}
+              placeholder={ofOptional ? "Sin OF (opcional)" : "Nº OF (ej: OF25-1234)"}
               disabled={disabled}
               autoFocus
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="characters"
               spellCheck={false}
-              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:opacity-50 text-sm"
-            />
-            <input
-              ref={ofRef}
-              type="text"
-              value={ofInput}
-              onChange={(e) => setOfInput(e.target.value)}
-              onKeyDown={handleOfKeyDown}
-              placeholder={ofOptional ? "Sin OF (opcional)" : "Nº OF  (ej: OF25-1234)"}
-              disabled={disabled}
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="characters"
-              spellCheck={false}
-              className={`w-full px-3 py-2.5 bg-slate-50 border rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 disabled:opacity-50 text-sm ${ofOptional ? 'border-amber-300 focus:border-amber-500 focus:ring-amber-500' : 'border-slate-300 focus:border-cyan-500 focus:ring-cyan-500'}`}
+              className={`w-full px-3 py-2.5 bg-slate-50 border-2 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 disabled:opacity-50 text-base font-bold ${ofOptional ? 'border-amber-300 focus:border-amber-500 focus:ring-amber-500' : 'border-cyan-400 focus:border-cyan-500 focus:ring-cyan-500'}`}
             />
             <OfLookupIndicator
               status={ofLookup.status}
@@ -473,6 +452,20 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
               typedArticle={articleInput}
               onPickArticle={applyErpArticle}
               tone="light"
+            />
+            <input
+              ref={inputRef}
+              type="text"
+              value={articleInput}
+              onChange={(e) => setArticleInput(e.target.value)}
+              onKeyDown={handleArticleKeyDown}
+              placeholder="Código artículo (se rellena solo)"
+              disabled={disabled}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:opacity-50 text-sm"
             />
           </div>
           <button

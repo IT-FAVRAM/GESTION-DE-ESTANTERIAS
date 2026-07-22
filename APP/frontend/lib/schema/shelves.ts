@@ -375,6 +375,25 @@ export const SHELF_DEFINITIONS: Shelf[] = [
     },
   },
   {
+    code: 'ARO',
+    name: 'Autoroscadora',
+    section: 'AUTOPLEGADORA',
+    type: 'shelf',
+    locationCount: 6,
+    layout: {
+      zones: [{ name: 'GENERAL', range: [1, 6], color: '#f97316' }],
+      physicalBlocks: [
+        {
+          id: 'aro-main',
+          title: 'Estantería Autoroscadora',
+          subtitle: '3 filas · 2 columnas',
+          zoneName: 'GENERAL',
+          rows: [[5, 6], [3, 4], [1, 2]],
+        },
+      ],
+    },
+  },
+  {
     code: 'CAL',
     name: 'Calidad',
     section: 'CALIDAD',
@@ -527,7 +546,7 @@ export const CART_DEFINITIONS: Shelf[] = [
     },
   },
   {
-    code: 'CRP',
+    code: 'CAM',
     name: 'Carro Plegadora Amada',
     section: 'AUTOPLEGADORA',
     type: 'cart',
@@ -536,8 +555,27 @@ export const CART_DEFINITIONS: Shelf[] = [
       zones: [{ name: 'BALDAS', range: [1, 4], color: '#10b981' }],
       physicalBlocks: [
         {
-          id: 'crp-main',
+          id: 'cam-main',
           title: 'Carro Plegadora Amada',
+          subtitle: '4 baldas',
+          zoneName: 'BALDAS',
+          rows: [[1], [2], [3], [4]],
+        },
+      ],
+    },
+  },
+  {
+    code: 'CRP',
+    name: 'Carro Robot de Plegado',
+    section: 'AUTOPLEGADORA',
+    type: 'cart',
+    locationCount: 4,
+    layout: {
+      zones: [{ name: 'BALDAS', range: [1, 4], color: '#10b981' }],
+      physicalBlocks: [
+        {
+          id: 'crp-main',
+          title: 'Carro Robot de Plegado',
           subtitle: '4 baldas',
           zoneName: 'BALDAS',
           rows: [[1], [2], [3], [4]],

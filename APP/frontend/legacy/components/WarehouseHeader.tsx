@@ -147,6 +147,18 @@ export const WarehouseHeader: React.FC<WarehouseHeaderProps> = ({
                                         <ShoppingCartIcon className="h-4 w-4" /> Carro Plegado 2
                                     </button>
                                     <button
+                                        onClick={() => handleTabChange('CAM')}
+                                        className={`
+        snap-start px-4 py-2.5 md:py-3 font-bold text-xs md:text-sm rounded-lg transition-all whitespace-nowrap flex-shrink-0 border flex items-center gap-2
+                                                ${activeWarehouse === 'CAM'
+                                                ? 'bg-emerald-600 text-white border-emerald-700 shadow-md transform scale-105 z-10'
+                                                : 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/30 hover:bg-emerald-50 dark:hover:bg-emerald-900/10'
+                                            }
+        `}
+                                    >
+                                        <ShoppingCartIcon className="h-4 w-4" /> Carro Plegadora Amada
+                                    </button>
+                                    <button
                                         onClick={() => handleTabChange('CRP')}
                                         className={`
         snap-start px-4 py-2.5 md:py-3 font-bold text-xs md:text-sm rounded-lg transition-all whitespace-nowrap flex-shrink-0 border flex items-center gap-2
@@ -156,7 +168,7 @@ export const WarehouseHeader: React.FC<WarehouseHeaderProps> = ({
                                             }
         `}
                                     >
-                                        <ShoppingCartIcon className="h-4 w-4" /> Carro Robot Plegado
+                                        <ShoppingCartIcon className="h-4 w-4" /> Carro Robot de Plegado
                                     </button>
                                 </>
                             )}
@@ -174,7 +186,7 @@ export const WarehouseHeader: React.FC<WarehouseHeaderProps> = ({
                 </button>
             </div>
 
-            {!['CS', 'CP1', 'CP2', 'CRP'].includes(activeWarehouse) && (
+            {!['CS', 'CP1', 'CP2', 'CAM', 'CRP'].includes(activeWarehouse) && (
                 <div className="bg-white dark:bg-slate-900/50 p-3 md:p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3 md:space-y-4">
                     <div className="relative w-full">
                         <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />

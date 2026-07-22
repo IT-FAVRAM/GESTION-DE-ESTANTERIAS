@@ -46,7 +46,9 @@ export const SHELF_TO_SECTION: Record<string, WarehouseSection> = {
   CS: 'SOLDADURA',
   CP1: 'PLEGADORA',
   CP2: 'PLEGADORA',
+  CAM: 'AUTOPLEGADORA',
   CRP: 'AUTOPLEGADORA',
+  ARO: 'AUTOPLEGADORA',
 };
 
 /**
