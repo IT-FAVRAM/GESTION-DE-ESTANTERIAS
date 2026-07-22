@@ -3,14 +3,16 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, doc, onSnapshot, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, setDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { COLLECTIONS } from '../lib/firestoreSchema';
+import type { LocationPhoto } from '../lib/schema/locations';
 
 export interface TextLocation {
   position: string;
   text: string;
   lastModified?: Date;
+  photos: LocationPhoto[];
 }
 
 export interface UseUtilesSoldaduraReturn {
@@ -20,6 +22,8 @@ export interface UseUtilesSoldaduraReturn {
   addText: (position: string, text: string) => Promise<boolean>;
   removeText: (position: string) => Promise<boolean>;
   updateText: (position: string, text: string) => Promise<boolean>;
+  addPhoto: (position: string, photo: LocationPhoto) => Promise<boolean>;
+  removePhoto: (position: string, photo: LocationPhoto) => Promise<boolean>;
 }
 
 const SHELF_CODE = 'UTS';
@@ -46,6 +50,7 @@ export const useUtilesSoldadura = (): UseUtilesSoldaduraReturn => {
             position: data.position || docSnap.id,
             text: data.text || '',
             lastModified: data.lastModified?.toDate(),
+            photos: (data.photos ?? []) as LocationPhoto[],
           });
         });
         // Ordenar por posición
@@ -109,6 +114,32 @@ export const useUtilesSoldadura = (): UseUtilesSoldaduraReturn => {
     }
   }, []);
 
+  // Añadir foto a una posición
+  const addPhoto = useCallback(async (position: string, photo: LocationPhoto): Promise<boolean> => {
+    try {
+      const locationRef = doc(db, COLLECTIONS.SHELVES, SHELF_CODE, COLLECTIONS.LOCATIONS, position);
+      await updateDoc(locationRef, { photos: arrayUnion(photo) });
+      return true;
+    } catch (err) {
+      console.error('[useUtilesSoldadura] addPhoto error:', err);
+      setError('Error al añadir foto');
+      return false;
+    }
+  }, []);
+
+  // Eliminar foto de una posición
+  const removePhoto = useCallback(async (position: string, photo: LocationPhoto): Promise<boolean> => {
+    try {
+      const locationRef = doc(db, COLLECTIONS.SHELVES, SHELF_CODE, COLLECTIONS.LOCATIONS, position);
+      await updateDoc(locationRef, { photos: arrayRemove(photo) });
+      return true;
+    } catch (err) {
+      console.error('[useUtilesSoldadura] removePhoto error:', err);
+      setError('Error al eliminar foto');
+      return false;
+    }
+  }, []);
+
   return {
     locations,
     loading,
@@ -116,5 +147,7 @@ export const useUtilesSoldadura = (): UseUtilesSoldaduraReturn => {
     addText,
     removeText,
     updateText,
+    addPhoto,
+    removePhoto,
   };
 };

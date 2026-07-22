@@ -158,17 +158,18 @@ service cloud.firestore {
 
       match /locations/{position} {
         allow read:  if canReadWarehouseState();
-        // Permitir actualizar SOLO los campos "nota" y/o "photos" con restricciones de rol.
-        // Las fotos de ubicación (sección SOLDADURA) se escriben desde el cliente igual
-        // que las notas; el binario vive en Storage, aquí solo el array de metadatos.
+        // Permitir actualizar SOLO los campos "nota", "photos", "text" y/o "lastModified"
+        // con restricciones de rol. Las fotos de ubicación (sección SOLDADURA) se escriben
+        // desde el cliente igual que las notas; el binario vive en Storage, aquí solo el
+        // array de metadatos. "text" y "lastModified" se usan en Útiles Soldadura (UTS).
         allow update: if isRegisteredUser()
                          && canEditNotesAtLocation(shelfCode)
-                         && request.resource.data.diff(resource.data).changedKeys().hasOnly(['nota', 'photos']);
-        // Permitir crear el doc de una ubicación VACÍA solo para adjuntarle nota y/o fotos
-        // (posiciones sin doc previo). Forma acotada: sin items, mismos roles que notas.
+                         && request.resource.data.diff(resource.data).changedKeys().hasOnly(['nota', 'photos', 'text', 'lastModified']);
+        // Permitir crear el doc de una ubicación VACÍA solo para adjuntarle nota, fotos
+        // y/o datos de texto libre (UTS). Forma acotada: sin items, mismos roles que notas.
         allow create: if isRegisteredUser()
                          && canEditNotesAtLocation(shelfCode)
-                         && request.resource.data.keys().hasOnly(['position', 'items', 'isEmpty', 'nota', 'photos'])
+                         && request.resource.data.keys().hasOnly(['position', 'items', 'isEmpty', 'nota', 'photos', 'text', 'lastModified'])
                          && request.resource.data.items.size() == 0;
         allow delete: if false;
       }

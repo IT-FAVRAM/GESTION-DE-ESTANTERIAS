@@ -937,12 +937,16 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         />
       )}
 
-      {/* Estantería Útiles Soldadura (UTS): flujo directo de texto */}
+      {/* Estantería Útiles Soldadura (UTS): flujo directo de texto + fotos */}
       {shelfCode === 'UTS' && (
         <UtilesSoldaduraModal
           open={utilSoldaduraModalOpen}
           position={utilSoldaduraPosition}
           currentText={utsLocations.find((loc) => loc.position === utilSoldaduraPosition)?.text}
+          photos={utsLocations.find((loc) => loc.position === utilSoldaduraPosition)?.photos ?? []}
+          canManagePhotos={canManagePhotos}
+          uploadedBy={operarioId}
+          uploadedByName={displayName}
           onClose={() => setUtilSoldaduraModalOpen(false)}
           onSave={(text) => updateUtsText(utilSoldaduraPosition, text)}
           onRemove={() => removeUtsText(utilSoldaduraPosition)}

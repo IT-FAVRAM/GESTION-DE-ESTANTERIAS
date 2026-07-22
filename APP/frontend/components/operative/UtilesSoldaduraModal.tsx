@@ -1,25 +1,37 @@
 /**
- * UtilesSoldaduraModal — Modal para añadir/editar texto en ubicaciones UTS.
+ * UtilesSoldaduraModal — Modal para añadir/editar texto y fotos en ubicaciones UTS.
  */
 
 import React, { useState, useEffect } from 'react';
+import LocationPhotoGallery from '../common/LocationPhotoGallery';
+import type { LocationPhoto } from '../../lib/schema/locations';
 
 interface UtilesSoldaduraModalProps {
   open: boolean;
   position: string;
   currentText?: string;
+  photos?: LocationPhoto[];
+  canManagePhotos?: boolean;
+  uploadedBy?: string;
+  uploadedByName?: string;
   onClose: () => void;
   onSave: (text: string) => Promise<boolean>;
   onRemove?: () => Promise<boolean>;
+  onPhotosUpdated?: (photos: LocationPhoto[]) => void;
 }
 
 const UtilesSoldaduraModal: React.FC<UtilesSoldaduraModalProps> = ({
   open,
   position,
   currentText = '',
+  photos = [],
+  canManagePhotos = false,
+  uploadedBy = '',
+  uploadedByName = '',
   onClose,
   onSave,
   onRemove,
+  onPhotosUpdated,
 }) => {
   const [text, setText] = useState(currentText);
   const [loading, setLoading] = useState(false);
@@ -104,6 +116,17 @@ const UtilesSoldaduraModal: React.FC<UtilesSoldaduraModalProps> = ({
             autoFocus
           />
         </div>
+
+        {/* Galería de fotos */}
+        <LocationPhotoGallery
+          shelfCode="UTS"
+          position={position}
+          photos={photos}
+          canManage={canManagePhotos}
+          uploadedBy={uploadedBy}
+          uploadedByName={uploadedByName}
+          onPhotosUpdated={onPhotosUpdated ?? (() => {})}
+        />
 
         {/* Error */}
         {error && (
