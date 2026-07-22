@@ -1,9 +1,10 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { CloseIcon } from './Icons';
 import { useOfLookup } from '../../hooks/useOfLookup';
 import OfLookupIndicator from '../erp/OfLookupIndicator';
 import type { ErpOfArticle } from '../../lib/erp/ofLookupApi';
+import { defaultOfPrefix } from '../../lib/erp/ofNormalize';
 
 interface ManualEntryModalProps {
   onSubmit: (barcode: string, orderId: string) => void;
@@ -14,20 +15,42 @@ interface ManualEntryModalProps {
 
 const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ onSubmit, onClose, isFreeTextMode = false }) => {
   const [barcode, setBarcode] = useState('');
-  const [orderId, setOrderId] = useState('');
+  const [orderId, setOrderId] = useState(() => (isFreeTextMode ? '' : defaultOfPrefix()));
   const [error, setError] = useState<string | null>(null);
 
   // Autorrelleno del artículo desde el ERP al teclear la OF. En modo texto libre
-  // no hay OF real, así que ni se consulta.
+  // no hay OF real, así que ni se consulta. Solo pisa el artículo si sigue
+  // vacío o si es el que puso el propio autorrelleno anterior (cambiar de OF
+  // refresca el artículo; lo que escriba el operario a mano nunca se pisa).
+  //
+  // El chequeo se hace fuera del updater de setState a propósito: React (en
+  // desarrollo/StrictMode) invoca dos veces la función de un updater
+  // funcional, y mutar la ref ahí dentro hacía que la 2ª invocación viera la
+  // ref ya cambiada por la 1ª y deshiciera la actualización.
+  const barcodeRef = useRef(barcode);
+  useEffect(() => {
+    barcodeRef.current = barcode;
+  }, [barcode]);
+
+  const lastAutoFilledRef = useRef<string | null>(null);
+
   const applyErpArticle = useCallback((article: ErpOfArticle) => {
-    setBarcode(article.code.toUpperCase());
+    const code = article.code.toUpperCase();
+    lastAutoFilledRef.current = code;
+    setBarcode(code);
     setError(null);
   }, []);
 
   const ofLookup = useOfLookup(orderId, {
     enabled: !isFreeTextMode,
     onResolved: (article) => {
-      setBarcode((current) => (current.trim() ? current : article.code.toUpperCase()));
+      const code = article.code.toUpperCase();
+      const current = barcodeRef.current;
+      const untouched = current.trim() === '' || current === lastAutoFilledRef.current;
+      if (untouched) {
+        lastAutoFilledRef.current = code;
+        setBarcode(code);
+      }
     },
   });
 
@@ -45,17 +68,19 @@ const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ onSubmit, onClose, 
       return;
     }
 
-    if (!orderId.trim()) {
+    const order = orderId.trim().toUpperCase();
+    // El prefijo precargado ("OF26-") sin dígitos detrás cuenta como vacío.
+    if (!order || order === defaultOfPrefix()) {
       setError("La OF es obligatoria");
       return;
     }
     // Basic format check for OF
-    if (!orderId.trim().toUpperCase().startsWith("OF")) {
+    if (!order.startsWith("OF")) {
       setError("La Orden de Fabricación debe empezar por 'OF'");
       return;
     }
 
-    onSubmit(barcode.trim().toUpperCase(), orderId.trim().toUpperCase());
+    onSubmit(barcode.trim().toUpperCase(), order);
   };
 
   return (
@@ -99,6 +124,11 @@ const ManualEntryModal: React.FC<ManualEntryModalProps> = ({ onSubmit, onClose, 
                 type="text"
                 value={orderId}
                 onChange={(e) => { setOrderId(e.target.value.toUpperCase()); setError(null); }}
+                onFocus={(e) => {
+                  const el = e.target;
+                  const end = el.value.length;
+                  requestAnimationFrame(() => el.setSelectionRange(end, end));
+                }}
                 inputMode="text"
                 autoCapitalize="characters"
                 className="w-full p-4 bg-slate-800 border-2 border-slate-700 rounded-xl focus:ring-0 focus:outline-none focus:border-purple-500 text-white text-base"

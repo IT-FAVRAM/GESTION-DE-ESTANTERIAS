@@ -630,6 +630,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         dualField
         ofOptional={scanArticleOnly}
         kioskMode={forceSingleBlock}
+        onCancel={cancelAction}
       />
 
       {/* ── Modales ── */}

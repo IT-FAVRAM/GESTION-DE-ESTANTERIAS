@@ -9,6 +9,7 @@ import { FEATURE_CAMERA_QR_SCAN } from '../../lib/featureFlags';
 import { useOfLookup } from '../../hooks/useOfLookup';
 import OfLookupIndicator from '../erp/OfLookupIndicator';
 import type { ErpOfArticle } from '../../lib/erp/ofLookupApi';
+import { defaultOfPrefix } from '../../lib/erp/ofNormalize';
 const CameraOCRScanner = React.lazy(() => import('../common/CameraOCRScanner'));
 
 export interface TraerSelection {
@@ -72,17 +73,40 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
   const [inputMethod, setInputMethod] = useState<InputMethod>('search');
   const [query, setQuery] = useState('');
   const [manualArticleCode, setManualArticleCode] = useState('');
-  const [manualOrderFab, setManualOrderFab] = useState('');
+  const [manualOrderFab, setManualOrderFab] = useState(defaultOfPrefix);
 
   // Autorrelleno del artículo desde el ERP al teclear la OF (entrada manual).
+  // Solo pisa el artículo si sigue vacío o si es el que puso el autorrelleno
+  // anterior: cambiar de OF refresca el artículo, pero nunca se pisa lo que
+  // el operario haya escrito a mano.
+  //
+  // El chequeo se hace fuera del updater de setState a propósito: React (en
+  // desarrollo/StrictMode) invoca dos veces la función de un updater
+  // funcional, y mutar la ref ahí dentro hacía que la 2ª invocación viera la
+  // ref ya cambiada por la 1ª y deshiciera la actualización.
+  const manualArticleCodeRef = useRef(manualArticleCode);
+  useEffect(() => {
+    manualArticleCodeRef.current = manualArticleCode;
+  }, [manualArticleCode]);
+
+  const lastAutoFilledRef = useRef<string | null>(null);
+
   const applyErpArticle = useCallback((article: ErpOfArticle) => {
-    setManualArticleCode(article.code.toUpperCase());
+    const code = article.code.toUpperCase();
+    lastAutoFilledRef.current = code;
+    setManualArticleCode(code);
   }, []);
 
   const ofLookup = useOfLookup(manualOrderFab, {
     enabled: open,
     onResolved: (article) => {
-      setManualArticleCode((current) => (current.trim() ? current : article.code.toUpperCase()));
+      const code = article.code.toUpperCase();
+      const current = manualArticleCodeRef.current;
+      const untouched = current.trim() === '' || current === lastAutoFilledRef.current;
+      if (untouched) {
+        lastAutoFilledRef.current = code;
+        setManualArticleCode(code);
+      }
     },
   });
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -105,7 +129,8 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
       setDebouncedQuery('');
       setSelected(null);
       setManualArticleCode('');
-      setManualOrderFab('');
+      setManualOrderFab(defaultOfPrefix());
+      lastAutoFilledRef.current = null;
       setScannerBuffer('');
       setScanError(null);
       setInputMethod('search');
@@ -193,7 +218,9 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
 
   const handleManualSearch = useCallback(() => {
     if (!manualArticleCode.trim()) return;
-    const of = manualOrderFab.trim() || '';
+    const ofRaw = manualOrderFab.trim().toUpperCase();
+    // El prefijo precargado ("OF26-") sin dígitos detrás cuenta como vacío.
+    const of = ofRaw === defaultOfPrefix() ? '' : ofRaw;
     buscarArticuloManual(manualArticleCode.trim().toUpperCase(), of);
   }, [manualArticleCode, manualOrderFab, buscarArticuloManual]);
 
@@ -554,6 +581,11 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
                   type="text"
                   value={manualOrderFab}
                   onChange={(e) => setManualOrderFab(e.target.value.toUpperCase())}
+                  onFocus={(e) => {
+                    const el = e.target;
+                    const end = el.value.length;
+                    requestAnimationFrame(() => el.setSelectionRange(end, end));
+                  }}
                   placeholder="Ej: OF25-07221"
                   autoComplete="off"
                   autoCorrect="off"

@@ -59,3 +59,14 @@ export function normalizeOf(raw: string | null | undefined): string | null {
 export function isLookupableOf(raw: string | null | undefined): boolean {
   return normalizeOf(raw) !== null;
 }
+
+/**
+ * Prefijo de OF con el año en curso (`OF26-`), para precargar el campo y
+ * ahorrar tecleo en el caso común (la inmensa mayoría de las OFs son del año
+ * actual). Se calcula en cada llamada, nunca se hardcodea: el operario puede
+ * borrar y escribir el año que necesite (p.ej. una OF de 2025 en enero 2026).
+ */
+export function defaultOfPrefix(): string {
+  const yy = String(new Date().getFullYear() % 100).padStart(2, '0');
+  return `OF${yy}-`;
+}

@@ -1,10 +1,11 @@
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { CloseIcon, TrashIcon, PlusCircleIcon, CheckIcon } from './Icons';
 import { BatchItem } from '../types/batch';
 import { useOfLookup } from '../../hooks/useOfLookup';
 import OfLookupIndicator from '../erp/OfLookupIndicator';
 import type { ErpOfArticle } from '../../lib/erp/ofLookupApi';
+import { defaultOfPrefix } from '../../lib/erp/ofNormalize';
 
 interface BatchScannerProps {
   onComplete: (items: BatchItem[]) => void;
@@ -16,18 +17,41 @@ const BatchScanner: React.FC<BatchScannerProps> = ({ onComplete, onClose, mode =
   const [items, setItems] = useState<BatchItem[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [articleInput, setArticleInput] = useState('');
-  const [orderInput, setOrderInput] = useState('');
+  const [orderInput, setOrderInput] = useState(defaultOfPrefix);
   const articleRef = useRef<HTMLInputElement>(null);
 
   // Autorrelleno del artículo desde el ERP al teclear la OF del ítem en curso.
+  // Solo pisa el artículo si sigue vacío o si es el que puso el autorrelleno
+  // anterior: cambiar de OF refresca el artículo, pero nunca se pisa lo que
+  // el operario haya escrito a mano.
+  //
+  // El chequeo se hace fuera del updater de setState a propósito: React (en
+  // desarrollo/StrictMode) invoca dos veces la función de un updater
+  // funcional, y mutar la ref ahí dentro hacía que la 2ª invocación viera la
+  // ref ya cambiada por la 1ª y deshiciera la actualización.
+  const articleInputRef = useRef(articleInput);
+  useEffect(() => {
+    articleInputRef.current = articleInput;
+  }, [articleInput]);
+
+  const lastAutoFilledRef = useRef<string | null>(null);
+
   const applyErpArticle = useCallback((article: ErpOfArticle) => {
-    setArticleInput(article.code.toUpperCase());
+    const code = article.code.toUpperCase();
+    lastAutoFilledRef.current = code;
+    setArticleInput(code);
   }, []);
 
   const ofLookup = useOfLookup(orderInput, {
     enabled: isFormOpen,
     onResolved: (article) => {
-      setArticleInput((current) => (current.trim() ? current : article.code.toUpperCase()));
+      const code = article.code.toUpperCase();
+      const current = articleInputRef.current;
+      const untouched = current.trim() === '' || current === lastAutoFilledRef.current;
+      if (untouched) {
+        lastAutoFilledRef.current = code;
+        setArticleInput(code);
+      }
     },
   });
 
@@ -36,7 +60,8 @@ const BatchScanner: React.FC<BatchScannerProps> = ({ onComplete, onClose, mode =
 
   const openForm = () => {
     setArticleInput('');
-    setOrderInput('');
+    setOrderInput(defaultOfPrefix());
+    lastAutoFilledRef.current = null;
     setIsFormOpen(true);
     setTimeout(() => articleRef.current?.focus(), 50);
   };
@@ -44,7 +69,8 @@ const BatchScanner: React.FC<BatchScannerProps> = ({ onComplete, onClose, mode =
   const handleAddItem = () => {
     const article = articleInput.trim().toUpperCase();
     const order = orderInput.trim().toUpperCase();
-    if (!article || !order) return;
+    // El prefijo precargado ("OF26-") sin dígitos detrás cuenta como vacío.
+    if (!article || !order || order === defaultOfPrefix()) return;
     setItems(prev => [...prev, { article, order }]);
     setIsFormOpen(false);
   };
@@ -81,6 +107,11 @@ const BatchScanner: React.FC<BatchScannerProps> = ({ onComplete, onClose, mode =
             type="text"
             value={orderInput}
             onChange={(e) => setOrderInput(e.target.value.toUpperCase())}
+            onFocus={(e) => {
+              const el = e.target;
+              const end = el.value.length;
+              requestAnimationFrame(() => el.setSelectionRange(end, end));
+            }}
             onKeyDown={(e) => e.key === 'Enter' && articleInput.trim() && orderInput.trim() && handleAddItem()}
             placeholder="Orden Fabricación (OF)"
             className="w-full px-4 py-3 bg-slate-900 border border-slate-600 text-white font-bold rounded-xl uppercase outline-none focus:border-purple-500"
