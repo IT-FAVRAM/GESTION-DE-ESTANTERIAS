@@ -1,6 +1,22 @@
 # Petición de acceso de red: 10.0.0.21 → ERP (10.0.0.19:8000)
 
 > Documento para enviar al responsable de sistemas. Diagnóstico del 2026-07-21.
+> **✅ RESUELTO el 2026-07-22 — ver abajo. Se conserva como histórico del diagnóstico.**
+
+## ✅ Resuelto — 2026-07-22
+
+`10.0.0.21` ya tiene conectividad real con `10.0.0.19:8000` (confirmado con
+`getControlOfProduccion` respondiendo HTTP 200 con filas reales, sin timeout).
+No hizo falta ninguna acción adicional nuestra: para cuando se probó, el acceso
+ya estaba abierto — probablemente sistemas aplicó el cambio solicitado en este
+mismo documento poco después de enviarlo.
+
+El bridge (`bridge/`) está instalado como servicio de Windows ("ERP Bridge WMS")
+directamente en `10.0.0.21`, que era la ubicación pensada en origen. Verificado
+end-to-end: `erp_bridge/status` en Firestore muestra `host: VMWin11`, `online:
+true` con latido activo, y una consulta de prueba (`OF26-02217`) se resolvió en
+856 ms sin ningún bridge corriendo en otro equipo. Ya no depende de un PC de
+desarrollo.
 
 ## Qué se pide
 
