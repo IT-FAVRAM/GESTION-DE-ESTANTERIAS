@@ -6,7 +6,7 @@
  * además de visualizar la saturación de todas las estanterías.
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useShelf } from '../../hooks/useShelf';
 import { useAuth } from '../../hooks/useAuth';
 import { usePickupQueue } from '../../hooks/usePickupQueue';
@@ -30,6 +30,10 @@ import { findArticleGlobal } from '../../lib/findArticleGlobal';
 import RetirarCellModal from '../kiosk/RetirarCellModal';
 import RetirarArticleList, { type RetirarItem } from '../kiosk/RetirarArticleList';
 import type { LocationItem } from '../../lib/schema/locations';
+import { useOfLookup } from '../../hooks/useOfLookup';
+import OfLookupIndicator from '../erp/OfLookupIndicator';
+import type { ErpOfArticle } from '../../lib/erp/ofLookupApi';
+import { defaultOfPrefix } from '../../lib/erp/ofNormalize';
 
 type AdminAction = 'idle' | 'ubicar' | 'retirar' | 'mover' | 'reubicar' | 'moverSeccion' | 'almacen' | 'avisar';
 
@@ -67,6 +71,38 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualArticle, setManualArticle] = useState('');
   const [manualOf, setManualOf] = useState('');
+
+  // Autorrelleno del artículo desde el ERP al teclear la OF — mismo
+  // comportamiento que en kiosko/carretillero/jefe de sección: la OF va
+  // primero, el artículo llega solo, y cambiar de OF lo refresca sin pisar
+  // lo que el admin haya escrito a mano. El chequeo se hace fuera del
+  // updater de setState porque React (en desarrollo/StrictMode) invoca dos
+  // veces la función de un updater funcional.
+  const manualArticleRef = useRef(manualArticle);
+  useEffect(() => {
+    manualArticleRef.current = manualArticle;
+  }, [manualArticle]);
+
+  const lastAutoFilledManualRef = useRef<string | null>(null);
+
+  const applyErpArticleManual = useCallback((article: ErpOfArticle) => {
+    const code = article.code.toUpperCase();
+    lastAutoFilledManualRef.current = code;
+    setManualArticle(code);
+  }, []);
+
+  const manualOfLookup = useOfLookup(manualOf, {
+    enabled: showManualEntry,
+    onResolved: (article) => {
+      const code = article.code.toUpperCase();
+      const current = manualArticleRef.current;
+      const untouched = current.trim() === '' || current === lastAutoFilledManualRef.current;
+      if (untouched) {
+        lastAutoFilledManualRef.current = code;
+        setManualArticle(code);
+      }
+    },
+  });
 
   // Reubicar: clic-clic o arrastrar dentro de la misma estantería
   const [reubicarSource, setReubicarSource] = useState<{ articleCode: string; orderFab: string; position: string } | null>(null);
@@ -119,8 +155,10 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
   const applyScanMethod = (method: ScanMethod) => {
     setScanPickerOpen(false);
     if (method === 'manual') {
+      const isCalidad = selectedShelf === 'CAL';
       setManualArticle('');
-      setManualOf('');
+      setManualOf(isCalidad ? '' : defaultOfPrefix());
+      lastAutoFilledManualRef.current = null;
       setShowManualEntry(true);
       return;
     }
@@ -128,19 +166,39 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
     else setShowCameraOCR(true);
   };
 
+  const closeManualEntry = useCallback(() => {
+    setShowManualEntry(false);
+    setManualArticle('');
+    setManualOf('');
+    lastAutoFilledManualRef.current = null;
+  }, []);
+
   const confirmManualEntry = () => {
     const art = manualArticle.trim().toUpperCase();
-    const of = manualOf.trim().toUpperCase();
+    const ofRaw = manualOf.trim().toUpperCase();
+    // El prefijo precargado ("OF26-") sin dígitos detrás cuenta como vacío.
+    const of = ofRaw === defaultOfPrefix() ? '' : ofRaw;
     // CALIDAD permite sin OF
     const isCalidad = selectedShelf === 'CAL';
     if (!art) return;
     if (!of && !isCalidad) return;
     setArticleInput(art);
     setOfInput(of);
-    setShowManualEntry(false);
-    setManualArticle('');
-    setManualOf('');
+    closeManualEntry();
     showFeedback('success', `✅ ${art}${of ? ` · ${of}` : ''}`);
+  };
+
+  const handleManualOfFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    const el = e.target;
+    const end = el.value.length;
+    requestAnimationFrame(() => el.setSelectionRange(end, end));
+  };
+
+  const handleManualOfKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      (document.querySelector('#manual-article-input') as HTMLInputElement)?.focus();
+    }
   };
 
   const resetAction = useCallback(() => {
@@ -1275,33 +1333,64 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
         </React.Suspense>
       )}
 
-      {/* Manual entry modal */}
+      {/* Manual entry modal — mismo diseño grande de kiosko: OF primero, en
+          grande, con autorrelleno del ERP; cierra al tocar fuera. */}
       {showManualEntry && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl p-6 w-full max-w-sm shadow-2xl">
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) closeManualEntry(); }}
+        >
+          <div className="relative bg-white rounded-t-3xl sm:rounded-3xl p-6 w-full max-w-sm shadow-2xl">
+            <button
+              onClick={closeManualEntry}
+              aria-label="Cancelar"
+              className="absolute top-3 right-3 h-9 w-9 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-black"
+            >
+              ✕
+            </button>
             <h3 className="text-lg font-black text-slate-900 mb-1">Introducir manualmente</h3>
-            <p className="text-xs text-slate-500 mb-4">Escribe el código de artículo y la OF</p>
+            <p className="text-xs text-slate-500 mb-4">Escribe la OF y el artículo se rellena solo</p>
+
+            <label className="block text-sm font-black text-cyan-700 mb-1 uppercase tracking-wide">
+              {selectedShelf === 'CAL' ? 'Nº OF (opcional)' : 'Nº Orden de Fabricación'}
+            </label>
             <input
               autoFocus
               type="text"
-              value={manualArticle}
-              onChange={(e) => setManualArticle(e.target.value.toUpperCase())}
-              onKeyDown={(e) => { if (e.key === 'Enter') (document.querySelector('#manual-of-input') as HTMLInputElement)?.focus(); }}
-              placeholder="Código artículo (ej: 12345)"
-              className="w-full border-2 border-slate-200 focus:border-sky-400 rounded-xl px-4 py-3 mb-3 text-slate-900 font-mono text-sm outline-none transition-colors"
-            />
-            <input
-              id="manual-of-input"
-              type="text"
               value={manualOf}
               onChange={(e) => setManualOf(e.target.value.toUpperCase())}
+              onKeyDown={handleManualOfKeyDown}
+              onFocus={handleManualOfFocus}
+              placeholder={selectedShelf === 'CAL' ? 'Sin OF (opcional)' : 'OF25-1234'}
+              className={`w-full px-4 py-4 text-3xl font-black tracking-wide text-center bg-slate-50 border-2 rounded-xl text-slate-900 placeholder-slate-300 outline-none transition-colors mb-1 ${selectedShelf === 'CAL' ? 'border-amber-300 focus:border-amber-500' : 'border-cyan-400 focus:border-cyan-500'}`}
+            />
+            <div className="mb-3">
+              <OfLookupIndicator
+                status={manualOfLookup.status}
+                article={manualOfLookup.article}
+                articles={manualOfLookup.articles}
+                normalizedOf={manualOfLookup.normalizedOf}
+                typedArticle={manualArticle}
+                onPickArticle={applyErpArticleManual}
+                tone="light"
+              />
+            </div>
+
+            <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">
+              Código artículo
+            </label>
+            <input
+              id="manual-article-input"
+              type="text"
+              value={manualArticle}
+              onChange={(e) => setManualArticle(e.target.value.toUpperCase())}
               onKeyDown={(e) => { if (e.key === 'Enter') confirmManualEntry(); }}
-              placeholder="OF (ej: OF26-00657)"
-              className="w-full border-2 border-slate-200 focus:border-sky-400 rounded-xl px-4 py-3 mb-5 text-slate-900 font-mono text-sm outline-none transition-colors"
+              placeholder="Se rellena solo al escribir la OF"
+              className="w-full border border-slate-200 focus:border-cyan-400 rounded-xl px-4 py-3 mb-5 text-slate-900 font-mono text-sm outline-none transition-colors"
             />
             <div className="flex gap-3">
               <button
-                onClick={() => { setShowManualEntry(false); setManualArticle(''); setManualOf(''); }}
+                onClick={closeManualEntry}
                 className="flex-1 py-3 bg-rose-100 hover:bg-rose-200 text-rose-700 hover:text-rose-900 font-bold rounded-xl border border-rose-300 hover:border-rose-400 transition-all active:scale-[0.98]"
               >
                 Cancelar
