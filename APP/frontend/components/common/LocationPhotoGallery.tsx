@@ -9,6 +9,10 @@ import React from 'react';
 import { photoApi } from '../../lib/api/photoApi';
 import type { LocationPhoto } from '../../lib/schema/locations';
 import PhotoCarousel from './PhotoCarousel';
+import PhotoCameraCapture from './PhotoCameraCapture';
+
+const hasCameraSupport = () =>
+  typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
 
 interface LocationPhotoGalleryProps {
   shelfCode: string;
@@ -32,12 +36,10 @@ const LocationPhotoGallery: React.FC<LocationPhotoGalleryProps> = ({
   const [uploading, setUploading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [carouselIndex, setCarouselIndex] = React.useState<number | null>(null);
+  const [showCamera, setShowCamera] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ''; // permite resubir el mismo archivo
-    if (!file) return;
+  const uploadFile = async (file: File) => {
     setError(null);
     setUploading(true);
     try {
@@ -49,6 +51,26 @@ const LocationPhotoGallery: React.FC<LocationPhotoGalleryProps> = ({
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // permite resubir el mismo archivo
+    if (!file) return;
+    await uploadFile(file);
+  };
+
+  const handleAddPhoto = () => {
+    if (hasCameraSupport()) {
+      setShowCamera(true);
+    } else {
+      fileInputRef.current?.click();
+    }
+  };
+
+  const handleCameraCapture = async (file: File) => {
+    setShowCamera(false);
+    await uploadFile(file);
   };
 
   const handleDelete = async (photo: LocationPhoto) => {
@@ -74,13 +96,24 @@ const LocationPhotoGallery: React.FC<LocationPhotoGalleryProps> = ({
           )}
         </div>
         {canManage && (
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold active:scale-95 transition-all disabled:opacity-50 touch-manipulation"
-          >
-            {uploading ? '⏳ Subiendo…' : '📷 Añadir foto'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleAddPhoto}
+              disabled={uploading}
+              className="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold active:scale-95 transition-all disabled:opacity-50 touch-manipulation"
+            >
+              {uploading ? '⏳ Subiendo…' : '📷 Hacer foto'}
+            </button>
+            {hasCameraSupport() && (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="text-[10px] font-bold text-slate-400 hover:text-slate-600 underline underline-offset-2 disabled:opacity-50 touch-manipulation"
+              >
+                elegir archivo
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -88,7 +121,7 @@ const LocationPhotoGallery: React.FC<LocationPhotoGalleryProps> = ({
 
       {photos.length === 0 ? (
         <button
-          onClick={canManage ? () => fileInputRef.current?.click() : undefined}
+          onClick={canManage ? handleAddPhoto : undefined}
           disabled={!canManage || uploading}
           className={`w-full rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-400 ${canManage ? 'hover:bg-slate-100 cursor-pointer' : 'cursor-default'}`}
         >
@@ -140,6 +173,13 @@ const LocationPhotoGallery: React.FC<LocationPhotoGalleryProps> = ({
           canManage={canManage}
           onDelete={(entry) => handleDelete(entry.photo)}
           onClose={() => setCarouselIndex(null)}
+        />
+      )}
+
+      {showCamera && (
+        <PhotoCameraCapture
+          onCapture={handleCameraCapture}
+          onClose={() => setShowCamera(false)}
         />
       )}
     </div>
