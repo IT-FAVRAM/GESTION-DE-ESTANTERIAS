@@ -35,6 +35,14 @@ interface ScannerInputProps {
   /** Modo kiosko: centrar el formulario en medio de la pantalla. */
   kioskMode?: boolean;
   /**
+   * Título del formulario grande de kiosko según la acción en curso
+   * ("Ubicar artículo", "Retirar artículo", "Mover artículo"...). Antes estaba
+   * fijo en "Ubicar artículo" aunque se usara para retirar/mover.
+   */
+  kioskTitle?: string;
+  /** Verbo del botón de confirmar del formulario grande ("Ubicar", "Retirar"...). */
+  kioskConfirmVerb?: string;
+  /**
    * Cancela la acción en curso (tablet: hace falta una salida siempre visible,
    * el modal de kiosko tapa la barra de "Cancelar" de detrás). Si se define,
    * el modal de kiosko muestra un botón de cerrar y también cancela al tocar
@@ -53,6 +61,8 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
   dualField = false,
   ofOptional = false,
   kioskMode = false,
+  kioskTitle = 'Ubicar artículo',
+  kioskConfirmVerb = 'Ubicar',
   onCancel,
 }) => {
   // Modo single-field
@@ -349,7 +359,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
                 ✕
               </button>
             )}
-            <h2 className="text-center text-2xl font-black text-slate-900">Ubicar artículo</h2>
+            <h2 className="text-center text-2xl font-black text-slate-900">{kioskTitle}</h2>
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-black text-cyan-700 mb-1 uppercase tracking-wide">
@@ -416,7 +426,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
                 disabled={disabled || !articleInput.trim()}
                 className="flex-1 px-4 py-3 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white rounded-lg font-black text-xl transition-colors"
               >
-                ✅ Ubicar
+                ✅ {kioskConfirmVerb}
               </button>
             </div>
           </div>

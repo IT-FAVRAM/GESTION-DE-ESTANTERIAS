@@ -328,6 +328,21 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
     pendingAction === 'almacen' ? 'Enviar a almacén' :
     pendingAction === 'reubicar' ? 'Reubicar artículo' : 'Escanear';
 
+  // Título/verbo del formulario grande de escaneo manual. Basado en `action`
+  // (no `pendingAction`: cuando el formulario está visible, pendingAction ya se
+  // consumió al elegir el método). Antes decía siempre "Ubicar artículo"
+  // aunque se usara para retirar/mover.
+  const scanFormTitle =
+    action === 'retirar' ? 'Retirar artículo' :
+    action === 'mover' ? 'Mover artículo' :
+    action === 'reubicar' ? 'Reubicar artículo' :
+    action === 'almacen' ? 'Enviar a almacén' : 'Ubicar artículo';
+  const scanFormVerb =
+    action === 'retirar' ? 'Retirar' :
+    action === 'mover' ? 'Mover' :
+    action === 'reubicar' ? 'Reubicar' :
+    action === 'almacen' ? 'Enviar' : 'Ubicar';
+
   return (
     <div className="flex flex-row h-full w-full min-w-0 overflow-hidden">
       {/* ── Sidebar de estanterías (solo escritorio, #2 layout 2 paneles) ── */}
@@ -640,6 +655,8 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         dualField
         ofOptional={scanArticleOnly}
         kioskMode={!batchMode}
+        kioskTitle={scanFormTitle}
+        kioskConfirmVerb={scanFormVerb}
         onCancel={cancelAction}
       />
 
