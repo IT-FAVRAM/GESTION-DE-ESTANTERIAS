@@ -672,7 +672,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         <React.Suspense fallback={<div className="p-4 text-center">Cargando escáner…</div>}>
           <CameraQRScanner
             onScan={(text) => { setShowCameraQR(false); handleScan(parseScanInput(text)); }}
-            onClose={() => { setShowCameraQR(false); setScannerActive(true); }}
+            onClose={() => { setShowCameraQR(false); if (!batchMode) setScannerActive(true); }}
           />
         </React.Suspense>
       )}
@@ -688,7 +688,12 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             onClose={() => {
               setShowCameraOCR(false);
               if (subcontratacionMode) cancelSubcontratacion();
-              else setScannerActive(true);
+              // En lote, "Dejar de escanear" pasa DIRECTO a seleccionar celdas:
+              // los artículos ya están en la barra de lote y abrir aquí el
+              // formulario manual metía un paso extra que obligaba a cancelar.
+              // Fuera de lote sí hace falta reabrir la entrada manual (si no,
+              // la acción se queda sin ninguna vía de captura).
+              else if (!batchMode) setScannerActive(true);
             }}
           />
         </React.Suspense>
@@ -710,7 +715,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             active={showBarcodeForm}
             disabled={processing}
             onScan={(result) => { setShowBarcodeForm(false); handleScan(result); }}
-            onClose={() => { setShowBarcodeForm(false); setScannerActive(true); }}
+            onClose={() => { setShowBarcodeForm(false); if (!batchMode) setScannerActive(true); }}
           />
         </React.Suspense>
       )}

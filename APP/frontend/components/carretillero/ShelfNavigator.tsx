@@ -758,7 +758,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
         <React.Suspense fallback={<div className="p-4 text-center">Cargando escáner…</div>}>
           <CameraQRScanner
             onScan={(text) => { setShowCameraQR(false); handleScan(parseScanInput(text)); }}
-            onClose={() => { setShowCameraQR(false); setScannerActive(true); }}
+            onClose={() => { setShowCameraQR(false); if (!batchMode) setScannerActive(true); }}
           />
         </React.Suspense>
       )}
@@ -766,7 +766,9 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
         <React.Suspense fallback={<div className="p-4 text-center">Cargando escáner OCR...</div>}>
           <CameraOCRScanner
             onResult={(text) => { setShowCameraOCR(false); handleScan(parseScanInputLenient(text)); }}
-            onClose={() => { setShowCameraOCR(false); setScannerActive(true); }}
+            // En lote, cerrar la cámara pasa directo a seleccionar celdas (no
+            // reabrir la entrada manual: los artículos ya están en el lote).
+            onClose={() => { setShowCameraOCR(false); if (!batchMode) setScannerActive(true); }}
           />
         </React.Suspense>
       )}
