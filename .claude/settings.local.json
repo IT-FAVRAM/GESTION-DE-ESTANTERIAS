@@ -283,7 +283,10 @@
       "Bash(npm --version)",
       "Bash(git log *)",
       "Bash(find . -maxdepth 3 -name \"firebase.json\" -not -path \"*/node_modules/*\")",
-      "Bash(find . -maxdepth 3 -name \".firebaserc\" -not -path \"*/node_modules/*\")"
+      "Bash(find . -maxdepth 3 -name \".firebaserc\" -not -path \"*/node_modules/*\")",
+      "Bash(kill %1)",
+      "Bash(jobs -l)",
+      "Bash(rm -f bridge_test.log)"
     ]
   },
   "enabledMcpjsonServers": [
