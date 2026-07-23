@@ -5,6 +5,8 @@ export interface DeviceConnectionStatus {
   deviceId: string;
   deviceName: string;
   deviceType: DeviceConnectionType;
+  /** Sección de la nave (p.ej. "Soldadura"), cuando el dispositivo tiene una fija. */
+  zone?: string;
   isOnline: boolean;
   lastSeen: string;
   lastConnectedAt: string;
@@ -18,6 +20,8 @@ export interface ConnectionLogEntry {
   deviceId: string;
   deviceName: string;
   deviceType: DeviceConnectionType;
+  /** Sección de la nave (p.ej. "Soldadura"), cuando el dispositivo tiene una fija. */
+  zone?: string;
   event: 'CONNECTED' | 'DISCONNECTED';
   timestamp: string;
   sessionId: string;

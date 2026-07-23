@@ -20,6 +20,7 @@ import OfflineDebugPanel from './components/common/OfflineDebugPanel';
 import { initPushNotifications, listenForegroundMessages, refreshTokenOnFocus } from './lib/pushService';
 import { playNotificationSound } from './lib/notificationSound';
 import { useConnectionMonitor } from './hooks/useConnectionMonitor';
+import { SECTION_DISPLAY_NAMES } from './lib/schema/sections';
 import AppLoadingScreen from './components/app/AppLoadingScreen';
 import PushToast from './components/app/PushToast';
 import ChatButton from './components/app/ChatButton';
@@ -68,11 +69,18 @@ const AppV3: React.FC = () => {
     : deviceMode === 'admin' ? 'ADMIN'
     : 'UNKNOWN';
 
+  // Los kioskos/jefes de sección tienen una zona fija (la sección resuelta en el
+  // login); los carretilleros se mueven por toda la nave y no tienen una única zona.
+  const connZone = deviceMode === 'carretillero'
+    ? 'Móvil - toda la nave'
+    : section ? SECTION_DISPLAY_NAMES[section] : undefined;
+
   useConnectionMonitor({
     authUid: firebaseUser?.uid ?? null,
     deviceId,
     deviceName: displayName || `Dispositivo-${deviceId.slice(-6)}`,
     deviceType: connDeviceType,
+    zone: connZone,
     enabled: isAuthenticated && !loading,
   });
 

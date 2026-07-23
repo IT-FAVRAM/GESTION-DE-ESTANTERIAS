@@ -79,12 +79,21 @@ interface DeviceStats {
   deviceId: string;
   deviceName: string;
   deviceType: string;
+  zone?: string;
   uptimePct: number;
   disconnections: number;
   avgOfflineDurationMs: number;
   maxOfflineDurationMs: number;
   totalOfflineMs: number;
   segments: TimeSegment[];
+}
+
+interface ZoneStats {
+  zone: string;
+  nDevices: number;
+  uptimePct: number;
+  disconnections: number;
+  totalOfflineMs: number;
 }
 
 const processLogs = (
@@ -125,6 +134,7 @@ const computeStats = (
   deviceType: string,
   startMs: number,
   endMs: number,
+  zone?: string,
 ): DeviceStats => {
   const deviceLogs = logs.filter((l) => l.deviceId === deviceId);
   const segments = processLogs(deviceLogs, startMs, endMs);
@@ -139,7 +149,23 @@ const computeStats = (
     : 0;
   const uptimePct = totalMs > 0 ? ((totalMs - totalOfflineMs) / totalMs) * 100 : 100;
 
-  return { deviceId, deviceName, deviceType, uptimePct, disconnections, avgOfflineDurationMs, maxOfflineDurationMs, totalOfflineMs, segments };
+  return { deviceId, deviceName, deviceType, zone, uptimePct, disconnections, avgOfflineDurationMs, maxOfflineDurationMs, totalOfflineMs, segments };
+};
+
+const computeZoneStats = (devices: DeviceStats[]): ZoneStats[] => {
+  const byZone = new Map<string, DeviceStats[]>();
+  for (const d of devices) {
+    if (!d.zone) continue;
+    const list = byZone.get(d.zone) ?? [];
+    list.push(d);
+    byZone.set(d.zone, list);
+  }
+  return Array.from(byZone.entries()).map(([zone, list]) => {
+    const disconnections = list.reduce((sum, d) => sum + d.disconnections, 0);
+    const totalOfflineMs = list.reduce((sum, d) => sum + d.totalOfflineMs, 0);
+    const avgUptime = list.reduce((sum, d) => sum + d.uptimePct, 0) / list.length;
+    return { zone, nDevices: list.length, uptimePct: avgUptime, disconnections, totalOfflineMs };
+  }).sort((a, b) => a.uptimePct - b.uptimePct);
 };
 
 // ── Sub-components ──────────────────────────────────────────────────────────
@@ -193,6 +219,7 @@ const DeviceCard: React.FC<{ device: DeviceConnectionStatus }> = ({ device }) =>
             <p className="font-bold text-white text-sm leading-tight">{device.deviceName}</p>
             <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">
               {deviceTypeLabel[device.deviceType] || device.deviceType}
+              {device.zone ? ` · ${device.zone}` : ''}
             </span>
           </div>
         </div>
@@ -380,20 +407,22 @@ const ConnectionMonitorTab: React.FC = () => {
     const endMs = Date.now();
 
     // Collect unique device IDs from both live status and logs
-    const deviceMap = new Map<string, { name: string; type: string }>();
-    devices.forEach((d) => deviceMap.set(d.deviceId, { name: d.deviceName, type: d.deviceType }));
+    const deviceMap = new Map<string, { name: string; type: string; zone?: string }>();
+    devices.forEach((d) => deviceMap.set(d.deviceId, { name: d.deviceName, type: d.deviceType, zone: d.zone }));
     logs.forEach((l) => {
       if (!deviceMap.has(l.deviceId)) {
-        deviceMap.set(l.deviceId, { name: l.deviceName, type: l.deviceType });
+        deviceMap.set(l.deviceId, { name: l.deviceName, type: l.deviceType, zone: l.zone });
       }
     });
 
     return Array.from(deviceMap.entries()).map(([deviceId, meta]) =>
-      computeStats(logs, deviceId, meta.name, meta.type, startMs, endMs),
+      computeStats(logs, deviceId, meta.name, meta.type, startMs, endMs, meta.zone),
     ).sort((a, b) => b.uptimePct - a.uptimePct);
   // lastRefresh intentionally excluded: relative time labels are computed at render
   // time via formatRelativeTime(Date.now()), not in this memo.
   }, [devices, logs, dateRange]);
+
+  const zoneStats = useMemo(() => computeZoneStats(devicesForAnalysis), [devicesForAnalysis]);
 
   // Summary counters
   const onlineCount = devices.filter((d) => getOnlineStatus(d) === 'online').length;
@@ -550,6 +579,30 @@ const ConnectionMonitorTab: React.FC = () => {
             </div>
           ) : (
             <>
+              {/* Zone ranking */}
+              {zoneStats.length > 0 && (
+                <div className="rounded-3xl border border-slate-800 bg-slate-900 overflow-hidden">
+                  <div className="px-5 py-4 border-b border-slate-800">
+                    <h3 className="text-sm font-black text-slate-300 uppercase tracking-wider">
+                      Cobertura por zona de la nave — {dateRangeLabel[dateRange]}
+                    </h3>
+                  </div>
+                  <div className="divide-y divide-slate-800/50">
+                    {zoneStats.map((z) => (
+                      <div key={z.zone} className="flex items-center gap-3 px-5 py-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-white truncate">{z.zone}</p>
+                          <p className="text-[11px] text-slate-600">
+                            {z.nDevices} dispositivo{z.nDevices === 1 ? '' : 's'} · {z.disconnections} desconexi{z.disconnections === 1 ? 'ón' : 'ones'}
+                          </p>
+                        </div>
+                        <UptimeBadge pct={z.uptimePct} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Timeline section */}
               <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5 space-y-4">
                 <h3 className="text-sm font-black text-slate-300 uppercase tracking-wider">

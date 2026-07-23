@@ -90,6 +90,7 @@ service cloud.firestore {
           && (!('isOnline' in d)    || d.isOnline is bool)
           && (!('deviceId' in d)    || (d.deviceId is string   && d.deviceId.size() <= 200))
           && (!('deviceName' in d)  || (d.deviceName is string && d.deviceName.size() <= 200))
+          && (!('zone' in d)        || (d.zone is string       && d.zone.size() <= 100))
           && (!('sessionId' in d)   || (d.sessionId is string  && d.sessionId.size() <= 100));
     }
 
@@ -260,6 +261,7 @@ service cloud.firestore {
                     && request.resource.data.event is string
                     && request.resource.data.event in ['CONNECTED', 'DISCONNECTED', 'HEARTBEAT']
                     && (!('deviceName' in request.resource.data) || request.resource.data.deviceName is string)
+                    && (!('zone' in request.resource.data) || (request.resource.data.zone is string && request.resource.data.zone.size() <= 100))
                     && (!('deviceType' in request.resource.data) || request.resource.data.deviceType in ['KIOSK', 'CARRETILLERO', 'ADMIN', 'UNKNOWN']);
       allow update, delete: if false;
     }

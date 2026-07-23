@@ -28,6 +28,8 @@ interface ConnectionMonitorParams {
   deviceId: string;
   deviceName: string;
   deviceType: DeviceConnectionType;
+  /** Sección de la nave del dispositivo (p.ej. "Soldadura"), si tiene una fija. */
+  zone?: string | null;
   enabled?: boolean;
 }
 
@@ -36,6 +38,7 @@ export const useConnectionMonitor = ({
   deviceId,
   deviceName,
   deviceType,
+  zone,
   enabled = true,
 }: ConnectionMonitorParams) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -48,7 +51,7 @@ export const useConnectionMonitor = ({
     const statusRef = doc(db, COLLECTIONS.CONNECTION_STATUS, authUid);
     const logsRef = collection(db, COLLECTIONS.CONNECTION_LOGS);
 
-    const base = { authUid, deviceId, deviceName, deviceType, sessionId };
+    const base = { authUid, deviceId, deviceName, deviceType, sessionId, ...(zone ? { zone } : {}) };
 
     const writeStatus = async (fields: Record<string, unknown>) => {
       try {
@@ -142,7 +145,7 @@ export const useConnectionMonitor = ({
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('online', handleOnline);
     };
-  }, [authUid, deviceId, deviceName, deviceType, enabled]);
+  }, [authUid, deviceId, deviceName, deviceType, zone, enabled]);
 
   return { isOnline };
 };
