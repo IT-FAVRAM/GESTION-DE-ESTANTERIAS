@@ -32,6 +32,7 @@ const WMS_SHELF_SECTION = {
     SOL: 'SOLDADURA',
     CS: 'SOLDADURA',
     RSO: 'SOLDADURA',
+    UTS: 'SOLDADURA',
     SXP: 'SXP',
     REP: 'REPASADO',
     PIN: 'PINTURA',
@@ -39,6 +40,8 @@ const WMS_SHELF_SECTION = {
     CAL: 'CALIDAD',
     COM: 'OTROS',
     RPL: 'AUTOPLEGADORA',
+    ARO: 'AUTOPLEGADORA',
+    CAM: 'AUTOPLEGADORA',
     CRP: 'AUTOPLEGADORA',
     LASER: 'LASER',
 };
@@ -61,7 +64,7 @@ const CROSS_SECTION_ACCESS = {
  * Ej: Kiosk 'PLE' también puede operar en CP1, CP2 (carros PLEGADORA) y CRP, RPL (AUTOPLEGADORA).
  */
 const KIOSK_ADDITIONAL_SHELVES = {
-    'PLE': ['CP1', 'CP2', 'CRP', 'RPL'],
+    'PLE': ['CP1', 'CP2', 'CAM', 'CRP', 'RPL', 'ARO'],
 };
 const getWmsSectionForShelf = (shelfCode) => {
     const code = normalize(shelfCode);
