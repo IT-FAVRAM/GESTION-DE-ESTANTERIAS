@@ -57,3 +57,26 @@ CONTRASE*.txt
 .playwright-mcp/
 foto nabe*.png
 plano nabe*.png
+
+# Scripts one-off y docs con contraseñas reales hardcodeadas (NUNCA subir)
+# Siguen en disco para uso local; ver CONTRASEÑAS.txt como fuente de verdad.
+APP/backend/APP/
+APP/backend/call_setupUser.js
+APP/backend/setup_auth_user.js
+APP/backend/setup_jefe.js
+APP/backend/fix_h_like_mario.js
+**/scripts/create_user.*
+**/scripts/create_user_h.*
+**/scripts/create_a_escribano.*
+**/scripts/setup_mario_user.*
+**/scripts/update_password_*
+**/scripts/migrate_passwords_and_create_mario.*
+**/scripts/revert_passwords_to_original.*
+scripts/setup-users.ts
+APP/frontend/SETUP_INSTRUCTIONS.md
+devices nuevas tablets.txt
+.claude/projects/*/memory/equipos_configuracion_2026-06-19.md
+.claude/projects/*/memory/feature_usuario_login_carretillero.md
+
+# Datos de perfil Chrome de los kioskos (generados por KIOSKO_LANZAR.bat)
+kiosko-data/
