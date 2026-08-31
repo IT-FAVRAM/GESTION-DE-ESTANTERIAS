@@ -52,6 +52,8 @@ nul
 CONTRASEÑAS.txt
 CONTRASE*.txt
 **/CONTRASEÑAS.txt
+USUARIOS_CONTRASENAS_ROLES.xlsx
+**/USUARIOS_CONTRASE*.xlsx
 
 # Capturas / fotos locales de trabajo (no versionar)
 .playwright-mcp/
@@ -83,3 +85,7 @@ kiosko-data/
 
 # Backups de migraciones Firestore (datos de produccion, solo local)
 APP/backend/backup_*.json
+
+# Salida de scripts de diagnostico (datos de conexion/dispositivos, solo local)
+firestore_data.json
+**/firestore_data.json
