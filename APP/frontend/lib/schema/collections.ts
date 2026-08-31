@@ -11,6 +11,7 @@ export const COLLECTIONS = {
   HISTORY: 'history',
   CONNECTION_STATUS: 'conexion_estado',
   CONNECTION_LOGS: 'conexion_logs',
+  CONNECTION_QUALITY: 'conexion_quality',
   CHAT: 'chat',
   CONVERSATIONS: 'conversations',
   URGENT_ALERTS: 'urgent_alerts',

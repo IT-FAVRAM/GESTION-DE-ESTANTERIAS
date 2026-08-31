@@ -4,6 +4,7 @@ import { db } from '../lib/firebase';
 import { COLLECTIONS } from '../lib/schema/collections';
 import type { DeviceConnectionType } from '../lib/schema/connectionStatus';
 import { drainOfflineQueue } from '../lib/offline/offlineQueue';
+import { getNetworkInfo, computeQualityScore } from '../lib/networkQuality';
 
 const OFFLINE_START_KEY = 'wms-offline-start-v1';
 
@@ -94,9 +95,32 @@ export const useConnectionMonitor = ({
     writeLog('CONNECTED', prevOfflineDurationMs !== undefined ? { offlineDurationMs: prevOfflineDurationMs } : {});
 
     // --- Heartbeat every 60 seconds ---
+    let heartbeatCount = 0;
     const heartbeat = setInterval(() => {
       if (navigator.onLine) {
-        writeStatus({ isOnline: true, lastSeen: new Date().toISOString() });
+        heartbeatCount++;
+        const statusFields: Record<string, unknown> = { isOnline: true, lastSeen: new Date().toISOString() };
+
+        // Passive quality check every 5th heartbeat (~5 min)
+        if (heartbeatCount % 5 === 0) {
+          try {
+            const info = getNetworkInfo();
+            const quality = computeQualityScore({
+              effectiveType: info.effectiveType,
+              downlinkMbps: info.downlink,
+              rttMs: info.rtt,
+            });
+            statusFields.lastQualityScore = quality.qualityScore;
+            statusFields.lastQualityLabel = quality.qualityLabel;
+            statusFields.lastBandwidthMbps = info.downlink;
+            statusFields.lastLatencyMs = info.rtt;
+            statusFields.lastQualityCheck = new Date().toISOString();
+          } catch {
+            // Best-effort quality check — never block heartbeat
+          }
+        }
+
+        writeStatus(statusFields);
       }
     }, 60_000);
 

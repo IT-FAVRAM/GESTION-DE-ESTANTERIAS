@@ -84,3 +84,8 @@ export {
 export {
   onLocationDeleted,
 } from './photos';
+
+export {
+  speedTest,
+  ping,
+} from './speedTest';

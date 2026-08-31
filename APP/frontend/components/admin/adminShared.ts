@@ -1,6 +1,6 @@
 import type { DeviceDoc } from '../../lib/firestoreSchema';
 
-export type AdminTab = 'team' | 'shelves' | 'special' | 'chiefs' | 'reports' | 'messages' | 'connections';
+export type AdminTab = 'team' | 'shelves' | 'special' | 'chiefs' | 'reports' | 'messages' | 'connections' | 'wifi-quality';
 
 export const ALL_TABS: Array<{ key: AdminTab; label: string; icon: string; superadminOnly?: boolean }> = [
   { key: 'team', label: 'Usuarios y Dispositivos', icon: '👥', superadminOnly: true },
@@ -8,6 +8,7 @@ export const ALL_TABS: Array<{ key: AdminTab; label: string; icon: string; super
   { key: 'special', label: 'Ubicaciones Esp.', icon: '🚨', superadminOnly: true },
   { key: 'chiefs', label: 'Jefes x Seccion', icon: '👷', superadminOnly: true },
   { key: 'connections', label: 'Conexiones', icon: '📡' },
+  { key: 'wifi-quality', label: 'Calidad WiFi', icon: '📶' },
   { key: 'reports', label: 'Informes', icon: '📊' },
   { key: 'messages', label: 'Mensajes', icon: '📢' },
 ];

@@ -20,6 +20,7 @@ import AdminSpecialLocationsTab from './AdminSpecialLocationsTab';
 import AdminChiefsTab from './AdminChiefsTab';
 import AdminMessagesTab from './AdminMessagesTab';
 import ConnectionMonitorTab from './ConnectionMonitorTab';
+import WifiQualityTab from './WifiQualityTab';
 import { ALL_TABS, type AdminTab, type CurrentDeviceDraft } from './adminShared';
 
 export type { AdminTab } from './adminShared';
@@ -256,6 +257,8 @@ const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ onClose, role, initia
           {role === 'SUPERADMIN' && activeTab === 'chiefs' && <AdminChiefsTab config={config} chiefDrafts={chiefDrafts} qualityDraft={qualityDraft} setChiefDrafts={setChiefDrafts} setQualityDraft={setQualityDraft} onSaveConfig={saveConfig} />}
 
           {activeTab === 'connections' && <ConnectionMonitorTab />}
+
+          {activeTab === 'wifi-quality' && <WifiQualityTab />}
 
           {activeTab === 'messages' && <AdminMessagesTab />}
         </div>

@@ -185,6 +185,19 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
               </div>
             </button>
 
+            {/* Calidad WiFi */}
+            <button
+              type="button"
+              onClick={() => onOpenPanel('wifi-quality')}
+              className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col items-start gap-2 hover:border-emerald-400/40 active:scale-[0.98] transition-all cursor-pointer text-left touch-manipulation shadow-sm"
+            >
+              <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xl">📶</div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">Calidad WiFi</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Analisis real de ancho de banda y latencia</p>
+              </div>
+            </button>
+
             {/* Chapero */}
             <button
               type="button"
