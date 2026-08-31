@@ -4,8 +4,8 @@
  * configure_autoplegadora_kiosk — Configura el kiosko de autoplegadora
  *
  * Tareas:
- *  1. Excluir el carro CRP (Amada) del kiosko de autoplegadora
- *  2. Configurar el dispositivo device_1781329826263_q6upe7 como visual-only
+ *  1. Habilitar acciones (UBICAR/RETIRAR/MOVER) quitando visualOnly
+ *  2. Configurar allowedShelves para que el OPERARIO acceda a RPL, ARO y CAM
  *
  * Uso (desde APP/backend):
  *   npm run build && node lib/scripts/configure_autoplegadora_kiosk.js
@@ -15,7 +15,7 @@ const firebaseAdmin_1 = require("../firebaseAdmin");
 async function configureKiosk() {
     const db = firebaseAdmin_1.admin.firestore();
     const DEVICE_ID = 'device_1781153902325_5sapp5'; // Kiosko Autoplegadora
-    const EXCLUDED_CART = 'CRP'; // Amada
+    const ALLOWED_SHELVES = ['RPL', 'ARO', 'CAM']; // Autoplegadora, Autoroscadora, Carro Amada
     console.log('🔧 Configurando kiosko de autoplegadora...');
     console.log('='.repeat(60));
     try {
@@ -34,14 +34,16 @@ async function configureKiosk() {
         // ── 2. Actualizar el dispositivo ──────────────────────────────────────
         console.log(`\n⚙️ Actualizando configuración...`);
         const updates = {
-            excludedCarts: [EXCLUDED_CART],
-            visualOnly: true,
+            excludedCarts: [],
+            visualOnly: false,
+            allowedShelves: ALLOWED_SHELVES,
             updatedAt: new Date().toISOString(),
         };
         await db.collection('dispositivos').doc(DEVICE_ID).update(updates);
         console.log(`✅ Dispositivo actualizado:`);
-        console.log(`  - Carros excluidos: [${EXCLUDED_CART}]`);
-        console.log(`  - Modo visual-only: Sí`);
+        console.log(`  - Carros excluidos: [] (todos visibles)`);
+        console.log(`  - Modo visual-only: No (acciones habilitadas)`);
+        console.log(`  - Estanterías permitidas: [${ALLOWED_SHELVES.join(', ')}]`);
         return {
             ok: true,
             deviceId: DEVICE_ID,
