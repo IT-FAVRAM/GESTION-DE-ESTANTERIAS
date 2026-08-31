@@ -3,6 +3,21 @@ import * as functions from 'firebase-functions';
 
 const normalize = (value?: string | null) => (value || '').trim().toUpperCase();
 
+/**
+ * Estanterías que comparten ubicación física y se operan como una sola vista
+ * combinada. PRE (Prensas), MEC (Mecanizado) y PME (código heredado) son la
+ * MISMA estantería: el frontend las canonicaliza a 'PRE'. El backend debe
+ * replicar esa equivalencia o la retirada/ubicación de un item físico de MEC
+ * desde el kiosko de Prensas (o viceversa) se rechaza con permission-denied.
+ */
+const COMBINED_SHELF_ALIASES: Record<string, string> = { MEC: 'PRE', PME: 'PRE' };
+
+/** Normaliza un código de estantería a su vista combinada canónica. */
+const canonicalizeShelf = (code?: string | null) => {
+  const c = normalize(code);
+  return COMBINED_SHELF_ALIASES[c] ?? c;
+};
+
 /** Normaliza valores de sección legacy al nombre unificado */
 const normalizeLegacySection = (section: string | null | undefined): string | null => {
   if (!section) return null;
@@ -127,6 +142,12 @@ export const assertActorMayOperateShelf = (
 
     // Puede operar en su estantería principal
     if (assignedShelfUpper === shelf) return;
+
+    // PRE/MEC/PME comparten ubicación física (vista combinada 'PRE'). Un operario
+    // asignado a cualquiera de ellas puede operar las tres — al retirar/ubicar, el
+    // frontend resuelve la estantería física real (PRE o MEC), que puede no coincidir
+    // literalmente con device.assignedShelf aunque sea la misma estantería.
+    if (canonicalizeShelf(assignedShelfUpper) === canonicalizeShelf(shelf)) return;
 
     // Puede operar en las estanterías adicionales configuradas en el dispositivo
     // (device.allowedShelves) — fuente de verdad única, igual que el frontend.
