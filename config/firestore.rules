@@ -221,14 +221,20 @@ service cloud.firestore {
       allow create: if canReadWarehouseState()
                     && request.resource.data.status == 'pending'
                     && request.resource.data.of == ofId
-                    && request.resource.data.keys().hasOnly(['of', 'status', 'requestedAt', 'requestedBy']);
+                    && request.resource.data.keys().hasOnly(['of', 'status', 'requestedAt', 'requestedBy'])
+                    && (!('requestedBy' in request.resource.data)
+                        || request.resource.data.requestedBy == null
+                        || request.resource.data.requestedBy == request.auth.uid);
 
       // Repetir la consulta de una OF ya cacheada: mismas restricciones.
       allow update: if canReadWarehouseState()
                     && request.resource.data.status == 'pending'
                     && request.resource.data.of == ofId
                     && request.resource.data.diff(resource.data)
-                         .affectedKeys().hasOnly(['of', 'status', 'requestedAt', 'requestedBy']);
+                         .affectedKeys().hasOnly(['of', 'status', 'requestedAt', 'requestedBy'])
+                    && (!('requestedBy' in request.resource.data)
+                        || request.resource.data.requestedBy == null
+                        || request.resource.data.requestedBy == request.auth.uid);
 
       allow delete: if false;
     }
