@@ -89,3 +89,11 @@ APP/backend/backup_*.json
 # Salida de scripts de diagnostico (datos de conexion/dispositivos, solo local)
 firestore_data.json
 **/firestore_data.json
+
+# Informes generados con datos reales de produccion (nombres, emails, UIDs) — NUNCA subir
+ESTUDIO_WIFI.docx
+ESTUDIO WIFI.docx
+docs/BASE_DE_DATOS.docx
+
+# Config local de Claude Code (permisos por maquina, no compartir)
+.claude/settings.local.json
