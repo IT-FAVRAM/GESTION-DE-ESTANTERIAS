@@ -206,7 +206,8 @@ const RackSlot: React.FC<RackSlotProps> = ({
   }
 
   // Zona de SUELO — acabado de hormigón para diferenciarla de un hueco de balda.
-  const isFloor = position === 'SUELO';
+  // Acepta 'SUELO' y variantes con nombre ('SUELO AMADA'), que se marcan igual.
+  const isFloor = /^SUELO\b/.test(position);
   if (isFloor && !isSelected && !isHighlighted) {
     wrapBg = 'repeating-linear-gradient(45deg, #e7e5e4, #e7e5e4 10px, #d6d3d1 10px, #d6d3d1 20px)';
     wrapBorder = 'rgba(120,113,108,0.65)';

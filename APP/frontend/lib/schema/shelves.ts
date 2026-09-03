@@ -550,16 +550,20 @@ export const CART_DEFINITIONS: Shelf[] = [
     name: 'Carro Plegadora Amada',
     section: 'AUTOPLEGADORA',
     type: 'cart',
-    locationCount: 4,
+    // 4 baldas + la franja de SUELO AMADA (ubicacion 'SUELO AMADA').
+    locationCount: 5,
     layout: {
       zones: [{ name: 'BALDAS', range: [1, 4], color: '#10b981' }],
       physicalBlocks: [
         {
           id: 'cam-main',
           title: 'Carro Plegadora Amada',
-          subtitle: '4 baldas',
+          subtitle: '4 baldas + suelo',
           zoneName: 'BALDAS',
           rows: [[1], [2], [3], [4]],
+          // Piezas demasiado grandes para una balda: se dejan en el suelo junto
+          // al carro y se registran aqui para saber donde estan.
+          floorPosition: 'SUELO AMADA',
         },
       ],
     },
@@ -745,6 +749,11 @@ export const generatePositions = (shelf: Shelf): string[] => {
           const pos = typeof slot === 'string' ? slot : slot.toString().padStart(3, '0');
           if (!seen.has(pos)) { positions.push(pos); seen.add(pos); }
         }
+      }
+      // La franja de suelo es una ubicación real del bloque (p.ej. 'SUELO AMADA').
+      if (block.floorPosition && !seen.has(block.floorPosition)) {
+        positions.push(block.floorPosition);
+        seen.add(block.floorPosition);
       }
     }
     return positions;

@@ -231,6 +231,20 @@ describe('generatePositions', () => {
     const cs = getShelfDefinition('CS')!;
     expect(generatePositions(cs)).toEqual(['001', '002', '003', '004']);
   });
+
+  it('incluye la franja de suelo del carro Amada (CAM)', () => {
+    const cam = getShelfDefinition('CAM')!;
+    expect(generatePositions(cam)).toEqual(['001', '002', '003', '004', 'SUELO AMADA']);
+    // locationCount debe cuadrar con las ubicaciones reales (4 baldas + suelo)
+    expect(cam.locationCount).toBe(5);
+  });
+
+  it('incluye la franja de suelo de Pintura (PIN)', () => {
+    const pin = getShelfDefinition('PIN')!;
+    const positions = generatePositions(pin);
+    expect(positions).toContain('SUELO');
+    expect(positions).toHaveLength(pin.locationCount);
+  });
 });
 
 // ── ALL_SHELVES sanity ────────────────────────────────────────────────────────

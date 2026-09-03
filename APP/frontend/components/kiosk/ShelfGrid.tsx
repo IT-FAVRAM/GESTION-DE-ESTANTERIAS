@@ -253,14 +253,7 @@ const MobileBlockNav = React.memo(({ blocks, activeIdx, onSelect, alwaysShow = f
 // ─── Block (physical layout) ──────────────────────────────────────────────────
 
 interface BlockProps {
-  block: {
-    id: string;
-    title: string;
-    subtitle?: string;
-    zoneName?: string;
-    fullWidth?: boolean;
-    rows: Array<Array<number | string | null>>;
-  };
+  block: ShelfPhysicalBlock;
   shelfDef: Shelf;
   locationMap: Map<string, ShelfLocationState>;
   selectedPositions: string[];
@@ -303,7 +296,12 @@ const Block = React.memo(({
   const isTechReview = zone?.isTechReview ?? false;
   const isAluminio = zone?.name?.includes('ALUMINIO') ?? false;
 
-  const allPos = block.rows.flat().filter((p): p is (number | string) => p !== null);
+  // La franja de suelo (block.floorPosition) es una ubicación más del bloque:
+  // debe contar en ocupación y nº de artículos de la cabecera.
+  const allPos = [
+    ...block.rows.flat().filter((p): p is (number | string) => p !== null),
+    ...(block.floorPosition ? [block.floorPosition] : []),
+  ];
   const toPos = (p: number | string) => typeof p === 'string' ? p : p.toString().padStart(3, '0');
   const occupiedCount = allPos.filter((p) => {
     const loc = locationMap.get(toPos(p));
@@ -399,7 +397,7 @@ const Block = React.memo(({
           {/* Scroll horizontal solo en este contenedor; la estantería mantiene su ancho mínimo */}
           <div className="w-full max-w-full overflow-x-auto overscroll-x-contain [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent]">
             <ShelfRackView
-              block={block as ShelfPhysicalBlock}
+              block={block}
               shelfCode={shelfDef.code}
               locationMap={locationMap}
               selectedPositions={selectedPositions}
@@ -501,6 +499,7 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
 
     if (blocks.length > 0) {
       const containingBlock = blocks.find((b) =>
+        b.floorPosition === firstHighlight ||
         b.rows.some((row) => row.some((p) => posKey(p) === firstHighlight)),
       );
       if (!containingBlock) return;
