@@ -94,6 +94,7 @@ firestore_data.json
 ESTUDIO_WIFI.docx
 ESTUDIO WIFI.docx
 docs/BASE_DE_DATOS.docx
+DOCUMENTACION_PARA_INFORMATICO.docx
 
 # Config local de Claude Code (permisos por maquina, no compartir)
 .claude/settings.local.json

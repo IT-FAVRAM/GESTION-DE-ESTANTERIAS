@@ -146,6 +146,14 @@
                 { "fieldPath": "resolved",   "order": "ASCENDING" },
                 { "fieldPath": "createdAt",  "order": "DESCENDING" }
             ]
+        },
+        {
+            "collectionGroup": "conexion_quality",
+            "queryScope": "COLLECTION",
+            "fields": [
+                { "fieldPath": "deviceId",  "order": "ASCENDING" },
+                { "fieldPath": "timestamp", "order": "DESCENDING" }
+            ]
         }
     ],
     "fieldOverrides": []

@@ -272,6 +272,29 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Snapshots de calidad de red (useNetworkQuality / WifiQualityTab). Igual
+    // patron que conexion_logs: cada dispositivo solo crea sus propios registros
+    // (authUid = auth.uid), inmutables; solo admins pueden leer la coleccion.
+    // NOTA: sin esta regla la coleccion queda denegada por defecto y la funcion
+    // de monitor de calidad WiFi falla en silencio (permission-denied).
+    match /conexion_quality/{docId} {
+      allow read: if isAdminLike();
+      allow create: if isAuthenticated()
+                    && request.resource.data.authUid == request.auth.uid
+                    && request.resource.data.deviceId is string
+                    && request.resource.data.deviceId.size() <= 200
+                    && request.resource.data.deviceName is string
+                    && request.resource.data.deviceName.size() <= 200
+                    && request.resource.data.deviceType in ['KIOSK', 'CARRETILLERO', 'ADMIN', 'UNKNOWN']
+                    && request.resource.data.timestamp is string
+                    && request.resource.data.timestamp.size() >= 20
+                    && request.resource.data.timestamp.size() <= 35
+                    && request.resource.data.qualityScore is number
+                    && request.resource.data.qualityLabel is string
+                    && (!('zone' in request.resource.data) || (request.resource.data.zone is string && request.resource.data.zone.size() <= 100));
+      allow update, delete: if false;
+    }
+
     // ── PRODUCCIÓN: workingItems / finishedItems / assignments ───────────────
     // Gestionadas por Cloud Function `productionOperate`. El código legacy del
     // frontend las leerá en tiempo real; las escrituras quedan bloqueadas para
