@@ -134,7 +134,7 @@ export const SHELF_DEFINITIONS: Shelf[] = [
         },
         {
           id: 'ple-est1',
-          title: 'Estanteria 1',
+          title: 'Estantería 1',
           subtitle: 'Urgentes (001-006) en filas inferiores',
           zoneName: 'ESTANTERIA 1',
           rows: [
@@ -285,7 +285,7 @@ export const SHELF_DEFINITIONS: Shelf[] = [
       physicalBlocks: [
         {
           id: 'pin-dentro',
-          title: 'Estanteria 1',
+          title: 'Estantería 1',
           subtitle: 'Dentro · 001-027 + suelo',
           zoneName: 'DENTRO',
           rows: [
@@ -297,7 +297,7 @@ export const SHELF_DEFINITIONS: Shelf[] = [
         },
         {
           id: 'pin-fuera',
-          title: 'Estanteria 2',
+          title: 'Estantería 2',
           subtitle: 'Fuera · 028-039',
           zoneName: 'FUERA',
           rows: [[37, 38, 39], [34, 35, 36], [31, 32, 33], [28, 29, 30]],
@@ -413,7 +413,7 @@ export const SHELF_DEFINITIONS: Shelf[] = [
       physicalBlocks: [
         {
           id: 'cal-reprocesos',
-          title: 'Reprocesos (Estanteria 1)',
+          title: 'Reprocesos (Estantería 1)',
           subtitle: 'CAL 001-022 · Reprocesos con importe EUR',
           zoneName: 'REPROCESOS',
           fullWidth: true,
@@ -427,7 +427,7 @@ export const SHELF_DEFINITIONS: Shelf[] = [
         },
         {
           id: 'cal-est2',
-          title: 'Estanteria 2',
+          title: 'Estantería 2',
           subtitle: 'CAL 023-034 · Control final y verificaciones',
           zoneName: 'GENERAL',
           rows: [

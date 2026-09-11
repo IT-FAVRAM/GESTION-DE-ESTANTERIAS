@@ -7,6 +7,7 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Check, Keyboard, ScanBarcode, ScanText } from 'lucide-react';
 import type { ScanParseResult } from '../../lib/qrParser';
 import { parseScanInput } from '../../lib/qrParser';
 import { FEATURE_CAMERA_QR_SCAN } from '../../lib/featureFlags';
@@ -314,8 +315,9 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
             onClick={handleFreeTextSubmit}
             disabled={disabled || !freeTextArticle.trim()}
             className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-lg font-black text-lg transition-colors shrink-0 flex items-center justify-center"
+            aria-label="Confirmar"
           >
-            ✅
+            <Check className="w-6 h-6" strokeWidth={3} aria-hidden />
           </button>
         </div>
         <button
@@ -426,7 +428,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
                 disabled={disabled || !articleInput.trim()}
                 className="flex-1 px-4 py-3 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white rounded-lg font-black text-xl transition-colors"
               >
-                ✅ {kioskConfirmVerb}
+                {kioskConfirmVerb}
               </button>
             </div>
           </div>
@@ -482,8 +484,9 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
             onClick={handleDualSubmit}
             disabled={disabled || !articleInput.trim()}
             className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white rounded-lg font-black text-lg transition-colors shrink-0 flex items-center justify-center"
+            aria-label="Confirmar"
           >
-            ✅
+            <Check className="w-6 h-6" strokeWidth={3} aria-hidden />
           </button>
         </div>
 
@@ -494,7 +497,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
               disabled={disabled}
               className="flex-1 px-3 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
             >
-              <span>📷</span> Barras
+              <ScanBarcode className="w-5 h-5" aria-hidden /> Barras
             </button>
           )}
           {showCameraButtons && onOpenOCRCamera && (
@@ -503,7 +506,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
               disabled={disabled}
               className="flex-1 px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
             >
-              <span>📝</span> OCR
+              <ScanText className="w-5 h-5" aria-hidden /> OCR
             </button>
           )}
           <button
@@ -515,7 +518,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
             disabled={disabled}
             className="flex-1 px-3 py-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
           >
-            <span>✏️</span> Texto libre
+            <Keyboard className="w-5 h-5" aria-hidden /> Texto libre
           </button>
         </div>
       </div>
@@ -557,7 +560,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
             disabled={disabled}
             className="flex-1 px-3 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
           >
-            <span>📷</span> Barras
+            <ScanBarcode className="w-5 h-5" aria-hidden /> Barras
           </button>
         )}
         {showCameraButtons && onOpenOCRCamera && (
@@ -566,7 +569,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
             disabled={disabled}
             className="flex-1 px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
           >
-            <span>📝</span> OCR
+            <ScanText className="w-5 h-5" aria-hidden /> OCR
           </button>
         )}
         <button
@@ -578,7 +581,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
           disabled={disabled}
           className="flex-1 px-3 py-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2"
         >
-          <span>✏️</span> Texto libre
+          <Keyboard className="w-5 h-5" aria-hidden /> Texto libre
         </button>
       </div>
     </div>

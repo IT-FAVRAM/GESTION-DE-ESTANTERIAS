@@ -103,7 +103,7 @@ const ReprocesosUbicacionModal: React.FC<ReprocesosUbicacionModalProps> = ({
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Ubicar en Reprocesos</p>
               <h2 className="text-2xl font-black text-white">Posición {Number.isNaN(posNum) ? position : posNum}</h2>
             </div>
-            <span className="text-sm text-slate-400 font-mono">📝 Detalles</span>
+            <span className="text-sm text-slate-400 font-mono">Detalles</span>
           </div>
         </div>
 
@@ -121,7 +121,7 @@ const ReprocesosUbicacionModal: React.FC<ReprocesosUbicacionModalProps> = ({
             {/* Importe */}
             <div>
               <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                💰 Importe (€) — Opcional
+                Importe (€) — Opcional
               </label>
               <input
                 type="number"
@@ -137,7 +137,7 @@ const ReprocesosUbicacionModal: React.FC<ReprocesosUbicacionModalProps> = ({
             {/* Cantidad */}
             <div>
               <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                📦 Cantidad (pzas) — Opcional
+                Cantidad (pzas) — Opcional
               </label>
               <input
                 type="number"
@@ -153,13 +153,13 @@ const ReprocesosUbicacionModal: React.FC<ReprocesosUbicacionModalProps> = ({
           {/* Error message */}
           {error && (
             <div className="p-3 rounded-lg bg-red-950/30 border border-red-700/30 text-xs text-red-300 font-bold">
-              ❌ {error}
+              {error}
             </div>
           )}
 
           {/* Note */}
           <div className="p-3 rounded-lg bg-amber-950/30 border border-amber-700/30 text-xs text-amber-200">
-            ℹ️ Estos datos son opcionales. Puedes dejarlos en blanco si lo prefieres.
+            Estos datos son opcionales. Puedes dejarlos en blanco si lo prefieres.
           </div>
         </div>
 
@@ -171,14 +171,14 @@ const ReprocesosUbicacionModal: React.FC<ReprocesosUbicacionModalProps> = ({
               text-white font-black text-lg shadow-lg shadow-cyan-950/40
               active:scale-[0.98] transition-all hover:from-cyan-400 hover:to-cyan-500"
           >
-            ✅ Confirmar Ubicación
+            Confirmar Ubicación
           </button>
           <button
             onClick={handleSkip}
             className="w-full h-12 rounded-xl bg-slate-800 text-slate-300 text-sm font-bold
               hover:bg-slate-700 transition-colors"
           >
-            ⏭️ Saltar (sin detalles)
+            Saltar (sin detalles)
           </button>
           <button
             onClick={handleClose}

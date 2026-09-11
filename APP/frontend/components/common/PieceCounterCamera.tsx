@@ -13,6 +13,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Camera, Ruler } from 'lucide-react';
 import { measureSharpnessLive, waitForVideoReady } from '../../lib/ocrPreprocess';
 import { countPieces, type CountMode, type PieceCountResult } from '../../lib/api/pieceCounterApi';
 
@@ -205,7 +206,7 @@ const PieceCounterCamera: React.FC<PieceCounterCameraProps> = ({ onClose, onConf
       {/* Top bar */}
       <div className="flex-shrink-0 flex items-center justify-between px-4 pt-safe-top py-3 bg-black/80">
         <p className="text-cyan-400 text-sm font-bold flex items-center gap-1.5">
-          <span className="text-lg">📐</span> Contar piezas
+          <Ruler className="w-4 h-4" aria-hidden /> Contar piezas
         </p>
         <button
           onClick={handleClose}
@@ -233,13 +234,13 @@ const PieceCounterCamera: React.FC<PieceCounterCameraProps> = ({ onClose, onConf
                 className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${
                   mode === 'stacked' ? 'bg-cyan-600 text-white' : 'bg-slate-800/80 text-slate-300'
                 }`}
-              >📚 Apiladas</button>
+              >Apiladas</button>
               <button
                 onClick={() => setMode('loose')}
                 className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${
                   mode === 'loose' ? 'bg-cyan-600 text-white' : 'bg-slate-800/80 text-slate-300'
                 }`}
-              >🧩 Sueltas</button>
+              >Sueltas</button>
             </div>
             {mode === 'stacked' && (
               <div className="bg-slate-900/80 rounded-lg p-2">
@@ -339,7 +340,7 @@ const PieceCounterCamera: React.FC<PieceCounterCameraProps> = ({ onClose, onConf
               {result.warnings.length > 0 && (
                 <div className="mt-3 space-y-1">
                   {result.warnings.map((w, i) => (
-                    <p key={i} className="text-amber-400 text-xs flex gap-1.5"><span>⚠</span><span>{w}</span></p>
+                    <p key={i} className="text-amber-400 text-xs flex gap-1.5"><span aria-hidden>•</span><span>{w}</span></p>
                   ))}
                 </div>
               )}
@@ -355,10 +356,9 @@ const PieceCounterCamera: React.FC<PieceCounterCameraProps> = ({ onClose, onConf
         {/* Error */}
         {phase === 'error' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-20 p-6">
-            <p className="text-5xl mb-4">⚠️</p>
             <p className="text-slate-300 text-sm text-center mb-6">{errorMsg}</p>
             <div className="flex gap-3">
-              <button onClick={handleRetry} className="px-6 py-3 bg-cyan-600 text-white rounded-xl font-bold hover:bg-cyan-500">🔄 Reintentar</button>
+              <button onClick={handleRetry} className="px-6 py-3 bg-cyan-600 text-white rounded-xl font-bold hover:bg-cyan-500">Reintentar</button>
               <button onClick={handleClose} className="px-6 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-500">Cerrar</button>
             </div>
           </div>
@@ -380,8 +380,9 @@ const PieceCounterCamera: React.FC<PieceCounterCameraProps> = ({ onClose, onConf
                 thicknessValid ? 'bg-white' : 'bg-white/30 cursor-not-allowed'
               }`}
               title="Hacer foto y contar"
+              aria-label="Hacer foto y contar"
             >
-              <span className="text-3xl">📸</span>
+              <Camera className="w-8 h-8 text-slate-900" aria-hidden />
             </button>
             <div className="w-14 h-14" />
           </>
@@ -390,11 +391,11 @@ const PieceCounterCamera: React.FC<PieceCounterCameraProps> = ({ onClose, onConf
           <>
             <button onClick={handleRetry}
               className="flex-1 max-w-[140px] py-3 bg-slate-700 text-white rounded-xl font-bold hover:bg-slate-600 text-sm">
-              🔄 Otra foto
+              Otra foto
             </button>
             <button onClick={handleConfirm}
               className="flex-1 max-w-[200px] py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-500 text-sm">
-              ✅ Hecho
+              Hecho
             </button>
           </>
         )}

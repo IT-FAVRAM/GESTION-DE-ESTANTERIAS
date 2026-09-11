@@ -7,6 +7,7 @@
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { Flashlight, FlashlightOff } from 'lucide-react';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 
 interface CameraQRScannerProps {
@@ -163,7 +164,7 @@ const CameraQRScanner: React.FC<CameraQRScannerProps> = ({ onScan, onError, onCl
           )}
           {state === 'success' && (
             <p className="text-emerald-400 text-sm font-bold flex items-center gap-2">
-              ✅ Código detectado
+              Código detectado
             </p>
           )}
         </div>
@@ -256,7 +257,6 @@ const CameraQRScanner: React.FC<CameraQRScannerProps> = ({ onScan, onError, onCl
         {/* Error overlay */}
         {state === 'error' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-20 p-6">
-            <p className="text-5xl mb-4">📷</p>
             <p className="text-red-400 font-bold text-lg mb-2 text-center">Sin acceso a la cámara</p>
             <p className="text-slate-400 text-sm text-center mb-6">{errorMsg}</p>
             <button
@@ -285,7 +285,7 @@ const CameraQRScanner: React.FC<CameraQRScannerProps> = ({ onScan, onError, onCl
           `}
           title={torchOn ? 'Apagar linterna' : 'Encender linterna'}
         >
-          {torchOn ? '🔦' : '🔦'}
+          {torchOn ? <FlashlightOff className="w-6 h-6" aria-hidden /> : <Flashlight className="w-6 h-6" aria-hidden />}
         </button>
 
         {/* Hint text */}

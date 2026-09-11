@@ -68,7 +68,7 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
               onClick={() => onSelect('barcode')}
               className="w-full rounded-xl border-2 border-blue-300 hover:border-blue-600 bg-blue-50 px-4 py-3 text-left transition-colors shadow-sm hover:shadow-md"
             >
-              <span className="font-bold text-blue-900">📷 Escanear código (QR / barras)</span>
+              <span className="font-bold text-blue-900">Escanear código (QR / barras)</span>
               <span className="block text-xs text-blue-700/80 mt-0.5">
                 Lee el código con la cámara o la pistola (Artículo + OF)
               </span>
@@ -81,7 +81,7 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
             onClick={() => onSelect('ocr')}
             className="w-full rounded-xl border-2 border-purple-200 hover:border-purple-500 bg-purple-50 px-4 py-3 text-left transition-colors"
           >
-            <span className="font-bold text-purple-900">📸 OCR con cámara</span>
+            <span className="font-bold text-purple-900">OCR con cámara</span>
             <span className="block text-xs text-purple-700/80 mt-0.5">
               Lee etiquetas automáticamente (alternativa)
             </span>
@@ -93,7 +93,7 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
             onClick={() => onSelect('manual')}
             className="w-full rounded-xl border-2 border-slate-200 hover:border-slate-400 bg-white px-4 py-3 text-left transition-colors"
           >
-            <span className="font-bold text-slate-800">⌨️ Escribir manualmente</span>
+            <span className="font-bold text-slate-800">Escribir manualmente</span>
             <span className="block text-xs text-slate-500 mt-0.5">
               Introduce el código del artículo a mano
             </span>
@@ -106,7 +106,7 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
               onClick={onSelectList}
               className="w-full rounded-xl border-2 border-amber-200 hover:border-amber-500 bg-amber-50 px-4 py-3 text-left transition-colors"
             >
-              <span className="font-bold text-amber-900">📋 Seleccionar de lista</span>
+              <span className="font-bold text-amber-900">Seleccionar de lista</span>
               <span className="block text-xs text-amber-700/80 mt-0.5">
                 Elige el artículo entre los ya ubicados en la estantería
               </span>
@@ -120,7 +120,7 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
               onClick={onBatch}
               className="w-full rounded-xl border-2 border-cyan-200 hover:border-cyan-500 bg-cyan-50 px-4 py-3 text-left transition-colors"
             >
-              <span className="font-bold text-cyan-900">📚 Varios artículos (lote)</span>
+              <span className="font-bold text-cyan-900">Varios artículos (lote)</span>
               <span className="block text-xs text-cyan-700/80 mt-0.5">
                 Escanéalos uno tras otro y ubícalos juntos en las mismas posiciones
               </span>
@@ -134,7 +134,7 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
               onClick={onSubcontratacion}
               className="w-full rounded-xl border-2 border-orange-300 hover:border-orange-500 bg-orange-50 px-4 py-3 text-left transition-colors"
             >
-              <span className="font-bold text-orange-900">🏭 Subcontratación</span>
+              <span className="font-bold text-orange-900">Subcontratación</span>
               <span className="block text-xs text-orange-700/80 mt-0.5">
                 Foto de la etiqueta (lee el código amarillo) o escríbelo a mano
               </span>
@@ -145,7 +145,7 @@ const ScanMethodPicker: React.FC<ScanMethodPickerProps> = ({
         {/* Información */}
         <div className="px-4 py-3 bg-slate-50 border-t border-slate-100">
           <p className="text-xs text-slate-600">
-            💡 <strong>Tip:</strong>{' '}
+            <strong>Tip:</strong>{' '}
             {FEATURE_CAMERA_QR_SCAN
               ? 'Usa el QR para la mejor precisión'
               : 'Escribe el nº de OF y el artículo se rellena solo'}

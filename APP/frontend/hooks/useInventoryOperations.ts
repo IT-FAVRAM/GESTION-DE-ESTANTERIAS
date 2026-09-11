@@ -37,7 +37,7 @@ export const useInventoryOperations = (
             sendSystemAlert({
                 targetRole: 'CARRETILLERO',
                 type: 'request_material', // Reusing type or new 'finished_material'
-                title: '✅ Material Terminado',
+                title: 'Material Terminado',
                 message: `El artículo ${barcode} (OF: ${orderId}) en ${location} ha sido finalizado. Retirar y ubicar.`,
                 metadata: { barcode, location, orderId, type: 'finished' }
             });
@@ -106,8 +106,8 @@ export const useInventoryOperations = (
                 sendSystemAlert({
                     targetRole: 'JEFE',
                     type: 'urgent_placement',
-                    title: '🚨 Material Urgente Ubicado',
-                    message: `📦 Un artículo urgente (${barcode}) ha sido colocado en ${urgentLocation}. Revisión prioritaria requerida.`,
+                    title: 'Material Urgente Ubicado',
+                    message: `Un artículo urgente (${barcode}) ha sido colocado en ${urgentLocation}. Revisión prioritaria requerida.`,
                     metadata: { barcode, location: urgentLocation }
                 });
             }
@@ -225,13 +225,13 @@ export const useInventoryOperations = (
 
         if (sendSystemAlert) {
             const locText = fromLocation ? `desde ${fromLocation}` : 'para recogida';
-            const urgencyPrefix = priority === 'high' ? '🚨 URGENTE: ' : '🚚 ';
+            const urgencyPrefix = priority === 'high' ? 'URGENTE: ' : '';
 
             sendSystemAlert({
                 targetRole: 'CARRETILLERO',
                 type: 'request_material',
                 title: `${urgencyPrefix}Nueva Solicitud de Material`,
-                message: `🛠 Se ha solicitado el artículo ${barcode} (OF: ${orderId}) ${locText}. Preparar para traslado.`,
+                message: `Se ha solicitado el artículo ${barcode} (OF: ${orderId}) ${locText}. Preparar para traslado.`,
                 metadata: { barcode, location: fromLocation, priority }
             });
         }
@@ -299,8 +299,8 @@ export const useInventoryOperations = (
                 sendSystemAlert({
                     targetRole: 'JEFE',
                     type: 'urgent_placement',
-                    title: '🚨 Material Movido a Urgente',
-                    message: `📦 El artículo ${barcode} ha sido movido a ${toLocation} (Zona Urgente).`,
+                    title: 'Material Movido a Urgente',
+                    message: `El artículo ${barcode} ha sido movido a ${toLocation} (Zona Urgente).`,
                     metadata: { barcode, location: toLocation }
                 });
             }

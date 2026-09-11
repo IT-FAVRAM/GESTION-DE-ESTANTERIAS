@@ -123,7 +123,7 @@ const RetirarCellModal: React.FC<RetirarCellModalProps> = ({
               className="w-full px-3 py-2 rounded-xl border border-dashed border-slate-600 text-xs font-bold text-slate-400
                 hover:border-slate-400 hover:text-slate-200 transition-colors"
             >
-              {selectedKeys.size === items.length ? '— Deseleccionar todos' : '✅ Seleccionar todos'}
+              {selectedKeys.size === items.length ? '— Deseleccionar todos' : 'Seleccionar todos'}
             </button>
           )}
 
@@ -198,7 +198,7 @@ const RetirarCellModal: React.FC<RetirarCellModalProps> = ({
                 Retirando...
               </span>
             ) : (
-              `📤 RETIRAR ${selectedKeys.size} artículo(s)`
+              `RETIRAR ${selectedKeys.size} artículo(s)`
             )}
           </button>
           <button

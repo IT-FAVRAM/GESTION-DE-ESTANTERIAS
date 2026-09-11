@@ -161,7 +161,7 @@ export const useChatSystem = (currentUserUid: string | undefined, currentUserRol
             participantRoles: {
                 [currentUserUid]: currentUserRole
             },
-            lastMessage: '📢 Canal de Anuncios creado',
+            lastMessage: 'Canal de Anuncios creado',
             lastMessageAt: new Date().toISOString(),
             unreadCount: {}, // Unread count logic is harder for broadcast unless we list everyone
             archivedBy: [],
@@ -213,7 +213,7 @@ export const useChatSystem = (currentUserUid: string | undefined, currentUserRol
         // Or we could dynamically add unread count for known users, but that's expensive.
 
         batch.update(chatRef, {
-            lastMessage: type === 'article_alert' ? '📦 Alerta de Artículo' : text,
+            lastMessage: type === 'article_alert' ? 'Alerta de Artículo' : text,
             lastMessageAt: now,
             unreadCount: newUnreadCounts,
             deletedFor: [] // Revivir chat si estaba borrado

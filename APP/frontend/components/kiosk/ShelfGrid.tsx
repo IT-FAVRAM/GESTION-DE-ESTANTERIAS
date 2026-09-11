@@ -92,7 +92,7 @@ const SectionHeader = React.memo(({
     subtitleCls = 'text-red-600/80';
     statsCls = 'text-red-700';
     badgeEl = (
-      <span className="flex items-center gap-1 px-2 py-0.5 text-[9px] font-black bg-red-600 text-white border border-red-700 rounded-md uppercase tracking-widest">
+      <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-black bg-red-600 text-white border border-red-700 rounded-md uppercase tracking-widest">
         <span className="w-1.5 h-1.5 rounded-full bg-red-200 animate-pulse" />
         URG
       </span>
@@ -106,7 +106,7 @@ const SectionHeader = React.memo(({
     subtitleCls = 'text-amber-600/80';
     statsCls = 'text-amber-700';
     badgeEl = (
-      <span className="px-2 py-0.5 text-[9px] font-black bg-amber-600 text-white border border-amber-700 rounded-md uppercase tracking-widest">
+      <span className="px-2 py-0.5 text-[10px] font-black bg-amber-600 text-white border border-amber-700 rounded-md uppercase tracking-widest">
         VER. TÉC.
       </span>
     );
@@ -119,7 +119,7 @@ const SectionHeader = React.memo(({
     subtitleCls = 'text-amber-600/80';
     statsCls = 'text-amber-700';
     badgeEl = (
-      <span className="px-2 py-0.5 text-[9px] font-black bg-amber-600 text-white border border-amber-700 rounded-md uppercase tracking-widest">
+      <span className="px-2 py-0.5 text-[10px] font-black bg-amber-600 text-white border border-amber-700 rounded-md uppercase tracking-widest">
         ALU
       </span>
     );
@@ -135,9 +135,9 @@ const SectionHeader = React.memo(({
 
       <div className="flex-1 min-w-0 text-left">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className={`text-sm font-black tracking-tight font-mono ${titleCls}`}>{title}</span>
+          <span className={`text-base font-black tracking-tight font-mono ${titleCls}`}>{title}</span>
           {subtitle && (
-            <span className={`text-[11px] font-mono ${subtitleCls}`}>{subtitle}</span>
+            <span className={`text-xs font-mono ${subtitleCls}`}>{subtitle}</span>
           )}
           {badgeEl}
         </div>
@@ -148,14 +148,14 @@ const SectionHeader = React.memo(({
               style={{ width: `${pct}%` }}
             />
           </div>
-          <span className={`text-[10px] font-mono tabular-nums ${statsCls}`}>
-            {occupiedCount}/{totalCount} · {totalArticles} art.
+          <span className={`text-xs font-semibold font-mono tabular-nums ${statsCls}`}>
+            {occupiedCount}/{totalCount} huecos · {totalArticles} art.
           </span>
         </div>
       </div>
 
       <svg
-        className={`w-4 h-4 shrink-0 transition-transform duration-300 ${chevronCls} ${isCollapsed ? '-rotate-90' : 'rotate-0'}`}
+        className={`w-5 h-5 shrink-0 transition-transform duration-300 ${chevronCls} ${isCollapsed ? '-rotate-90' : 'rotate-0'}`}
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -202,16 +202,16 @@ const MobileBlockNav = React.memo(({ blocks, activeIdx, onSelect, alwaysShow = f
         aria-label="Bloque anterior"
         onClick={() => onSelect(Math.max(0, activeIdx - 1))}
         disabled={activeIdx === 0}
-        className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-500 disabled:opacity-25 hover:bg-sky-50 hover:border-sky-200 hover:text-sky-600 transition-colors shrink-0"
+        className="h-10 w-10 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-600 disabled:opacity-25 hover:bg-sky-50 hover:border-sky-200 hover:text-sky-600 transition-colors shrink-0"
       >
-        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
         </svg>
       </button>
 
       <div className="flex items-center gap-2 flex-1 min-w-0 px-1">
-        <span className="text-xs font-black font-mono text-slate-700 truncate leading-none">{blocks[activeIdx]?.title}</span>
-        <span className="text-[10px] font-mono text-slate-400 shrink-0 tabular-nums">{activeIdx + 1}/{count}</span>
+        <span className="text-sm font-black font-mono text-slate-800 truncate leading-none">{blocks[activeIdx]?.title}</span>
+        <span className="text-xs font-bold font-mono text-slate-500 shrink-0 tabular-nums">{activeIdx + 1}/{count}</span>
       </div>
 
       <div className="flex items-center shrink-0">
@@ -241,9 +241,9 @@ const MobileBlockNav = React.memo(({ blocks, activeIdx, onSelect, alwaysShow = f
         aria-label="Bloque siguiente"
         onClick={() => onSelect(Math.min(count - 1, activeIdx + 1))}
         disabled={activeIdx === count - 1}
-        className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-500 disabled:opacity-25 hover:bg-sky-50 hover:border-sky-200 hover:text-sky-600 transition-colors shrink-0"
+        className="h-10 w-10 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-600 disabled:opacity-25 hover:bg-sky-50 hover:border-sky-200 hover:text-sky-600 transition-colors shrink-0"
       >
-        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
         </svg>
       </button>
@@ -596,15 +596,15 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
              />
            </div>
 
-           <div className="hidden sm:block mb-5 rounded-2xl border border-slate-700/80 bg-slate-900/90 px-4 py-3 shadow-[0_14px_40px_rgba(15,23,42,0.25)]">
+           <div className="hidden sm:block mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
              <div className="flex items-center gap-3">
-               <div className="flex-1 h-2 bg-slate-950/80 rounded-full overflow-hidden min-w-[80px]">
+               <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden min-w-[80px]">
                  <div
                    className="h-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-sky-500 rounded-full transition-all duration-700"
                    style={{ width: `${pct}%` }}
                  />
                </div>
-               <span className="text-[11px] font-mono text-slate-100 tabular-nums shrink-0">
+               <span className="text-xs font-bold text-slate-600 tabular-nums shrink-0">
                  {occupiedSlots}/{totalSlots} ocupadas · {totalArticles} artículos · {pct}%
                </span>
              </div>

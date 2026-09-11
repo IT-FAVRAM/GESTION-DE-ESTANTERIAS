@@ -76,7 +76,7 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
       const coverWs = wb.addWorksheet('PORTADA');
       
 
-      const coverTitle = coverWs.addRow(['🏭 GESTOR DE ESTANTERÍAS']);
+      const coverTitle = coverWs.addRow(['GESTOR DE ESTANTERÍAS']);
       coverTitle.font = { bold: true, size: 24, color: { argb: colors.white }, name: 'Calibri' };
       coverTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.darkBlue } };
       coverTitle.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -89,10 +89,10 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
       coverWs.getRow(2).height = 30;
 
       coverWs.addRow(['']);
-      coverWs.addRow([`📅 Generado: ${dateStr}`]).font = { size: 11, color: { argb: colors.cyan }, bold: true };
+      coverWs.addRow([`Generado: ${dateStr}`]).font = { size: 11, color: { argb: colors.cyan }, bold: true };
 
       coverWs.addRow(['']);
-      const insHeader = coverWs.addRow(['📋 INSTRUCCIONES DE USO']);
+      const insHeader = coverWs.addRow(['INSTRUCCIONES DE USO']);
       insHeader.font = { size: 12, bold: true, color: { argb: colors.darkBlue } };
 
       coverWs.addRow(['']);
@@ -101,7 +101,7 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
       coverWs.addRow(['✓ Hoja "RESUMEN": Estadísticas ejecutivas y KPIs principales']);
 
       coverWs.addRow(['']);
-      const importHeader = coverWs.addRow(['📥 PARA IMPORTAR DATOS PERDIDOS:']);
+      const importHeader = coverWs.addRow(['PARA IMPORTAR DATOS PERDIDOS:']);
       importHeader.font = { size: 12, bold: true, color: { argb: colors.darkBlue } };
 
       coverWs.addRow(['']);
@@ -194,10 +194,10 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
       });
 
       const metrics = [
-        ['📦 Total de Artículos', totalArticles, 'Cantidad total de piezas almacenadas'],
-        ['🏭 Órdenes de Fabricación', allOFs.size, 'OFs únicas en el sistema'],
-        ['📍 Estanterías', SHELF_DEFINITIONS.length, 'Zonas de almacenamiento'],
-        ['📅 Generado', dateStr, 'Fecha y hora de exportación'],
+        ['Total de Artículos', totalArticles, 'Cantidad total de piezas almacenadas'],
+        ['Órdenes de Fabricación', allOFs.size, 'OFs únicas en el sistema'],
+        ['Estanterías', SHELF_DEFINITIONS.length, 'Zonas de almacenamiento'],
+        ['Generado', dateStr, 'Fecha y hora de exportación'],
       ];
 
       metrics.forEach((metric, idx) => {
@@ -276,7 +276,7 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
       for (const [section, sectionItems] of itemsBySection) {
         const sectionWs = wb.addWorksheet(section.substring(0, 31), { properties: { tabColor: { argb: colors.cyan } } });
 
-        const secTitle = sectionWs.addRow([`📍 SECCIÓN: ${section.toUpperCase()}`]);
+        const secTitle = sectionWs.addRow([`SECCIÓN: ${section.toUpperCase()}`]);
         secTitle.font = { bold: true, size: 14, color: { argb: colors.white }, name: 'Calibri' };
         secTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.cyan } };
         secTitle.alignment = { horizontal: 'left', vertical: 'middle' };
@@ -334,7 +334,7 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
       a.click();
       window.URL.revokeObjectURL(url);
 
-      setProgress('✅ Completado');
+      setProgress('Completado');
       showMessage('success', `Excel exportado: ${filename}`);
       setTimeout(() => setProgress(''), 2000);
     } catch (err: any) {
@@ -480,8 +480,8 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
           setProgress(`Guardando... ${processedCount}/${allUpdates.length}`);
         }
 
-        setProgress(`✅ ${allUpdates.length} posiciones actualizadas`);
-        showMessage('success', `✅ Importación OK: ${totalArticles} artículos en ${totalShelfPositions} posiciones${skipped > 0 ? ` (${skipped} inválidos)` : ''}`);
+        setProgress(`${allUpdates.length} posiciones actualizadas`);
+        showMessage('success', `Importación OK: ${totalArticles} artículos en ${totalShelfPositions} posiciones${skipped > 0 ? ` (${skipped} inválidos)` : ''}`);
       } catch (err: any) {
         console.error('Import error:', err);
         showMessage('error', `Error: ${err.message}`);
@@ -498,7 +498,7 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
     <section className="overflow-hidden rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-950/40 to-slate-900 p-6 shadow-lg">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="max-w-2xl">
-          <h3 className="text-2xl font-black text-white">📊 Importar / Exportar Inventario</h3>
+          <h3 className="text-2xl font-black text-white">Importar / Exportar Inventario</h3>
           <p className="mt-2 text-sm leading-relaxed text-slate-300">
             Genera un Excel profesional con tablas filtradas, colores corporativos y bordes sofisticados. Importa el mismo archivo para recuperar datos.
           </p>
@@ -511,7 +511,7 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
             disabled={exporting}
             className="shrink-0 rounded-2xl px-6 py-4 text-base font-black transition active:scale-[0.98] bg-emerald-500 text-slate-950 shadow-lg hover:bg-emerald-400 disabled:bg-slate-700 disabled:text-slate-300"
           >
-            {exporting ? `⏳ ${progress}` : '📥 Exportar Excel'}
+            {exporting ? `${progress}` : 'Exportar Excel'}
           </button>
 
           <button
@@ -520,7 +520,7 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
             disabled={importing}
             className="shrink-0 rounded-2xl px-6 py-4 text-base font-black transition active:scale-[0.98] bg-blue-600 text-white shadow-lg hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-300"
           >
-            {importing ? `⏳ ${progress}` : '📤 Importar Excel'}
+            {importing ? `${progress}` : 'Importar Excel'}
           </button>
 
           <input ref={fileInputRef} type="file" accept=".xlsx,.xls" onChange={handleImport} className="hidden" />
@@ -537,12 +537,12 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
 
       {showInstructions && (
         <div className="mt-4 rounded-xl border border-cyan-500/30 bg-cyan-950/30 p-4 text-sm text-slate-200">
-          <p className="font-bold text-cyan-300">📋 Cómo usar:</p>
+          <p className="font-bold text-cyan-300">Cómo usar:</p>
           <ul className="mt-2 space-y-1 text-xs leading-relaxed">
             <li>✓ <strong>Exportar:</strong> Descarga un Excel con tablas filtradas, colores y bordes profesionales</li>
             <li>✓ <strong>Importar:</strong> Carga el Excel para recuperar datos en caso de pérdida</li>
             <li>✓ <strong>Editar:</strong> Modifica datos en la hoja "INVENTARIO_GLOBAL" y reimporta</li>
-            <li>⚠️ <strong>NO modifiques:</strong> Encabezados de columnas ni nombres de hojas</li>
+            <li><strong>NO modifiques:</strong> Encabezados de columnas ni nombres de hojas</li>
           </ul>
         </div>
       )}

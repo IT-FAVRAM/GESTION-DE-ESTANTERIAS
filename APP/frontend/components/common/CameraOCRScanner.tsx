@@ -11,6 +11,7 @@
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { Camera } from 'lucide-react';
 import { createWorker } from 'tesseract.js';
 import { generateOcrVariants, cropHalfCanvas, preprocessSingleLine, measureSharpnessLive, waitForVideoReady } from '../../lib/ocrPreprocess';
 import { parseScanInputLenient, parseScanFromLines, parseHojaDeRuta } from '../../lib/qrParser';
@@ -463,7 +464,7 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
           )}
           {phase === 'review' && (
             <p className="text-emerald-400 text-sm font-bold">
-              ✅ Texto detectado
+              Texto detectado
               {ocrConfidence > 0 && (
                 <span className={`ml-2 text-xs font-bold ${ocrConfidence >= CONFIDENCE_THRESHOLD ? 'text-emerald-400' : 'text-amber-400'}`}>
                   ({ocrConfidence}% confianza)
@@ -471,7 +472,7 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
               )}
             </p>
           )}
-          {phase === 'error' && <p className="text-red-400 text-sm font-bold">❌ Error</p>}
+          {phase === 'error' && <p className="text-red-400 text-sm font-bold">Error</p>}
         </div>
         <button
           onClick={handleClose}
@@ -579,7 +580,7 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
                       ? 'bg-amber-500/20 text-amber-400'
                       : 'bg-red-500/20 text-red-400'
                   }`}>
-                    {ocrConfidence >= CONFIDENCE_THRESHOLD ? '✓' : '⚠'} {ocrConfidence}%
+                    {ocrConfidence >= CONFIDENCE_THRESHOLD ? '✓' : ''} {ocrConfidence}%
                   </span>
                 )}
               </div>
@@ -609,7 +610,7 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
                     />
                   </div>
                   {fieldOF.trim() && !/^OF\d{2}-\d{3,}$/i.test(fieldOF.trim()) && (
-                    <p className="text-amber-400 text-xs">⚠ La OF no tiene el formato habitual OFxx-nnnnn — revísala.</p>
+                    <p className="text-amber-400 text-xs">La OF no tiene el formato habitual OFxx-nnnnn — revísala.</p>
                   )}
                   {rawOcrText && (
                     <details className="text-slate-500 text-xs">
@@ -634,7 +635,7 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
                     <p className="text-amber-400 text-xs mt-2">No se detectó texto. Intenta acercar la etiqueta y evitar reflejos.</p>
                   )}
                   {ocrText.trim() && ocrConfidence > 0 && ocrConfidence < 45 && (
-                    <p className="text-amber-400 text-xs mt-2">⚠ Confianza baja ({ocrConfidence}%) — verifica el texto antes de confirmar.</p>
+                    <p className="text-amber-400 text-xs mt-2">Confianza baja ({ocrConfidence}%) — verifica el texto antes de confirmar.</p>
                   )}
                 </>
               )}
@@ -645,7 +646,6 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
         {/* Error */}
         {phase === 'error' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-20 p-6">
-            <p className="text-5xl mb-4">⚠️</p>
             <p className="text-red-400 font-bold text-lg mb-2 text-center">
               {errorMsg?.includes('cámara') || errorMsg?.includes('permisos') || errorMsg?.includes('permitida')
                 ? 'Sin acceso a la cámara'
@@ -655,7 +655,7 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
             <div className="flex gap-3">
               {!errorMsg?.includes('cámara') && !errorMsg?.includes('permisos') && !errorMsg?.includes('permitida') && (
                 <button onClick={handleRetry} className="px-6 py-3 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-500">
-                  🔄 Reintentar
+                  Reintentar
                 </button>
               )}
               <button onClick={handleClose} className="px-6 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-500">Cerrar</button>
@@ -685,8 +685,9 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
                   : 'bg-white/30 cursor-not-allowed'
               }`}
               title="Capturar etiqueta"
+              aria-label="Capturar etiqueta"
             >
-              <span className="text-3xl">📸</span>
+              <Camera className="w-8 h-8 text-slate-900" aria-hidden />
             </button>
             <div className="w-14 h-14" />
           </>
@@ -698,13 +699,13 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
           <>
             <button onClick={handleRetry}
               className="flex-1 max-w-[140px] py-3 bg-slate-700 text-white rounded-xl font-bold hover:bg-slate-600 transition-colors text-sm">
-              🔄 Reintentar
+              Reintentar
             </button>
             <button onClick={handleConfirm} disabled={!canConfirm}
               className={`flex-1 max-w-[200px] py-3 rounded-xl font-bold transition-colors text-sm ${
                 canConfirm ? 'bg-emerald-600 text-white hover:bg-emerald-500' : 'bg-slate-700 text-slate-500 cursor-not-allowed'
               }`}>
-              {parsedOk ? '✅ Confirmar datos' : '✅ Confirmar texto'}
+              {parsedOk ? 'Confirmar datos' : 'Confirmar texto'}
             </button>
           </>
         )}
@@ -718,10 +719,10 @@ const CameraOCRScanner: React.FC<CameraOCRScannerProps> = ({ onResult, onError, 
           <div className="bg-black/70 px-4 py-1.5 rounded-full">
             <p className="text-slate-300 text-xs">
               {sharpness >= 55
-                ? '✅ Buena nitidez — puedes capturar'
+                ? 'Buena nitidez — puedes capturar'
                 : sharpness >= 30
-                ? '📷 Acerca un poco más la etiqueta'
-                : '⚠️ Imagen borrosa — mantén el móvil estable'}
+                ? 'Acerca un poco más la etiqueta'
+                : 'Imagen borrosa — mantén el móvil estable'}
             </p>
           </div>
         </div>

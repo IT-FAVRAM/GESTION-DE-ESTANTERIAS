@@ -27,7 +27,6 @@ const KioskHeader: React.FC<KioskHeaderProps> = ({
 }) => (
   <AppHeader
     title={shelfName || shelfCode}
-    subtitle={displayName || undefined}
     center={actionButtons}
     onInfo={onInfo}
     onLogout={() => onLogout()}

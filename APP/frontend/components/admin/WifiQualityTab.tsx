@@ -9,7 +9,9 @@ import {
   getDocs,
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
+import DeviceTypeIcon from './DeviceTypeIcon';
 import { COLLECTIONS } from '../../lib/schema/collections';
+import { formatDecimal } from '../../lib/numberFormat';
 import type {
   DeviceConnectionStatus,
   NetworkQualitySnapshot,
@@ -35,12 +37,6 @@ const qualityBg = (score: number): string => {
   return 'bg-red-500/10 border-red-500/20';
 };
 
-const deviceTypeIcon: Record<string, string> = {
-  KIOSK: '📟',
-  CARRETILLERO: '🔧',
-  ADMIN: '💻',
-  UNKNOWN: '❓',
-};
 
 const effectiveTypeLabel: Record<string, string> = {
   'slow-2g': '2G lento',
@@ -83,7 +79,7 @@ const QualityRing: React.FC<{ score: number; size?: number }> = ({ score, size =
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className={`text-lg font-black ${qualityColor(score)}`}>{score}</span>
-        <span className="text-[9px] text-slate-500 -mt-0.5">/100</span>
+        <span className="text-[10px] text-slate-500 -mt-0.5">/100</span>
       </div>
     </div>
   );
@@ -132,7 +128,7 @@ const DeviceQualityCard: React.FC<{
     <div className={`rounded-2xl border p-4 ${score !== null ? qualityBg(score) : 'border-slate-800 bg-slate-900'}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="text-2xl">{deviceTypeIcon[device.deviceType] || '❓'}</span>
+          <DeviceTypeIcon type={device.deviceType} className="w-7 h-7" />
           <div>
             <p className="font-bold text-white text-sm">{device.deviceName}</p>
             <span className="text-[11px] text-slate-500 uppercase tracking-wide">
@@ -147,7 +143,7 @@ const DeviceQualityCard: React.FC<{
         <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
           <div className="bg-slate-800/50 rounded-lg px-3 py-2">
             <p className="text-slate-500">Ancho de banda</p>
-            <p className="font-bold text-white">{stats.avgBandwidthMbps.toFixed(1)} Mbps</p>
+            <p className="font-bold text-white">{formatDecimal(stats.avgBandwidthMbps, 1)} Mbps</p>
           </div>
           <div className="bg-slate-800/50 rounded-lg px-3 py-2">
             <p className="text-slate-500">Latencia</p>
@@ -155,7 +151,7 @@ const DeviceQualityCard: React.FC<{
           </div>
           <div className="bg-slate-800/50 rounded-lg px-3 py-2">
             <p className="text-slate-500">Descarga real</p>
-            <p className="font-bold text-white">{stats.avgDownloadSpeedMbps.toFixed(1)} Mbps</p>
+            <p className="font-bold text-white">{formatDecimal(stats.avgDownloadSpeedMbps, 1)} Mbps</p>
           </div>
           <div className="bg-slate-800/50 rounded-lg px-3 py-2">
             <p className="text-slate-500">Muestras</p>
@@ -312,7 +308,6 @@ const WifiQualityTab: React.FC = () => {
         </div>
       ) : devices.length === 0 ? (
         <div className="rounded-3xl border border-slate-800 bg-slate-900 p-12 text-center">
-          <p className="text-4xl mb-4">📡</p>
           <h3 className="text-lg font-bold text-white mb-2">Sin dispositivos</h3>
           <p className="text-sm text-slate-400">No hay dispositivos registrados.</p>
         </div>

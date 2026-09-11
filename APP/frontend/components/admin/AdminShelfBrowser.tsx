@@ -7,6 +7,7 @@
  */
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { ArrowLeftRight, Package, PackageMinus, Shuffle } from 'lucide-react';
 import { useShelf } from '../../hooks/useShelf';
 import { useAuth } from '../../hooks/useAuth';
 import { usePickupQueue } from '../../hooks/usePickupQueue';
@@ -54,7 +55,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'info'; msg: string } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
   const [confirmModal, setConfirmModal] = useState<{
-    open: boolean; title: string; message: string; icon: string;
+    open: boolean; title: string; message: string; icon?: string;
     variant: 'success' | 'danger' | 'warning' | 'info';
     onConfirm: () => void;
     extraButton?: { text: string; onClick: () => void };
@@ -146,7 +147,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
     if (result.success) {
       setArticleInput(result.data.articleCode);
       setOfInput(result.data.orderFab);
-      showFeedback('success', `✅ ${result.data.articleCode} ${result.data.orderFab}`);
+      showFeedback('success', `${result.data.articleCode} ${result.data.orderFab}`);
     } else {
       showFeedback('error', 'error' in result ? result.error : 'No se reconoció el código');
     }
@@ -185,7 +186,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
     setArticleInput(art);
     setOfInput(of);
     closeManualEntry();
-    showFeedback('success', `✅ ${art}${of ? ` · ${of}` : ''}`);
+    showFeedback('success', `${art}${of ? ` · ${of}` : ''}`);
   };
 
   const handleManualOfFocus = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -227,7 +228,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
   const handleAvisarCarretilleroPicked = useCallback((c: CarretilleroOption) => {
     setShowCarretilleroPicker(false);
     setConfirmModal({
-      open: true, title: 'Avisar al Carretillero', icon: '🚚', variant: 'warning',
+      open: true, title: 'Avisar al Carretillero', variant: 'warning',
       message: `Se enviará una solicitud de recogida a ${c.name} en ${SHELF_DEFINITIONS.find(s => s.code === selectedShelf)?.name || selectedShelf}`,
       confirmText: 'LLEVAR — que me se lleven un artículo',
       onConfirm: async () => {
@@ -238,7 +239,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
           targetCarretilleroId: c.uid, targetCarretilleroName: c.name,
         });
         setProcessing(false);
-        showFeedback(ok ? 'success' : 'error', ok ? '✅ Aviso enviado al carretillero' : 'Error al enviar el aviso');
+        showFeedback(ok ? 'success' : 'error', ok ? 'Aviso enviado al carretillero' : 'Error al enviar el aviso');
       },
     });
   }, [selectedShelf, effectiveOperarioId, displayName, createPickupRequest, showFeedback]);
@@ -253,7 +254,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
     }
     setProcessing(false);
     if (successCount === selectedItems.length)
-      showFeedback('success', `✅ ${selectedItems.length} artículo${selectedItems.length !== 1 ? 's' : ''} retirado${selectedItems.length !== 1 ? 's' : ''} de ${selectedShelf}`);
+      showFeedback('success', `${selectedItems.length} artículo${selectedItems.length !== 1 ? 's' : ''} retirado${selectedItems.length !== 1 ? 's' : ''} de ${selectedShelf}`);
     else
       showFeedback('error', `Parcial: ${successCount}/${selectedItems.length} retirados`);
     resetAction();
@@ -269,7 +270,6 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
         open: true,
         title: '¿Cuántos artículos vas a ubicar?',
         message: '¿Vas a ubicar varios artículos en la MISMA posición o posiciones?',
-        icon: '📦',
         variant: 'info',
         confirmText: 'Solo UNO',
         onConfirm: async () => {
@@ -300,11 +300,10 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
               .join('\n');
             setConfirmModal({
               open: true,
-              title: '📦 Ya está ubicado',
+              title: 'Ya está ubicado',
               message: `${formatArticleDisplay(article, of)} ya está en:\n${locationText}`,
-              icon: '📦',
               variant: 'warning',
-              confirmText: '➕ Añadir en un sitio nuevo',
+              confirmText: 'Añadir en un sitio nuevo',
               onConfirm: () => setConfirmModal((p) => ({ ...p, open: false })),
               extraButton: {
                 text: 'Cancelar',
@@ -348,14 +347,14 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
       const articleCode = article;
       const orderFab = of;
       setConfirmModal({
-        open: true, title: 'Enviar a Almacén', icon: '🏭', variant: 'warning',
+        open: true, title: 'Enviar a Almacén', variant: 'warning',
         message: `¿Enviar ${formatArticleDisplay(articleCode, orderFab)} a almacén?\nSe retirará de TODAS las estanterías donde esté ubicado.`,
         onConfirm: async () => {
           setProcessing(true); setConfirmModal(p => ({ ...p, open: false }));
           try {
             const fn = httpsCallable(functions, 'shelfOperate');
             await fn({ op: 'enviarAlmacen', payload: { articleCode, orderFab, shelfCode: selectedShelf }, session: { operarioId: effectiveOperarioId, operarioName: displayName } });
-            showFeedback('success', '✅ Enviado a almacén');
+            showFeedback('success', 'Enviado a almacén');
           } catch { showFeedback('error', 'Error al enviar a almacén'); }
           setProcessing(false); resetAction();
         },
@@ -376,7 +375,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
     const ok = await mover(source.articleCode, source.orderFab, [newPosition], effectiveOperarioId, displayName);
     setProcessing(false);
     if (ok) {
-      showFeedback('success', `✅ ${source.articleCode} movido de ${source.position} a ${newPosition}`);
+      showFeedback('success', `${source.articleCode} movido de ${source.position} a ${newPosition}`);
       setReubicarSource(null);
       setAction('idle');
     } else {
@@ -414,7 +413,6 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
       open: true,
       title: 'Mover artículo',
       message: `¿Mover ${formatArticleDisplay(src.articleCode, src.orderFab)} de pos. ${parseInt(src.position, 10)} a pos. ${parseInt(targetPosition, 10)}?`,
-      icon: '🔁',
       variant: 'info',
       onConfirm: async () => {
         setConfirmModal((p) => ({ ...p, open: false }));
@@ -454,7 +452,6 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
       open: true,
       title: 'Mover a otra sección',
       message: `¿Mover ${formatArticleDisplay(article, of)} de ${shelfDef?.name || selectedShelf} → ${destShelfName} pos. ${parseInt(destPos, 10)}?`,
-      icon: '🚀',
       variant: 'warning',
       onConfirm: async () => {
         setProcessing(true);
@@ -468,7 +465,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
             payload: { articleCode: article, orderFab: of, shelfCode: moverSeccionTargetShelf, position: destPos },
             session: { operarioId: effectiveOperarioId, operarioName: displayName },
           });
-          showFeedback('success', `✅ Movido a ${destShelfName} pos. ${parseInt(destPos, 10)}`);
+          showFeedback('success', `Movido a ${destShelfName} pos. ${parseInt(destPos, 10)}`);
           resetAction();
         } catch (err: any) {
           showFeedback('error', err?.message || 'Error al mover entre secciones');
@@ -499,7 +496,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
 
       const validation = validateContiguity(newPositions, shelfDef);
       if (!validation.isContiguous && newPositions.length > 1) {
-        showFeedback('error', `❌ ${validation.message}`);
+        showFeedback('error', `${validation.message}`);
         return;
       }
       setSelectedPositions(newPositions);
@@ -547,7 +544,6 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
             open: true,
             title: 'Sobrescribir',
             message: `La celda ${loc.position} tiene ${loc.items.length} artículo(s). ¿Sobrescribir?`,
-            icon: '⚠️',
             variant: 'warning',
             onConfirm: async () => {
               setConfirmModal((p) => ({ ...p, open: false }));
@@ -569,7 +565,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
     setProcessing(true);
     const ok = await mover(article, of, selectedPositions, effectiveOperarioId, displayName);
     setProcessing(false);
-    if (ok) showFeedback('success', '✅ Artículo movido');
+    if (ok) showFeedback('success', 'Artículo movido');
     else showFeedback('error', 'Error al mover el artículo');
     resetAction();
   }, [selectedPositions, articleInput, ofInput, mover, effectiveOperarioId, displayName, showFeedback, resetAction]);
@@ -596,7 +592,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
         return;
       }
       setBatchArticles((prev) => [...prev, { articleCode: article, orderFab: of }]);
-      showFeedback('success', `✅ ${article} ${of} añadido al batch`);
+      showFeedback('success', `${article} ${of} añadido al batch`);
       setArticleInput('');
       setOfInput('');
     } else if (action === 'retirar') {
@@ -611,7 +607,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
         return;
       }
       setBatchRetiraPending((prev) => [...prev, { articleCode: article, orderFab: of, locations: found }]);
-      showFeedback('success', `✅ ${article} ${of} añadido al batch`);
+      showFeedback('success', `${article} ${of} añadido al batch`);
       setArticleInput('');
       setOfInput('');
     }
@@ -634,7 +630,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
 
     setProcessing(false);
     if (successCount === batchArticles.length * selectedPositions.length) {
-      showFeedback('success', `✅ ${batchArticles.length} artículos ubicados en ${selectedPositions.length} posición(es)`);
+      showFeedback('success', `${batchArticles.length} artículos ubicados en ${selectedPositions.length} posición(es)`);
     } else {
       showFeedback('error', `Parcial: ${successCount}/${batchArticles.length * selectedPositions.length} ubicaciones completadas`);
     }
@@ -659,9 +655,8 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
         const posText = selectedPositions.map(p => parseInt(p, 10)).join(', ');
         setConfirmModal({
           open: true,
-          title: '✅ Artículo ubicado',
+          title: 'Artículo ubicado',
           message: `${article} ubicado en pos. ${posText}.\n¿Ubicar otro artículo en las mismas posiciones?`,
-          icon: '📦',
           variant: 'success',
           confirmText: 'SÍ, ubicar otro',
           onConfirm: () => {
@@ -675,7 +670,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
           extraButton: {
             text: 'NO, finalizar',
             onClick: () => {
-              showFeedback('success', `✅ ${article} ubicado correctamente`);
+              showFeedback('success', `${article} ubicado correctamente`);
               resetAction();
             },
           },
@@ -694,9 +689,8 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
       const names = occupiedPositions.map((p) => parseInt(p, 10)).join(', ');
       setConfirmModal({
         open: true,
-        title: '⚠️ Posiciones ocupadas',
+        title: 'Posiciones ocupadas',
         message: `La${occupiedPositions.length > 1 ? 's' : ''} posición${occupiedPositions.length > 1 ? 'es' : ''} ${names} ya tienen artículos.\n¿Añadir ${formatArticleDisplay(article, of)} igualmente?`,
-        icon: '⚠️',
         variant: 'warning',
         onConfirm: () => { setConfirmModal((p) => ({ ...p, open: false })); doUbicar(); },
         extraButton: { text: 'Elegir otras', onClick: () => setConfirmModal((p) => ({ ...p, open: false })) },
@@ -710,7 +704,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
   const handleRetirarBatchNext = useCallback(async () => {
     const processNext = async (index: number) => {
       if (index >= batchRetiraPending.length) {
-        showFeedback('success', '✅ Batch de retirada completado');
+        showFeedback('success', 'Batch de retirada completado');
         resetAction();
         return;
       }
@@ -730,7 +724,6 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
           open: true,
           title: 'Selecciona de dónde retirar',
           message: `${formatArticleDisplay(item.articleCode, item.orderFab)} está en ${item.locations.length} ubicaciones`,
-          icon: '📤',
           variant: 'warning',
           onConfirm: async () => {
             const r = await retirar(item.articleCode, item.orderFab, effectiveOperarioId, displayName);
@@ -758,7 +751,6 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
       open: true,
       title: '¿Retirar algo más?',
       message: `${selectedItems.length} artículo(s) de posición ${parseInt(position, 10)} añadido(s) a la cola`,
-      icon: '📤',
       variant: 'info',
       confirmText: 'NO, finalizar retirada',
       onConfirm: async () => {
@@ -774,7 +766,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
         setProcessing(false);
         const totalItems = updatedQueue.reduce((sum, q) => sum + q.items.length, 0);
         if (successCount === totalItems) {
-          showFeedback('success', `✅ ${totalItems} artículo(s) retirado(s) correctamente`);
+          showFeedback('success', `${totalItems} artículo(s) retirado(s) correctamente`);
         } else {
           showFeedback('error', `Parcial: ${successCount}/${totalItems} artículos retirados`);
         }
@@ -791,9 +783,8 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
   const handleEmptyShelf = useCallback(() => {
     setConfirmModal({
       open: true,
-      title: '⚠️ Vaciar estantería',
+      title: 'Vaciar estantería',
       message: `¿Seguro que quieres vaciar TODA la estantería "${shelfDef?.name || selectedShelf}"?\n\nEsta acción eliminará todas las ubicaciones registradas y no se puede deshacer.`,
-      icon: '🗑️',
       variant: 'danger',
       confirmText: 'Sí, vaciar todo',
       onConfirm: async () => {
@@ -802,7 +793,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
         const ok = await emptyShelf(effectiveOperarioId, displayName);
         setProcessing(false);
         if (ok) {
-          showFeedback('success', `✅ Estantería ${selectedShelf} vaciada correctamente`);
+          showFeedback('success', `Estantería ${selectedShelf} vaciada correctamente`);
         } else {
           showFeedback('error', 'Error al vaciar la estantería');
         }
@@ -858,7 +849,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
               <button onClick={onBack} className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center hover:bg-slate-200 shrink-0">←</button>
               <div className="min-w-0">
                 <h1 className="text-xl font-black text-slate-900 leading-tight truncate">
-                  {shelfDef?.name || '🏭 Estanterías'}
+                  {shelfDef?.name || 'Estanterías'}
                 </h1>
                 <p className="text-xs text-slate-500 truncate">
                   {action === 'idle' ? 'Operativa manual' : `Acción activa: ${action.toUpperCase()}`}
@@ -873,21 +864,21 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
               {onOpenCarros && (
                 <button onClick={onOpenCarros} title="Ir a Carros"
                   className="hidden sm:inline-flex px-2 py-1 bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-lg font-bold hover:bg-emerald-200 transition-colors whitespace-nowrap">
-                  🛒 Carros
+                  Carros
                 </button>
               )}
               <button onClick={handleEmptyShelf} disabled={action !== 'idle' || processing} title={`Vaciar estantería ${selectedShelf}`}
                 className="px-2 py-1 bg-red-50 text-red-600 border border-red-200 rounded-lg font-bold hover:bg-red-100 disabled:opacity-40 transition-colors whitespace-nowrap">
-                🗑️ Vaciar
+                Vaciar
               </button>
               {action === 'idle' && (
                 <>
-                  <button onClick={() => startAction('ubicar')} className="px-2 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-500 transition-colors whitespace-nowrap">📦 Ubicar</button>
-                  <button onClick={() => startAction('retirar')} className="px-2 py-1 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-500 transition-colors whitespace-nowrap">📤 Retirar</button>
-                  <button onClick={() => startAction('reubicar')} className="px-2 py-1 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-500 transition-colors whitespace-nowrap">🔁 Reubic.</button>
-                  <button onClick={startMoverSeccion} className="px-2 py-1 bg-violet-600 text-white rounded-lg text-xs font-bold hover:bg-violet-500 transition-colors whitespace-nowrap hidden sm:flex">🚀 Mover§</button>
+                  <button onClick={() => startAction('ubicar')} className="px-2 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-500 transition-colors whitespace-nowrap">Ubicar</button>
+                  <button onClick={() => startAction('retirar')} className="px-2 py-1 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-500 transition-colors whitespace-nowrap">Retirar</button>
+                  <button onClick={() => startAction('reubicar')} className="px-2 py-1 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-500 transition-colors whitespace-nowrap">Reubic.</button>
+                  <button onClick={startMoverSeccion} className="px-2 py-1 bg-violet-600 text-white rounded-lg text-xs font-bold hover:bg-violet-500 transition-colors whitespace-nowrap hidden sm:flex">Mover§</button>
                   {/* Función ALMACÉN oculta a petición (no eliminada, ver startAction('almacen')) */}
-                  <button onClick={handleAvisar} className="px-2 py-1 bg-orange-500 text-white rounded-lg text-xs font-bold hover:bg-orange-400 transition-colors whitespace-nowrap">🔔 Avisar</button>
+                  <button onClick={handleAvisar} className="px-2 py-1 bg-orange-500 text-white rounded-lg text-xs font-bold hover:bg-orange-400 transition-colors whitespace-nowrap">Avisar</button>
                 </>
               )}
             </div>
@@ -916,7 +907,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
                     .filter((sec) => { if (seen.has(sec)) return false; seen.add(sec); return true; });
                   return sections.map((sec) => (
                     <React.Fragment key={sec}>
-                      <p className="px-3 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                      <p className="px-3 pt-3 pb-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
                         {SECTION_DISPLAY_NAMES[sec] ?? sec}
                       </p>
                       {SHELF_DEFINITIONS.filter((s) => s.section === sec).map((shelf) => (
@@ -928,11 +919,11 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
                     </React.Fragment>
                   ));
                 })()}
-                <p className="px-3 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">Carros</p>
+                <p className="px-3 pt-3 pb-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Carros</p>
                 {CART_DEFINITIONS.map(shelf => (
                   <button key={shelf.code} onClick={() => { setSelectedShelf(shelf.code); setHighlightedPositions([]); resetAction(); }}
                     className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors truncate ${selectedShelf === shelf.code ? 'bg-emerald-500 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
-                    🛒 {shelf.name}
+                    {shelf.name}
                   </button>
                 ))}
               </div>
@@ -966,14 +957,14 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
       <div className={`px-4 pt-3 pb-2 ${gridFocused ? 'hidden' : ''} ${action === 'idle' ? 'hidden sm:block' : ''}`}>
         <div className="bg-white border border-slate-200 rounded-2xl p-3 space-y-2.5 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-            Operativa — {displayName}
+            Operativa
           </p>
 
           {action === 'moverSeccion' ? (
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold px-2 py-1 rounded-lg bg-violet-500/20 text-violet-300">
-                  🚀 MOVER SECCIÓN
+                  MOVER SECCIÓN
                 </span>
                 <span className="text-xs text-slate-400 font-mono">{articleInput} · {ofInput}</span>
               </div>
@@ -1036,7 +1027,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
                 <div>
                   <span className={`text-xs font-bold px-2 py-1 rounded-lg
                     ${action === 'ubicar' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'}`}>
-                    {action === 'ubicar' ? '📦 BATCH UBICAR' : '📤 BATCH RETIRAR'} ({action === 'ubicar' ? batchArticles.length : batchRetiraPending.length} artículos)
+                    {action === 'ubicar' ? 'BATCH UBICAR' : 'BATCH RETIRAR'} ({action === 'ubicar' ? batchArticles.length : batchRetiraPending.length} artículos)
                   </span>
                 </div>
               </div>
@@ -1134,7 +1125,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
                       ✓ Confirmar ubicación en {selectedPositions.map((p) => parseInt(p, 10)).join(', ')}
                     </button>
                   ) : (
-                    <span className="text-xs font-bold text-red-600 px-2 py-1 bg-red-50 rounded-lg border border-red-200">❌ {v.message}</span>
+                    <span className="text-xs font-bold text-red-600 px-2 py-1 bg-red-50 rounded-lg border border-red-200">{v.message}</span>
                   );
                 })()}
                 {action === 'reubicar' && reubicarSource && (
@@ -1155,7 +1146,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
                     disabled={processing}
                     className="px-4 py-2 min-h-[44px] bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >
-                    🔄 Confirmar mover → {selectedPositions.map((p) => parseInt(p, 10)).join(', ')}
+                    Confirmar mover → {selectedPositions.map((p) => parseInt(p, 10)).join(', ')}
                   </button>
                 )}
               </div>
@@ -1201,11 +1192,10 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
             action === 'retirar' ? 'bg-red-500/20 border-red-500/60' :
             action === 'mover' ? 'bg-blue-500/20 border-blue-500/60' :
             'bg-amber-500/20 border-amber-500/60'}`}>
-          <span className={`shrink-0 ${gridFocused ? 'text-3xl' : 'text-2xl'}`}>
-            {action === 'ubicar' ? '📦' :
-             action === 'retirar' ? '📤' :
-             action === 'mover' ? '🔄' : '🔁'}
-          </span>
+          {(() => {
+            const ActionIcon = action === 'ubicar' ? Package : action === 'retirar' ? PackageMinus : action === 'mover' ? ArrowLeftRight : Shuffle;
+            return <ActionIcon className={`shrink-0 ${gridFocused ? 'w-8 h-8' : 'w-6 h-6'}`} aria-hidden />;
+          })()}
           <div className="flex-1 min-w-0">
             <p className={`font-black leading-tight
               ${gridFocused ? 'text-base' : 'text-sm'}
@@ -1213,18 +1203,18 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
                 action === 'retirar' ? 'text-red-700' :
                 action === 'mover' ? 'text-blue-700' :
                 'text-amber-700'}`}>
-              {action === 'ubicar' && selectedPositions.length === 0 && '👇 Toca celdas contiguas para seleccionar dónde ubicar'}
+              {action === 'ubicar' && selectedPositions.length === 0 && 'Toca celdas contiguas para seleccionar dónde ubicar'}
               {action === 'ubicar' && selectedPositions.length > 0 && (() => {
                 const v = validateContiguity(selectedPositions, shelfDef);
                 return v.isContiguous
-                  ? `✅ ${selectedPositions.length} celda${selectedPositions.length > 1 ? 's' : ''} seleccionada${selectedPositions.length > 1 ? 's' : ''} — confirma arriba o añade más`
-                  : `❌ ${v.message}`;
+                  ? `${selectedPositions.length} celda${selectedPositions.length > 1 ? 's' : ''} seleccionada${selectedPositions.length > 1 ? 's' : ''} — confirma arriba o añade más`
+                  : `${v.message}`;
               })()}
-              {action === 'retirar' && '👇 Toca la celda de donde quieres retirar'}
-              {action === 'mover' && selectedPositions.length < moverNeeded && `👇 Selecciona ${moverNeeded - selectedPositions.length} celda${moverNeeded - selectedPositions.length > 1 ? 's' : ''} de destino (${selectedPositions.length}/${moverNeeded})`}
-              {action === 'mover' && selectedPositions.length === moverNeeded && '✅ Celdas de destino listas — confirma arriba'}
-              {action === 'reubicar' && !reubicarSource && '👇 Toca la celda con el artículo a reubicar'}
-              {action === 'reubicar' && reubicarSource && '👇 Ahora toca la celda de destino'}
+              {action === 'retirar' && 'Toca la celda de donde quieres retirar'}
+              {action === 'mover' && selectedPositions.length < moverNeeded && `Selecciona ${moverNeeded - selectedPositions.length} celda${moverNeeded - selectedPositions.length > 1 ? 's' : ''} de destino (${selectedPositions.length}/${moverNeeded})`}
+              {action === 'mover' && selectedPositions.length === moverNeeded && 'Celdas de destino listas — confirma arriba'}
+              {action === 'reubicar' && !reubicarSource && 'Toca la celda con el artículo a reubicar'}
+              {action === 'reubicar' && reubicarSource && 'Ahora toca la celda de destino'}
             </p>
             {gridFocused && action === 'ubicar' && selectedPositions.length > 0 && (
               <button
@@ -1241,7 +1231,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
                 disabled={processing}
                 className="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-xl disabled:opacity-50 transition-colors active:scale-95"
               >
-                🔄 Confirmar mover → {selectedPositions.map((p) => parseInt(p, 10)).join(', ')}
+                Confirmar mover → {selectedPositions.map((p) => parseInt(p, 10)).join(', ')}
               </button>
             )}
           </div>

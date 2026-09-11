@@ -157,7 +157,7 @@ const ReprocesosEditor: React.FC<ReprocesosEditorProps> = ({
         <div className="bg-slate-800/50 px-5 py-4 flex items-center justify-between border-b border-slate-700">
           <div>
             <h3 className="text-lg font-black text-white flex items-center gap-2">
-              💰 Reprocesos — CAL {parseInt(position, 10).toString().padStart(3, '0')}
+              Reprocesos — CAL {parseInt(position, 10).toString().padStart(3, '0')}
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
               Edita cantidad e importe de cada artículo
@@ -265,7 +265,7 @@ const ReprocesosEditor: React.FC<ReprocesosEditorProps> = ({
                       const color = days > 30 ? 'text-red-400' : days > 7 ? 'text-amber-400' : 'text-slate-500';
                       return (
                         <p className={`text-[11px] font-bold mt-0.5 ${color}`}>
-                          ⏱ {days === 0 ? 'Hoy' : `${days} día${days !== 1 ? 's' : ''} aquí`}
+                          {days === 0 ? 'Hoy' : `${days} día${days !== 1 ? 's' : ''} aquí`}
                           {days > 30 && ' — revisar'}
                         </p>
                       );
@@ -273,7 +273,7 @@ const ReprocesosEditor: React.FC<ReprocesosEditorProps> = ({
                   </div>
                   {savedIdx === idx && (
                     <span className="text-xs text-emerald-400 font-bold animate-pulse shrink-0">
-                      ✅ Guardado
+                      Guardado
                     </span>
                   )}
                 </div>

@@ -2,6 +2,7 @@
 import React, { useMemo } from 'react';
 import { InfoIcon, PlusCircleIcon, CloseIcon, MoveIcon, MultiLayerIcon, BoxIcon, CheckIcon } from './Icons';
 import { AssignmentItem, LocationId, formatLocation } from '../lib/warehouseData';
+import { ofLabel } from '../../lib/ofLabel';
 
 interface OccupiedLocationModalProps {
   locationId: LocationId;
@@ -71,7 +72,7 @@ const OccupiedLocationModal: React.FC<OccupiedLocationModalProps> = ({
             <div className="bg-cyan-50 dark:bg-cyan-900/10 p-3 rounded-xl border border-cyan-100 dark:border-cyan-800/30">
                 <span className="text-[10px] font-bold text-cyan-600 dark:text-cyan-400 uppercase tracking-wider mb-1 block">Entrada</span>
                 <div className="font-bold text-slate-900 dark:text-white text-lg leading-none">{newItem.barcode}</div>
-                <div className="text-xs font-mono text-slate-500 dark:text-slate-400 mt-1">OF: {newItem.orderId}</div>
+                <div className="text-xs font-mono text-slate-500 dark:text-slate-400 mt-1">{ofLabel(newItem.orderId)}</div>
             </div>
 
             {/* DERECHA: Análisis */}
@@ -113,7 +114,7 @@ const OccupiedLocationModal: React.FC<OccupiedLocationModalProps> = ({
                         <div key={idx} className={`flex justify-between items-center p-3 rounded-lg border text-sm ${isMatch ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700'}`}>
                             <div>
                                 <div className="font-bold text-slate-800 dark:text-slate-200">{item.barcode}</div>
-                                <div className="text-xs font-mono text-slate-500">OF: {item.orderId}</div>
+                                <div className="text-xs font-mono text-slate-500">{ofLabel(item.orderId)}</div>
                             </div>
                             <div className="text-right">
                                 <span className="font-bold text-slate-600 dark:text-slate-400 text-lg">x{group.length}</span>

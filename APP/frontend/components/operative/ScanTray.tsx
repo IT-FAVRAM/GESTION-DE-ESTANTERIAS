@@ -37,7 +37,7 @@ const ScanTray: React.FC<ScanTrayProps> = ({ items, onUbicar, onRetirar, onClear
       {/* Cabecera */}
       <div className="flex items-center justify-between px-4 py-2.5 bg-cyan-50 border-b border-cyan-100">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-black text-slate-900">📥 Bandeja</span>
+          <span className="text-sm font-black text-slate-900">Bandeja</span>
           <span className="bg-cyan-600 text-white px-2 py-0.5 rounded-full text-xs font-bold">{items.length}</span>
         </div>
         <button
@@ -63,13 +63,13 @@ const ScanTray: React.FC<ScanTrayProps> = ({ items, onUbicar, onRetirar, onClear
                 <span className="text-[10px] font-bold text-slate-400 animate-pulse">comprobando…</span>
               ) : it.located ? (
                 <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 max-w-[150px] truncate">
-                  ✅ {it.locations && it.locations.length > 0
+                  {it.locations && it.locations.length > 0
                     ? `${it.locations[0].shelfName} p.${displayPos(it.locations[0].position)}${it.locations.length > 1 ? ` +${it.locations.length - 1}` : ''}`
                     : 'ubicado'}
                 </span>
               ) : (
                 <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 rounded-full px-2 py-0.5">
-                  ⬜ sin ubicar
+                  sin ubicar
                 </span>
               )}
               <button
@@ -92,7 +92,7 @@ const ScanTray: React.FC<ScanTrayProps> = ({ items, onUbicar, onRetirar, onClear
           disabled={disabled}
           className="flex-[2] min-h-[44px] rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold active:scale-95 transition-all touch-manipulation disabled:opacity-50"
         >
-          📦 UBICAR los {items.length}
+          UBICAR los {items.length}
         </button>
         {locatedCount > 0 && (
           <button
@@ -100,7 +100,7 @@ const ScanTray: React.FC<ScanTrayProps> = ({ items, onUbicar, onRetirar, onClear
             disabled={disabled}
             className="flex-1 min-h-[44px] rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-bold active:scale-95 transition-all touch-manipulation disabled:opacity-50"
           >
-            📤 RETIRAR ({locatedCount})
+            RETIRAR ({locatedCount})
           </button>
         )}
       </div>

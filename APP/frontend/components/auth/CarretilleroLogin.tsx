@@ -102,7 +102,6 @@ const CarretilleroLogin: React.FC<CarretilleroLoginProps> = ({ onSuccess, onBack
                       : 'bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white hover:border-amber-500'
                   }`}
                 >
-                  <div className="text-2xl mb-2">🚜</div>
                   <div className="text-sm">{carretillero.name}</div>
                 </button>
               ))}

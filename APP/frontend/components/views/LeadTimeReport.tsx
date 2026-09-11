@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { FileSpreadsheet, FileText } from 'lucide-react';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../lib/firebase';
 import { SECTION_DISPLAY_NAMES } from '../../lib/firestoreSchema';
@@ -372,10 +373,10 @@ export const LeadTimeReport: React.FC = () => {
           {data && (
             <div className="flex gap-2 ml-auto">
               <button onClick={exportExcel} disabled={exporting || data.length === 0} className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2 text-sm">
-                {exporting ? <LoadingIcon className="animate-spin h-4 w-4" /> : <span>📊</span>} Excel
+                {exporting ? <LoadingIcon className="animate-spin h-4 w-4" /> : <FileSpreadsheet className="h-4 w-4" aria-hidden />} Excel
               </button>
               <button onClick={exportPDF} disabled={data.length === 0} className="bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2 text-sm">
-                <span>📄</span> PDF
+                <FileText className="h-4 w-4" aria-hidden /> PDF
               </button>
             </div>
           )}
@@ -399,7 +400,6 @@ export const LeadTimeReport: React.FC = () => {
 
       {data && data.length === 0 && !loading && (
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-10 text-center">
-          <p className="text-4xl mb-3">📭</p>
           <p className="text-slate-300 font-bold">No hay ciclos completos en este periodo</p>
           <p className="text-slate-500 text-sm mt-1">Un ciclo necesita una ubicación (UBICAR) y su retirada (RETIRAR). Prueba a ampliar el rango de fechas.</p>
         </div>

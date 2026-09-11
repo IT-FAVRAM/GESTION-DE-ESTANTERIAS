@@ -6,6 +6,7 @@
  */
 
 import React from 'react';
+import { AlertTriangle, CheckCircle2, Info, XCircle, type LucideIcon } from 'lucide-react';
 
 type ConfirmVariant = 'success' | 'danger' | 'warning' | 'info';
 
@@ -18,8 +19,11 @@ interface ConfirmationModalProps {
   title: string;
   /** Mensaje/descripción */
   message: string | React.ReactNode;
-  /** Icono o emoji (ej: "📦", "⚠️") */
-  icon?: string;
+  /**
+   * Icono de la variante (Lucide), siempre visible salvo icon={false}.
+   * Ya no se renderizan emojis: el contenido del string se ignora.
+   */
+  icon?: string | boolean;
   /** Variante visual */
   variant?: ConfirmVariant;
   /** Texto del botón de confirmar */
@@ -51,6 +55,13 @@ interface ConfirmationModalProps {
    */
   hideCancel?: boolean;
 }
+
+const VARIANT_ICON: Record<ConfirmVariant, { Icon: LucideIcon; cls: string }> = {
+  success: { Icon: CheckCircle2, cls: 'text-emerald-600 bg-emerald-50' },
+  danger: { Icon: XCircle, cls: 'text-red-600 bg-red-50' },
+  warning: { Icon: AlertTriangle, cls: 'text-amber-600 bg-amber-50' },
+  info: { Icon: Info, cls: 'text-cyan-700 bg-cyan-50' },
+};
 
 const VARIANT_STYLES: Record<ConfirmVariant, { bg: string; btn: string }> = {
   success: {
@@ -90,6 +101,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   if (!open) return null;
 
   const styles = VARIANT_STYLES[variant];
+  const { Icon: VariantIcon, cls: iconCls } = VARIANT_ICON[variant];
 
   return (
     <div 
@@ -106,14 +118,16 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
       >
         {/* Icon + Title */}
         <div className="text-center">
-          {icon && (
-            <div className="text-5xl mb-3">{icon}</div>
+          {icon !== false && (
+            <div className={`mx-auto mb-3 w-16 h-16 rounded-2xl flex items-center justify-center ${iconCls}`}>
+              <VariantIcon className="w-9 h-9" strokeWidth={2.25} aria-hidden />
+            </div>
           )}
           <h2 className="text-2xl font-black text-slate-900">{title}</h2>
         </div>
         
         {/* Message */}
-        <div className="text-center text-base text-slate-600 leading-relaxed">
+        <div className="text-center text-base text-slate-600 leading-relaxed whitespace-pre-line break-words">
           {typeof message === 'string' ? <p>{message}</p> : message}
         </div>
         

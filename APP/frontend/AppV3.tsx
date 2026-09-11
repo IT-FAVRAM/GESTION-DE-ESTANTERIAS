@@ -302,7 +302,6 @@ const AppV3: React.FC = () => {
   return (
     <div className="min-h-dvh flex items-center justify-center bg-slate-950">
       <div className="text-center">
-        <span className="text-5xl block mb-4">⚠️</span>
         <h2 className="text-xl font-bold text-white mb-2">Rol no reconocido</h2>
         <p className="text-slate-400 mb-4">Tu cuenta no tiene un rol asignado.</p>
         <button onClick={logout}

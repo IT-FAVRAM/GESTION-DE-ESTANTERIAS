@@ -9,6 +9,7 @@
  */
 
 import React, { useMemo, useState } from 'react';
+import { Camera } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useShelf, type ShelfLocationState } from '../../hooks/useShelf';
 import { useDeviceConfig } from '../../hooks/useDeviceConfig';
@@ -78,10 +79,8 @@ const RecepcionesView: React.FC = () => {
       {/* Header */}
       <header className="flex-shrink-0 bg-white border-b border-slate-200 px-3 py-2 shadow-sm flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-lg leading-none">📦</span>
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 leading-none">Recepciones</p>
-            <p className="text-xs text-slate-500 truncate leading-tight">{displayName}</p>
+            <h1 className="text-xl font-black text-slate-900 tracking-tight leading-tight truncate">Recepciones</h1>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -89,7 +88,7 @@ const RecepcionesView: React.FC = () => {
             onClick={() => setPickerOpen(true)}
             className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-white font-black rounded-lg transition-colors text-sm flex items-center gap-2 shadow active:scale-95"
           >
-            🚜 Avisar carretillero
+            Avisar carretillero
           </button>
           <button
             onClick={logout}
@@ -127,7 +126,7 @@ const RecepcionesView: React.FC = () => {
 
             {availableCarts.length > 0 && (
               <div className="space-y-2 border-t border-slate-200 pt-3">
-                <h2 className="text-sm font-bold text-slate-500 uppercase">🚚 Carros</h2>
+                <h2 className="text-sm font-bold text-slate-500 uppercase">Carros</h2>
                 {availableCarts.map(cart => (
                   <button
                     key={cart.code}
@@ -207,7 +206,7 @@ const RecepcionesView: React.FC = () => {
                 setHighlightedItemKey(itemKey ?? null);
               }}
               currentShelfCode={selectedShelf}
-              placeholder="🔍 Buscar en toda la nave..."
+              placeholder="Buscar en toda la nave..."
               global={true}
               canNavigateToShelf={true}
               onShelfNavigate={(code, positions, itemKey) => {
@@ -230,7 +229,6 @@ const RecepcionesView: React.FC = () => {
             ) : locations.length === 0 ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
-                  <span className="text-5xl block mb-3">🔍</span>
                   <p className="text-slate-500 font-medium">Estantería vacía</p>
                 </div>
               </div>
@@ -287,7 +285,7 @@ const RecepcionesView: React.FC = () => {
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-[15px] font-black font-mono text-slate-900 leading-tight break-all">{item.articleCode}</p>
                       {item.subcontratacion && (
-                        <span className="flex-shrink-0 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded bg-orange-500 text-white">🏭 Subcon.</span>
+                        <span className="flex-shrink-0 text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded bg-orange-500 text-white">Subcon.</span>
                       )}
                     </div>
                     {item.orderFab && <p className="text-[12px] font-bold font-mono text-emerald-700 leading-tight break-all">{item.orderFab}</p>}
@@ -328,7 +326,7 @@ const RecepcionesView: React.FC = () => {
           className="fixed bottom-6 right-4 z-40 bg-violet-600 hover:bg-violet-500 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-xl active:scale-95 transition-all"
           aria-label="Ver carrusel de fotos"
         >
-          <span className="text-2xl">📷</span>
+          <Camera className="w-6 h-6" aria-hidden />
           <span className="absolute -top-1 -right-1 bg-white text-violet-600 text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center shadow">
             {shelfPhotoEntries.length}
           </span>
@@ -360,7 +358,7 @@ const RecepcionesView: React.FC = () => {
       {/* Toast de confirmación */}
       {toast && (
         <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] px-5 py-3 rounded-2xl shadow-2xl text-white font-bold text-sm max-w-[90vw] text-center ${toast.ok ? 'bg-emerald-600' : 'bg-rose-600'}`}>
-          {toast.ok ? '✓ ' : '⚠️ '}{toast.text}
+          {toast.ok ? '✓ ' : ''}{toast.text}
         </div>
       )}
     </div>

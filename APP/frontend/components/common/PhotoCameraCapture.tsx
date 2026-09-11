@@ -5,6 +5,7 @@
  * sin OCR/conteo: vivo → captura → revisar → usar/repetir.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Camera } from 'lucide-react';
 import { waitForVideoReady } from '../../lib/ocrPreprocess';
 
 interface PhotoCameraCaptureProps {
@@ -123,7 +124,7 @@ const PhotoCameraCapture: React.FC<PhotoCameraCaptureProps> = ({ onCapture, onCl
     <div className="fixed inset-0 z-[60] bg-black flex flex-col">
       <div className="flex-shrink-0 flex items-center justify-between px-4 pt-safe-top py-3 bg-black/80">
         <p className="text-violet-400 text-sm font-bold flex items-center gap-1.5">
-          <span className="text-lg">📷</span> Hacer foto
+          <Camera className="w-4 h-4" aria-hidden /> Hacer foto
         </p>
         <button
           onClick={handleClose}
@@ -159,10 +160,9 @@ const PhotoCameraCapture: React.FC<PhotoCameraCaptureProps> = ({ onCapture, onCl
 
         {phase === 'error' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-20 p-6">
-            <p className="text-5xl mb-4">⚠️</p>
             <p className="text-slate-300 text-sm text-center mb-6">{errorMsg}</p>
             <div className="flex gap-3">
-              <button onClick={handleRetry} className="px-6 py-3 bg-violet-600 text-white rounded-xl font-bold hover:bg-violet-500">🔄 Reintentar</button>
+              <button onClick={handleRetry} className="px-6 py-3 bg-violet-600 text-white rounded-xl font-bold hover:bg-violet-500">Reintentar</button>
               <button onClick={handleClose} className="px-6 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-500">Cerrar</button>
             </div>
           </div>
@@ -180,8 +180,9 @@ const PhotoCameraCapture: React.FC<PhotoCameraCaptureProps> = ({ onCapture, onCl
               onClick={handleCapture}
               className="w-20 h-20 rounded-full bg-white flex items-center justify-center shadow-lg active:scale-95 transition-all"
               title="Hacer foto"
+              aria-label="Hacer foto"
             >
-              <span className="text-3xl">📸</span>
+              <Camera className="w-8 h-8 text-slate-900" aria-hidden />
             </button>
             <div className="w-14 h-14" />
           </>
@@ -190,11 +191,11 @@ const PhotoCameraCapture: React.FC<PhotoCameraCaptureProps> = ({ onCapture, onCl
           <>
             <button onClick={handleRetry}
               className="flex-1 max-w-[140px] py-3 bg-slate-700 text-white rounded-xl font-bold hover:bg-slate-600 text-sm">
-              🔄 Repetir
+              Repetir
             </button>
             <button onClick={handleUse}
               className="flex-1 max-w-[200px] py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-500 text-sm">
-              ✅ Usar foto
+              Usar foto
             </button>
           </>
         )}

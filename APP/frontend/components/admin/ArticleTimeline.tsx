@@ -5,6 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { COLLECTIONS, getShelfDefinition } from '../../lib/firestoreSchema';
+import { ArrowRightLeft, BellRing, CircleHelp, PackageMinus, PackagePlus, Warehouse, type LucideIcon } from 'lucide-react';
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -27,19 +28,14 @@ type Tab = 'historial' | 'almacen';
 
 // ── Constantes visuales ───────────────────────────────────────────────────────
 
-const ROLE_BADGES: Record<string, string> = {
-  ADMIN: '🛡️', SUPERADMIN: '⭐', CARRETILLERO: '🔧',
-  OPERARIO: '👤', JEFE_SECCION: '👔', CALIDAD: '✅',
-};
-
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: 'Admin', SUPERADMIN: 'Superadmin', CARRETILLERO: 'Carretillero',
   OPERARIO: 'Operario', JEFE_SECCION: 'Jefe Sección', CALIDAD: 'Calidad',
 };
 
-const ACTION_ICONS: Record<string, string> = {
-  UBICAR: '📦', RETIRAR: '📤', MOVER: '🔄',
-  ENVIAR_ALMACEN: '🏭', AVISAR_CARRETILLERO: '🚚',
+const ACTION_ICONS: Record<string, LucideIcon> = {
+  UBICAR: PackagePlus, RETIRAR: PackageMinus, MOVER: ArrowRightLeft,
+  ENVIAR_ALMACEN: Warehouse, AVISAR_CARRETILLERO: BellRing,
 };
 
 const ACTION_COLORS: Record<string, string> = {
@@ -208,7 +204,7 @@ const ArticleTimeline: React.FC<ArticleTimelineProps> = ({ onBack }) => {
       setEntries([]);
       const code = err?.code || 'unknown';
       setSearchError(code.includes('failed-precondition') || code.includes('index')
-        ? '⚠️ Índice no disponible. firebase deploy --only firestore:indexes'
+        ? 'Índice no disponible. firebase deploy --only firestore:indexes'
         : `Error (${code}): ${err?.message || 'Revisa la consola.'}`);
     } finally { setLoading(false); }
   }, [fetchEntries, loading]);
@@ -232,7 +228,7 @@ const ArticleTimeline: React.FC<ArticleTimelineProps> = ({ onBack }) => {
       setEntries([]);
       const code = err?.code || 'unknown';
       setSearchError(code.includes('failed-precondition') || code.includes('index')
-        ? '⚠️ Índice no disponible.'
+        ? 'Índice no disponible.'
         : `Error (${code}): ${err?.message || 'No se pudieron cargar los movimientos.'}`);
     } finally { setLoading(false); }
   }, [fetchEntries]);
@@ -286,7 +282,7 @@ const ArticleTimeline: React.FC<ArticleTimelineProps> = ({ onBack }) => {
     } catch (err: any) {
       const code = err?.code || 'unknown';
       setAlmacenError(code.includes('failed-precondition') || code.includes('index')
-        ? '⚠️ Índice no disponible. firebase deploy --only firestore:indexes'
+        ? 'Índice no disponible. firebase deploy --only firestore:indexes'
         : `Error (${code}): ${err?.message || 'No se pudo cargar el almacén.'}`);
       setAlmacenInitialLoad(false);
     } finally { setAlmacenLoading(false); }
@@ -352,7 +348,7 @@ const ArticleTimeline: React.FC<ArticleTimelineProps> = ({ onBack }) => {
           </button>
           <div className="flex-1">
             <h1 className="text-lg font-black text-white">
-              {activeTab === 'historial' ? '📋 Historial / Trazabilidad' : '🏭 Almacén'}
+              {activeTab === 'historial' ? 'Historial / Trazabilidad' : 'Almacén'}
             </h1>
             <p className="text-xs text-slate-400">
               {activeTab === 'historial'
@@ -387,7 +383,7 @@ const ArticleTimeline: React.FC<ArticleTimelineProps> = ({ onBack }) => {
                 : 'text-slate-500 hover:text-slate-300'
             }`}
           >
-            📋 Historial
+            Historial
           </button>
           <button
             onClick={() => setActiveTab('almacen')}
@@ -397,7 +393,7 @@ const ArticleTimeline: React.FC<ArticleTimelineProps> = ({ onBack }) => {
                 : 'text-slate-500 hover:text-slate-300'
             }`}
           >
-            🏭 Almacén
+            Almacén
           </button>
         </div>
       </header>
@@ -429,14 +425,14 @@ const ArticleTimeline: React.FC<ArticleTimelineProps> = ({ onBack }) => {
                 disabled={loading || (!searchArticle.trim() && !searchOF.trim())}
                 className="flex-1 py-2.5 bg-cyan-600 text-white font-bold rounded-xl hover:bg-cyan-500 active:scale-[0.98] transition-all disabled:opacity-50"
               >
-                {loading ? 'Buscando...' : '🔍 Buscar recorrido'}
+                {loading ? 'Buscando...' : 'Buscar recorrido'}
               </button>
               <button
                 onClick={handleLatest}
                 disabled={loading}
                 className="py-2.5 px-4 bg-slate-700 text-white font-bold rounded-xl hover:bg-slate-600 active:scale-[0.98] transition-all disabled:opacity-50 text-sm"
               >
-                ⏱ Últimos
+                Últimos
               </button>
             </div>
           </div>
@@ -465,7 +461,6 @@ const ArticleTimeline: React.FC<ArticleTimelineProps> = ({ onBack }) => {
 
             {!loading && !searchError && !initialLoad && entries.length === 0 && (
               <div className="text-center py-12">
-                <p className="text-3xl mb-3">🔍</p>
                 <p className="text-slate-400 font-medium">No se encontraron movimientos</p>
                 <p className="text-xs text-slate-600 mt-1">
                   {currentMode === 'search'
@@ -477,7 +472,6 @@ const ArticleTimeline: React.FC<ArticleTimelineProps> = ({ onBack }) => {
 
             {initialLoad && !loading && entries.length === 0 && !searchError && (
               <div className="text-center py-12">
-                <p className="text-3xl mb-3">⏱</p>
                 <p className="text-slate-400 font-medium">Cargando últimos movimientos...</p>
               </div>
             )}
@@ -493,7 +487,7 @@ const ArticleTimeline: React.FC<ArticleTimelineProps> = ({ onBack }) => {
                     onClick={() => downloadCSV(entries, `historial_${new Date().toISOString().slice(0, 10)}.csv`)}
                     className="text-xs text-slate-400 hover:text-white transition-colors flex items-center gap-1"
                   >
-                    📥 CSV
+                    CSV
                   </button>
                 </div>
 
@@ -543,7 +537,7 @@ const ArticleTimeline: React.FC<ArticleTimelineProps> = ({ onBack }) => {
                       >
                         {loadingMore
                           ? <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />Cargando...</span>
-                          : '📥 Cargar más'}
+                          : 'Cargar más'}
                       </button>
                     </div>
                   )}
@@ -588,7 +582,6 @@ const ArticleTimeline: React.FC<ArticleTimelineProps> = ({ onBack }) => {
             {/* Estado vacío */}
             {!almacenLoading && !almacenError && !almacenInitialLoad && filteredAlmacen.length === 0 && (
               <div className="text-center py-16">
-                <p className="text-5xl mb-4">🏭</p>
                 <p className="text-slate-300 font-bold text-lg">
                   {almacenFilter.trim()
                     ? 'Sin resultados para ese filtro'
@@ -614,7 +607,7 @@ const ArticleTimeline: React.FC<ArticleTimelineProps> = ({ onBack }) => {
                     onClick={() => downloadCSV(filteredAlmacen, `almacen_${new Date().toISOString().slice(0, 10)}.csv`)}
                     className="text-xs text-slate-400 hover:text-white transition-colors flex items-center gap-1"
                   >
-                    📥 CSV
+                    CSV
                   </button>
                 </div>
 
@@ -633,7 +626,7 @@ const ArticleTimeline: React.FC<ArticleTimelineProps> = ({ onBack }) => {
                     >
                       {almacenLoadingMore
                         ? <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />Cargando...</span>
-                        : '📥 Cargar más'}
+                        : 'Cargar más'}
                     </button>
                   </div>
                 )}
@@ -673,12 +666,11 @@ function TimelineCard({
       >
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-sm font-bold text-white shrink-0">{ACTION_ICONS[entry.action] || '❓'}</span>
+            {(() => { const ActionIcon = ACTION_ICONS[entry.action] || CircleHelp; return <ActionIcon className="w-4 h-4 text-white shrink-0" aria-hidden />; })()}
             <span className="text-sm font-bold text-white">{entry.action.replace(/_/g, ' ')}</span>
             {entry.role && (
-              <span className="text-[10px] text-slate-500 flex items-center gap-0.5 shrink-0">
-                <span>{ROLE_BADGES[entry.role] || '👤'}</span>
-                <span>{ROLE_LABELS[entry.role] || entry.role}</span>
+              <span className="text-[10px] text-slate-500 shrink-0">
+                {ROLE_LABELS[entry.role] || entry.role}
               </span>
             )}
             <span className="sm:hidden text-[10px] text-slate-500 ml-auto">{formatTime(entry.timestamp)}</span>
@@ -696,7 +688,7 @@ function TimelineCard({
             </p>
           )}
           {entry.fromLocation && <p>← <span className="text-slate-400">{entry.fromLocation}</span></p>}
-          {entry.toLocation === 'ALMACEN' && <p className="text-amber-300 font-bold">→ 🏭 ALMACÉN (finalizado)</p>}
+          {entry.toLocation === 'ALMACEN' && <p className="text-amber-300 font-bold">→ ALMACÉN (finalizado)</p>}
         </div>
         {isExpanded && (
           <div className="mt-2 pt-2 border-t border-slate-700/50 text-[10px] text-slate-600 space-y-0.5">
@@ -743,7 +735,7 @@ function AlmacenCard({ entry }: { entry: TimelineEntry }) {
           </div>
         </div>
         <div className="shrink-0 text-right">
-          <p className="text-[11px] text-amber-400 font-bold">🏭 Almacén</p>
+          <p className="text-[11px] text-amber-400 font-bold">Almacén</p>
           <p className="text-[10px] text-slate-500 mt-0.5">{formatDate(entry.timestamp)}</p>
         </div>
       </div>

@@ -102,7 +102,7 @@ const LocationPhotoGallery: React.FC<LocationPhotoGalleryProps> = ({
               disabled={uploading}
               className="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold active:scale-95 transition-all disabled:opacity-50 touch-manipulation"
             >
-              {uploading ? '⏳ Subiendo…' : '📷 Hacer foto'}
+              {uploading ? 'Subiendo…' : 'Hacer foto'}
             </button>
             {hasCameraSupport() && (
               <button
@@ -148,7 +148,7 @@ const LocationPhotoGallery: React.FC<LocationPhotoGalleryProps> = ({
                 </button>
               )}
               {photo.caption && (
-                <span className="absolute bottom-0 inset-x-0 bg-black/55 text-white text-[9px] px-1 py-0.5 truncate">
+                <span className="absolute bottom-0 inset-x-0 bg-black/55 text-white text-[10px] px-1 py-0.5 truncate">
                   {photo.caption}
                 </span>
               )}

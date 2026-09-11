@@ -60,7 +60,7 @@ export interface ConfirmModalState {
   open: boolean;
   title: string;
   message: string;
-  icon: string;
+  icon?: string;
   variant: 'success' | 'danger' | 'warning' | 'info';
   confirmText?: string;
   onConfirm: () => void;
@@ -288,7 +288,7 @@ export function useOperativeShelf({
       setPendingCell(null);
       setShowOFQuestion(false);
       setScanArticleOnly(false);
-      showToast('info', '⏱️ Tiempo de espera agotado. Vuelve a seleccionar una celda.');
+      showToast('info', 'Tiempo de espera agotado. Vuelve a seleccionar una celda.');
     }, 5 * 60 * 1000); // 5 minutos
     return () => {
       if (cellFirstTimerRef.current) {
@@ -347,12 +347,12 @@ export function useOperativeShelf({
     if (finishTimerRef.current) clearTimeout(finishTimerRef.current);
     // ALTO FIX #1: Si hay lote en progreso, auto-cancelarlo al cambiar estantería
     if (batchMode && batchArticles.length > 0) {
-      showToast('info', `⚠️ Lote de ${batchArticles.length} artículo(s) cancelado`);
+      showToast('info', `Lote de ${batchArticles.length} artículo(s) cancelado`);
     }
     // Avisar si se descarta una cola de retirada a medias (no perder trabajo en silencio)
     if (pendingRetirarQueue.length > 0) {
       const n = pendingRetirarQueue.reduce((sum, q) => sum + q.items.length, 0);
-      showToast('info', `⚠️ Retirada cancelada — ${n} artículo(s) seleccionados descartados`);
+      showToast('info', `Retirada cancelada — ${n} artículo(s) seleccionados descartados`);
     }
     resetFlow();
   }, [resetFlow, batchMode, batchArticles, pendingRetirarQueue, showToast]);
@@ -400,9 +400,8 @@ export function useOperativeShelf({
     const recovered = snap;
     setConfirmModal({
       open: true,
-      title: '🔄 Lote recuperado',
+      title: 'Lote recuperado',
       message: `Se encontró un lote sin terminar con ${recovered.batchArticles.length} artículo(s) en ${shelfCode}.\n¿Reanudar el lote?`,
-      icon: '🔄',
       variant: 'info',
       confirmText: 'Sí, reanudar',
       onConfirm: () => {
@@ -496,7 +495,7 @@ export function useOperativeShelf({
       return;
     }
     setTrayItems((prev) => [...prev, { articleCode, orderFab }]);
-    showToast('success', `✅ ${articleCode} añadido (${trayItems.length + 1} en bandeja)`);
+    showToast('success', `${articleCode} añadido (${trayItems.length + 1} en bandeja)`);
   }, [trayItems, showToast]);
 
   const removeFromTray = useCallback((index: number) => {
@@ -527,7 +526,7 @@ export function useOperativeShelf({
     setScannerActive(false);
     setTrayItems([]);
     clearScanTrayStorage();
-    showToast('info', `📦 ${articles.length} artículo(s) en lote — selecciona posición`);
+    showToast('info', `${articles.length} artículo(s) en lote — selecciona posición`);
   }, [trayItems, clearScanTrayStorage, showToast]);
 
   /** Ejecuta la retirada por ubicación de cada (artículo × ubicación) de la bandeja. */
@@ -560,7 +559,7 @@ export function useOperativeShelf({
     const retiredKeys = new Set(retiredItems.map((it) => `${it.articleCode}|${it.orderFab}`));
     setTrayItems((prev) => prev.filter((it) => !retiredKeys.has(`${it.articleCode}|${it.orderFab}`)));
     if (ok === ops.length) {
-      showToast('success', `✅ ${ops.length} artículo(s) retirado(s) correctamente`);
+      showToast('success', `${ops.length} artículo(s) retirado(s) correctamente`);
     } else {
       showToast('error', `Parcial: ${ok}/${ops.length} retirados`);
     }
@@ -585,9 +584,8 @@ export function useOperativeShelf({
     const summary = ops.map((o) => `• ${o.articleCode} — ${o.shelfName} pos. ${displayPos(o.position)}`).join('\n');
     setConfirmModal({
       open: true,
-      title: '📤 Retirar de la bandeja',
+      title: 'Retirar de la bandeja',
       message: `Se retirarán ${ops.length} artículo(s) de estas ubicaciones:\n\n${summary}`,
-      icon: '📤',
       variant: 'warning',
       confirmText: `Sí, retirar ${ops.length}`,
       onConfirm: () => { void processTrayRetirar(ops, located); },
@@ -622,7 +620,7 @@ export function useOperativeShelf({
     if (ok) {
       const dest = `${destination.name}${destination.station ? ` (puesto ${destination.station})` : ''}`;
       setSuccessModal({
-        title: '✅ Solicitud enviada',
+        title: 'Solicitud enviada',
         message: `${target?.name ? `Carretillero ${target.name} avisado. ` : ''}Traer ${article.articleCode} a ${dest}.`,
       });
     } else {
@@ -828,7 +826,6 @@ export function useOperativeShelf({
       open: true,
       title: '¿Qué necesitas?',
       message: 'Selecciona el tipo de solicitud al carretillero',
-      icon: '🚚',
       variant: 'warning',
       confirmText: 'LLEVAR — que se lleven un artículo',
       onConfirm: () => {
@@ -875,7 +872,7 @@ export function useOperativeShelf({
       const from = `${selection.pickup.name}${selection.pickup.station ? ` (puesto ${selection.pickup.station})` : ''}`;
       resetFlow();
       setSuccessModal({
-        title: '✅ Solicitud enviada',
+        title: 'Solicitud enviada',
         message: `${name ? `Carretillero ${name} avisado. ` : ''}Recoger ${selection.articleCode} en ${from} → llevar a ${dest}.`,
       });
     } else {
@@ -904,7 +901,7 @@ export function useOperativeShelf({
       const dest = `${selection.destination.name}${selection.destination.station ? ` (puesto ${selection.destination.station})` : ''}`;
       resetFlow();
       setSuccessModal({
-        title: '✅ Solicitud enviada',
+        title: 'Solicitud enviada',
         message: `${name ? `Carretillero ${name} avisado. ` : ''}Traer ${selection.articleCode} a ${dest}.`,
       });
     } else {
@@ -1028,9 +1025,8 @@ export function useOperativeShelf({
         const close = () => setConfirmModal((p) => ({ ...p, open: false }));
         setConfirmModal({
           open: true,
-          title: '⚠️ No se pudo verificar',
+          title: 'No se pudo verificar',
           message: `No se pudo comprobar si ${formatArticleDisplay(articleCode, orderFab)} ya está ubicado en otro sitio (sin conexión o error de lectura).\n\nSi lo colocas ahora y ya estaba en otro sitio, quedará DUPLICADO.`,
-          icon: '⚠️',
           variant: 'warning',
           confirmText: 'Colocar de todos modos',
           onConfirm: () => { close(); resolve({ action: 'add' }); },
@@ -1062,14 +1058,13 @@ export function useOperativeShelf({
       const close = () => setConfirmModal((p) => ({ ...p, open: false }));
       setConfirmModal({
         open: true,
-        title: '📦 Ya está ubicado',
+        title: 'Ya está ubicado',
         message: `${formatArticleDisplay(articleCode, orderFab)} ya está en:\n${locationText}`,
-        icon: '📦',
         variant: 'info',
-        confirmText: `➕ Añadir aquí (Parcial ${nuevoParcial})`,
+        confirmText: `Añadir aquí (Parcial ${nuevoParcial})`,
         onConfirm: () => { close(); resolve({ action: 'add' }); },
         extraButton: canReubicar
-          ? { text: '🔄 Ya no está allí — reubicar aquí', onClick: () => { close(); resolve({ action: 'reubicar', from: globalLocs[0] }); } }
+          ? { text: 'Ya no está allí — reubicar aquí', onClick: () => { close(); resolve({ action: 'reubicar', from: globalLocs[0] }); } }
           : { text: 'Cancelar', onClick: () => { close(); resolve({ action: 'cancel' }); } },
         extraButton2: canReubicar
           ? { text: 'Cancelar', onClick: () => { close(); resolve({ action: 'cancel' }); } }
@@ -1141,7 +1136,7 @@ export function useOperativeShelf({
       }
       setBatchArticles((prev) => {
         const newLength = prev.length + 1;
-        showToast('success', `✅ ${articleCode} añadido (${newLength} en lote)`);
+        showToast('success', `${articleCode} añadido (${newLength} en lote)`);
         return [...prev, { articleCode, orderFab }];
       });
       reactivate();
@@ -1212,9 +1207,9 @@ export function useOperativeShelf({
           });
           const data = res.data as { removedFrom?: number; wasLocated?: boolean };
           if (data.wasLocated === false || (data.removedFrom ?? 0) === 0) {
-            finishAction('success', `✅ ${articleCode} registrado en almacén (no estaba ubicado)`);
+            finishAction('success', `${articleCode} registrado en almacén (no estaba ubicado)`);
           } else {
-            finishAction('success', `✅ Enviado a almacén (retirado de ${data.removedFrom} ubicación(es))`);
+            finishAction('success', `Enviado a almacén (retirado de ${data.removedFrom} ubicación(es))`);
           }
         } catch (err) {
           finishAction('error', parseCallableError(err));
@@ -1226,9 +1221,8 @@ export function useOperativeShelf({
         const locationText = globalLocs.map((l) => `• ${l.shelfName} — pos. ${padPos(l.position)}`).join('\n');
         setConfirmModal({
           open: true,
-          title: '🏭 Enviar a Almacén',
+          title: 'Enviar a Almacén',
           message: `${formatArticleDisplay(articleCode, orderFab)} está ubicado en:\n\n${locationText}\n\n¿Retirarlo de ahí y enviarlo a almacén?`,
-          icon: '🏭',
           variant: 'warning',
           confirmText: 'SÍ, retirar y enviar',
           onConfirm: sendToAlmacen,
@@ -1239,9 +1233,8 @@ export function useOperativeShelf({
       } else {
         setConfirmModal({
           open: true,
-          title: '🏭 No está ubicado',
+          title: 'No está ubicado',
           message: `${formatArticleDisplay(articleCode, orderFab)} no figura ubicado en ninguna sección.\n\n¿Registrar igualmente su subida a almacén?`,
-          icon: '🏭',
           variant: 'info',
           confirmText: 'SÍ, registrar en almacén',
           onConfirm: sendToAlmacen,
@@ -1340,12 +1333,12 @@ export function useOperativeShelf({
       const validation = validateContiguity(newPositions, shelfDef);
 
       if (!validation.isContiguous && newPositions.length > 1) {
-        showToast('error', `❌ ${validation.message}`);
+        showToast('error', `${validation.message}`);
         return;
       }
 
       if (!loc.isEmpty && loc.items.length > 0 && !selectedPositions.includes(position)) {
-        showToast('info', `⚠️ Pos. ${displayPos(position)} ocupada — se añadirá igualmente`);
+        showToast('info', `Pos. ${displayPos(position)} ocupada — se añadirá igualmente`);
       }
 
       setSelectedPositions(newPositions);
@@ -1369,12 +1362,12 @@ export function useOperativeShelf({
 
       const validation = validateContiguity(newPositions, shelfDef);
       if (!validation.isContiguous && newPositions.length > 1) {
-        showToast('error', `❌ ${validation.message}`);
+        showToast('error', `${validation.message}`);
         return;
       }
 
       if (!loc.isEmpty && loc.items.length > 0 && !selectedPositions.includes(position)) {
-        showToast('info', `⚠️ Pos. ${displayPos(position)} ya tiene ${loc.items.length} artículo(s) — se añadirá igualmente`);
+        showToast('info', `Pos. ${displayPos(position)} ya tiene ${loc.items.length} artículo(s) — se añadirá igualmente`);
       }
 
       setSelectedPositions(newPositions);
@@ -1392,7 +1385,6 @@ export function useOperativeShelf({
         open: true,
         title: '¿Mover aquí?',
         message: `¿Mover ${scanData.articleCode} a ${shelfCode} pos. ${displayPos(position)}? (${selectedPositions.length + 1}/${needed})`,
-        icon: '🔄',
         variant: 'info',
         confirmText: '✓ Sí',
         onConfirm: () => {
@@ -1501,7 +1493,7 @@ export function useOperativeShelf({
     // Homogeneización: SIN modal "¿ubicar otro?". Tras ubicar con éxito se vuelve
     // directamente a idle. Para ubicar otro, el usuario pulsa UBICAR de nuevo (o
     // usa la bandeja de escaneo). Ahorra 1 clic en cada operación.
-    finishAction('success', reubicarFrom ? `✅ ${articleCode} reubicado correctamente` : `✅ ${articleCode} ubicado correctamente`);
+    finishAction('success', reubicarFrom ? `${articleCode} reubicado correctamente` : `${articleCode} ubicado correctamente`);
     // SOLDADURA: al finalizar, abrir la celda ubicada para poder adjuntarle una foto
     // (la galería vive en el modal de celda). resetFlow() ya limpió selectedCell; este
     // setSelectedCell posterior gana en el mismo tick.
@@ -1542,7 +1534,7 @@ export function useOperativeShelf({
     setProcessing(false);
 
     if (failedAt === -1) {
-      finishAction('success', `✅ ${pending.length} artículo(s) ubicado(s) en ${selectedPositions.length} posición(es)`);
+      finishAction('success', `${pending.length} artículo(s) ubicado(s) en ${selectedPositions.length} posición(es)`);
     } else {
       const remaining = pending.slice(failedAt);
       setBatchArticles(remaining);
@@ -1560,21 +1552,20 @@ export function useOperativeShelf({
     const processed = batchProcessedCount;
     if (pending === 0) {
       finishAction(processed > 0 ? 'success' : 'info',
-        processed > 0 ? `✅ ${processed} artículo(s) ubicado(s)` : 'Lote cancelado');
+        processed > 0 ? `${processed} artículo(s) ubicado(s)` : 'Lote cancelado');
       return;
     }
     setConfirmModal({
       open: true,
-      title: processed > 0 ? '⏹ Detener lote' : '✕ Cancelar lote',
+      title: processed > 0 ? 'Detener lote' : '✕ Cancelar lote',
       message: processed > 0
         ? `Se han ubicado ${processed} artículo(s). Los ${pending} pendiente(s) NO se ubicarán y se descartan.\n¿Detener el lote?`
         : `Los ${pending} artículo(s) escaneados NO se ubicarán y se descartan.\n¿Cancelar el lote?`,
-      icon: processed > 0 ? '⏹' : '⚠️',
       variant: 'warning',
       confirmText: processed > 0 ? `Sí, detener (descartar ${pending})` : `Sí, cancelar (descartar ${pending})`,
       onConfirm: () => finishAction(
         processed > 0 ? 'success' : 'info',
-        processed > 0 ? `✅ ${processed} ubicado(s), ${pending} descartado(s)` : 'Lote cancelado',
+        processed > 0 ? `${processed} ubicado(s), ${pending} descartado(s)` : 'Lote cancelado',
       ),
       extraButton: {
         text: 'Volver al lote',
@@ -1643,7 +1634,7 @@ export function useOperativeShelf({
 
     if (missingItems.length > 0) {
       setProcessing(false);
-      showToast('error', `❌ Artículos ya no disponibles: ${missingItems.slice(0, 2).join(', ')}${missingItems.length > 2 ? '...' : ''}`);
+      showToast('error', `Artículos ya no disponibles: ${missingItems.slice(0, 2).join(', ')}${missingItems.length > 2 ? '...' : ''}`);
       cancelAction();
       return;
     }
@@ -1655,7 +1646,7 @@ export function useOperativeShelf({
     }
     setProcessing(false);
     if (successCount === selectedItems.length) {
-      finishAction('success', `✅ ${selectedItems.length} artículo(s) retirado(s) correctamente`);
+      finishAction('success', `${selectedItems.length} artículo(s) retirado(s) correctamente`);
     } else {
       finishAction('error', `Parcial: ${successCount}/${selectedItems.length} retirados`);
     }
@@ -1690,7 +1681,7 @@ export function useOperativeShelf({
 
     if (missingPositions.length > 0) {
       setProcessing(false);
-      showToast('error', `❌ Artículos ya no disponibles: ${missingPositions.slice(0, 3).join(', ')}${missingPositions.length > 3 ? '...' : ''}`);
+      showToast('error', `Artículos ya no disponibles: ${missingPositions.slice(0, 3).join(', ')}${missingPositions.length > 3 ? '...' : ''}`);
       cancelAction();
       return;
     }
@@ -1705,7 +1696,7 @@ export function useOperativeShelf({
     setProcessing(false);
     const totalItems = queue.reduce((sum, q) => sum + q.items.length, 0);
     if (successCount === totalItems) {
-      finishAction('success', `✅ ${totalItems} artículo(s) retirado(s) correctamente`);
+      finishAction('success', `${totalItems} artículo(s) retirado(s) correctamente`);
     } else {
       finishAction('error', `Parcial: ${successCount}/${totalItems} artículos retirados`);
     }
@@ -1727,7 +1718,6 @@ export function useOperativeShelf({
       open: true,
       title: '¿Retirar algo más?',
       message: `${selectedItems.length} artículo(s) de posición ${displayPos(position)} añadido(s) a la cola (${totalQueued} en total)`,
-      icon: '📤',
       variant: 'info',
       confirmText: 'SÍ, retirar más',
       onConfirm: continueSelecting,
@@ -1772,7 +1762,7 @@ export function useOperativeShelf({
         session: { operarioId, operarioName: displayName },
       });
       if (!(result.data as { ok?: boolean })?.ok) throw new Error('El servidor rechazó la operación de reubicación');
-      finishAction('success', `✅ ${articleCode} reubicado a ${getShelfDefinition(toShelf)?.name || toShelf}`);
+      finishAction('success', `${articleCode} reubicado a ${getShelfDefinition(toShelf)?.name || toShelf}`);
     } catch (err) {
       finishAction('error', parseCallableError(err));
     }
@@ -1790,7 +1780,7 @@ export function useOperativeShelf({
     if (ok) {
       // Homogeneización: SIN modal "¿mover otro?". Tras mover con éxito se vuelve
       // directamente a idle (mismo criterio que UBICAR).
-      finishAction('success', `✅ ${articleCode} movido correctamente`);
+      finishAction('success', `${articleCode} movido correctamente`);
     } else {
       finishAction('error', 'Error al mover el artículo');
     }

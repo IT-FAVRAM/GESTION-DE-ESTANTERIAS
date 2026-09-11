@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
+import { AlertTriangle, BarChart3, History, Layers, Radio, Ruler, Users, Warehouse, Wifi } from 'lucide-react';
 import OfflineIndicator from '../common/OfflineIndicator';
 import PushToast from './PushToast';
 import ConfirmationModal from '../common/ConfirmationModal';
@@ -88,7 +89,7 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
       targetCarretilleroName: selectedCarretillero?.name,
     });
     setProcessing(false);
-    if (ok) showFeedback('success', `✅ Carretillero avisado para ${shelfDef.name}`);
+    if (ok) showFeedback('success', `Carretillero avisado para ${shelfDef.name}`);
     else showFeedback('error', 'Error al enviar la solicitud');
   };
 
@@ -110,7 +111,7 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
       targetCarretilleroName: selectedCarretillero?.name,
     });
     setProcessing(false);
-    if (ok) showFeedback('success', `✅ Solicitud enviada — artículo llegará a ${selection.destination.name}`);
+    if (ok) showFeedback('success', `Solicitud enviada — artículo llegará a ${selection.destination.name}`);
     else showFeedback('error', 'Error al enviar la solicitud');
   };
 
@@ -129,10 +130,8 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
         <header className="bg-white border-b border-slate-200 px-4 py-3 shadow-sm">
           <div className="flex items-center justify-between max-w-6xl mx-auto">
             <div className="flex items-center gap-3">
-              <span className="text-2xl">🏭</span>
               <div>
-                <h1 className="text-lg font-black text-slate-900 tracking-tight">GESTOR ESTANTERIAS</h1>
-                <p className="text-xs text-slate-500">{displayName} · {role}</p>
+                <h1 className="text-lg font-black text-slate-900 tracking-tight">GESTOR ESTANTERÍAS</h1>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -151,7 +150,9 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
               className="bg-cyan-50 rounded-2xl border border-cyan-200 p-5 flex flex-col gap-2 hover:border-cyan-400 active:scale-[0.98] transition-all cursor-pointer touch-manipulation shadow-sm"
             >
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-cyan-100 border border-cyan-200 flex items-center justify-center text-2xl shrink-0">🏭</div>
+                <div className="w-12 h-12 rounded-xl bg-cyan-100 border border-cyan-200 flex items-center justify-center text-cyan-700 shrink-0">
+                  <Warehouse className="w-6 h-6" aria-hidden />
+                </div>
                 <div className="text-left">
                   <h3 className="font-black text-slate-900 text-base">Operar</h3>
                   <p className="text-xs text-cyan-700">Estanterías y carros</p>
@@ -165,7 +166,9 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
               onClick={onOpenTimeline}
               className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col items-start gap-2 hover:border-cyan-500/40 active:scale-[0.98] transition-all cursor-pointer text-left touch-manipulation shadow-sm"
             >
-              <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xl">📋</div>
+              <div className="w-10 h-10 rounded-xl bg-slate-100 border-slate-200 text-slate-600 border flex items-center justify-center">
+                <History className="w-5 h-5" aria-hidden />
+              </div>
               <div>
                 <h3 className="font-bold text-slate-900 text-sm">Historial</h3>
                 <p className="text-xs text-slate-500 mt-0.5">Trazabilidad y recorrido de artículos</p>
@@ -178,7 +181,9 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
               onClick={() => onOpenPanel('connections')}
               className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col items-start gap-2 hover:border-cyan-400/40 active:scale-[0.98] transition-all cursor-pointer text-left touch-manipulation shadow-sm"
             >
-              <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xl">📡</div>
+              <div className="w-10 h-10 rounded-xl bg-slate-100 border-slate-200 text-slate-600 border flex items-center justify-center">
+                <Radio className="w-5 h-5" aria-hidden />
+              </div>
               <div>
                 <h3 className="font-bold text-slate-900 text-sm">Conexiones</h3>
                 <p className="text-xs text-slate-500 mt-0.5">Monitor wifi de todos los kioskos</p>
@@ -191,10 +196,12 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
               onClick={() => onOpenPanel('wifi-quality')}
               className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col items-start gap-2 hover:border-emerald-400/40 active:scale-[0.98] transition-all cursor-pointer text-left touch-manipulation shadow-sm"
             >
-              <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xl">📶</div>
+              <div className="w-10 h-10 rounded-xl bg-slate-100 border-slate-200 text-slate-600 border flex items-center justify-center">
+                <Wifi className="w-5 h-5" aria-hidden />
+              </div>
               <div>
                 <h3 className="font-bold text-slate-900 text-sm">Calidad WiFi</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Analisis real de ancho de banda y latencia</p>
+                <p className="text-xs text-slate-500 mt-0.5">Análisis real de ancho de banda y latencia</p>
               </div>
             </button>
 
@@ -204,7 +211,9 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
               onClick={() => setShowChapero(true)}
               className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col items-start gap-2 hover:border-slate-500/50 active:scale-[0.98] transition-all cursor-pointer text-left touch-manipulation shadow-sm"
             >
-              <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xl">🔩</div>
+              <div className="w-10 h-10 rounded-xl bg-slate-100 border-slate-200 text-slate-600 border flex items-center justify-center">
+                <Layers className="w-5 h-5" aria-hidden />
+              </div>
               <div>
                 <h3 className="font-bold text-slate-900 text-sm">Chapero</h3>
                 <p className="text-xs text-slate-500 mt-0.5">Gestión de chapas por material y espesor</p>
@@ -218,7 +227,9 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
                 onClick={() => setShowCounter(true)}
                 className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col items-start gap-2 hover:border-cyan-500/40 active:scale-[0.98] transition-all cursor-pointer text-left touch-manipulation shadow-sm"
               >
-                <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xl">📐</div>
+                <div className="w-10 h-10 rounded-xl bg-slate-100 border-slate-200 text-slate-600 border flex items-center justify-center">
+                  <Ruler className="w-5 h-5" aria-hidden />
+                </div>
                 <div>
                   <h3 className="font-bold text-slate-900 text-sm">Contar piezas</h3>
                   <p className="text-xs text-slate-500 mt-0.5">Conteo por foto con IA</p>
@@ -232,7 +243,9 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
               onClick={() => onOpenPanel('reports')}
               className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col items-start gap-2 hover:border-emerald-500/30 active:scale-[0.98] transition-all cursor-pointer text-left touch-manipulation shadow-sm"
             >
-              <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xl">📊</div>
+              <div className="w-10 h-10 rounded-xl bg-slate-100 border-slate-200 text-slate-600 border flex items-center justify-center">
+                <BarChart3 className="w-5 h-5" aria-hidden />
+              </div>
               <div>
                 <h3 className="font-bold text-slate-900 text-sm">Informes</h3>
                 <p className="text-xs text-slate-500 mt-0.5">Inventario, exportar Excel y métricas</p>
@@ -246,7 +259,9 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
                   onClick={() => onOpenPanel('team')}
                   className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col items-start gap-2 hover:border-cyan-500/30 active:scale-[0.98] transition-all cursor-pointer text-left touch-manipulation shadow-sm"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xl">👥</div>
+                  <div className="w-10 h-10 rounded-xl bg-slate-100 border-slate-200 text-slate-600 border flex items-center justify-center">
+                    <Users className="w-5 h-5" aria-hidden />
+                  </div>
                   <div>
                     <h3 className="font-bold text-slate-900 text-sm">Usuarios y Dispositivos</h3>
                     <p className="text-xs text-slate-500 mt-0.5">Roles, permisos y kioskos</p>
@@ -257,7 +272,9 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
                   onClick={() => onOpenPanel('special')}
                   className="bg-white rounded-2xl border border-amber-200 p-5 flex flex-col items-start gap-2 hover:border-amber-400 active:scale-[0.98] transition-all cursor-pointer text-left touch-manipulation shadow-sm"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-xl">🚨</div>
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 border-amber-200 text-amber-600 border flex items-center justify-center">
+                    <AlertTriangle className="w-5 h-5" aria-hidden />
+                  </div>
                   <div>
                     <h3 className="font-bold text-slate-900 text-sm">Ubicaciones Especiales</h3>
                     <p className="text-xs text-slate-500 mt-0.5">Urgentes y revisión técnica</p>
@@ -275,7 +292,7 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
           <div className="w-full max-w-lg bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden">
             <div className="px-6 pt-6 pb-2">
               <h2 className="text-xl font-black text-slate-900">
-                {pendingShelfAction === 'avisar' ? '🚚 Selecciona estantería' : '📦 Selecciona estantería'}
+                Selecciona estantería
               </h2>
               <p className="text-sm text-slate-500 mt-1">
                 {pendingShelfAction === 'avisar'
@@ -310,13 +327,12 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
       <ConfirmationModal
         open={showAvisarConfirm}
         onClose={() => setShowAvisarConfirm(false)}
-        title="🚚 Avisar Carretillero"
+        title="Avisar Carretillero"
         message={
           selectedShelfCode
             ? `¿Solicitar recogida para ${ALL_SHELVES.find((s) => s.code === selectedShelfCode)?.name || selectedShelfCode}? El carretillero recibirá un aviso.`
             : 'Selecciona una estantería primero.'
         }
-        icon="🚚"
         variant="warning"
         confirmText="SÍ, AVISAR"
         onConfirm={handleAvisarConfirm}

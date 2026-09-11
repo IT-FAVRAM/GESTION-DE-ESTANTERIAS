@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { AlertCircle, ArrowLeft, Plus } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Megaphone, MessageCircle, Plus } from 'lucide-react';
 import type { ChatMessage, Conversation } from '../../lib/firestoreSchema';
 import type { UserRole } from '../../lib/firestoreSchema';
 import { useConversationMessages } from '../../hooks/useConversationMessages';
@@ -168,7 +168,6 @@ const ThreadView: React.FC<ThreadViewProps> = ({
           </div>
         ) : messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 gap-2">
-            <span className="text-4xl">📭</span>
             <p className="font-bold">Aún no hay mensajes</p>
             <p className="text-sm">Sé el primero en escribir.</p>
           </div>
@@ -332,7 +331,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             <header className="flex items-center justify-between gap-3 px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-cyan-500 flex items-center justify-center text-white text-lg">
-                  💬
+                  <MessageCircle className="w-5 h-5" aria-hidden />
                 </div>
                 <div>
                   <h2 className="text-base font-black text-slate-900 dark:text-white leading-tight">Chat interno</h2>
@@ -356,7 +355,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                 className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white dark:hover:bg-slate-900 transition-colors"
               >
                 <div className="h-10 w-10 shrink-0 rounded-full bg-cyan-500 flex items-center justify-center text-white text-lg">
-                  📢
+                  <Megaphone className="w-5 h-5" aria-hidden />
                 </div>
                 <div className="flex-1 min-w-0 text-left">
                   <p className="text-sm font-bold text-slate-900 dark:text-white">Chat General</p>

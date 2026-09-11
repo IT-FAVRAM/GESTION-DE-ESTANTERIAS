@@ -148,7 +148,7 @@ const AdminMessagesTab: React.FC = () => {
           disabled={sending || !title.trim() || !body.trim()}
           className="w-full rounded-2xl bg-cyan-600 px-4 py-3 text-sm font-black text-white transition hover:bg-cyan-500 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {sending ? 'Enviando...' : `📢 Enviar a: ${targetLabel}`}
+          {sending ? 'Enviando...' : `Enviar a: ${targetLabel}`}
         </button>
       </div>
 

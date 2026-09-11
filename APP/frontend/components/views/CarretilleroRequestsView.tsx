@@ -92,7 +92,7 @@ const CarretilleroRequestsView: React.FC<CarretilleroRequestsViewProps> = ({ onN
     return (
         <div className="p-4 pb-20 space-y-6 animate-fade-in">
             <h2 className="text-xl font-black text-slate-800 dark:text-white flex items-center gap-2">
-                📦 Solicitudes de Material
+                Solicitudes de Material
             </h2>
 
             {/* PENDING REQUESTS */}
@@ -102,7 +102,7 @@ const CarretilleroRequestsView: React.FC<CarretilleroRequestsViewProps> = ({ onN
                 </h3>
                 {pendingRequests.length === 0 ? (
                     <div className="text-center py-8 bg-slate-100 dark:bg-slate-800 rounded-xl">
-                        <p className="text-slate-500 dark:text-slate-400">👍 No hay solicitudes pendientes</p>
+                        <p className="text-slate-500 dark:text-slate-400">No hay solicitudes pendientes</p>
                     </div>
                 ) : (
                     <div className="space-y-3">
@@ -115,10 +115,10 @@ const CarretilleroRequestsView: React.FC<CarretilleroRequestsViewProps> = ({ onN
                                 <p className="text-sm text-slate-600 dark:text-slate-300 mb-3">{req.message}</p>
 
                                 {req.metadata?.barcode && (
-                                    <p className="text-xs font-mono text-cyan-600 dark:text-cyan-400 mb-2">🔖 {req.metadata.barcode}</p>
+                                    <p className="text-xs font-mono text-cyan-600 dark:text-cyan-400 mb-2">{req.metadata.barcode}</p>
                                 )}
                                 {req.metadata?.location && (
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">📍 {req.metadata.location}</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">{req.metadata.location}</p>
                                 )}
 
                                 <div className="flex gap-2">

@@ -110,7 +110,7 @@ const PhotoCarousel: React.FC<PhotoCarouselProps> = ({
               disabled={deleting}
               className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold active:scale-95 transition-all disabled:opacity-50"
             >
-              {deleting ? '⏳' : '🗑'} Eliminar
+              Eliminar
             </button>
           )}
           <button

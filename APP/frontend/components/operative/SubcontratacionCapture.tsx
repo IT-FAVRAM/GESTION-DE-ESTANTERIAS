@@ -47,7 +47,7 @@ const SubcontratacionCapture: React.FC<SubcontratacionCaptureProps> = ({ onPhoto
               onClick={onPhoto}
               className="w-full rounded-xl border-2 border-orange-300 hover:border-orange-500 bg-orange-50 px-4 py-3 text-left transition-colors shadow-sm hover:shadow-md"
             >
-              <span className="font-bold text-orange-900">📸 Hacer foto a la etiqueta</span>
+              <span className="font-bold text-orange-900">Hacer foto a la etiqueta</span>
               <span className="block text-xs text-orange-700/80 mt-0.5">
                 Lee automáticamente el código subrayado en amarillo (arriba)
               </span>
@@ -58,7 +58,7 @@ const SubcontratacionCapture: React.FC<SubcontratacionCaptureProps> = ({ onPhoto
               onClick={() => setManualMode(true)}
               className="w-full rounded-xl border-2 border-slate-200 hover:border-slate-400 bg-white px-4 py-3 text-left transition-colors"
             >
-              <span className="font-bold text-slate-800">⌨️ Escribir código</span>
+              <span className="font-bold text-slate-800">Escribir código</span>
               <span className="block text-xs text-slate-500 mt-0.5">
                 Introduce el código de la etiqueta a mano
               </span>
@@ -103,7 +103,7 @@ const SubcontratacionCapture: React.FC<SubcontratacionCaptureProps> = ({ onPhoto
 
         <div className="px-4 py-3 bg-slate-50 border-t border-slate-100">
           <p className="text-xs text-slate-600">
-            💡 El código amarillo es el único identificador (sin OF). Luego elige la celda.
+            El código amarillo es el único identificador (sin OF). Luego elige la celda.
           </p>
         </div>
       </div>

@@ -53,20 +53,20 @@ const ShelfNavigatorStatus: React.FC<ShelfNavigatorStatusProps> = ({
       )}
       {scannerActive && (
         <div className="mx-4 mt-2 p-3 rounded-xl bg-sky-50 border border-sky-300 text-center">
-          <p className="text-sm font-bold text-sky-700 animate-pulse">📡 Esperando escaneo...</p>
+          <p className="text-sm font-bold text-sky-700 animate-pulse">Esperando escaneo...</p>
         </div>
       )}
       {scanArticle && (
         <div className="mx-3 mt-2 p-5 rounded-2xl bg-emerald-50 border-2 border-emerald-500 shadow-lg shadow-emerald-100">
-          <p className="text-lg font-black text-emerald-700 text-center">📦 {scanArticle}</p>
-          <p className="text-sm font-bold text-emerald-600 text-center mt-1">👇 Toca una celda para ubicar</p>
+          <p className="text-lg font-black text-emerald-700 text-center">{scanArticle}</p>
+          <p className="text-sm font-bold text-emerald-600 text-center mt-1">Toca una celda para ubicar</p>
         </div>
       )}
       {showMoverProgress && !moverComplete && moverSelected === 0 && (
         <div className="mx-3 mt-2 p-5 rounded-2xl bg-blue-50 border-2 border-blue-500 shadow-lg shadow-blue-100">
-          <p className="text-lg font-black text-blue-700 text-center">🔄 Mover</p>
+          <p className="text-lg font-black text-blue-700 text-center">Mover</p>
           <p className="text-sm font-bold text-blue-600 text-center mt-1">
-            👇 Toca {moverNeeded} celda{moverNeeded !== 1 ? 's' : ''} de destino
+            Toca {moverNeeded} celda{moverNeeded !== 1 ? 's' : ''} de destino
           </p>
         </div>
       )}

@@ -6,6 +6,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../lib/firebase';
 import { getOrCreateDeviceId } from '../../domain/auth/authStorage';
@@ -42,7 +43,7 @@ const KioskoSetupPage: React.FC<KioskoSetupPageProps> = ({ section, onComplete }
 
         if ((result.data as any)?.ok) {
           setStatus('success');
-          setMessage(`✅ Kiosko ${section} registrado exitosamente`);
+          setMessage(`Kiosko ${section} registrado exitosamente`);
           setTimeout(() => {
             window.location.href = '/';
           }, 2000);
@@ -51,7 +52,7 @@ const KioskoSetupPage: React.FC<KioskoSetupPageProps> = ({ section, onComplete }
         }
       } catch (error: any) {
         setStatus('error');
-        setMessage(`❌ Error: ${error.message}`);
+        setMessage(`Error: ${error.message}`);
       }
     };
 
@@ -63,10 +64,10 @@ const KioskoSetupPage: React.FC<KioskoSetupPageProps> = ({ section, onComplete }
       <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full mx-4">
         <div className="text-center space-y-6">
           {/* Logo */}
-          <div className="text-6xl">
-            {status === 'registering' && '⚙️'}
-            {status === 'success' && '✅'}
-            {status === 'error' && '❌'}
+          <div className="flex justify-center">
+            {status === 'registering' && <Loader2 className="w-16 h-16 text-slate-400 animate-spin" aria-hidden />}
+            {status === 'success' && <CheckCircle2 className="w-16 h-16 text-emerald-500" aria-hidden />}
+            {status === 'error' && <XCircle className="w-16 h-16 text-red-500" aria-hidden />}
           </div>
 
           {/* Título */}

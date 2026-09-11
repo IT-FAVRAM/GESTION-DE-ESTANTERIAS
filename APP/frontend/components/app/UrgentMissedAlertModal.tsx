@@ -6,6 +6,7 @@
  * urgentes pendientes; el botón "Entendido" los marca como reconocidos.
  */
 import React from 'react';
+import { AlertTriangle } from 'lucide-react';
 import type { PendingUrgentAlert } from '../../hooks/usePendingUrgentAlerts';
 
 interface UrgentMissedAlertModalProps {
@@ -31,7 +32,7 @@ const UrgentMissedAlertModal: React.FC<UrgentMissedAlertModalProps> = ({ alerts,
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-red-950/80 backdrop-blur-sm p-4">
       <div className="w-full max-w-lg rounded-3xl bg-white border-4 border-red-600 shadow-2xl overflow-hidden animate-pulse-once">
         <div className="bg-red-600 px-6 py-5 flex items-center gap-3">
-          <span className="text-4xl">🚨</span>
+          <AlertTriangle className="w-10 h-10 text-white shrink-0" strokeWidth={2.25} aria-hidden />
           <div>
             <h2 className="text-2xl font-black text-white leading-tight">
               {alerts.length === 1 ? 'AVISO URGENTE' : `${alerts.length} AVISOS URGENTES`}

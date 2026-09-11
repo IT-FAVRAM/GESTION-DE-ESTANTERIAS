@@ -276,7 +276,7 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
                   onChange={(e) => setCustomMaterial(e.target.value)}
                   placeholder="Material…"
                   autoFocus
-                  className="mt-1 w-full rounded-lg border border-emerald-300 bg-white px-2 py-1 text-[9px] focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="mt-1 w-full rounded-lg border border-emerald-300 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               )}
             </div>
@@ -319,7 +319,7 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
                   onChange={(e) => setCustomEspesor(e.target.value)}
                   placeholder="Ej: 7.0"
                   autoFocus
-                  className="mt-1 w-full rounded-lg border border-emerald-300 bg-white px-2 py-1 text-[9px] focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="mt-1 w-full rounded-lg border border-emerald-300 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               )}
             </div>

@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
+import { AlertTriangle, BarChart3, Bell, HardHat, Lightbulb, Package, ScanLine, Search, Smartphone, Truck } from 'lucide-react';
 import OfflineIndicator from '../common/OfflineIndicator';
 import PushToast from './PushToast';
 import ConfirmationModal from '../common/ConfirmationModal';
@@ -81,7 +82,7 @@ const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, se
       targetCarretilleroName: selectedCarretillero?.name,
     });
     setProcessing(false);
-    if (ok) showFeedback('success', '✅ Carretillero avisado — recogida solicitada');
+    if (ok) showFeedback('success', 'Carretillero avisado — recogida solicitada');
     else showFeedback('error', 'Error al enviar la solicitud');
   };
 
@@ -100,7 +101,7 @@ const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, se
       targetCarretilleroName: selectedCarretillero?.name,
     });
     setProcessing(false);
-    if (ok) showFeedback('success', '✅ Solicitud enviada — el carretillero traerá el artículo');
+    if (ok) showFeedback('success', 'Solicitud enviada — el carretillero traerá el artículo');
     else showFeedback('error', 'Error al enviar la solicitud');
   };
 
@@ -119,15 +120,12 @@ const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, se
         <header className="bg-slate-900 border-b border-slate-800 px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-xl">{role === 'CALIDAD' ? '🔍' : '👷'}</span>
+              {role === 'CALIDAD' ? <Search className="w-6 h-6 text-cyan-400" aria-hidden /> : <HardHat className="w-6 h-6 text-cyan-400" aria-hidden />}
               <div>
                 <h1 className="text-lg font-black text-white">{role === 'CALIDAD' ? 'Calidad' : 'Supervisor'}</h1>
-                <p className="text-xs text-slate-400">
-                  {displayName}
-                  {role === 'JEFE_SECCION' && section && (
-                    <span className="ml-2 text-cyan-400 font-semibold">· {SECTION_LABEL[section]}</span>
-                  )}
-                </p>
+                {role === 'JEFE_SECCION' && section && (
+                  <p className="text-xs text-cyan-400 font-semibold">{SECTION_LABEL[section]}</p>
+                )}
               </div>
             </div>
             <button onClick={onLogout} className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl font-bold hover:bg-slate-700">Cerrar Sesión</button>
@@ -137,7 +135,7 @@ const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, se
         <main className="flex-1 overflow-y-auto overscroll-contain p-6 pb-20">
           <div className="max-w-2xl mx-auto space-y-6">
             <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-              <h2 className="text-xl font-black text-white mb-1">🎯 Tu Rol: {role === 'CALIDAD' ? 'Control de Calidad' : 'Supervisor'}</h2>
+              <h2 className="text-xl font-black text-white mb-1">Tu rol: {role === 'CALIDAD' ? 'Control de Calidad' : 'Supervisor'}</h2>
               {role === 'JEFE_SECCION' && section && (
                 <div className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 bg-cyan-900/40 border border-cyan-700/50 rounded-xl">
                   <span className="text-cyan-300 text-sm font-black tracking-wide">{SECTION_LABEL[section]}</span>
@@ -157,20 +155,20 @@ const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, se
               </p>
               <div className="space-y-3">
                 <div className="flex items-start gap-3 p-3 bg-slate-950 rounded-xl">
-                  <span className="text-xl">🔔</span>
+                  <Bell className="w-5 h-5 mt-0.5 text-cyan-400 shrink-0" aria-hidden />
                   <div>
                     <p className="font-bold text-white">Notificaciones Push</p>
-                    <p className="text-xs text-slate-400">Recibiras alertas automaticas en tu dispositivo</p>
+                    <p className="text-xs text-slate-400">Recibirás alertas automáticas en tu dispositivo</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3 p-3 bg-slate-950 rounded-xl">
-                  <span className="text-xl">⚠️</span>
+                  <AlertTriangle className="w-5 h-5 mt-0.5 text-amber-400 shrink-0" aria-hidden />
                   <div>
                     <p className="font-bold text-white">Alertas de Urgencia</p>
                     <p className="text-xs text-slate-400">
                       {role === 'CALIDAD'
-                        ? 'Articulos en ubicaciones de revision tecnica o urgentes (CAL-029, CAL-031, CAL-032, CAL-034).'
-                        : 'Articulos en ubicaciones urgentes de tu seccion.'}
+                        ? 'Artículos en ubicaciones de revisión técnica o urgentes (CAL-029, CAL-031, CAL-032, CAL-034).'
+                        : 'Artículos en ubicaciones urgentes de tu sección.'}
                     </p>
                   </div>
                 </div>
@@ -178,7 +176,7 @@ const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, se
                 {role === 'JEFE_SECCION' ? (
                   <div className="flex flex-col gap-3 p-4 bg-cyan-950/30 border border-cyan-900/50 rounded-xl mt-4">
                     <div className="flex items-start gap-3">
-                      <span className="text-xl">📱</span>
+                      <Smartphone className="w-5 h-5 mt-0.5 text-cyan-400 shrink-0" aria-hidden />
                       <div>
                         <p className="font-bold text-white">Operativa Móvil</p>
                         <p className="text-xs text-slate-400">Escanea, ubica y retira artículos directamente con la cámara del dispositivo.</p>
@@ -190,7 +188,7 @@ const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, se
                       className="w-full py-4 mt-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-cyan-900/20 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                       title={!shelfCode ? 'Debes tener una sección asignada para operar' : 'Accede al modo de escaneo y operativa'}
                     >
-                      <span>📸</span> MODO OPERATIVO (Escanear)
+                      <ScanLine className="w-5 h-5" aria-hidden /> MODO OPERATIVO (Escanear)
                     </button>
 
                     {section && shelfCode && (
@@ -203,14 +201,14 @@ const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, se
                               disabled={processing}
                               className="w-full py-4 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-amber-900/20 transition-all active:scale-[0.98] disabled:opacity-50"
                             >
-                              <span>🚚</span> AVISAR CARRETILLERO (Recoger)
+                              <Truck className="w-5 h-5" aria-hidden /> AVISAR CARRETILLERO (Recoger)
                             </button>
                             <button
                               onClick={() => startAvisar('traer')}
                               disabled={processing}
                               className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20 transition-all active:scale-[0.98] disabled:opacity-50"
                             >
-                              <span>📦</span> SOLICITAR ARTÍCULO (Traer)
+                              <Package className="w-5 h-5" aria-hidden /> SOLICITAR ARTÍCULO (Traer)
                             </button>
                           </div>
                         </div>
@@ -219,10 +217,10 @@ const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, se
                   </div>
                 ) : (
                   <div className="flex items-start gap-3 p-3 bg-slate-950 rounded-xl">
-                    <span className="text-xl">📊</span>
+                    <BarChart3 className="w-5 h-5 mt-0.5 text-slate-400 shrink-0" aria-hidden />
                     <div>
                       <p className="font-bold text-white">Sin Acceso Operativo</p>
-                      <p className="text-xs text-slate-400">No puedes ubicar, retirar ni mover articulos. Contacta a un ADMIN o SUPERADMIN para cambios.</p>
+                      <p className="text-xs text-slate-400">No puedes ubicar, retirar ni mover artículos. Contacta a un ADMIN o SUPERADMIN para cambios.</p>
                     </div>
                   </div>
                 )}
@@ -232,7 +230,7 @@ const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, se
             {role === 'CALIDAD' && (
               <div className="rounded-3xl border border-amber-500/20 bg-amber-500/10 p-6">
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">💡</span>
+                  <Lightbulb className="w-6 h-6 text-amber-300 shrink-0" aria-hidden />
                   <div>
                     <p className="font-bold text-amber-200">¿Necesitas operar estanterías?</p>
                     <p className="text-sm text-amber-100/80">Pide a un SUPERADMIN que cambie tu rol a ADMIN o CARRETILLERO.</p>
@@ -253,9 +251,8 @@ const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, se
       <ConfirmationModal
         open={showAvisarConfirm}
         onClose={() => setShowAvisarConfirm(false)}
-        title="🚚 Avisar Carretillero"
+        title="Avisar Carretillero"
         message={`¿Solicitar recogida para la estantería de ${SECTION_LABEL[section!]}?${selectedCarretillero ? ` Carretillero: ${selectedCarretillero.name}.` : ''} El carretillero se desplazará a tu sección para recoger los artículos pendientes.`}
-        icon="🚚"
         variant="warning"
         confirmText="SÍ, AVISAR"
         onConfirm={handleAvisarConfirm}

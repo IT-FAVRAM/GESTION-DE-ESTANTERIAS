@@ -18,7 +18,7 @@ export const ShelfModuleLayout: React.FC<ShelfModuleLayoutProps> = ({ title, sub
                         <ChevronLeftIcon className="h-5 w-5 text-slate-700 dark:text-slate-300" />
                     </button>
                 )}
-                <h2 className="text-xl md:text-2xl font-bold">🏢 {title}</h2>
+                <h2 className="text-xl md:text-2xl font-bold">{title}</h2>
             </div>
             
             <div className="bg-slate-50/50 dark:bg-slate-900/30 p-3 md:p-4 rounded-2xl mb-4 md:mb-6 border-2 border-slate-200 dark:border-slate-800 content-visibility-auto">

@@ -39,25 +39,25 @@ const OfflineIndicator: React.FC = () => {
   let toneClass: string;
 
   if (isOffline) {
-    message = `⚠️ Sin conexión — ${
+    message = `Sin conexión — ${
       pendingCount > 0
         ? `${pendingCount} cambio(s) en cola local`
         : 'Los cambios se guardarán en cola local'
     }`;
     toneClass = 'bg-amber-500 text-white';
   } else if (conflictCount > 0) {
-    message = `🔴 ${conflictCount} conflicto(s) pendiente${conflictCount > 1 ? 's' : ''} — revisar manualmente`;
+    message = `${conflictCount} conflicto(s) pendiente${conflictCount > 1 ? 's' : ''} — revisar manualmente`;
     toneClass = 'bg-rose-600 text-white';
   } else if (retryableCount > 0) {
-    message = `⚠️ ${retryableCount} cambio(s) listos para reintento${
+    message = `${retryableCount} cambio(s) listos para reintento${
       lastSyncError ? ` — ${lastSyncError}` : ''
     }`;
     toneClass = 'bg-amber-500 text-white';
   } else if (isSyncing || pendingCount > 0) {
-    message = `🔄 Sincronizando ${pendingCount} cambio(s)...`;
+    message = `Sincronizando ${pendingCount} cambio(s)...`;
     toneClass = 'bg-blue-600 text-white';
   } else {
-    message = '✅ Conexión recuperada — datos sincronizados';
+    message = 'Conexión recuperada — datos sincronizados';
     toneClass = 'bg-emerald-500 text-white animate-fade-out-delayed';
   }
 

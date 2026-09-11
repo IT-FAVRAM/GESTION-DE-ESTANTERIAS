@@ -11,6 +11,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useGlobalSearchWithCache, type GlobalSearchResult } from '../../hooks/useGlobalSearchWithCache';
 import { REQUEST_SECTIONS, type RequestSection } from '../../lib/operative/requestSections';
 import SoldaduraStationPicker from '../common/SoldaduraStationPicker';
+import { ofLabel } from '../../lib/ofLabel';
 
 export interface RecogidaSelection {
   articleCode: string;
@@ -37,14 +38,13 @@ const SectionGrid: React.FC<{ onPick: (s: RequestSection) => void; selectedCode?
         key={opt.code}
         onClick={() => onPick(opt)}
         disabled={processing}
-        className={`rounded-2xl border-2 px-3 py-4 text-center font-bold transition-all active:scale-95 disabled:opacity-50 ${
+        className={`rounded-2xl border-2 px-3 py-4 min-h-16 flex items-center justify-center text-center font-bold transition-all active:scale-95 disabled:opacity-50 ${
           selectedCode === opt.code
             ? 'border-orange-400 bg-orange-500/20 text-orange-300'
             : 'border-slate-700 bg-slate-800/60 text-slate-300 hover:border-slate-500'
         }`}
       >
-        <span className="block text-2xl mb-1">{opt.emoji}</span>
-        <span className="block text-sm font-black">{opt.name}</span>
+        <span className="block text-base font-black leading-tight">{opt.name}</span>
       </button>
     ))}
   </div>
@@ -125,16 +125,16 @@ const RecogidaModal: React.FC<RecogidaModalProps> = ({
           ← {step === 'article' ? 'Cancelar' : 'Volver'}
         </button>
         <h2 className="text-lg font-black text-white flex-1 text-center">
-          {step === 'article' && '🔔 ¿Qué hay que recoger?'}
-          {step === 'origin' && '🚚 ¿De dónde se recoge?'}
-          {step === 'destination' && '🚚 ¿A dónde va?'}
+          {step === 'article' && '¿Qué hay que recoger?'}
+          {step === 'origin' && '¿De dónde se recoge?'}
+          {step === 'destination' && '¿A dónde va?'}
         </h2>
         <div className="w-16" />
       </div>
 
       {targetCarretilleroName && (
         <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 text-center">
-          <span className="text-xs font-bold text-amber-300">🚜 Carretillero: {targetCarretilleroName}</span>
+          <span className="text-xs font-bold text-amber-300">Carretillero: {targetCarretilleroName}</span>
         </div>
       )}
 
@@ -188,7 +188,7 @@ const RecogidaModal: React.FC<RecogidaModalProps> = ({
                   className="w-full text-left rounded-xl border border-slate-700 bg-slate-900/60 hover:border-slate-500 px-3 py-2.5 transition-all active:scale-[0.98]"
                 >
                   <p className="font-black text-white font-mono text-sm">{r.articleCode}</p>
-                  {r.orderFab && <p className="text-xs text-cyan-400/80 font-mono">OF: {r.orderFab}</p>}
+                  {r.orderFab && <p className="text-xs text-cyan-400/80 font-mono">{ofLabel(r.orderFab)}</p>}
                 </button>
               ))}
             </div>
@@ -208,10 +208,9 @@ const RecogidaModal: React.FC<RecogidaModalProps> = ({
       {step === 'origin' && (
         <div className="flex-1 overflow-y-auto px-4 pt-4 pb-safe">
           <div className="bg-slate-800/60 rounded-2xl px-4 py-3 mb-3 flex items-center gap-3">
-            <span className="text-2xl">📦</span>
             <div className="min-w-0">
               <p className="font-black text-white font-mono truncate">{articleCode}</p>
-              {orderFab && <p className="text-xs text-slate-400 font-mono">OF: {orderFab}</p>}
+              {orderFab && <p className="text-xs text-slate-400 font-mono">{ofLabel(orderFab)}</p>}
             </div>
           </div>
           <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">¿De qué sección hay que recogerlo?</p>

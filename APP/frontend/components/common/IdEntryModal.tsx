@@ -121,7 +121,7 @@ const IdEntryModal: React.FC<IdEntryModalProps> = ({ open, initialValue, onConfi
               text-white font-black text-lg shadow-lg shadow-cyan-950/40
               active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
           >
-            ✅ CONFIRMAR ID
+            CONFIRMAR ID
           </button>
           <button
             onClick={onClose}

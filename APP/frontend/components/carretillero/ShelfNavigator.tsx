@@ -66,7 +66,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
   const [processing, setProcessing] = useState(false);
    const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'info'; msg: string } | null>(null);
   const [confirmModal, setConfirmModal] = useState<{
-    open: boolean; title: string; message: string; icon: string;
+    open: boolean; title: string; message: string; icon?: string;
     variant: 'success' | 'danger' | 'warning' | 'info';
     onConfirm: () => void;
     extraButton?: { text: string; onClick: () => void };
@@ -168,14 +168,14 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
       setConfirmModal({
         open: true, title: 'Avisar al Carretillero',
         message: `Se avisará que hay una pieza para recoger en ${shelfDef?.name || selectedShelf}`,
-        icon: '🚚', variant: 'warning',
+        variant: 'warning',
         confirmText: 'LLEVAR — que me se lleven un artículo',
         onConfirm: async () => {
           setProcessing(true);
           setConfirmModal(prev => ({ ...prev, open: false }));
           const ok = await createPickupRequest({ operarioId: effectiveOperarioId, operarioName: displayName, shelfCode: selectedShelf });
           setProcessing(false);
-          if (ok) finishAction('success', '✅ Aviso enviado');
+          if (ok) finishAction('success', 'Aviso enviado');
           else finishAction('error', 'Error al enviar');
         },
       });
@@ -206,7 +206,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
     }
     setProcessing(false);
     if (successCount === selectedItems.length)
-      finishAction('success', `✅ ${selectedItems.length} artículo${selectedItems.length !== 1 ? 's' : ''} retirado${selectedItems.length !== 1 ? 's' : ''}`);
+      finishAction('success', `${selectedItems.length} artículo${selectedItems.length !== 1 ? 's' : ''} retirado${selectedItems.length !== 1 ? 's' : ''}`);
     else
       finishAction('error', `Parcial: ${successCount}/${selectedItems.length} retirados`);
   }, [retirarDeUbicacion, effectiveOperarioId, displayName, finishAction]);
@@ -223,7 +223,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
     }
     setProcessing(false);
     if (successCount === batchArticles.length) {
-      finishAction('success', `✅ ${batchArticles.length} artículo${batchArticles.length > 1 ? 's' : ''} ubicado${batchArticles.length > 1 ? 's' : ''} en ${selectedPositions.length} posición${selectedPositions.length > 1 ? 'es' : ''}`);
+      finishAction('success', `${batchArticles.length} artículo${batchArticles.length > 1 ? 's' : ''} ubicado${batchArticles.length > 1 ? 's' : ''} en ${selectedPositions.length} posición${selectedPositions.length > 1 ? 'es' : ''}`);
     } else {
       finishAction('error', `Parcial: ${successCount}/${batchArticles.length} artículos ubicados`);
     }
@@ -246,7 +246,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
         return;
       }
       setBatchArticles(prev => [...prev, { articleCode, orderFab }]);
-      showToast('success', `✅ ${articleCode} añadido al lote`);
+      showToast('success', `${articleCode} añadido al lote`);
       setScannerActive(true);
       return;
     }
@@ -274,9 +274,8 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
           .join('\n');
         setConfirmModal({
           open: true,
-          title: '⚠️ Artículo ya ubicado',
+          title: 'Artículo ya ubicado',
           message: `${formatArticleDisplay(articleCode, orderFab)} ya figura en el sistema:\n\n${locationText}\n\n¿Confirmas que ya NO se encuentra ahí?`,
-          icon: '⚠️',
           variant: 'warning',
           onConfirm: () => setConfirmModal((prev) => ({ ...prev, open: false })),
           extraButton: {
@@ -298,7 +297,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
 
       let msg = `${formatArticleDisplay(articleCode, orderFab)} en: ${found.map(l => parseInt(l.position, 10)).join(', ')}`;
       if (found.length > 1) {
-        msg += `\n\n⚠️ Este artículo ocupa ${found.length} posiciones. Si lo retiras, se retirará de TODAS.`;
+        msg += `\n\nEste artículo ocupa ${found.length} posiciones. Si lo retiras, se retirará de TODAS.`;
       }
       const otherItemsCount = found.reduce((acc, loc) => {
         const others = (loc.items || []).filter(
@@ -313,12 +312,12 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
       setConfirmModal({
         open: true, title: 'Confirmar Retirada',
         message: msg,
-        icon: '📤', variant: 'danger',
+        variant: 'danger',
         onConfirm: async () => {
           setProcessing(true); setConfirmModal(p => ({ ...p, open: false }));
           const r = await retirar(articleCode, orderFab, effectiveOperarioId, displayName);
           setProcessing(false);
-          if (r.success) finishAction('success', '✅ Retirado');
+          if (r.success) finishAction('success', 'Retirado');
           else finishAction('error', r.error || 'Error al retirar');
         },
       });
@@ -327,7 +326,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
       setConfirmModal({
         open: true, title: 'Enviar a Almacén',
         message: `¿Enviar ${formatArticleDisplay(articleCode, orderFab)} a almacén?\nSe retirará de TODAS las estanterías donde esté ubicado.`,
-        icon: '🏭', variant: 'warning',
+        variant: 'warning',
         onConfirm: async () => {
           setProcessing(true); setConfirmModal(p => ({ ...p, open: false }));
           try {
@@ -338,7 +337,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
               session: { operarioId: effectiveOperarioId, operarioName: displayName },
             });
             const data = result.data as any;
-            finishAction('success', `✅ Enviado a almacén (${data.removedFrom || 0} ubicaciones)`);
+            finishAction('success', `Enviado a almacén (${data.removedFrom || 0} ubicaciones)`);
           } catch (err: unknown) {
             finishAction('error', parseCallableError(err));
           }
@@ -387,9 +386,8 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
       setAdditionalShelfPositions([]);
       setConfirmModal({
         open: true,
-        title: '✅ Artículo ubicado',
+        title: 'Artículo ubicado',
         message: `${articleCode} ubicado en ${allShelves}.\n¿Ubicar otro artículo en las mismas posiciones?`,
-        icon: '📦',
         variant: 'success',
         confirmText: 'SÍ, ubicar otro',
         onConfirm: () => {
@@ -402,7 +400,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
         },
         extraButton: {
           text: 'NO, finalizar',
-          onClick: () => finishAction('success', `✅ ${articleCode} ubicado correctamente`),
+          onClick: () => finishAction('success', `${articleCode} ubicado correctamente`),
         },
       });
     } else {
@@ -422,7 +420,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
     // Batch mode: accumulate positions
     if (action === 'ubicar' && batchMode && batchArticles.length > 0) {
       if (!loc.isEmpty && loc.items.length > 0 && !selectedPositions.includes(loc.position)) {
-        showToast('info', `⚠️ Pos. ${parseInt(loc.position, 10)} ocupada — se añadirá igualmente`);
+        showToast('info', `Pos. ${parseInt(loc.position, 10)} ocupada — se añadirá igualmente`);
       }
       setSelectedPositions(prev => {
         if (prev.includes(loc.position)) return prev.filter(p => p !== loc.position);
@@ -433,7 +431,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
     if (action === 'ubicar' && scanData) {
       // Warn if occupied but allow selection
       if (!loc.isEmpty && loc.items.length > 0 && !selectedPositions.includes(loc.position)) {
-        showToast('info', `⚠️ Pos. ${parseInt(loc.position, 10)} ya tiene ${loc.items.length} artículo(s) — se añadirá igualmente`);
+        showToast('info', `Pos. ${parseInt(loc.position, 10)} ya tiene ${loc.items.length} artículo(s) — se añadirá igualmente`);
       }
       // Accumulate positions (tap again to deselect)
       setSelectedPositions(prev => {
@@ -472,9 +470,8 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
       setSelectedPositions([]);
       setConfirmModal({
         open: true,
-        title: '✅ Movido correctamente',
+        title: 'Movido correctamente',
         message: `${scanData.articleCode} movido. ¿Quieres mover algo más?`,
-        icon: '🔄',
         variant: 'success',
         confirmText: 'SÍ, mover otro',
         onConfirm: () => {
@@ -484,7 +481,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
         },
         extraButton: {
           text: 'NO, finalizar',
-          onClick: () => finishAction('success', `✅ ${scanData.articleCode} movido correctamente`),
+          onClick: () => finishAction('success', `${scanData.articleCode} movido correctamente`),
         },
       });
     } else {
@@ -503,7 +500,6 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
       open: true,
       title: '¿Retirar algo más?',
       message: `${selectedItems.length} artículo(s) de posición ${parseInt(position, 10)} añadido(s) a la cola`,
-      icon: '📤',
       variant: 'info',
       confirmText: 'NO, finalizar retirada',
       onConfirm: async () => {
@@ -519,7 +515,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
         setProcessing(false);
         const totalItems = updatedQueue.reduce((sum, q) => sum + q.items.length, 0);
         if (successCount === totalItems) {
-          finishAction('success', `✅ ${totalItems} artículo(s) retirado(s) correctamente`);
+          finishAction('success', `${totalItems} artículo(s) retirado(s) correctamente`);
         } else {
           finishAction('error', `Parcial: ${successCount}/${totalItems} artículos retirados`);
         }
@@ -559,7 +555,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
           <div className="mx-3 mt-2 mb-1 px-4 py-3 rounded-2xl bg-emerald-50 border-2 border-emerald-500 shadow-md shadow-emerald-100">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-black text-emerald-700 truncate">📦 {scanData.articleCode}</p>
+                <p className="text-sm font-black text-emerald-700 truncate">{scanData.articleCode}</p>
                 <p className="text-xs text-emerald-600 mt-0.5">
                   {selectedShelf}: pos. {selectedPositions.map(p => parseInt(p, 10)).join(', ')}
                   {additionalShelfPositions.map(e => (
@@ -573,14 +569,14 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
                   disabled={processing}
                   className="px-3 py-2 bg-blue-100 hover:bg-blue-200 active:scale-95 text-blue-700 text-xs font-bold rounded-xl disabled:opacity-50 transition-all touch-manipulation"
                 >
-                  ➕ Otra sección
+                  Otra sección
                 </button>
                 <button
                   onClick={handleUbicarMultiConfirm}
                   disabled={processing}
                   className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-sm font-bold rounded-xl disabled:opacity-50 transition-all touch-manipulation"
                 >
-                  {processing ? '⏳' : '✓'} Ubicar
+                  {processing ? '… ' : '✓ '}Ubicar
                 </button>
               </div>
             </div>
@@ -598,7 +594,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
         {showAddShelfModal && (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={() => { setShowAddShelfModal(false); setAddShelfCode(''); setAddShelfPositionText(''); }}>
             <div className="w-full max-w-md bg-white rounded-t-3xl p-6 space-y-4" onClick={e => e.stopPropagation()}>
-              <h3 className="text-lg font-black text-slate-900">➕ Añadir posición en otra sección</h3>
+              <h3 className="text-lg font-black text-slate-900">Añadir posición en otra sección</h3>
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Sección</label>
                 <select
@@ -659,7 +655,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
         <div className="flex-shrink-0 bg-white border-b border-slate-200 px-4 py-3">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-black text-slate-900">📦 Batch</span>
+              <span className="text-sm font-black text-slate-900">Batch</span>
               <span className="bg-cyan-600 text-white px-2 py-0.5 rounded-full text-xs font-bold">{batchArticles.length} art.</span>
               {selectedPositions.length > 0 && (
                 <span className="bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full text-xs font-bold">
@@ -679,7 +675,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
             </div>
           )}
           {selectedPositions.length === 0 && batchArticles.length > 0 && (
-            <p className="text-xs text-slate-500 mb-2">👇 Toca celda(s) en el grid para seleccionar ubicación</p>
+            <p className="text-xs text-slate-500 mb-2">Toca celda(s) en el grid para seleccionar ubicación</p>
           )}
           <div className="flex gap-2">
             <button
@@ -693,7 +689,7 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
               disabled={selectedPositions.length === 0 || batchArticles.length === 0 || processing}
               className="flex-[2] min-h-[40px] rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold disabled:opacity-40 active:scale-95 transition-all touch-manipulation"
             >
-              {processing ? '⏳' : '✓'} Ubicar {batchArticles.length} artículo{batchArticles.length !== 1 ? 's' : ''}
+              {processing ? '… ' : '✓ '}Ubicar {batchArticles.length} artículo{batchArticles.length !== 1 ? 's' : ''}
             </button>
           </div>
         </div>

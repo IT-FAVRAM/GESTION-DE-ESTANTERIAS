@@ -35,7 +35,7 @@ const AdminUsersAndDevicesTab: React.FC<AdminUsersAndDevicesTabProps> = ({
               : 'border-slate-800 bg-slate-900 text-slate-500 hover:text-slate-300'
           }`}
         >
-          👥 Usuarios
+          Usuarios
         </button>
         <button
           type="button"
@@ -46,7 +46,7 @@ const AdminUsersAndDevicesTab: React.FC<AdminUsersAndDevicesTabProps> = ({
               : 'border-slate-800 bg-slate-900 text-slate-500 hover:text-slate-300'
           }`}
         >
-          📱 Dispositivos
+          Dispositivos
         </button>
       </div>
 

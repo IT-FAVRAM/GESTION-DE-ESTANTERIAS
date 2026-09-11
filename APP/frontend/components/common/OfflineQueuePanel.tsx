@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import {
   clearResolvedOfflineErrors,
   discardOfflineEntry,
@@ -69,7 +70,7 @@ const ConflictEntry: React.FC<{ entry: OfflineQueueEntry }> = ({ entry }) => {
           <p className="mt-1 text-xs text-slate-400">{analysis.reason}</p>
           <p className="mt-2 text-xs text-slate-500 italic">{analysis.recommendation}</p>
           {shouldAutoResolve(analysis) && (
-            <p className="mt-2 text-xs text-emerald-300">✅ Se resolverá automáticamente...</p>
+            <p className="mt-2 text-xs text-emerald-300">Se resolverá automáticamente...</p>
           )}
         </div>
       )}
@@ -334,9 +335,9 @@ const OfflineQueuePanel: React.FC<OfflineQueuePanelProps> = ({
                   <div>
                     <p className="text-xs font-bold text-slate-400 uppercase">Estado general</p>
                     <p className="mt-1 text-sm font-bold text-white capitalize flex items-center gap-2">
-                      {audit.health === 'good' && '✅'}
-                      {audit.health === 'warning' && '⚠️'}
-                      {audit.health === 'critical' && '🔴'}
+                      {audit.health === 'good' && <CheckCircle2 className="inline w-4 h-4 text-emerald-400" aria-hidden />}
+                      {audit.health === 'warning' && <AlertTriangle className="inline w-4 h-4 text-amber-400" aria-hidden />}
+                      {audit.health === 'critical' && <XCircle className="inline w-4 h-4 text-red-400" aria-hidden />}
                       {audit.health}
                     </p>
                   </div>

@@ -60,9 +60,7 @@ const JefeSeccionOperativo: React.FC<{
   return (
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
       <AppHeader
-        icon="🏭"
         title={shelfDef?.name ?? shelfCode ?? 'Mi Sección'}
-        subtitle={`${displayName} · ${operarioId}`}
         center={isTouch ? undefined : <OperativeActionButtons engine={engine} config={config} />}
         chatButton={chatButton}
         onBack={onBack}
@@ -154,7 +152,6 @@ const JefeSeccionView: React.FC<JefeSeccionViewProps> = ({ onBack, chatButton })
     return (
       <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col items-center justify-center p-6">
         <div className="text-center max-w-md">
-          <span className="text-5xl block mb-4">⚠️</span>
           <h2 className="text-xl font-bold text-slate-900 mb-2">Sección no configurada</h2>
           <p className="text-slate-600 mb-4">
             Tu cuenta no tiene una sección asignada. Contacta con el administrador para que te asigne una sección.

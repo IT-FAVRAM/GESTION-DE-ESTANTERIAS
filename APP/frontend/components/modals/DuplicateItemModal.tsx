@@ -4,6 +4,7 @@
 import React from 'react';
 import { InfoIcon, MoveIcon, PlusCircleIcon, CloseIcon } from './Icons';
 import { formatLocation } from '../lib/warehouseData';
+import { ofLabel } from '../../lib/ofLabel';
 
 interface DuplicateItemModalProps {
   item: { barcode: string; orderId: string; location: string };
@@ -31,7 +32,7 @@ const DuplicateItemModal: React.FC<DuplicateItemModalProps> = ({ item, onMove, o
              <div>
                 <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Artículo Existente</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                    El artículo <strong className="text-slate-900 dark:text-white">{item.barcode}</strong> (OF: {item.orderId}) ya está en:
+                    El artículo <strong className="text-slate-900 dark:text-white">{item.barcode}</strong> ({ofLabel(item.orderId)}) ya está en:
                 </p>
              </div>
         </div>

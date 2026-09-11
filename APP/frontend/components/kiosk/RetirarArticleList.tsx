@@ -1,8 +1,10 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import { Check } from 'lucide-react';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import { isUrgentLocation } from '../../lib/firestoreSchema';
 import type { UrgentAlert } from '../../lib/firestoreSchema';
 import { fetchParcialesByPresence, type ParcialInfo } from '../../lib/parciales';
+import { ofLabel } from '../../lib/ofLabel';
 
 /** Valor numérico de una posición para ordenar (acepta "012" o "URG MEC-PRE 001"). */
 const posOrder = (position: string): number => {
@@ -133,7 +135,7 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-950/95 backdrop-blur-sm">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-4 border-b border-slate-800">
-        <h2 className="text-lg font-black text-white">📤 Retirar artículo</h2>
+        <h2 className="text-xl font-black text-white">Retirar artículo</h2>
         <button onClick={onClose} className="px-4 py-2 min-h-[40px] bg-rose-600 hover:bg-rose-500 text-white text-sm font-bold rounded-xl active:scale-95 transition-all touch-manipulation">
           ✕ Cancelar
         </button>
@@ -141,18 +143,17 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
 
       {items.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
-          <span className="text-5xl mb-4">📭</span>
           <p className="text-slate-400 font-medium text-lg">No hay artículos en esta estantería</p>
         </div>
       ) : (
         <>
           <div className="px-4 py-2 bg-slate-900/50 border-b border-slate-800 flex items-center justify-between">
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">
               {items.length} artículo{items.length !== 1 ? 's' : ''} — toca para seleccionar
             </p>
             <button
               onClick={toggleAll}
-              className="text-xs text-red-400 font-bold hover:text-red-300 transition-colors"
+              className="shrink-0 min-h-10 px-3 rounded-xl border border-red-500/50 text-sm text-red-300 font-bold hover:bg-red-500/10 active:scale-95 transition-all"
             >
               {selected.size === items.length ? 'Deseleccionar todo' : 'Seleccionar todo'}
             </button>
@@ -164,10 +165,10 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
                 {/* Encabezado de ubicación */}
                 <div className="mb-2 px-2 py-1 flex items-center gap-2">
                   <p className="text-sm font-bold text-slate-300 uppercase tracking-wide">
-                    📍 Posición {parseInt(group.position, 10) || group.position}
+                    Posición {parseInt(group.position, 10) || group.position}
                   </p>
                   {isUrgentPos(group.position) && (
-                    <span className="shrink-0 text-[10px] font-black uppercase tracking-wide text-red-200 bg-red-600/30 border border-red-500/50 rounded-md px-1.5 py-0.5">
+                    <span className="shrink-0 text-[11px] font-black uppercase tracking-wide text-red-200 bg-red-600/30 border border-red-500/50 rounded-md px-1.5 py-0.5">
                       Urgente
                     </span>
                   )}
@@ -188,10 +189,10 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
+                          <div className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center shrink-0 transition-all ${
                             isSelected ? 'border-red-500 bg-red-500' : 'border-slate-600'
                           }`}>
-                            {isSelected && <span className="text-white text-xs font-black">✓</span>}
+                            {isSelected && <Check className="w-5 h-5 text-white" strokeWidth={3.5} aria-hidden />}
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
@@ -202,13 +203,13 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
                                 const p = item.presenceId ? parciales.get(item.presenceId) : undefined;
                                 if (!p || p.total <= 1) return null;
                                 return (
-                                  <span className="shrink-0 text-[10px] font-black uppercase tracking-wide text-amber-300 bg-amber-500/15 border border-amber-500/40 rounded-md px-1.5 py-0.5">
+                                  <span className="shrink-0 text-[11px] font-black uppercase tracking-wide text-amber-300 bg-amber-500/15 border border-amber-500/40 rounded-md px-1.5 py-0.5">
                                     Parcial {p.index}/{p.total}
                                   </span>
                                 );
                               })()}
                             </div>
-                            <p className="text-sm text-slate-400 font-mono mt-0.5">OF: {item.orderFab}</p>
+                            <p className="text-sm text-slate-400 font-mono mt-0.5">{ofLabel(item.orderFab)}</p>
                           </div>
                         </div>
                       </button>

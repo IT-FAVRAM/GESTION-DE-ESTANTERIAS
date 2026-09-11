@@ -14,6 +14,7 @@ import OperativeActionBar from '../operative/OperativeActionBar';
 import { useFormFactor } from '../../hooks/useFormFactor';
 import { getCartsForSection, type WarehouseSection } from '../../lib/firestoreSchema';
 import CarrosView from '../carretillero/CarrosView';
+import { ArrowLeftRight, Bell, Package, PackageMinus, ShoppingCart, Warehouse } from 'lucide-react';
 
 /**
  * KioskView — Vista del kiosko (rol OPERARIO).
@@ -80,7 +81,7 @@ const KioskView: React.FC = () => {
     return (
       <div className="min-h-dvh flex flex-col items-center justify-center bg-sky-50">
         <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
-        <p className="mt-4 text-slate-400 font-medium">Cargando estanteria...</p>
+        <p className="mt-4 text-slate-400 font-medium">Cargando estantería...</p>
       </div>
     );
   }
@@ -125,16 +126,16 @@ const KioskView: React.FC = () => {
       {!showArea ? (
         <main className="flex-1 flex flex-col items-center justify-center p-4 w-full">
           <div className="grid grid-cols-2 gap-4 w-full max-w-6xl">
-            <button disabled={visualOnly} onClick={() => startAction('ubicar')} className={`h-32 rounded-3xl border border-emerald-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-emerald-100 text-emerald-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-emerald-500 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 active:scale-95 text-white shadow-emerald-950/40'}`}><span className="text-4xl">📦</span>UBICAR</button>
-            <button disabled={visualOnly} onClick={() => startAction('retirar')} className={`h-32 rounded-3xl border border-red-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-red-100 text-red-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-red-500 to-red-700 hover:from-red-400 hover:to-red-600 active:scale-95 text-white shadow-red-950/40'}`}><span className="text-4xl">📤</span>RETIRAR</button>
-            <button disabled={visualOnly} onClick={() => startAction('mover')} className={`h-32 rounded-3xl border border-blue-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-blue-100 text-blue-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-blue-500 to-blue-700 hover:from-blue-400 hover:to-blue-600 active:scale-95 text-white shadow-blue-950/40'}`}><span className="text-4xl">🔄</span>MOVER</button>
+            <button disabled={visualOnly} onClick={() => startAction('ubicar')} className={`h-32 rounded-3xl border border-emerald-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-emerald-100 text-emerald-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-emerald-500 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 active:scale-95 text-white shadow-emerald-950/40'}`}><Package className="w-10 h-10" strokeWidth={2.25} aria-hidden />UBICAR</button>
+            <button disabled={visualOnly} onClick={() => startAction('retirar')} className={`h-32 rounded-3xl border border-red-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-red-100 text-red-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-red-500 to-red-700 hover:from-red-400 hover:to-red-600 active:scale-95 text-white shadow-red-950/40'}`}><PackageMinus className="w-10 h-10" strokeWidth={2.25} aria-hidden />RETIRAR</button>
+            <button disabled={visualOnly} onClick={() => startAction('mover')} className={`h-32 rounded-3xl border border-blue-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-blue-100 text-blue-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-blue-500 to-blue-700 hover:from-blue-400 hover:to-blue-600 active:scale-95 text-white shadow-blue-950/40'}`}><ArrowLeftRight className="w-10 h-10" strokeWidth={2.25} aria-hidden />MOVER</button>
             {config.actions.almacen !== 'none' ? (
-              <button disabled={visualOnly} onClick={() => startAction('almacen')} className={`h-32 rounded-3xl border border-purple-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-purple-100 text-purple-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-purple-500 to-purple-700 hover:from-purple-400 hover:to-purple-600 active:scale-95 text-white shadow-purple-950/40'}`}><span className="text-4xl">🏭</span>ALMACÉN</button>
+              <button disabled={visualOnly} onClick={() => startAction('almacen')} className={`h-32 rounded-3xl border border-purple-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-purple-100 text-purple-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-purple-500 to-purple-700 hover:from-purple-400 hover:to-purple-600 active:scale-95 text-white shadow-purple-950/40'}`}><Warehouse className="w-10 h-10" strokeWidth={2.25} aria-hidden />ALMACÉN</button>
             ) : config.actions.avisar !== 'none' ? (
-              <button disabled={visualOnly} onClick={() => startAction('avisar')} className={`h-32 rounded-3xl border border-amber-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-amber-100 text-amber-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 active:scale-95 text-white shadow-amber-950/40'}`}><span className="text-4xl">🚚</span>CARRETILLERO</button>
+              <button disabled={visualOnly} onClick={() => startAction('avisar')} className={`h-32 rounded-3xl border border-amber-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-amber-100 text-amber-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 active:scale-95 text-white shadow-amber-950/40'}`}><Bell className="w-10 h-10" strokeWidth={2.25} aria-hidden />CARRETILLERO</button>
             ) : <div />}
             {availableCarts.length > 0 && (
-              <button disabled={visualOnly} onClick={() => setShowCarts(true)} className={`h-32 rounded-3xl border border-orange-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-orange-100 text-orange-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-orange-500 to-orange-700 hover:from-orange-400 hover:to-orange-600 active:scale-95 text-white shadow-orange-950/40'}`}><span className="text-4xl">🛒</span>CARROS</button>
+              <button disabled={visualOnly} onClick={() => setShowCarts(true)} className={`h-32 rounded-3xl border border-orange-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-orange-100 text-orange-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-orange-500 to-orange-700 hover:from-orange-400 hover:to-orange-600 active:scale-95 text-white shadow-orange-950/40'}`}><ShoppingCart className="w-10 h-10" strokeWidth={2.25} aria-hidden />CARROS</button>
             )}
           </div>
           <button onClick={() => setShowShelf(true)} className="mt-8 px-6 py-3 rounded-full bg-white border border-slate-300 text-slate-600 font-bold hover:bg-slate-50 transition-colors shadow-sm">

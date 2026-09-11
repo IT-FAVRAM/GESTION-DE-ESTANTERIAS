@@ -95,7 +95,6 @@ const UtilesSoldaduraModal: React.FC<UtilesSoldaduraModalProps> = ({
       >
         {/* Título */}
         <div className="text-center">
-          <div className="text-5xl mb-3">🔧</div>
           <h2 className="text-2xl font-black text-slate-900">Útiles Soldadura</h2>
           <p className="text-sm text-slate-500 mt-1">{position}</p>
         </div>

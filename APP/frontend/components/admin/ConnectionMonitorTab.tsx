@@ -9,8 +9,10 @@ import {
   getDocs,
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
+import DeviceTypeIcon from './DeviceTypeIcon';
 import { COLLECTIONS } from '../../lib/schema/collections';
-import type { DeviceConnectionStatus, ConnectionLogEntry } from '../../lib/schema/connectionStatus';
+import type { DeviceConnectionStatus, ConnectionLogEntry } from '../../lib/schema/connectionStatus';
+import { formatDecimal } from '../../lib/numberFormat';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -39,7 +41,7 @@ const formatDuration = (ms: number): string => {
 const formatDurationShort = (ms: number): string => {
   if (ms < 60_000) return `${Math.floor(ms / 1_000)}s`;
   if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m`;
-  return `${(ms / 3_600_000).toFixed(1)}h`;
+  return `${formatDecimal(ms / 3_600_000, 1)} h`;
 };
 
 const deviceTypeLabel: Record<string, string> = {
@@ -49,12 +51,6 @@ const deviceTypeLabel: Record<string, string> = {
   UNKNOWN: 'Desconocido',
 };
 
-const deviceTypeIcon: Record<string, string> = {
-  KIOSK: '📟',
-  CARRETILLERO: '🔧',
-  ADMIN: '💻',
-  UNKNOWN: '❓',
-};
 
 type OnlineStatus = 'online' | 'uncertain' | 'offline';
 
@@ -214,7 +210,7 @@ const DeviceCard: React.FC<{ device: DeviceConnectionStatus }> = ({ device }) =>
     <div className={`rounded-2xl border p-4 flex flex-col gap-3 ${borderColor} bg-slate-900 transition-all`}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-3">
-          <span className="text-2xl">{deviceTypeIcon[device.deviceType] || '❓'}</span>
+          <DeviceTypeIcon type={device.deviceType} className="w-7 h-7" />
           <div>
             <p className="font-bold text-white text-sm leading-tight">{device.deviceName}</p>
             <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">
@@ -261,7 +257,7 @@ const DeviceCard: React.FC<{ device: DeviceConnectionStatus }> = ({ device }) =>
 
 const UptimeBadge: React.FC<{ pct: number }> = ({ pct }) => {
   const color = pct >= 99 ? 'text-emerald-400' : pct >= 95 ? 'text-amber-400' : 'text-red-400';
-  return <span className={`font-bold text-sm ${color}`}>{pct.toFixed(1)}%</span>;
+  return <span className={`font-bold text-sm ${color}`}>{formatDecimal(pct, 1)}%</span>;
 };
 
 const TimelineBar: React.FC<{ segments: TimeSegment[]; totalMs: number }> = ({ segments, totalMs }) => {
@@ -466,7 +462,7 @@ const ConnectionMonitorTab: React.FC = () => {
       {/* Snapshot error banner */}
       {snapshotError && (
         <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-          ⚠️ {snapshotError}
+          {snapshotError}
         </div>
       )}
 
@@ -480,7 +476,7 @@ const ConnectionMonitorTab: React.FC = () => {
               : 'border-transparent text-slate-500 hover:text-slate-300'
           }`}
         >
-          🔴 En vivo
+          En vivo
         </button>
         <button
           onClick={() => setViewMode('analysis')}
@@ -490,7 +486,7 @@ const ConnectionMonitorTab: React.FC = () => {
               : 'border-transparent text-slate-500 hover:text-slate-300'
           }`}
         >
-          📊 Análisis
+          Análisis
         </button>
       </div>
 
@@ -499,7 +495,6 @@ const ConnectionMonitorTab: React.FC = () => {
         <>
           {total === 0 ? (
             <div className="rounded-3xl border border-slate-800 bg-slate-900 p-12 text-center">
-              <p className="text-4xl mb-4">📡</p>
               <h3 className="text-lg font-bold text-white mb-2">Sin dispositivos registrados</h3>
               <p className="text-sm text-slate-400 max-w-sm mx-auto">
                 Los kioskos y dispositivos empezarán a aparecer aquí automáticamente cuando estén en uso.
@@ -571,7 +566,6 @@ const ConnectionMonitorTab: React.FC = () => {
             </div>
           ) : devicesForAnalysis.length === 0 ? (
             <div className="rounded-3xl border border-slate-800 bg-slate-900 p-12 text-center">
-              <p className="text-4xl mb-4">📊</p>
               <h3 className="text-lg font-bold text-white mb-2">Sin datos históricos</h3>
               <p className="text-sm text-slate-400">
                 Los registros aparecerán a medida que los dispositivos se conecten y desconecten.
@@ -613,7 +607,7 @@ const ConnectionMonitorTab: React.FC = () => {
                     <div key={stats.deviceId}>
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-sm">{deviceTypeIcon[stats.deviceType] || '❓'}</span>
+                          <DeviceTypeIcon type={stats.deviceType} className="w-4 h-4" />
                           <span className="text-sm font-bold text-white truncate">{stats.deviceName}</span>
                           <span className="text-[10px] text-slate-600 shrink-0">
                             {stats.deviceId.slice(-6)}
@@ -655,7 +649,7 @@ const ConnectionMonitorTab: React.FC = () => {
                         <tr key={stats.deviceId} className="hover:bg-slate-800/30 transition-colors">
                           <td className="px-5 py-3">
                             <div className="flex items-center gap-2">
-                              <span>{deviceTypeIcon[stats.deviceType] || '❓'}</span>
+                              <DeviceTypeIcon type={stats.deviceType} className="w-4 h-4" />
                               <div>
                                 <p className="font-bold text-white">{stats.deviceName}</p>
                                 <p className="text-[11px] text-slate-600">
@@ -723,12 +717,11 @@ const IncidentLog: React.FC<{ logs: ConnectionLogEntry[] }> = ({ logs }) => {
       <div className="divide-y divide-slate-800/50">
         {incidents.map((log, i) => (
           <div key={i} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-800/20">
-            <span className="text-red-400 text-sm">⚡</span>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-white truncate">{log.deviceName}</span>
                 <span className="text-[10px] text-slate-600 shrink-0">
-                  {deviceTypeIcon[log.deviceType] || '❓'}
+                  <DeviceTypeIcon type={log.deviceType} className="w-4 h-4" />
                 </span>
               </div>
               <p className="text-xs text-slate-500">

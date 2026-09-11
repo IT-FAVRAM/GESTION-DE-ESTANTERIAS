@@ -1,5 +1,6 @@
 import React from 'react';
-import type { AnalyticsSnapshot } from '../../hooks/useAnalytics';
+import type { AnalyticsSnapshot } from '../../hooks/useAnalytics';
+import { formatDecimal } from '../../lib/numberFormat';
 
 interface AdvancedStatsProps {
   analytics: AnalyticsSnapshot;
@@ -67,7 +68,7 @@ const AdvancedStats: React.FC<AdvancedStatsProps> = ({ analytics }) => {
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-bold text-white">{metric.section}</span>
                     <span className="text-slate-400">
-                      {metric.avgLeadTimeDays === null ? 'Sin retiros aun' : `${metric.avgLeadTimeDays.toFixed(1)} dias`}
+                      {metric.avgLeadTimeDays === null ? 'Sin retiros aún' : `${formatDecimal(metric.avgLeadTimeDays, 1)} días`}
                     </span>
                   </div>
                   <div className="h-3 rounded-full bg-slate-800">

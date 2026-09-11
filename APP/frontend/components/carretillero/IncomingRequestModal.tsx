@@ -9,6 +9,7 @@
 
 import React, { useState } from 'react';
 import type { PickupRequest } from '../../hooks/usePickupQueue';
+import { ofLabel } from '../../lib/ofLabel';
 
 interface IncomingRequestModalProps {
   /** Solicitudes asignadas a mí y sin confirmar (ordenadas, la más antigua primero). */
@@ -55,7 +56,7 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({ requests, o
       <div className="fixed inset-0 z-[100] flex flex-col bg-slate-950/98 backdrop-blur-md">
         <div className="px-5 py-4 bg-teal-600 animate-pulse">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-black text-white">📦 MATERIAL EN RECEPCIONES</h2>
+            <h2 className="text-xl font-black text-white">MATERIAL EN RECEPCIONES</h2>
             {remaining > 0 && (
               <span className="px-2.5 py-1 rounded-full bg-white/25 text-white text-sm font-black">
                 +{remaining} más
@@ -66,7 +67,6 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({ requests, o
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-6 flex flex-col items-center justify-center text-center gap-5">
-          <span className="text-7xl">📦</span>
           <p className="text-3xl font-black text-white leading-tight">Ve a Recepciones</p>
           <p className="text-lg text-slate-300 font-bold max-w-xs">Hay material recepcionado para recoger.</p>
         </div>
@@ -102,7 +102,7 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({ requests, o
       <div className={`px-5 py-4 ${isTraer ? 'bg-blue-600' : 'bg-orange-600'} animate-pulse`}>
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-black text-white">
-            {isTraer ? '📦 NUEVA SOLICITUD — TRAER' : '🔔 NUEVA SOLICITUD — RECOGER'}
+            {isTraer ? 'NUEVA SOLICITUD — TRAER' : 'NUEVA SOLICITUD — RECOGER'}
           </h2>
           {remaining > 0 && (
             <span className="px-2.5 py-1 rounded-full bg-white/25 text-white text-sm font-black">
@@ -121,7 +121,7 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({ requests, o
           <div className="bg-slate-900 border-2 border-slate-700 rounded-3xl p-5">
             <p className="font-black text-white text-3xl font-mono leading-tight break-all">{articleCode}</p>
             {articleOrderFab && (
-              <p className="text-base text-slate-400 font-mono mt-1">OF: {articleOrderFab}</p>
+              <p className="text-base text-slate-400 font-mono mt-1">{ofLabel(articleOrderFab)}</p>
             )}
           </div>
         ) : (

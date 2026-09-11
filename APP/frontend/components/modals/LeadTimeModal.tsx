@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../lib/firebase';
-import { X, Calendar, Activity, AlertTriangle, Clock, FileText } from 'lucide-react';
+import { X, Calendar, Activity, AlertTriangle, Clock, FileText } from 'lucide-react';
+import { formatDecimal } from '../../lib/numberFormat';
 
 interface LeadTimeRow {
     barcode: string;
@@ -57,8 +58,8 @@ export const LeadTimeModal: React.FC<LeadTimeModalProps> = ({ isOpen, onClose })
     if (!isOpen) return null;
 
     const avgTime = data.length > 0
-        ? (data.reduce((acc, curr) => acc + curr.durationDays, 0) / data.length).toFixed(1)
-        : "0.0";
+        ? formatDecimal(data.reduce((acc, curr) => acc + curr.durationDays, 0) / data.length, 1)
+        : "0,0";
 
     // Find outliers (> 30 days potentially)
     const outliers = data.filter(d => d.durationDays > 30);
@@ -159,7 +160,7 @@ export const LeadTimeModal: React.FC<LeadTimeModalProps> = ({ isOpen, onClose })
                                                 <td className="px-6 py-3">{new Date(row.entryDate).toLocaleDateString()}</td>
                                                 <td className="px-6 py-3">{new Date(row.exitDate).toLocaleDateString()}</td>
                                                 <td className={`px-6 py-3 text-right font-bold ${row.durationDays > 30 ? 'text-amber-500' : 'text-slate-200'}`}>
-                                                    {row.durationDays.toFixed(1)}
+                                                    {formatDecimal(row.durationDays, 1)}
                                                 </td>
                                             </tr>
                                         ))}

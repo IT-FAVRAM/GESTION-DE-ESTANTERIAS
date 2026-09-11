@@ -36,28 +36,28 @@ export const generateCacheAuditReport = (): CacheAuditReport => {
 
   if (storage.totalSizeMB > 4.5) {
     health = 'critical';
-    recommendations.push('⚠️ Storage nearly full (>4.5MB), clear old caches');
+    recommendations.push('Storage nearly full (>4.5MB), clear old caches');
   } else if (storage.totalSizeMB > 3) {
     health = 'warning';
-    recommendations.push('⚠️ Storage usage high (>3MB), consider cleanup');
+    recommendations.push('Storage usage high (>3MB), consider cleanup');
   }
 
   if (queue.conflictCount > 0) {
     health = health === 'good' ? 'warning' : health;
-    recommendations.push(`⚠️ ${queue.conflictCount} conflicts pending manual review`);
+    recommendations.push(`${queue.conflictCount} conflicts pending manual review`);
   }
 
   if (queue.pendingCount > 20) {
     health = health === 'good' ? 'warning' : health;
-    recommendations.push(`⚠️ Large pending queue (${queue.pendingCount} items), may take time to sync`);
+    recommendations.push(`Large pending queue (${queue.pendingCount} items), may take time to sync`);
   }
 
   if (caches.items.age && caches.items.age > 7) {
-    recommendations.push(`ℹ️ Items cache is ${caches.items.age.toFixed(1)} days old, refresh if available`);
+    recommendations.push(`Items cache is ${caches.items.age.toFixed(1)} days old, refresh if available`);
   }
 
   if (caches.shelves.age && caches.shelves.age > 7) {
-    recommendations.push(`ℹ️ Shelves cache is ${caches.shelves.age.toFixed(1)} days old, refresh if available`);
+    recommendations.push(`Shelves cache is ${caches.shelves.age.toFixed(1)} days old, refresh if available`);
   }
 
   if (
@@ -66,11 +66,11 @@ export const generateCacheAuditReport = (): CacheAuditReport => {
     !caches.config.exists
   ) {
     health = health === 'good' ? 'warning' : health;
-    recommendations.push('⚠️ Critical caches missing, limited offline functionality');
+    recommendations.push('Critical caches missing, limited offline functionality');
   }
 
   if (recommendations.length === 0) {
-    recommendations.push('✅ Storage and cache are in good condition');
+    recommendations.push('Storage and cache are in good condition');
   }
 
   return {
@@ -105,7 +105,7 @@ export const printCacheAuditReport = (report: CacheAuditReport): void => {
   console.group('Caches');
   Object.entries(report.caches).forEach(([name, info]) => {
     console.log(
-      `${name}: ${info.exists ? '✅' : '❌'} (${info.size} bytes, age: ${info.age ? info.age.toFixed(1) + 'd' : 'unknown'})`
+      `${name}: ${info.exists ? '' : ''} (${info.size} bytes, age: ${info.age ? info.age.toFixed(1) + 'd' : 'unknown'})`
     );
   });
   console.groupEnd();

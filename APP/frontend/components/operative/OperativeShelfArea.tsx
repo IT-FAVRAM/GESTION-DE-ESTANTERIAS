@@ -11,7 +11,7 @@
  */
 
 import React, { useCallback, useEffect, useRef } from 'react';
-import { ScanLine } from 'lucide-react';
+import { Camera, ScanLine } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { COLLECTIONS } from '../../lib/schema/collections';
@@ -56,6 +56,7 @@ import { useOperativeKeyboardShortcuts } from '../../hooks/useOperativeKeyboardS
 import type { GlobalSearchResult } from '../../hooks/useGlobalSearchWithCache';
 import type { RoleOperativeConfig } from '../../lib/operative/operativeConfig';
 import type { UseOperativeShelfReturn } from '../../hooks/useOperativeShelf';
+import { formatDecimal } from '../../lib/numberFormat';
 
 interface OperativeShelfAreaProps {
   engine: UseOperativeShelfReturn;
@@ -317,7 +318,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
       showToast('success', '✓ Nota guardada');
     } catch (err) {
       console.error('[OperativeShelfArea] Error saving nota:', err);
-      showToast('error', '❌ Error al guardar nota');
+      showToast('error', 'Error al guardar nota');
     }
   }, [shelfCode, showToast]);
 
@@ -362,7 +363,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             {/* cellFirst fase 1: seleccionar una o varias celdas antes de escanear */}
             {action === 'ubicar' && config.reprocesos?.cellFirst && !scanData && !pendingCell && (
               selectedPositions.length === 0 ? (
-                <span className="text-xs text-emerald-700 font-bold">👇 Toca las celdas de reprocesos donde ubicar</span>
+                <span className="text-xs text-emerald-700 font-bold">Toca las celdas de reprocesos donde ubicar</span>
               ) : (
                 <>
                   <span className="text-xs text-emerald-700 font-bold">{selectedPositions.length} celda(s) seleccionada(s)</span>
@@ -388,7 +389,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             {action === 'retirar' && (
               <span className="text-xs text-red-600 font-bold">
                 {pendingRetirarQueue.length === 0
-                  ? '👇 Toca una celda ocupada para retirar'
+                  ? 'Toca una celda ocupada para retirar'
                   : `${pendingRetirarQueue.reduce((s, q) => s + q.items.length, 0)} en cola — toca otra celda o finaliza`}
               </span>
             )}
@@ -398,18 +399,18 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
                 disabled={processing}
                 className="px-4 py-2 min-h-[40px] bg-red-600 hover:bg-red-500 active:scale-95 text-white text-xs font-bold rounded-xl disabled:opacity-50 transition-all touch-manipulation"
               >
-                {processing ? '⏳' : '✓'} Finalizar retirada ({pendingRetirarQueue.reduce((s, q) => s + q.items.length, 0)})
+                {processing ? '… ' : '✓ '}Finalizar retirada ({pendingRetirarQueue.reduce((s, q) => s + q.items.length, 0)})
               </button>
             )}
             {action === 'ubicar' && scanData && (
               <span className="text-xs text-emerald-700 font-bold">
                 {selectedPositions.length === 0
-                  ? '👇 Toca las celdas donde ubicar'
+                  ? 'Toca las celdas donde ubicar'
                   : (() => {
                       const validation = validateContiguity(selectedPositions, shelfDef);
                       return validation.isContiguous
                         ? `${shelfCode}: pos. ${selectedPositions.map(displayPos).join(', ')}`
-                        : `❌ ${validation.message}`;
+                        : `${validation.message}`;
                     })()
                 }
                 {additionalShelfPositions.map((e) => (
@@ -423,7 +424,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
                 disabled={processing}
                 className="px-3 py-2 bg-blue-100 hover:bg-blue-200 active:scale-95 text-blue-700 text-xs font-bold rounded-xl disabled:opacity-50 transition-all touch-manipulation"
               >
-                ➕ Otra sección
+                Otra sección
               </button>
             )}
             {action === 'ubicar' && scanData && selectedPositions.length > 0 && (
@@ -432,7 +433,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
                 disabled={processing}
                 className="px-4 py-2 min-h-[40px] bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold rounded-xl disabled:opacity-50 transition-all touch-manipulation"
               >
-                {processing ? '⏳' : '✓'} Ubicar
+                {processing ? '… ' : '✓ '}Ubicar
               </button>
             )}
             {action === 'mover' && scanData && (
@@ -448,7 +449,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
                 disabled={processing}
                 className="px-4 py-2 min-h-[40px] bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold rounded-xl disabled:opacity-50 transition-all touch-manipulation"
               >
-                {processing ? '⏳' : '🔄'} {moverNeeded > 1 && selectedPositions.length === 1
+                {moverNeeded > 1 && selectedPositions.length === 1
                   ? `Apilar ${moverNeeded} aquí`
                   : 'Confirmar mover'}
               </button>
@@ -464,7 +465,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
                 disabled={processing}
                 className="px-4 py-2 min-h-[40px] bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-bold rounded-xl disabled:opacity-50 transition-all touch-manipulation"
               >
-                {processing ? '⏳' : '🔀'} Confirmar reubicar
+                Confirmar reubicar
               </button>
             )}
           </div>
@@ -483,7 +484,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         <div className="flex-shrink-0 bg-white border-b border-slate-200 px-4 py-3">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-black text-slate-900">📦 Lote</span>
+              <span className="text-sm font-black text-slate-900">Lote</span>
               <span className="bg-cyan-600 text-white px-2 py-0.5 rounded-full text-xs font-bold">{batchArticles.length} art.</span>
               {selectedPositions.length > 0 && (() => {
                 const validation = validateContiguity(selectedPositions, shelfDef);
@@ -503,7 +504,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
                 onClick={prepareChangeMethod}
                 className="px-3 py-2 min-h-[40px] rounded-xl bg-sky-100 hover:bg-sky-200 text-sky-700 text-xs font-bold active:scale-95 transition-all touch-manipulation"
               >
-                🔄 Cambiar método
+                Cambiar método
               </button>
               <button
                 onClick={handleStopBatch}
@@ -526,14 +527,14 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             </div>
           )}
           {selectedPositions.length === 0 && batchArticles.length > 0 && (
-            <p className="text-xs text-slate-500 mb-2">👇 Toca celda(s) en el grid para seleccionar ubicación</p>
+            <p className="text-xs text-slate-500 mb-2">Toca celda(s) en el grid para seleccionar ubicación</p>
           )}
           {batchProcessedCount > 0 && (
             <button
               onClick={handleStopBatch}
               className="w-full min-h-[40px] mb-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold active:scale-95 transition-all touch-manipulation"
             >
-              ⏹ Detener análisis (ubicar {batchProcessedCount} ya procesados)
+              Detener análisis (ubicar {batchProcessedCount} ya procesados)
             </button>
           )}
           <div className="flex gap-2">
@@ -548,7 +549,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
               disabled={selectedPositions.length === 0 || batchArticles.length === 0 || processing}
               className="flex-[2] min-h-[40px] rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold disabled:opacity-40 active:scale-95 transition-all touch-manipulation"
             >
-              {processing ? '⏳' : '✓'} Ubicar {batchArticles.length} artículo{batchArticles.length !== 1 ? 's' : ''}
+              {processing ? '… ' : '✓ '}Ubicar {batchArticles.length} artículo{batchArticles.length !== 1 ? 's' : ''}
             </button>
           </div>
         </div>
@@ -795,7 +796,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
                   onClick={() => handleSectionPicked(shelfCode)}
                   className="w-full text-left rounded-xl border-2 border-sky-300 bg-sky-50 px-4 py-3 text-sm font-bold text-sky-900"
                 >
-                  📍 Sección actual — {shelfDef?.name || shelfCode}
+                  Sección actual — {shelfDef?.name || shelfCode}
                 </button>
               )}
               {SHELF_DEFINITIONS.filter((s) => s.code !== (sectionPicker.purpose === 'reubicar-destino' ? reubicarCtx?.fromShelf : shelfCode) && s.code !== 'COM').map((s) => (
@@ -833,7 +834,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100">
-              <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Solicitar traer · 🚜 {traerCarretillero.name}</p>
+              <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Solicitar traer · {traerCarretillero.name}</p>
               <h3 className="text-lg font-black text-slate-900">¿A qué sección debe traerlo?</h3>
               <p className="text-xs text-slate-500 mt-1 font-mono truncate">{traerResult.articleCode} · {traerResult.orderFab}</p>
             </div>
@@ -846,10 +847,9 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
                     if (s.isSoldadura) setTraerDest(s);
                     else submitTraerFromSearch(s, null);
                   }}
-                  className="rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-3 py-3 text-center font-semibold text-slate-800 disabled:opacity-50 active:scale-95 transition-all"
+                  className="rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-3 py-3 min-h-14 flex items-center justify-center text-center font-semibold text-slate-800 disabled:opacity-50 active:scale-95 transition-all"
                 >
-                  <span className="block text-2xl mb-1">{s.emoji}</span>
-                  <span className="block text-sm">{s.name}</span>
+                  <span className="block text-base leading-tight">{s.name}</span>
                 </button>
               ))}
             </div>
@@ -888,7 +888,6 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         onClose={handleOFCancel}
         title="¿Tiene OF?"
         message="¿Este artículo tiene hoja de ruta / orden de fabricación?"
-        icon="📋"
         variant="info"
         confirmText="SÍ, tiene OF"
         onConfirm={() => handleOFAnswer(true)}
@@ -934,7 +933,6 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
         onClose={dismissSuccess}
         title={successModal?.title || ''}
         message={successModal?.message || ''}
-        icon="🚚"
         variant="success"
         confirmText="Entendido"
         onConfirm={dismissSuccess}
@@ -1036,12 +1034,12 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-[15px] font-black font-mono text-slate-900 leading-tight break-all">{item.articleCode}</p>
                       {item.subcontratacion && (
-                        <span className="flex-shrink-0 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded bg-orange-500 text-white">🏭 Subcon.</span>
+                        <span className="flex-shrink-0 text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded bg-orange-500 text-white">Subcon.</span>
                       )}
                     </div>
                     {item.orderFab && <p className="text-[12px] font-bold font-mono text-cyan-700 leading-tight break-all">{item.orderFab}</p>}
                     {reprocesosCosts && item.quantity != null && item.unitCost != null && item.unitCost > 0 && (
-                      <p className="text-[11px] text-amber-600 font-mono mt-0.5">{item.quantity} ud · {item.unitCost.toFixed(2)} €/ud</p>
+                      <p className="text-[11px] text-amber-600 font-mono mt-0.5">{item.quantity} ud · {formatDecimal(item.unitCost, 2)} €/ud</p>
                     )}
                     <p className="text-[11px] text-slate-500 mt-1 break-words">
                       {item.locatedByName}{item.locatedAt ? ` · ${new Date(item.locatedAt).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}` : ''}
@@ -1064,7 +1062,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nota</p>
                   {!canEditNotes && (
-                    <span className="text-[9px] font-bold text-amber-600 uppercase">Solo lectura</span>
+                    <span className="text-[10px] font-bold text-amber-600 uppercase">Solo lectura</span>
                   )}
                 </div>
                 {canEditNotes ? (
@@ -1098,7 +1096,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
           className="fixed bottom-24 right-4 z-40 bg-violet-600 hover:bg-violet-500 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-xl active:scale-95 transition-all"
           aria-label="Ver carrusel de fotos"
         >
-          <span className="text-2xl">📷</span>
+          <Camera className="w-6 h-6" aria-hidden />
           <span className="absolute -top-1 -right-1 bg-white text-violet-600 text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center shadow">
             {shelfPhotoEntries.length}
           </span>

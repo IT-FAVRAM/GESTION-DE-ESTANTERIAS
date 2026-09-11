@@ -6,12 +6,15 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { LogOut, MapPin, Search, X } from 'lucide-react';
 import { collection, query as firestoreQuery, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import { useGlobalSearchWithCache, type GlobalSearchResult } from '../../hooks/useGlobalSearchWithCache';
 import { SHELF_DEFINITIONS, CART_DEFINITIONS, COLLECTIONS, type HistoryEntryDoc } from '../../lib/firestoreSchema';
 import { parseLocationId } from '../../lib/schema/shelves';
+import { formatDecimal } from '../../lib/numberFormat';
+import { ofLabel } from '../../lib/ofLabel';
 
 interface KioskSearchBarProps {
   locations: ShelfLocationState[];
@@ -32,7 +35,7 @@ interface KioskSearchBarProps {
   isShelfNavigable?: (shelfCode: string) => boolean;
   onResultSelect?: (result: GlobalSearchResult) => void;
   onOutOfShelfResult?: (result: GlobalSearchResult) => void;
-  /** §7bis — Si se pasa, muestra "🚚 Solicitar traer" en la ficha del resultado. */
+  /** §7bis — Si se pasa, muestra "Solicitar traer" en la ficha del resultado. */
   onSolicitarTraer?: (result: GlobalSearchResult) => void;
   /** Callback para abrir historial de movimientos */
   onOpenHistory?: (articleCode: string, orderFab: string) => void;
@@ -46,10 +49,24 @@ function shelfNameFor(code: string): string {
   return code;
 }
 
-function positionNumber(posStr: string): number {
-  const idx = posStr.lastIndexOf('_');
-  const raw = idx >= 0 ? posStr.slice(idx + 1) : posStr;
-  return parseInt(raw, 10);
+/**
+ * Etiquetas de posición para mostrar: las numéricas como número ("1", formato
+ * habitual del buscador) y las con nombre tal cual ("URG MEC-PRE 004", "SUELO").
+ * Antes las con nombre daban NaN al hacer parseInt y se perdían → "pos." vacío.
+ */
+function positionLabels(posStrs: string[]): string[] {
+  const nums: number[] = [];
+  const named: string[] = [];
+  for (const p of posStrs) {
+    const idx = p.lastIndexOf('_');
+    const raw = (idx >= 0 ? p.slice(idx + 1) : p).trim();
+    if (/^\d+$/.test(raw)) nums.push(parseInt(raw, 10));
+    else if (raw) named.push(raw);
+  }
+  return [
+    ...[...new Set(nums)].sort((a, b) => a - b).map(String),
+    ...[...new Set(named)].sort(),
+  ];
 }
 
 /**
@@ -213,9 +230,7 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
   return (
     <div className="px-4 pt-2 pb-1">
       <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg pointer-events-none">
-          🔍
-        </span>
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" aria-hidden />
         <input
           ref={inputRef}
           type="text"
@@ -237,14 +252,17 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
             className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors text-lg"
             aria-label="Limpiar búsqueda"
           >
-            ✕
+            <X className="w-5 h-5" aria-hidden />
           </button>
         )}
       </div>
 
-      {isCached && cacheInfo && (
-        <div className="mt-1 text-xs text-amber-600 flex items-center gap-1">
-          📦 Búsqueda en caché {cacheInfo.age !== null && `(${cacheInfo.age.toFixed(1)}h)`}
+      {/* Solo avisa si los datos guardados tienen cierta antigüedad (≥ 5 min). */}
+      {isCached && cacheInfo && cacheInfo.age !== null && cacheInfo.age >= 5 / 60 && (
+        <div className="mt-1 text-xs text-amber-700 flex items-center gap-1">
+          Resultados guardados · hace {cacheInfo.age < 1
+            ? `${Math.round(cacheInfo.age * 60)} min`
+            : `${formatDecimal(cacheInfo.age, 1)} h`}
         </div>
       )}
 
@@ -260,11 +278,7 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
               <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
                 {results.map((result, index) => {
                   const shelf = shelfNameFor(result.shelfCode);
-                  const positions = result.positions
-                    .map((p) => positionNumber(p))
-                    .filter((n) => !Number.isNaN(n))
-                    .filter((v, i, arr) => arr.indexOf(v) === i)
-                    .sort((a, b) => a - b);
+                  const positions = positionLabels(result.positions);
 
                   // Ghost result: no clickeable, sin navegación
                   if (result.isGhost) {
@@ -279,20 +293,20 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
                               {result.articleCode}
                             </p>
                             {result.orderFab && (
-                              <p className="text-xs text-slate-500 font-mono mt-0.5">OF: {result.orderFab}</p>
+                              <p className="text-xs text-slate-500 font-mono mt-0.5">{ofLabel(result.orderFab)}</p>
                             )}
                             {result.subcontratacion && (
-                              <span className="inline-block mt-1 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded bg-orange-500 text-white">🏭 Subcontratación</span>
+                              <span className="inline-block mt-1 text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded bg-orange-500 text-white">Subcontratación</span>
                             )}
                           </div>
-                          <span className="shrink-0 text-[9px] bg-slate-200 text-slate-700 border border-slate-300 rounded-full px-1.5 py-0.5 font-bold mt-0.5">
-                            ⏰ Sin ubicación
+                          <span className="shrink-0 text-[10px] bg-slate-200 text-slate-700 border border-slate-300 rounded-full px-1.5 py-0.5 font-bold mt-0.5">
+                            Sin ubicación
                           </span>
                         </div>
                         <div className="mt-2 space-y-1">
                           {result.lastLocation && (
                             <div className="flex items-baseline gap-1.5">
-                              <span className="text-[10px] text-slate-400">📍</span>
+                              <MapPin className="w-3 h-3 text-slate-400 shrink-0 self-center" aria-hidden />
                               <span className="text-xs text-slate-600">
                                 Última ubicación: {shelfNameFor(result.lastLocation.shelfCode)}
                                 <span className="text-slate-400 mx-1">·</span>
@@ -304,7 +318,7 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
                           )}
                           {result.lastWithdrawal && (
                             <div className="flex items-baseline gap-1.5">
-                              <span className="text-[10px] text-slate-400">🚪</span>
+                              <LogOut className="w-3 h-3 text-slate-400 shrink-0 self-center" aria-hidden />
                               <span className="text-xs text-slate-600">
                                 Última retirada: {shelfNameFor(result.lastWithdrawal.shelfCode)}
                                 <span className="text-slate-400 mx-1">·</span>
@@ -334,26 +348,24 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
                             {result.articleCode}
                           </p>
                           {result.orderFab && (
-                            <p className="text-xs text-slate-500 font-mono mt-0.5">OF: {result.orderFab}</p>
+                            <p className="text-xs text-slate-500 font-mono mt-0.5">{ofLabel(result.orderFab)}</p>
                           )}
                           {result.subcontratacion && (
-                            <span className="inline-block mt-1 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded bg-orange-500 text-white">🏭 Subcontratación</span>
+                            <span className="inline-block mt-1 text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded bg-orange-500 text-white">Subcontratación</span>
                           )}
                         </div>
                         {result.matchesCurrentShelf && (
-                          <span className="shrink-0 text-[9px] bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-full px-1.5 py-0.5 font-bold mt-0.5">
-                            Esta
+                          <span className="shrink-0 text-[11px] bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-full px-2 py-0.5 font-bold mt-0.5">
+                            Aquí
                           </span>
                         )}
                       </div>
                       <div className="mt-1.5 flex items-baseline gap-1.5">
-                        <span className="text-[10px] text-slate-400">📍</span>
+                        <MapPin className="w-3 h-3 text-slate-400 shrink-0 self-center" aria-hidden />
                         <span className="text-xs text-slate-500">
                           {shelf}
                           <span className="text-slate-300 mx-1">·</span>
-                          {positions.length === 1
-                            ? `pos. ${positions[0]}`
-                            : `pos. ${positions.join(', ')}`}
+                          {positions.length > 0 && `pos. ${positions.join(', ')}`}
                         </span>
                       </div>
                     </button>
@@ -379,17 +391,17 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
             onClick={handleClear}
             className="absolute top-2 right-2 text-slate-400 hover:text-slate-700 text-sm p-1"
           >
-            ✕
+            <X className="w-5 h-5" aria-hidden />
           </button>
           <div className="pr-6">
             <p className="font-black text-slate-900 text-lg font-mono leading-tight">
               {selectedResult.articleCode}
             </p>
             {selectedResult.orderFab && (
-              <p className="text-xs text-slate-500 font-mono mt-0.5">OF: {selectedResult.orderFab}</p>
+              <p className="text-xs text-slate-500 font-mono mt-0.5">{ofLabel(selectedResult.orderFab)}</p>
             )}
             {selectedResult.isGhost && (
-              <p className="text-xs text-slate-600 mt-1">⏰ Sin ubicación activa</p>
+              <p className="text-xs text-slate-600 mt-1">Sin ubicación activa</p>
             )}
           </div>
           <div className="mt-2 pt-2 border-t border-slate-200 space-y-1">
@@ -397,7 +409,7 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
               <>
                 {selectedResult.lastLocation && (
                   <div className="flex items-baseline gap-2">
-                    <span className="text-[10px] text-slate-400">📍</span>
+                    <MapPin className="w-3 h-3 text-slate-400 shrink-0 self-center" aria-hidden />
                     <div>
                       <span className="text-xs font-bold text-slate-700">Última ubicación</span>
                       <span className="text-xs text-slate-600 ml-1">
@@ -416,7 +428,7 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
                 )}
                 {selectedResult.lastWithdrawal && (
                   <div className="flex items-baseline gap-2">
-                    <span className="text-[10px] text-slate-400">🚪</span>
+                    <LogOut className="w-3 h-3 text-slate-400 shrink-0 self-center" aria-hidden />
                     <div>
                       <span className="text-xs font-bold text-slate-700">Última retirada</span>
                       <span className="text-xs text-slate-600 ml-1">
@@ -439,21 +451,19 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
                 {/* Agrupar posiciones por estantería */}
                 {(() => {
                   // Agrupar: { shelfCode → positions[] }
-                  const byShelf: Record<string, number[]> = {};
+                  const byShelf: Record<string, string[]> = {};
                   for (const posStr of selectedResult.positions) {
                     const idx = posStr.lastIndexOf('_');
                     const sc = idx >= 0 ? posStr.slice(0, idx) : selectedResult.shelfCode;
-                    const num = positionNumber(posStr);
-                    if (!byShelf[sc]) byShelf[sc] = [];
-                    if (!Number.isNaN(num)) byShelf[sc].push(num);
+                    (byShelf[sc] ??= []).push(posStr);
                   }
-                  return Object.entries(byShelf).map(([sc, nums]) => (
+                  return Object.entries(byShelf).map(([sc, list]) => [sc, positionLabels(list)] as const).map(([sc, nums]) => (
                     <div key={sc} className="flex items-baseline gap-2">
-                      <span className="text-[10px] text-slate-400">📍</span>
+                      <MapPin className="w-3 h-3 text-slate-400 shrink-0 self-center" aria-hidden />
                       <div>
                         <span className="text-xs font-bold text-slate-700">{shelfNameFor(sc)}</span>
                         <span className="text-xs text-slate-500 ml-1">
-                          {nums.length === 1 ? `— posición ${nums[0]}` : `— posiciones ${nums.sort((a,b)=>a-b).join(', ')}`}
+                          {nums.length === 0 ? '' : nums.length === 1 ? `— posición ${nums[0]}` : `— posiciones ${nums.join(', ')}`}
                         </span>
                       </div>
                     </div>
@@ -481,7 +491,7 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
                       : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
                   }`}
                 >
-                  {hasRecorrido ? '🔄 Ver recorrido' : '📋 Historial'}
+                  {hasRecorrido ? 'Ver recorrido' : 'Historial'}
                 </button>
               );
             })()}
@@ -490,7 +500,7 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
                 onClick={() => onSolicitarTraer(selectedResult)}
                 className="flex-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-white py-2.5 text-sm font-bold active:scale-[0.98] transition-all touch-manipulation"
               >
-                🚚 Solicitar traer
+                Solicitar traer
               </button>
             )}
           </div>

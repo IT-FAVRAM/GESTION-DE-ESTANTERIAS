@@ -5,9 +5,11 @@
  */
 
 import React from 'react';
+import { Camera } from 'lucide-react';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import type { ShelfPhysicalBlock } from '../../lib/firestoreSchema';
-import type { CellDragData } from './ShelfGridCell';
+import type { CellDragData } from './ShelfGridCell';
+import { formatDecimal } from '../../lib/numberFormat';
 import {
   isUrgentLocation,
   isTechReviewLocation,
@@ -170,9 +172,10 @@ const RackSlot: React.FC<RackSlotProps> = ({
     emptyColor = 'rgba(239,68,68,0.4)';
     badgeEl = (
       <span
+        className="rack-badge"
         style={{
-          display: 'flex', alignItems: 'center', gap: 2, padding: '1px 4px',
-          fontSize: 7, fontWeight: 900, background: '#dc2626',
+          display: 'flex', alignItems: 'center', gap: 3, padding: '1px 5px',
+          fontWeight: 900, background: '#dc2626',
           color: '#fff', borderRadius: 2, textTransform: 'uppercase', letterSpacing: '0.05em',
           lineHeight: 1.4, flexShrink: 0,
         }}
@@ -193,8 +196,9 @@ const RackSlot: React.FC<RackSlotProps> = ({
     if (isTechReview) {
       badgeEl = (
         <span
+          className="rack-badge"
           style={{
-            padding: '1px 4px', fontSize: 7, fontWeight: 900, background: '#d97706',
+            padding: '1px 5px', fontWeight: 900, background: '#d97706',
             color: '#fff', borderRadius: 2, textTransform: 'uppercase', letterSpacing: '0.05em',
             lineHeight: 1.4, flexShrink: 0,
           }}
@@ -218,6 +222,7 @@ const RackSlot: React.FC<RackSlotProps> = ({
 
   return (
     <div
+      className="rack-slot"
       data-position={position}
       role={onPress || isDraggable ? 'button' : undefined}
       tabIndex={onPress ? 0 : undefined}
@@ -252,12 +257,12 @@ const RackSlot: React.FC<RackSlotProps> = ({
         </span>
         {badgeEl}
         {photos.length > 0 && (
-          <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', background: '#8b5cf6', borderRadius: 8, padding: '1px 4px', lineHeight: 1, display: 'inline-flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
-            📷{photos.length > 1 ? photos.length : ''}
+          <span className="rack-badge" style={{ fontWeight: 800, color: '#fff', background: '#8b5cf6', borderRadius: 8, padding: '2px 5px', lineHeight: 1, display: 'inline-flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+            <Camera style={{ width: '1.1em', height: '1.1em' }} strokeWidth={2.5} aria-hidden />{photos.length > 1 ? photos.length : null}
           </span>
         )}
         {isReproces && showReprocessCosts && !badgeEl && (
-          <span style={{ fontSize: 8, color: '#fbbf24', fontWeight: 700, lineHeight: 1 }}>€</span>
+          <span className="rack-badge" style={{ color: '#b45309', fontWeight: 800, lineHeight: 1 }}>€</span>
         )}
       </div>
 
@@ -268,7 +273,7 @@ const RackSlot: React.FC<RackSlotProps> = ({
             <div style={{ width: 22, height: 2, background: emptyColor, borderRadius: 1 }} />
             <div style={{ width: 14, height: 2, background: emptyColor, borderRadius: 1 }} />
           </div>
-          <span style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: emptyColor }}>
+          <span className="rack-meta" style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: emptyColor }}>
             vacío
           </span>
         </div>
@@ -282,7 +287,7 @@ const RackSlot: React.FC<RackSlotProps> = ({
               style={{
                 background: isSearchedItem ? 'rgba(219,39,119,0.32)' : itemBg,
                 borderRadius: 3,
-                padding: '3px 5px',
+                padding: '4px 6px',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
@@ -292,15 +297,15 @@ const RackSlot: React.FC<RackSlotProps> = ({
                 flexShrink: 0,
               }}
             >
-              <p style={{ fontSize: 10, fontWeight: 900, fontFamily: 'monospace', color: artColor, lineHeight: 1.15, wordBreak: 'break-all', margin: 0 }}>
+              <p className="rack-art" style={{ ['--len' as string]: Math.max(item.articleCode.length, 4), fontWeight: 900, fontFamily: 'monospace', color: artColor, lineHeight: 1.15, overflowWrap: 'anywhere', margin: 0 }}>
                 {item.articleCode}
               </p>
-              <p style={{ fontSize: 8, fontWeight: 600, fontFamily: 'monospace', color: ofColor, lineHeight: 1.15, wordBreak: 'break-all', margin: '1px 0 0' }}>
+              <p className="rack-of" style={{ ['--len' as string]: Math.max((item.orderFab || '').length, 6), fontWeight: 700, fontFamily: 'monospace', color: ofColor, lineHeight: 1.15, overflowWrap: 'anywhere', margin: '2px 0 0' }}>
                 {item.orderFab}
               </p>
               {showReprocessCosts && item.unitCost != null && item.unitCost > 0 && (
-                <p style={{ fontSize: 7.5, color: '#fcd34d', fontFamily: 'monospace', margin: '1px 0 0', lineHeight: 1 }}>
-                  {item.unitCost.toFixed(2)} €/ud
+                <p className="rack-meta" style={{ color: '#92400e', fontWeight: 700, fontFamily: 'monospace', margin: '2px 0 0', lineHeight: 1.1 }}>
+                  {formatDecimal(item.unitCost, 2)} €/ud
                 </p>
               )}
             </div>

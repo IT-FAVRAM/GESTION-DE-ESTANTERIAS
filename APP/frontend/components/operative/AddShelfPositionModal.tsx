@@ -69,7 +69,7 @@ const AddShelfPositionModal: React.FC<AddShelfPositionModalProps> = ({
       onClick={handleClose}
     >
       <div className="w-full max-w-md bg-white rounded-t-3xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-lg font-black text-slate-900">➕ Añadir posición en otra sección</h3>
+        <h3 className="text-lg font-black text-slate-900">Añadir posición en otra sección</h3>
         <div>
           <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Sección</label>
           <select

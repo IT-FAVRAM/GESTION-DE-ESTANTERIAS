@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { Info } from 'lucide-react';
 
 interface DeviceInfoModalProps {
   deviceId: string;
@@ -25,7 +26,7 @@ const DeviceInfoModal: React.FC<DeviceInfoModalProps> = ({ deviceId, onClose }) 
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <span>ℹ️</span> Información del Dispositivo
+            <Info className="w-5 h-5" aria-hidden /> Información del dispositivo
           </h2>
           <button
             onClick={onClose}
@@ -53,13 +54,13 @@ const DeviceInfoModal: React.FC<DeviceInfoModalProps> = ({ deviceId, onClose }) 
                   : 'bg-cyan-600 text-white hover:bg-cyan-700'
               }`}
             >
-              {copied ? '✅ Copiado' : '📋 Copiar Device ID'}
+              {copied ? 'Copiado' : 'Copiar Device ID'}
             </button>
           </div>
 
           {/* Instructions */}
           <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-            <p className="text-sm text-slate-300 mb-3 font-bold">📝 Para asociar esta tablet a un kiosko:</p>
+            <p className="text-sm text-slate-300 mb-3 font-bold">Para asociar esta tablet a un kiosko:</p>
             <ol className="text-xs text-slate-300 space-y-2 list-decimal list-inside">
               <li>Copia el Device ID (botón de arriba)</li>
               <li>Ve a Firebase Console</li>
@@ -74,7 +75,7 @@ const DeviceInfoModal: React.FC<DeviceInfoModalProps> = ({ deviceId, onClose }) 
           {/* QR Info */}
           <div className="bg-blue-900/20 rounded-lg p-4 border border-blue-700/50">
             <p className="text-xs text-blue-300">
-              💡 <strong>Tip:</strong> Si necesitas ayuda, muestra este Device ID al administrador.
+              <strong>Tip:</strong> Si necesitas ayuda, muestra este Device ID al administrador.
             </p>
           </div>
         </div>

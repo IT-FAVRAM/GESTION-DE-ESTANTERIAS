@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { RotateCcw } from 'lucide-react';
 import type { AppConfig } from '../../lib/firestoreSchema';
 import { SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
 
@@ -190,7 +191,7 @@ const AdminSpecialLocationsTab: React.FC<AdminSpecialLocationsTabProps> = ({ con
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
-          🔴 URGENTES ({allUrgent.length})
+          URGENTES ({allUrgent.length})
         </button>
         <button
           onClick={() => setActiveTab('tecnica')}
@@ -200,7 +201,7 @@ const AdminSpecialLocationsTab: React.FC<AdminSpecialLocationsTabProps> = ({ con
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
-          🟠 REV. TÉCNICA ({allTech.length})
+          REV. TÉCNICA ({allTech.length})
         </button>
         <button
           onClick={() => setActiveTab('aluminio')}
@@ -210,7 +211,7 @@ const AdminSpecialLocationsTab: React.FC<AdminSpecialLocationsTabProps> = ({ con
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
-          🟡 ALUMINIO ({predefined.aluminio.length})
+          ALUMINIO ({predefined.aluminio.length})
         </button>
       </div>
 
@@ -252,7 +253,7 @@ const AdminSpecialLocationsTab: React.FC<AdminSpecialLocationsTabProps> = ({ con
             disabled={saving}
             className="w-full py-4 bg-gradient-to-r from-red-600 to-red-700 text-white font-black text-lg rounded-2xl shadow-lg shadow-red-900/20 disabled:opacity-50 hover:from-red-500 hover:to-red-600"
           >
-            {saving ? '⏳ Guardando...' : '💾 GUARDAR UBICACIONES URGENTES'}
+            {saving ? 'Guardando...' : 'GUARDAR UBICACIONES URGENTES'}
           </button>
         </div>
       )}
@@ -295,7 +296,7 @@ const AdminSpecialLocationsTab: React.FC<AdminSpecialLocationsTabProps> = ({ con
             disabled={saving}
             className="w-full py-4 bg-gradient-to-r from-amber-600 to-amber-700 text-white font-black text-lg rounded-2xl shadow-lg shadow-amber-900/20 disabled:opacity-50 hover:from-amber-500 hover:to-amber-600"
           >
-            {saving ? '⏳ Guardando...' : '💾 GUARDAR REVISIÓN TÉCNICA'}
+            {saving ? 'Guardando...' : 'GUARDAR REVISIÓN TÉCNICA'}
           </button>
         </div>
       )}
@@ -326,7 +327,7 @@ const AdminSpecialLocationsTab: React.FC<AdminSpecialLocationsTabProps> = ({ con
       <div className="rounded-2xl border border-slate-700 bg-slate-900 p-5">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-base font-black text-white">⏱ Frecuencia de Refresco</h3>
+            <h3 className="text-base font-black text-white">Frecuencia de Refresco</h3>
             <p className="text-sm text-slate-400">Caché de datos de operarios</p>
           </div>
           <div className="flex items-center gap-3">
@@ -334,8 +335,10 @@ const AdminSpecialLocationsTab: React.FC<AdminSpecialLocationsTabProps> = ({ con
             <button
               onClick={() => void onSaveConfig({ operarioRefreshInterval: 5 * 60 * 1000 })}
               className="px-4 py-2 bg-cyan-600 text-white font-bold rounded-xl hover:bg-cyan-500"
+              title="Restablecer a 5 min"
+              aria-label="Restablecer a 5 min"
             >
-              🔄
+              <RotateCcw className="w-5 h-5" aria-hidden />
             </button>
           </div>
         </div>

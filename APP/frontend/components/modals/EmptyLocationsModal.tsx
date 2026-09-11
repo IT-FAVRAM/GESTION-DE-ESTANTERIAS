@@ -137,7 +137,7 @@ const EmptyLocationsModal: React.FC<EmptyLocationsModalProps> = ({
                                             <p className={`text-[10px] font-bold ${loc.isOccupied ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`}>
                                                 {loc.isOccupied ? `${loc.count} ${loc.count === 1 ? 'ARTÍCULO' : 'ARTÍCULOS'}` : 'VACÍA'}
                                             </p>
-                                            <p className={`text-[9px] mt-0.5 font-mono ${isSelected ? 'text-cyan-600/60' : 'text-slate-300 dark:text-slate-600'}`}>
+                                            <p className={`text-[10px] mt-0.5 font-mono ${isSelected ? 'text-cyan-600/60' : 'text-slate-300 dark:text-slate-600'}`}>
                                                 {loc.id.split('-').pop()}
                                             </p>
                                         </div>

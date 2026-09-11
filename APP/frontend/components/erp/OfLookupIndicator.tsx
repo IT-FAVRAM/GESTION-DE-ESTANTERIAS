@@ -75,7 +75,7 @@ const OfLookupIndicator: React.FC<OfLookupIndicatorProps> = ({
       return (
         <div className="space-y-1.5" aria-live="polite">
           <p className={`text-xs font-bold ${c.warn}`}>
-            ⚠ El ERP indica <span className="font-mono">{article.code}</span> para {normalizedOf}
+            El ERP indica <span className="font-mono">{article.code}</span> para {normalizedOf}
           </p>
           <button
             type="button"

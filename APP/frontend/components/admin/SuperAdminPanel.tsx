@@ -161,12 +161,11 @@ const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ onClose, role, initia
                   ←
                 </button>
               )}
-              <span className="text-2xl">{role === 'SUPERADMIN' ? '⚙️' : '📊'}</span>
               <div>
                 <h1 className="text-lg font-black text-white">
                   {isolatedTab
-                    ? `${activeTabMeta?.icon || '📊'} ${activeTabMeta?.label || 'Panel'}`
-                    : role === 'SUPERADMIN' ? 'Panel de Supervision' : 'Panel Analitico'}
+                    ? (activeTabMeta?.label || 'Panel')
+                    : role === 'SUPERADMIN' ? 'Panel de Supervisión' : 'Panel Analítico'}
                 </h1>
                 <p className="text-xs text-slate-500">
                   {saved
@@ -175,7 +174,7 @@ const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ onClose, role, initia
                       ? 'Guardando cambios...'
                       : isolatedTab
                         ? 'Vista individual sin acceso transversal a otras pestañas'
-                        : 'Metricas e informes operativos'}
+                        : 'Métricas e informes operativos'}
                 </p>
               </div>
             </div>
@@ -202,7 +201,7 @@ const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ onClose, role, initia
                   : 'border-slate-800 bg-slate-900 text-slate-500 hover:text-slate-300'
                   }`}
               >
-                {tab.icon} {tab.label}
+                {tab.label}
               </button>
             ))}
           </div>
@@ -226,22 +225,22 @@ const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ onClose, role, initia
           {role === 'SUPERADMIN' && activeTab === 'shelves' && (
             <div className="space-y-4">
               <div>
-                <h2 className="text-lg font-black text-white">Estanterias del Sistema</h2>
-                <p className="mt-1 text-sm text-slate-400">Layout activo, zonas especiales y capacidad por estanteria.</p>
+                <h2 className="text-lg font-black text-white">Estanterías del sistema</h2>
+                <p className="mt-1 text-sm text-slate-400">Layout activo, zonas especiales y capacidad por estantería.</p>
               </div>
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {ALL_SHELVES.map((shelf) => (
                   <div key={shelf.code} className="rounded-3xl border border-slate-800 bg-slate-900 p-4">
                     <div className="flex items-center justify-between gap-3">
-                      <h3 className="font-bold text-white">{shelf.type === 'cart' ? '🛒' : '📦'} {shelf.name}</h3>
+                      <h3 className="font-bold text-white">{shelf.name}</h3>
                       <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-slate-400">{shelf.code}</span>
                     </div>
                     <p className="mt-2 text-xs text-slate-400">{shelf.locationCount} ubicaciones · {shelf.section}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {shelf.layout.zones.map((zone) => (
                         <span key={`${shelf.code}-${zone.name}-${zone.range[0]}`} className="rounded-full border border-slate-800 bg-slate-950 px-3 py-1 text-[11px] font-bold text-slate-400">
-                          {(zone.isUrgent || zone.isTechReview) ? `${zone.isUrgent ? 'Urgente' : 'Revision'} ` : ''}
+                          {(zone.isUrgent || zone.isTechReview) ? `${zone.isUrgent ? 'Urgente' : 'Revisión'} ` : ''}
                           {zone.name} {zone.range[0]}-{zone.range[1]}
                         </span>
                       ))}

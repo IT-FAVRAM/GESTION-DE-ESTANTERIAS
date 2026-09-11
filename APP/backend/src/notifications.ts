@@ -138,7 +138,7 @@ export const notifyPickupQueueCreated = functions.firestore
     let notifType: string;
 
     if (requestType === 'RECEPCION') {
-      title = `📦 Material en Recepciones`;
+      title = `Material en Recepciones`;
       body = `${operarioName} avisa: hay material recepcionado. Ve a Recepciones a recogerlo.`;
       notifType = 'RECEPCION_REQUEST';
     } else if (requestType === 'TRAER') {
@@ -149,7 +149,7 @@ export const notifyPickupQueueCreated = functions.firestore
       const posText = articlePositions.length > 0
         ? `posición ${articlePositions.join(', posición ')}`
         : 'ubicación desconocida';
-      title = `📦 ${operarioName} (${shelfSection}) solicita traslado`;
+      title = `${operarioName} (${shelfSection}) solicita traslado`;
       body = `Necesita: ${articleCode}${articleOrderFab ? ' ' + articleOrderFab : ''}.\nEstá en: ${articleShelfName}, ${posText}.\nLlevar a: ${destText}.`;
       notifType = 'DELIVERY_REQUEST';
     } else {
@@ -160,7 +160,7 @@ export const notifyPickupQueueCreated = functions.firestore
       const fromText = pickupShelfName
         ? `${pickupShelfName}${pickupStation ? ` (puesto ${pickupStation})` : ''}`
         : `${shelfSection} — ${shelfName}`;
-      title = `🛑 ${operarioName} solicita recogida`;
+      title = `${operarioName} solicita recogida`;
       body = articleToPickCode
         ? `Recoger: ${articleToPickCode}${articleToPickOrderFab ? ' ' + articleToPickOrderFab : ''}.\nEn: ${fromText}.\nLlevar a: ${destText}.`
         : `Recoger en: ${fromText}.\nLlevar a: ${destText}.`;
@@ -283,7 +283,7 @@ export const notifySpecialLocationOccupancy = functions.firestore
       if (placerRole !== 'CALIDAD') {
         const placerName = String(firstItem.locatedByName || locatedBy || 'Alguien');
         await notifyUsersByEmails(qualityEmails, {
-          title: '⚠️ Artículo en Reprocesos',
+          title: 'Artículo en Reprocesos',
           body: `${placerName} ha ubicado ${articleCode}${orderFab ? ' ' + orderFab : ''} en ${locationId}.`.trim(),
           data: { type: 'REPROCESOS_LOCATION', shelfCode, locationId, articleCode, orderFab, placerRole },
         });
@@ -333,7 +333,7 @@ export const notifyConnectionDisconnect = functions.firestore
     // Notify ADMIN and SUPERADMIN roles
     await Promise.all([
       notifyUsersByRole('ADMIN', {
-        title: '⚠️ Desconexión WiFi detectada',
+        title: 'Desconexión WiFi detectada',
         body: `${deviceName} se desconectó a las ${timestamp}`,
         data: {
           type: 'DEVICE_DISCONNECTED',
@@ -344,7 +344,7 @@ export const notifyConnectionDisconnect = functions.firestore
         }
       }),
       notifyUsersByRole('SUPERADMIN', {
-        title: '⚠️ Desconexión WiFi detectada',
+        title: 'Desconexión WiFi detectada',
         body: `${deviceName} se desconectó a las ${timestamp}`,
         data: {
           type: 'DEVICE_DISCONNECTED',
@@ -403,7 +403,7 @@ export const notifyLongDisconnection = functions.pubsub
       .join('\n');
 
     await notifyUsersByRole('SUPERADMIN', {
-      title: '🔴 Kiosko sin conexión',
+      title: 'Kiosko sin conexión',
       body: `${staleDevices.length} dispositivo(s) sin conexión:\n${deviceList}`,
       data: {
         type: 'CRITICAL_OFFLINE_ALERT',

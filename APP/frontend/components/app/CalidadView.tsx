@@ -76,9 +76,7 @@ const CalidadView: React.FC = () => {
   return (
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
       <AppHeader
-        icon="🔍"
         title="Calidad — CAL"
-        subtitle={displayName}
         center={isTouch ? undefined : <OperativeActionButtons engine={engine} config={config} />}
         onLogout={logout}
       />

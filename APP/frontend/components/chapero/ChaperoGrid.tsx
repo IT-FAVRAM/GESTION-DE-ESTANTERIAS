@@ -64,13 +64,13 @@ const ChaperoGrid: React.FC<ChaperoGridProps> = ({ positions, highlightedIds, or
               {item?.material}
             </span>
             <span className={`font-black ${style!.text} text-base sm:text-lg leading-none mt-0.5`}>
-              {item?.espesor}<span className="text-[9px] font-bold align-top">mm</span>
+              {item?.espesor}<span className="text-[10px] font-bold align-top">mm</span>
             </span>
             {item?.spec && (
-              <span className={`${style!.text} opacity-70 text-[9px] truncate w-full text-center leading-none mt-0.5`}>{item.spec}</span>
+              <span className={`${style!.text} opacity-70 text-[10px] truncate w-full text-center leading-none mt-0.5`}>{item.spec}</span>
             )}
             {multiCount > 1 && (
-              <span className={`text-[9px] ${style!.dot} text-white rounded px-1 font-bold leading-tight mt-0.5`}>+{multiCount - 1}</span>
+              <span className={`text-[10px] ${style!.dot} text-white rounded px-1 font-bold leading-tight mt-0.5`}>+{multiCount - 1}</span>
             )}
           </>
         )}

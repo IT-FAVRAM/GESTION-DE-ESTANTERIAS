@@ -28,7 +28,7 @@ const CalidadReprocesosSection: React.FC<CalidadReprocesosSectionProps> = ({
       <div className="px-4 py-3 bg-gradient-to-r from-amber-50 to-amber-100/60 border-b-2 border-amber-500 shadow-sm">
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1">
-            <p className="text-xs text-amber-700 font-black uppercase tracking-wider">💰 Total Reprocesos</p>
+            <p className="text-xs text-amber-700 font-black uppercase tracking-wider">Total Reprocesos</p>
             <p className="text-xs text-amber-600 mt-0.5">{totalPiezas} piezas en CAL 001-022</p>
           </div>
           <div className="flex-shrink-0 text-right">
@@ -44,11 +44,11 @@ const CalidadReprocesosSection: React.FC<CalidadReprocesosSectionProps> = ({
               ? 'bg-amber-200 text-amber-800'
               : 'bg-amber-100 text-amber-700'
           }`}>
-            ⏱ Artículo más antiguo: <strong>{oldestItem.articleCode}</strong>
+            Artículo más antiguo: <strong>{oldestItem.articleCode}</strong>
             {oldestItem.orderFab ? ` (OF ${oldestItem.orderFab})` : ''}
             {' — '}{oldestItem.days} día{oldestItem.days !== 1 ? 's' : ''} sin mover
             {oldestItem.locatedByName ? ` — ubicado por ${oldestItem.locatedByName}` : ''}
-            {oldestItem.days > 30 ? ' — dinero parado ⚠️' : ''}
+            {oldestItem.days > 30 ? ' — dinero parado' : ''}
           </p>
         )}
       </div>

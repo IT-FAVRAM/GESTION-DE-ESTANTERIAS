@@ -4,9 +4,11 @@
  */
 
 import React from 'react';
+import { Camera } from 'lucide-react';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import { isReprocesosLocation } from '../../lib/firestoreSchema';
 import { formatEuros } from '../../lib/api/reprocesosApi';
+import { formatDecimal } from '../../lib/numberFormat';
 
 export interface CellDragData {
   articleCode: string;
@@ -144,9 +146,9 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
         {...(compactDraggable ? dragProps : {})}
         {...dropProps}
       >
-        <span className={`text-[9px] font-black font-mono ${headerText}`}>{displayNum}</span>
+        <span className={`text-[10px] font-black font-mono ${headerText}`}>{displayNum}</span>
         {!isEmpty && itemCount === 1 && <span className="w-2 h-2 rounded-full bg-cyan-300 mt-0.5 shadow-[0_0_10px_rgba(103,232,249,0.8)]" />}
-        {!isEmpty && itemCount > 1 && <span className={`text-[8px] font-black mt-0.5 ${headerText}`}>{itemCount}</span>}
+        {!isEmpty && itemCount > 1 && <span className={`text-[10px] font-black mt-0.5 ${headerText}`}>{itemCount}</span>}
         {location?.nota && <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-amber-400 pointer-events-none" />}
         {!!location?.photos?.length && <span className="absolute bottom-0.5 right-0.5 w-2 h-2 rounded-full bg-violet-400 shadow-[0_0_6px_rgba(167,139,250,0.9)] pointer-events-none" />}
       </button>
@@ -213,8 +215,8 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
         </div>
         {location?.nota && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 pointer-events-none" />}
         {!!location?.photos?.length && (
-          <span className="absolute top-1 left-1 text-[9px] leading-none bg-violet-500 text-white rounded-full px-1 py-0.5 flex items-center gap-0.5 shadow-sm pointer-events-none">
-            📷{location.photos.length > 1 ? location.photos.length : ''}
+          <span className="absolute top-1 left-1 text-[10px] leading-none bg-violet-500 text-white rounded-full px-1 py-0.5 flex items-center gap-0.5 shadow-sm pointer-events-none">
+            <Camera className="w-2.5 h-2.5" strokeWidth={2.5} aria-hidden />{location.photos.length > 1 ? <span className="tabular-nums">{location.photos.length}</span> : null}
           </span>
         )}
       </div>
@@ -253,7 +255,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
     borderTop = 'border-red-300/35';
     countBadgeCls = 'bg-red-50 text-red-950';
     badgeEl = (
-      <span className="flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-black bg-red-100 text-red-950 border border-red-200 rounded-md uppercase tracking-widest shrink-0">
+      <span className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-black bg-red-100 text-red-950 border border-red-200 rounded-md uppercase tracking-widest shrink-0">
         <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
         URG
       </span>
@@ -266,7 +268,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
     borderTop = 'border-amber-300/35';
     countBadgeCls = 'bg-amber-50 text-amber-950';
     badgeEl = (
-      <span className="px-1.5 py-0.5 text-[9px] font-black bg-amber-50 text-amber-950 border border-amber-200 rounded-md uppercase tracking-widest shrink-0">
+      <span className="px-1.5 py-0.5 text-[10px] font-black bg-amber-50 text-amber-950 border border-amber-200 rounded-md uppercase tracking-widest shrink-0">
         VT
       </span>
     );
@@ -278,7 +280,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
     borderTop = 'border-amber-300/35';
     countBadgeCls = 'bg-amber-50 text-amber-950';
     badgeEl = (
-      <span className="px-1.5 py-0.5 text-[9px] font-black bg-amber-100 text-amber-950 border border-amber-200 rounded-md uppercase tracking-widest shrink-0">
+      <span className="px-1.5 py-0.5 text-[10px] font-black bg-amber-100 text-amber-950 border border-amber-200 rounded-md uppercase tracking-widest shrink-0">
         ALU
       </span>
     );
@@ -290,7 +292,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
     borderTop = 'border-purple-300/35';
     countBadgeCls = 'bg-purple-50 text-purple-950';
     badgeEl = (
-      <span className="px-1.5 py-0.5 text-[9px] font-black bg-purple-500/20 text-purple-300 border border-purple-400/30 rounded-md uppercase tracking-widest shrink-0">
+      <span className="px-1.5 py-0.5 text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-400/30 rounded-md uppercase tracking-widest shrink-0">
         REPROC
       </span>
     );
@@ -303,15 +305,15 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
     borderTop = 'border-orange-300/35';
     countBadgeCls = 'bg-orange-100 text-orange-950';
     badgeEl = (
-      <span className="px-1.5 py-0.5 text-[9px] font-black bg-orange-500/25 text-orange-200 border border-orange-400/30 rounded-md uppercase tracking-widest shrink-0">
-        🏭 SUBCON
+      <span className="px-1.5 py-0.5 text-[10px] font-black bg-orange-500/25 text-orange-200 border border-orange-400/30 rounded-md uppercase tracking-widest shrink-0">
+        SUBCON
       </span>
     );
   }
 
   if (isReproces && showReprocessCosts && !badgeEl) {
     badgeEl = (
-      <span className="px-1.5 py-0.5 text-[9px] font-black bg-amber-500/20 text-amber-300 border border-amber-400/20 rounded-md shrink-0">
+      <span className="px-1.5 py-0.5 text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-400/20 rounded-md shrink-0">
         €
       </span>
     );
@@ -335,8 +337,8 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
     >
       {location?.nota && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 z-10 pointer-events-none" />}
       {!!location?.photos?.length && (
-        <span className="absolute top-1 left-1 z-10 text-[9px] leading-none bg-violet-500 text-white rounded-full px-1 py-0.5 flex items-center gap-0.5 shadow-sm pointer-events-none">
-          📷{location.photos.length > 1 ? location.photos.length : ''}
+        <span className="absolute top-1 left-1 z-10 text-[10px] leading-none bg-violet-500 text-white rounded-full px-1 py-0.5 flex items-center gap-0.5 shadow-sm pointer-events-none">
+          <Camera className="w-2.5 h-2.5" strokeWidth={2.5} aria-hidden />{location.photos.length > 1 ? <span className="tabular-nums">{location.photos.length}</span> : null}
         </span>
       )}
       {/* REPROCESOS: Importe total en esquina superior derecha (si showReprocessCosts) */}
@@ -355,7 +357,7 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
               </div>
             )}
             {totalQuantity > 0 && (
-              <span className="px-1.5 py-0.5 rounded-md bg-purple-600/40 text-purple-200 text-[9px] font-bold border border-purple-400/50">
+              <span className="px-1.5 py-0.5 rounded-md bg-purple-600/40 text-purple-200 text-[11px] font-bold border border-purple-400/50">
                 {totalQuantity} ud
               </span>
             )}
@@ -365,12 +367,12 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 gap-2">
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
-          <span className={`text-[11px] font-black font-mono tracking-wider shrink-0 ${headerText}`}>
+          <span className={`text-xs font-black font-mono tracking-wider shrink-0 ${headerText}`}>
             {shelfCode} {displayNum}
           </span>
           {badgeEl}
         </div>
-        <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-full tabular-nums shrink-0 ${countBadgeCls}`}>
+        <span className={`text-[11px] font-bold font-mono px-2 py-0.5 rounded-full tabular-nums shrink-0 ${countBadgeCls}`}>
           {itemCount} art.
         </span>
       </div>
@@ -395,18 +397,18 @@ const ShelfGridCell: React.FC<ShelfGridCellProps> = ({
             {multiItem && onCellDragStart && (
               <span className="absolute right-2 top-2 text-slate-500/70 text-[10px] select-none pointer-events-none">⠿</span>
             )}
-            <p className={`text-[13px] font-black font-mono text-white leading-tight break-all ${multiItem && onCellDragStart ? 'pr-4' : ''}`}>
+            <p className={`text-[15px] font-black font-mono text-white leading-tight [overflow-wrap:anywhere] tabular-nums ${multiItem && onCellDragStart ? 'pr-4' : ''}`}>
               {item.articleCode}
             </p>
-            <p className={`text-[11px] font-bold font-mono leading-tight break-all ${ofCls}`}>
+            <p className={`text-xs font-bold font-mono leading-tight [overflow-wrap:anywhere] tabular-nums ${ofCls}`}>
               {item.orderFab}
             </p>
             {showReprocessCosts && item.quantity != null && item.unitCost != null && item.unitCost > 0 && (
-              <p className="text-[10px] text-amber-300 font-mono mt-0.5 leading-tight">
-                {item.quantity} ud · {item.unitCost.toFixed(2)} €/ud
+              <p className="text-[11px] text-amber-300 font-mono mt-0.5 leading-tight tabular-nums">
+                {item.quantity} ud · {formatDecimal(item.unitCost, 2)} €/ud
               </p>
             )}
-            <p className="text-[10px] text-slate-300/85 mt-0.5 leading-tight break-words">
+            <p className="text-[11px] text-slate-300/85 mt-0.5 leading-tight break-words">
               {item.locatedByName} · {formatDate(item.locatedAt)}
             </p>
           </div>

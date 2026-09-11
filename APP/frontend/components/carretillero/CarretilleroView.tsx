@@ -90,9 +90,7 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
       {/* Header — cabecera única compartida (AppHeader) */}
       <AppHeader
-        icon="🚚"
         title={engine.shelfDef?.name || titleByRole}
-        subtitle={`${displayName} · ${operarioId}`}
         chatButton={chatButton}
         right={effectiveRole === 'CARRETILLERO' ? (
           <button onClick={() => {
@@ -104,7 +102,7 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
             } ${
               activeTab === 'pickups' ? 'bg-orange-500 text-white shadow-md' : 'bg-orange-100 text-orange-700'
             }`}>
-            📦 REC{pendingCount > 0 && <span className="ml-0.5 font-black">({pendingCount})</span>}
+            REC{pendingCount > 0 && <span className="ml-0.5 font-black">({pendingCount})</span>}
           </button>
         ) : undefined}
         onBack={onBack}
@@ -171,7 +169,7 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
                     className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${
                       activeTab === 'chapero' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-200'
                     }`}>
-                    🔩 Chapero
+                    Chapero
                   </button>
                 </div>
               )}
@@ -181,7 +179,7 @@ const CarretilleroView: React.FC<CarretilleroViewProps> = ({ onBack, initialTab 
                   className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${
                     activeTab === 'carts' ? 'bg-emerald-500 text-white' : 'text-slate-600 hover:bg-slate-200'
                   }`}>
-                  🛒 Ver carros
+                  Ver carros
                 </button>
               </div>
             </div>

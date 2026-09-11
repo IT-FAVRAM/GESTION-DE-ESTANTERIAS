@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { Camera } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useShelf, type ShelfLocationState } from '../../hooks/useShelf';
 import { useDeviceConfig } from '../../hooks/useDeviceConfig';
@@ -46,10 +47,8 @@ const SoloVisualView: React.FC = () => {
       {/* Header */}
       <header className="flex-shrink-0 bg-white border-b border-slate-200 px-3 py-2 shadow-sm flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-lg leading-none">👁️</span>
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-widest text-cyan-600 leading-none">Solo visual</p>
-            <p className="text-xs text-slate-500 truncate leading-tight">{displayName}</p>
+            <h1 className="text-xl font-black text-slate-900 tracking-tight leading-tight truncate">Solo visual</h1>
           </div>
         </div>
         <button
@@ -87,7 +86,7 @@ const SoloVisualView: React.FC = () => {
 
             {availableCarts.length > 0 && (
               <div className="space-y-2 border-t border-slate-200 pt-3">
-                <h2 className="text-sm font-bold text-slate-500 uppercase">🚚 Carros</h2>
+                <h2 className="text-sm font-bold text-slate-500 uppercase">Carros</h2>
                 {availableCarts.map(cart => (
                   <button
                     key={cart.code}
@@ -174,7 +173,7 @@ const SoloVisualView: React.FC = () => {
                 setHighlightedItemKey(itemKey ?? null);
               }}
               currentShelfCode={selectedShelf}
-              placeholder="🔍 Buscar en toda la nave..."
+              placeholder="Buscar en toda la nave..."
               global={true}
               canNavigateToShelf={true}
               onShelfNavigate={(code, positions, itemKey) => {
@@ -197,7 +196,6 @@ const SoloVisualView: React.FC = () => {
             ) : locations.length === 0 ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
-                  <span className="text-5xl block mb-3">🔍</span>
                   <p className="text-slate-500 font-medium">Estantería vacía</p>
                 </div>
               </div>
@@ -254,7 +252,7 @@ const SoloVisualView: React.FC = () => {
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-[15px] font-black font-mono text-slate-900 leading-tight break-all">{item.articleCode}</p>
                       {item.subcontratacion && (
-                        <span className="flex-shrink-0 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded bg-orange-500 text-white">🏭 Subcon.</span>
+                        <span className="flex-shrink-0 text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded bg-orange-500 text-white">Subcon.</span>
                       )}
                     </div>
                     {item.orderFab && <p className="text-[12px] font-bold font-mono text-cyan-700 leading-tight break-all">{item.orderFab}</p>}
@@ -295,7 +293,7 @@ const SoloVisualView: React.FC = () => {
           className="fixed bottom-6 right-4 z-40 bg-violet-600 hover:bg-violet-500 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-xl active:scale-95 transition-all"
           aria-label="Ver carrusel de fotos"
         >
-          <span className="text-2xl">📷</span>
+          <Camera className="w-6 h-6" aria-hidden />
           <span className="absolute -top-1 -right-1 bg-white text-violet-600 text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center shadow">
             {shelfPhotoEntries.length}
           </span>

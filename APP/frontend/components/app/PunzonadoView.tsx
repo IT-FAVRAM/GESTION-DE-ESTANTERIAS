@@ -24,9 +24,7 @@ const PunzonadoView: React.FC<{ chatButton?: React.ReactNode }> = ({ chatButton 
     <div className="h-dvh w-screen max-w-full bg-sky-50 flex flex-col overflow-hidden">
       {/* Header */}
       <AppHeader
-        icon="🛠️"
         title="Punzonado"
-        subtitle={`${displayName} · ${operarioId}`}
         chatButton={chatButton}
         onLogout={logout}
       />
@@ -53,7 +51,6 @@ const PunzonadoView: React.FC<{ chatButton?: React.ReactNode }> = ({ chatButton 
             onClick={() => setShowChapero(true)}
             className="w-full rounded-2xl bg-slate-700 hover:bg-slate-600 active:scale-[0.99] transition-all text-white shadow-lg p-5 flex flex-col items-center gap-2"
           >
-            <span className="text-4xl">🔩</span>
             <span className="text-lg font-black">Chapero</span>
             <span className="text-xs font-medium text-slate-300">Ver y gestionar chapas por material y espesor</span>
           </button>

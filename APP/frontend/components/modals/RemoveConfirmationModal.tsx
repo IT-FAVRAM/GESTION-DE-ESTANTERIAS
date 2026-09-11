@@ -4,6 +4,7 @@
 import React from 'react';
 import { TrashIcon } from './Icons';
 import { formatLocation } from '../lib/warehouseData';
+import { ofLabel } from '../../lib/ofLabel';
 
 interface RemoveConfirmationModalProps {
   item: { barcode: string; orderId: string; location: string };
@@ -25,7 +26,7 @@ const RemoveConfirmationModal: React.FC<RemoveConfirmationModalProps> = ({ item,
         </div>
 
         <div className="text-slate-600 dark:text-slate-300 text-center text-base leading-relaxed">
-          <p>El artículo <strong className="text-slate-900 dark:text-white">{item.barcode}</strong> (OF: {item.orderId}) se encuentra actualmente en:</p>
+          <p>El artículo <strong className="text-slate-900 dark:text-white">{item.barcode}</strong> ({ofLabel(item.orderId)}) se encuentra actualmente en:</p>
 
           <div className="my-4 p-4 bg-slate-100 dark:bg-slate-800 rounded-xl font-mono text-lg font-bold border-2 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200">
             {formatLocation(item.location)}

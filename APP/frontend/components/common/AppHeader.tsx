@@ -1,4 +1,5 @@
 import React from 'react';
+import { Info } from 'lucide-react';
 import { useFormFactor } from '../../hooks/useFormFactor';
 
 /**
@@ -14,12 +15,8 @@ import { useFormFactor } from '../../hooks/useFormFactor';
  */
 
 export interface AppHeaderProps {
-  /** Emoji/icono de marca de la vista (opcional). */
-  icon?: string;
   /** Título principal (nombre de estantería o de la vista). */
   title: string;
-  /** Subtítulo secundario (operario · id, etc.). */
-  subtitle?: string;
   /** Slot central inline — típicamente <OperativeActionButtons />. */
   center?: React.ReactNode;
   /** Botones extra a la derecha, antes de Salir (p.ej. RECOGIDAS). */
@@ -37,9 +34,7 @@ export interface AppHeaderProps {
 }
 
 const AppHeader: React.FC<AppHeaderProps> = ({
-  icon,
   title,
-  subtitle,
   center,
   right,
   chatButton,
@@ -54,17 +49,11 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   return (
   <header className="flex-shrink-0 bg-white border-b border-slate-200 px-3 py-2 shadow-sm">
     <div className="flex items-center justify-between gap-2 min-h-10">
-      {/* Marca + título */}
-      <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
-        {icon && <span className="text-2xl flex-shrink-0" aria-hidden>{icon}</span>}
-        <div className="min-w-0">
-          <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none truncate">
-            {title}
-          </h1>
-          {subtitle && (
-            <p className="text-[11px] text-slate-500 truncate leading-none mt-0.5">{subtitle}</p>
-          )}
-        </div>
+      {/* Título (sin subtítulo de operario: no se muestra a ningún usuario) */}
+      <div className="flex items-center min-w-0 flex-shrink">
+        <h1 className="text-xl font-black text-slate-900 tracking-tight leading-tight truncate" title={title}>
+          {title}
+        </h1>
       </div>
 
       {/* Slot central (acciones inline) */}
@@ -87,7 +76,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             title="Información del dispositivo"
             aria-label="Información del dispositivo"
           >
-            <span aria-hidden>ℹ️</span>
+            <Info className={touch ? 'w-5 h-5' : 'w-4 h-4'} aria-hidden />
           </button>
         )}
         {(onBack || onLogout) && (

@@ -10,6 +10,7 @@ import { usePickupQueue, type PickupRequest, type GroupedPickups } from '../../h
 import { useAuth } from '../../hooks/useAuth';
 import { inventoryApi } from '../../lib/api/inventoryApi';
 import { getOperationalSession } from '../../lib/operationalSession';
+import { ofLabel } from '../../lib/ofLabel';
 
 const timeAgo = (dateStr: string): string => {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -33,7 +34,7 @@ const MetaBadges: React.FC<{ req: PickupRequest }> = ({ req }) => (
   <div className="flex flex-wrap items-center gap-1.5 mt-2">
     {req.targetCarretilleroName && (
       <span className="text-[11px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded-full">
-        🚜 {req.targetCarretilleroName}
+        {req.targetCarretilleroName}
       </span>
     )}
     {req.acknowledged && (
@@ -61,7 +62,6 @@ const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId
         </div>
 
         <div className="flex items-start gap-2.5 bg-teal-950/60 border border-teal-500/20 rounded-xl p-3 mb-4">
-          <span className="text-2xl mt-0.5 shrink-0">📦</span>
           <div className="min-w-0">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Ir a</p>
             <p className="text-base font-black text-teal-200">Recepciones</p>
@@ -100,7 +100,7 @@ const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId
           {/* Step 1: Where to pick from */}
           {req.articleShelfName && (
             <div className="flex items-start gap-2.5 bg-blue-950/60 border border-blue-500/20 rounded-xl p-2.5">
-              <span className="text-lg mt-0.5 shrink-0">1️⃣</span>
+              <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-white/15 text-white text-xs font-black flex items-center justify-center tabular-nums">1</span>
               <div className="min-w-0">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Ir a</p>
                 <p className="text-sm font-black text-blue-200">{req.articleShelfName}</p>
@@ -116,12 +116,12 @@ const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId
           {/* Step 2: What to pick */}
           {req.articleCode && (
             <div className="flex items-start gap-2.5 bg-blue-950/60 border border-blue-500/20 rounded-xl p-2.5">
-              <span className="text-lg mt-0.5 shrink-0">2️⃣</span>
+              <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-white/15 text-white text-xs font-black flex items-center justify-center tabular-nums">2</span>
               <div className="min-w-0">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Coger</p>
                 <p className="text-sm font-bold text-white font-mono">{req.articleCode}</p>
                 {req.articleOrderFab && (
-                  <p className="text-xs text-slate-400 mt-0.5">OF: {req.articleOrderFab}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{ofLabel(req.articleOrderFab)}</p>
                 )}
               </div>
             </div>
@@ -129,7 +129,7 @@ const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId
 
           {/* Step 3: Where to deliver */}
           <div className="flex items-start gap-2.5 bg-emerald-950/40 border border-emerald-500/30 rounded-xl p-2.5">
-            <span className="text-lg mt-0.5 shrink-0">3️⃣</span>
+            <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-white/15 text-white text-xs font-black flex items-center justify-center tabular-nums">3</span>
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Llevar a</p>
               <p className="text-sm font-black text-emerald-200">{destText}</p>
@@ -171,7 +171,7 @@ const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId
         <div className="space-y-2.5 mb-4">
           {/* Step 1: Where to pick from */}
           <div className="flex items-start gap-2.5 bg-orange-950/60 border border-orange-500/20 rounded-xl p-2.5">
-            <span className="text-lg mt-0.5 shrink-0">1️⃣</span>
+            <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-white/15 text-white text-xs font-black flex items-center justify-center tabular-nums">1</span>
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Ir a</p>
               <p className="text-sm font-black text-orange-200">{fromText}</p>
@@ -181,12 +181,12 @@ const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId
           {/* Step 2: What to pick */}
           {req.articleToPickCode && (
             <div className="flex items-start gap-2.5 bg-orange-950/60 border border-orange-500/20 rounded-xl p-2.5">
-              <span className="text-lg mt-0.5 shrink-0">2️⃣</span>
+              <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-white/15 text-white text-xs font-black flex items-center justify-center tabular-nums">2</span>
               <div className="min-w-0">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Coger</p>
                 <p className="text-sm font-bold text-white font-mono">{req.articleToPickCode}</p>
                 {req.articleToPickOrderFab && (
-                  <p className="text-xs text-slate-400 mt-0.5">OF: {req.articleToPickOrderFab}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{ofLabel(req.articleToPickOrderFab)}</p>
                 )}
               </div>
             </div>
@@ -194,7 +194,7 @@ const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId
 
           {/* Step 3: Where to deliver */}
           <div className="flex items-start gap-2.5 bg-emerald-950/40 border border-emerald-500/30 rounded-xl p-2.5">
-            <span className="text-lg mt-0.5 shrink-0">3️⃣</span>
+            <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-white/15 text-white text-xs font-black flex items-center justify-center tabular-nums">3</span>
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Llevar a</p>
               <p className="text-sm font-black text-emerald-200">{destText}</p>
@@ -346,7 +346,6 @@ const PickupQueue: React.FC<PickupQueueProps> = ({ currentShelf }) => {
 
       {shelfChanged && (
         <div className="bg-amber-950/50 border border-amber-500/50 rounded-xl p-3 flex items-start gap-3">
-          <span className="text-xl shrink-0">⚠️</span>
           <div className="min-w-0">
             <p className="text-sm font-bold text-amber-200">Información posiblemente desactualizada</p>
             <p className="text-xs text-amber-300/80 mt-0.5">Cambiaste de estantería. Las solicitudes pueden no corresponder a {currentShelf}.</p>
@@ -366,7 +365,7 @@ const PickupQueue: React.FC<PickupQueueProps> = ({ currentShelf }) => {
       {/* Sub-sección: RECOGIDAS */}
       <div>
         <h2 className="text-lg font-black text-white flex items-center gap-2 mb-4">
-          🔔 Recogidas
+          Recogidas
           {totalRecogidas > 0 && (
             <span className="px-3 py-1 bg-orange-500 text-white text-sm font-bold rounded-full">
               {totalRecogidas}
@@ -376,7 +375,6 @@ const PickupQueue: React.FC<PickupQueueProps> = ({ currentShelf }) => {
 
         {recogidasPending.length === 0 ? (
           <div className="text-center py-12 bg-slate-900/50 rounded-2xl border border-slate-800">
-            <span className="text-4xl mb-3 block">✅</span>
             <p className="text-slate-400 font-medium">Sin recogidas pendientes</p>
           </div>
         ) : (
@@ -410,7 +408,7 @@ const PickupQueue: React.FC<PickupQueueProps> = ({ currentShelf }) => {
       {/* Sub-sección: TRAÍDAS */}
       <div className="border-t border-slate-700 pt-6">
         <h2 className="text-lg font-black text-white flex items-center gap-2 mb-4">
-          📦 Traídas
+          Traídas
           {trairadasPending.reduce((n, g) => n + g.requests.length, 0) > 0 && (
             <span className="px-2 py-0.5 bg-blue-500 text-white text-sm font-bold rounded-full">
               {trairadasPending.reduce((n, g) => n + g.requests.length, 0)}
@@ -420,7 +418,6 @@ const PickupQueue: React.FC<PickupQueueProps> = ({ currentShelf }) => {
 
         {trairadasPending.length === 0 ? (
           <div className="text-center py-12 bg-slate-900/50 rounded-2xl border border-slate-800">
-            <span className="text-4xl mb-3 block">✅</span>
             <p className="text-slate-400 font-medium">Sin solicitudes de traída pendientes</p>
           </div>
         ) : (
@@ -466,7 +463,7 @@ const PickupQueue: React.FC<PickupQueueProps> = ({ currentShelf }) => {
                 <div key={req.id} className="bg-slate-900/50 rounded-xl p-3 flex items-center justify-between">
                   <div>
                     <p className="text-sm text-slate-400 line-through">
-                      {req.requestType === 'TRAER' ? `📦 ${req.articleCode || 'Traslado'}` : `🔔 ${req.operarioName}`}
+                      {req.requestType === 'TRAER' ? `${req.articleCode || 'Traslado'}` : `${req.operarioName}`}
                       {' · '}{req.shelfName}
                     </p>
                     <p className="text-xs text-slate-600">
@@ -494,7 +491,7 @@ const PickupQueue: React.FC<PickupQueueProps> = ({ currentShelf }) => {
               <p className="text-xs font-bold text-slate-400 uppercase mb-2">Artículo:</p>
               <p className="text-base font-mono font-bold text-white mb-3">{withdrawalModal.articleCode}</p>
               {withdrawalModal.articleOrderFab && (
-                <p className="text-xs text-slate-400">OF: {withdrawalModal.articleOrderFab}</p>
+                <p className="text-xs text-slate-400">{ofLabel(withdrawalModal.articleOrderFab)}</p>
               )}
             </div>
 

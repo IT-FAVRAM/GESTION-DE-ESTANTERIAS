@@ -8,7 +8,8 @@ import { useAnalytics } from '../../hooks/useAnalytics';
 import { db } from '../../lib/firebase';
 import { COLLECTIONS, SHELF_DEFINITIONS, type LocationDoc } from '../../lib/firestoreSchema';
 import { LeadTimeReport } from '../views/LeadTimeReport';
-import ProfessionalInventoryExport from './ProfessionalInventoryExport';
+import ProfessionalInventoryExport from './ProfessionalInventoryExport';
+import { formatDecimal } from '../../lib/numberFormat';
 
 // exceljs (~900KB) bajo demanda al generar el informe, no al abrir el panel.
 // (CommonJS → interop default/namespace.)
@@ -272,13 +273,13 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ onClose }) => {
       {/* Header and Tabs */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center justify-between pb-4 border-b border-slate-800">
         <div>
-          <h2 className="text-2xl font-black text-white flex items-center gap-2"><span className="text-3xl">📊</span> Inteligencia Operativa</h2>
+          <h2 className="text-2xl font-black text-white flex items-center gap-2">Inteligencia operativa</h2>
           <p className="text-slate-400 text-sm mt-1">Métricas unificadas, análisis de cuellos de botella y alertas del almacén.</p>
         </div>
         <div className="bg-slate-900/80 p-1.5 rounded-2xl flex gap-1 border border-slate-800 backdrop-blur-md">
-          <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon="📥" label="Exportar y Resumen" />
-          <TabButton active={activeTab === 'performance'} onClick={() => setActiveTab('performance')} icon="⚡" label="Lead Time y Ocupación" />
-          <TabButton active={activeTab === 'alerts'} onClick={() => setActiveTab('alerts')} icon="🚨" label={`Alertas (${staleItems.length + repeatedPairs.length})`} />
+          <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} label="Exportar y Resumen" />
+          <TabButton active={activeTab === 'performance'} onClick={() => setActiveTab('performance')} label="Lead Time y Ocupación" />
+          <TabButton active={activeTab === 'alerts'} onClick={() => setActiveTab('alerts')} label={`Alertas (${staleItems.length + repeatedPairs.length})`} />
         </div>
       </div>
 
@@ -351,7 +352,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ onClose }) => {
                          title={`Exportar Excel de ${metric.section}`}
                          className="bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-600/30 text-[10px] px-2 py-1 rounded font-bold transition-colors disabled:opacity-40"
                        >
-                         {exportingSection === metric.section ? '⏳' : '📊 Excel'}
+                         {exportingSection === metric.section ? '' : 'Excel'}
                        </button>
                      </div>
                    </div>
@@ -369,7 +370,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ onClose }) => {
                      <div>
                        <div className="flex justify-between text-xs font-bold mb-1">
                          <span className="text-slate-400">Tiempo Medio (Lead Time)</span>
-                         <span className="text-cyan-400">{metric.avgLeadTimeDays !== null ? `${metric.avgLeadTimeDays.toFixed(1)} días` : 'N/A'}</span>
+                         <span className="text-cyan-400">{metric.avgLeadTimeDays !== null ? `${formatDecimal(metric.avgLeadTimeDays, 1)} días` : 'N/A'}</span>
                        </div>
                        <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
                          <div className="h-full bg-cyan-500" style={{ width: `${Math.min(100, (metric.avgLeadTimeDays || 0) * 5)}%` }} />
@@ -396,7 +397,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ onClose }) => {
         <div className="space-y-6 animate-fade-in">
            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <TablePanel
-                title="⚠️ Estancamiento Crítico"
+                title="Estancamiento Crítico"
                 subtitle="Artículos con más de 5 días sin moverse de su ubicación."
                 emptyText={analytics.loading ? 'Cargando datos...' : '¡Excelente! No hay artículos estancados.'}
                 rows={staleItems.slice(0, 15).map((item) => ({
@@ -408,7 +409,7 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ onClose }) => {
               />
 
               <TablePanel
-                title="🔄 Duplicidades Activas"
+                title="Duplicidades Activas"
                 subtitle="El mismo artículo y OF detectados en múltiples huecos."
                 emptyText={analytics.loading ? 'Cargando datos...' : 'No hay duplicidades en el sistema.'}
                 rows={repeatedPairs.slice(0, 15).map((pair) => ({
@@ -425,14 +426,13 @@ const InventoryReport: React.FC<InventoryReportProps> = ({ onClose }) => {
   );
 };
 
-const TabButton: React.FC<{ active: boolean; onClick: () => void; icon: string; label: string }> = ({ active, onClick, icon, label }) => (
+const TabButton: React.FC<{ active: boolean; onClick: () => void; label: string }> = ({ active, onClick, label }) => (
   <button
     onClick={onClick}
     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${
       active ? 'bg-slate-800 text-white shadow-lg border border-slate-700' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 border border-transparent'
     }`}
   >
-    <span>{icon}</span>
     {label}
   </button>
 );

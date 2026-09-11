@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { Truck } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useFormFactor } from '../../hooks/useFormFactor';
 import { LogoIcon, LoadingIcon, ErrorIcon, UserIcon } from '../icons/Icons';
@@ -175,7 +176,7 @@ const UnifiedLogin: React.FC = () => {
             disabled={localLoading || loading}
             className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-amber-500 text-white font-black text-base rounded-2xl shadow-xl hover:bg-amber-400 active:scale-95 transition-all disabled:opacity-50"
           >
-            <span className="text-xl">🚜</span>
+            <Truck className="h-5 w-5" aria-hidden />
             Soy carretillero
           </button>
         </div>

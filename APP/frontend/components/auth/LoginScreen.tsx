@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { Factory, Search, ShieldCheck, Truck } from 'lucide-react';
 import { LogoIcon, LoadingIcon, ErrorIcon, UserIcon } from './Icons';
 import { auth } from '../legacy/firebaseCompat';
 
@@ -128,7 +129,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
         {/* Role Selection Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           <RoleCard 
-            icon={<div className="text-4xl">🏭</div>}
+            icon={<Factory className="w-10 h-10" aria-hidden />}
             title="KIOSKO"
             description="Operario · MEC"
             color="blue"
@@ -136,7 +137,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
             disabled={isLoading}
           />
           <RoleCard 
-            icon={<div className="text-4xl">🚜</div>}
+            icon={<Truck className="w-10 h-10" aria-hidden />}
             title="CARRETILLA"
             description="Logística"
             color="amber"
@@ -144,7 +145,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
             disabled={isLoading}
           />
           <RoleCard 
-            icon={<div className="text-4xl">🛡️</div>}
+            icon={<ShieldCheck className="w-10 h-10" aria-hidden />}
             title="ADMIN"
             description="Informes y gestión"
             color="purple"
@@ -152,7 +153,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
             disabled={isLoading}
           />
           <RoleCard 
-            icon={<div className="text-4xl">🔍</div>}
+            icon={<Search className="w-10 h-10" aria-hidden />}
             title="CALIDAD"
             description="Inspección"
             color="emerald"

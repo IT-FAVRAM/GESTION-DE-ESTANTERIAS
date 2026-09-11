@@ -78,7 +78,7 @@ const CartEditor: React.FC = () => {
   return (
     <div className="p-4 space-y-4">
       <h2 className="text-lg font-black text-white flex items-center gap-2">
-        🛒 Carros Manuales
+        Carros Manuales
       </h2>
 
       {/* Cart selector */}
@@ -101,7 +101,7 @@ const CartEditor: React.FC = () => {
       {/* Saved indicator */}
       {saved && (
         <div className="text-center text-sm font-bold text-emerald-400 animate-pulse">
-          ✅ Guardado
+          Guardado
         </div>
       )}
 

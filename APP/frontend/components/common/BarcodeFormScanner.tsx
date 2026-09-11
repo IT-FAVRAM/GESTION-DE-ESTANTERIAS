@@ -163,13 +163,13 @@ const BarcodeFormScanner: React.FC<BarcodeFormScannerProps> = ({
       <div className="px-4 py-4 space-y-3">
         {/* Barra informativa */}
         <div className="bg-cyan-50 border border-cyan-200 rounded-lg px-3 py-2">
-          <p className="text-xs text-cyan-900 font-bold">📝 Escanea o escribe el código (sin "OF26-")</p>
+          <p className="text-xs text-cyan-900 font-bold">Escanea o escribe el código (sin "OF26-")</p>
         </div>
 
         {/* Mensaje de error */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-            <p className="text-xs text-red-700 font-bold">❌ {error}</p>
+            <p className="text-xs text-red-700 font-bold">{error}</p>
           </div>
         )}
 
@@ -238,7 +238,7 @@ const BarcodeFormScanner: React.FC<BarcodeFormScannerProps> = ({
             disabled={disabled || !barcodeInput}
             className="flex-1 px-3 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold disabled:opacity-50 transition-colors"
           >
-            🔄 Limpiar
+            Limpiar
           </button>
           <button
             onClick={() => {
@@ -259,7 +259,7 @@ const BarcodeFormScanner: React.FC<BarcodeFormScannerProps> = ({
             disabled={disabled || !articleValue || fetching}
             className="flex-1 px-3 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold disabled:opacity-50 transition-colors"
           >
-            {fetching ? '⏳' : '✓'} Confirmar
+            {fetching ? '… ' : '✓ '}Confirmar
           </button>
         </div>
       </div>

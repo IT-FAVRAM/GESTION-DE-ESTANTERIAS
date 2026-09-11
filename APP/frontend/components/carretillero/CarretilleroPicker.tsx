@@ -54,7 +54,6 @@ const CarretilleroPicker: React.FC<CarretilleroPickerProps> = ({ open, onSelect,
                   onClick={() => onSelect(c)}
                   className="py-4 px-3 rounded-2xl font-bold text-center bg-slate-50 border border-slate-200 text-slate-900 hover:border-amber-500 active:scale-95 transition-all"
                 >
-                  <div className="text-2xl mb-2">🚜</div>
                   <div className="text-sm truncate">{c.name}</div>
                 </button>
               ))}

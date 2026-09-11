@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import { isSameArticle } from '../../lib/articleIdentity';
+import { ofLabel } from '../../lib/ofLabel';
 
 interface MoverArticleItem {
   articleCode: string;
@@ -48,7 +49,7 @@ const MoverArticleList: React.FC<MoverArticleListProps> = ({ locations, shelfCod
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-950/95 backdrop-blur-sm">
       <div className="flex items-center justify-between px-4 py-4 border-b border-slate-800">
-        <h2 className="text-lg font-black text-white">🔄 Mover artículo</h2>
+        <h2 className="text-lg font-black text-white">Mover artículo</h2>
         <button onClick={onClose} className="px-4 py-2 min-h-[40px] bg-rose-600 hover:bg-rose-500 text-white text-sm font-bold rounded-xl active:scale-95 transition-all touch-manipulation">
           ✕ Cancelar
         </button>
@@ -56,7 +57,6 @@ const MoverArticleList: React.FC<MoverArticleListProps> = ({ locations, shelfCod
 
       {articles.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
-          <span className="text-5xl mb-4">📭</span>
           <p className="text-slate-400 font-medium text-lg">No hay artículos en esta estantería</p>
           <p className="text-slate-600 text-sm mt-1">Ubica algún artículo primero para poder moverlo.</p>
         </div>
@@ -80,7 +80,7 @@ const MoverArticleList: React.FC<MoverArticleListProps> = ({ locations, shelfCod
                     <p className="font-black text-white text-lg font-mono leading-tight truncate">
                       {article.articleCode}
                     </p>
-                    <p className="text-sm text-slate-400 font-mono mt-0.5">OF: {article.orderFab}</p>
+                    <p className="text-sm text-slate-400 font-mono mt-0.5">{ofLabel(article.orderFab)}</p>
                   </div>
                   <span className="shrink-0 text-xs bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full px-2.5 py-1 font-bold">
                     {article.positions.length} pos.

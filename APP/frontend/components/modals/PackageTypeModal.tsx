@@ -8,9 +8,9 @@ interface PackageTypeModalProps {
 }
 
 const PACKAGE_OPTIONS: { type: PackageType; label: string; emoji: string; color: string }[] = [
-    { type: 'PALLET', label: 'Pallet', emoji: '📦', color: 'bg-amber-500' },
-    { type: 'CAJA_GRANDE', label: 'Caja Grande', emoji: '🗃️', color: 'bg-cyan-500' },
-    { type: 'CAJA_PEQUENA', label: 'Caja Pequeña', emoji: '📋', color: 'bg-indigo-500' },
+    { type: 'PALLET', label: 'Pallet', emoji: '', color: 'bg-amber-500' },
+    { type: 'CAJA_GRANDE', label: 'Caja Grande', emoji: '', color: 'bg-cyan-500' },
+    { type: 'CAJA_PEQUENA', label: 'Caja Pequeña', emoji: '', color: 'bg-indigo-500' },
 ];
 
 const PackageTypeModal: React.FC<PackageTypeModalProps> = ({ onSelect, onClose }) => {

@@ -10,7 +10,6 @@ interface BlockedDeviceScreenProps {
 const BlockedDeviceScreen: React.FC<BlockedDeviceScreenProps> = ({ deviceId, error, onCopyDeviceId, onAdminLogin }) => (
   <div className="min-h-dvh flex flex-col items-center justify-center bg-slate-950 px-6 text-center">
     <div className="max-w-md rounded-3xl border border-amber-500/20 bg-amber-500/10 p-8">
-      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/15 text-4xl">⚠</div>
       <h1 className="text-2xl font-black text-white">Dispositivo bloqueado</h1>
       <p className="mt-3 text-sm text-slate-300">{error || 'Este dispositivo necesita configuracion previa en SuperAdmin antes de poder operar.'}</p>
       <p className="mt-4 text-xs text-slate-500">ID del navegador: <span className="font-mono">{deviceId}</span></p>

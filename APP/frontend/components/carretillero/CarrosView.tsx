@@ -72,7 +72,6 @@ const CarrosView: React.FC<CarrosViewProps> = ({ onBack, section }) => {
         <header className="flex-shrink-0 bg-white border-b border-slate-200 px-4 py-3 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-2xl">🛒</span>
               <div>
                 <h1 className="text-lg font-black text-slate-900 tracking-tight">GESTIÓN DE CARROS</h1>
                 <p className="text-xs text-slate-500">Operaciones en carros</p>
@@ -90,7 +89,7 @@ const CarrosView: React.FC<CarrosViewProps> = ({ onBack, section }) => {
       {/* Selector de carro + acciones */}
       <div className="flex-shrink-0 bg-white border-b border-slate-200 px-3 py-2">
         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
-          🛒 Selecciona un carro
+          Selecciona un carro
         </p>
         <div className="flex gap-2 overflow-x-auto pb-1">
           {availableCarts.map((cart) => (
@@ -103,7 +102,6 @@ const CarrosView: React.FC<CarrosViewProps> = ({ onBack, section }) => {
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200 active:bg-slate-300'
                 }`}
             >
-              <span className="mr-1.5">🛒</span>
               {cart.name}
             </button>
           ))}

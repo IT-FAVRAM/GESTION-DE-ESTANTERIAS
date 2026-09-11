@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { Package, ScanBarcode, ScanText, Search } from 'lucide-react';
 import { useGlobalSearchWithCache, type GlobalSearchResult } from '../../hooks/useGlobalSearchWithCache';
 import { SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
 import { parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
@@ -10,6 +11,7 @@ import { useOfLookup } from '../../hooks/useOfLookup';
 import OfLookupIndicator from '../erp/OfLookupIndicator';
 import type { ErpOfArticle } from '../../lib/erp/ofLookupApi';
 import { defaultOfPrefix } from '../../lib/erp/ofNormalize';
+import { ofLabel } from '../../lib/ofLabel';
 const CameraOCRScanner = React.lazy(() => import('../common/CameraOCRScanner'));
 
 export interface TraerSelection {
@@ -301,7 +303,7 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
                     {result.articleCode}
                   </p>
                   {result.orderFab && (
-                    <p className="text-sm text-slate-400 font-mono mt-0.5">OF: {result.orderFab}</p>
+                    <p className="text-sm text-slate-400 font-mono mt-0.5">{ofLabel(result.orderFab)}</p>
                   )}
                 </div>
                 {result.matchesCurrentShelf && (
@@ -331,14 +333,14 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
         <div className="bg-slate-900 border border-cyan-500/40 rounded-3xl p-5">
           <div className="flex items-start gap-4">
             <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 flex items-center justify-center shrink-0">
-              <span className="text-2xl">📦</span>
+              <Package className="w-7 h-7 text-cyan-400" aria-hidden />
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-black text-white text-2xl font-mono leading-tight">
                 {selected.articleCode}
               </p>
               {selected.orderFab && (
-                <p className="text-base text-slate-400 font-mono mt-1">OF: {selected.orderFab}</p>
+                <p className="text-base text-slate-400 font-mono mt-1">{ofLabel(selected.orderFab)}</p>
               )}
             </div>
           </div>
@@ -392,7 +394,6 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
     if (showResults || selected) return null;
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <span className="text-6xl mb-4">🔍</span>
         <p className="text-slate-400 font-medium">Escribe el artículo que necesitas</p>
         <p className="text-slate-600 text-sm mt-1">Busca por código de artículo o número de OF</p>
       </div>
@@ -413,14 +414,14 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
           ← {step === 'select' ? 'Cancelar' : 'Volver'}
         </button>
         <h2 className="text-lg font-black text-white flex-1 text-center">
-          {step === 'select' ? '📦 Traer artículo' : '🚚 ¿A dónde traerlo?'}
+          {step === 'select' ? 'Traer artículo' : '¿A dónde traerlo?'}
         </h2>
         <div className="w-20" />
       </div>
 
       {targetCarretilleroName && (
         <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 text-center">
-          <span className="text-xs font-bold text-amber-300">🚜 Carretillero: {targetCarretilleroName}</span>
+          <span className="text-xs font-bold text-amber-300">Carretillero: {targetCarretilleroName}</span>
         </div>
       )}
 
@@ -429,11 +430,10 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
         <div className="flex-1 overflow-y-auto px-4 pt-4 pb-safe">
           {selected && (
             <div className="bg-slate-800/60 rounded-2xl px-4 py-3 mb-3 flex items-center gap-3">
-              <span className="text-2xl">📦</span>
               <div className="min-w-0">
                 <p className="font-black text-white font-mono truncate">{selected.articleCode}</p>
                 <p className="text-xs text-slate-400 font-mono">
-                  {selected.orderFab ? `OF: ${selected.orderFab} · ` : ''}{shelfNameFor(selected.shelfCode)}
+                  {selected.orderFab ? `${ofLabel(selected.orderFab)} · ` : ''}{shelfNameFor(selected.shelfCode)}
                 </p>
               </div>
             </div>
@@ -449,14 +449,13 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
                   else submit(opt, null);
                 }}
                 disabled={loading}
-                className={`rounded-2xl border-2 px-3 py-4 text-center font-bold transition-all active:scale-95 disabled:opacity-50 ${
+                className={`rounded-2xl border-2 px-3 py-4 min-h-16 flex items-center justify-center text-center font-bold transition-all active:scale-95 disabled:opacity-50 ${
                   destination?.code === opt.code
                     ? 'border-amber-400 bg-amber-500/20 text-amber-300'
                     : 'border-slate-700 bg-slate-800/60 text-slate-300 hover:border-slate-500'
                 }`}
               >
-                <span className="block text-2xl mb-1">{opt.emoji}</span>
-                <span className="block text-sm font-black">{opt.name}</span>
+                <span className="block text-base font-black leading-tight">{opt.name}</span>
               </button>
             ))}
           </div>
@@ -489,7 +488,7 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
               : 'text-slate-500 hover:text-slate-300'
           }`}
         >
-          🔍 Buscar
+          Buscar
         </button>
         <button
           onClick={() => { setInputMethod('manual'); setScanError(null); if (scannerInputRef.current) scannerInputRef.current.focus(); }}
@@ -499,7 +498,7 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
               : 'text-slate-500 hover:text-slate-300'
           }`}
         >
-          📸 Escanear / Escribir
+          Escanear / Escribir
         </button>
       </div>
 
@@ -510,7 +509,7 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
             {/* Search input */}
             <div className="pt-4 pb-2">
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg pointer-events-none">🔍</span>
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" aria-hidden />
                 <input
                   ref={inputRef}
                   type="text"
@@ -617,7 +616,7 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
                 disabled={!manualArticleCode.trim() || loading}
                 className="w-full h-12 rounded-xl bg-cyan-600 text-white font-bold hover:bg-cyan-500 transition-colors disabled:opacity-50"
               >
-                🔍 Buscar artículo
+                Buscar artículo
               </button>
 
               <div className="flex items-center gap-2 my-2">
@@ -636,7 +635,7 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
                     className="flex-1 h-14 rounded-xl bg-cyan-700/40 border border-cyan-600/40 text-white font-bold
                       hover:bg-cyan-700/60 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    <span className="text-xl">📷</span> QR/Barras
+                    <ScanBarcode className="w-5 h-5" aria-hidden /> QR/Barras
                   </button>
                 )}
                 <button
@@ -645,7 +644,7 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
                   className="flex-1 h-14 rounded-xl bg-purple-700/40 border border-purple-600/40 text-white font-bold
                     hover:bg-purple-700/60 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  <span className="text-xl">📸</span> OCR
+                  <ScanText className="w-5 h-5" aria-hidden /> OCR
                 </button>
               </div>
 

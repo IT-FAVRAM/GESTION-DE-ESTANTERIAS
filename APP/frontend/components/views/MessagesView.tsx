@@ -115,7 +115,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ currentUserRole, cur
                                         <MessageSquareIcon className="h-5 w-5" />
                                     </div>
                                     <div>
-                                        <p className="font-bold text-sm text-indigo-900 dark:text-indigo-300">📢 Crear Canal d'Anuncios</p>
+                                        <p className="font-bold text-sm text-indigo-900 dark:text-indigo-300">Crear Canal d'Anuncios</p>
                                         <p className="text-xs text-indigo-500 dark:text-indigo-400">Mensaje visible para todos</p>
                                     </div>
                                 </button>

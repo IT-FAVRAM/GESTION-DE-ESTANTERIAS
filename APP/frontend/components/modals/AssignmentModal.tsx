@@ -5,6 +5,7 @@ import { Assignments, LocationId } from '../lib/warehouseData';
 import { WarehouseConfig } from '../hooks/useWarehouseConfig';
 import { CloseIcon, InfoIcon, MultiLayerIcon, PlusCircleIcon, ScannerIcon, CheckIcon } from './Icons';
 import { generateLayoutLocations } from '../lib/warehouseLayout';
+import { ofLabel } from '../../lib/ofLabel';
 
 interface AssignmentModalProps {
   barcode: string;
@@ -85,7 +86,7 @@ const AssignmentModal: React.FC<AssignmentModalProps> = ({ barcode, orderId, onA
           <div>
              <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">{isBatchMode ? 'Selección Múltiple' : 'Asignar'}: <span className="text-cyan-600 dark:text-cyan-400 break-all">{barcode}</span></h2>
              <div className="flex items-center gap-2 mt-1">
-                 {!isBatchMode && <span className="bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 text-xs font-bold px-2 py-0.5 rounded uppercase">OF: {orderId}</span>}
+                 {!isBatchMode && <span className="bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 text-xs font-bold px-2 py-0.5 rounded uppercase">{ofLabel(orderId)}</span>}
                  {isBatchMode && <span className="bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300 text-xs font-bold px-2 py-0.5 rounded uppercase">SELECCIONA LAS UBICACIONES</span>}
              </div>
           </div>

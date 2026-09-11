@@ -57,7 +57,7 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
     if (!onEmptyLocation || items.length === 0 || isEmptyingLocation) return;
 
     const confirmed = window.confirm(
-      `⚠️ ¿Vaciar ubicación completa?\n\nSe retirarán ${items.length} artículo(s) de ${formatLocation(locationId)}.`
+      `¿Vaciar ubicación completa?\n\nSe retirarán ${items.length} artículo(s) de ${formatLocation(locationId)}.`
     );
     if (!confirmed) return;
 

@@ -101,8 +101,40 @@
     }
 
     .min-h-dvh {
-        min-h: 100dvh;
+        min-height: 100dvh;
     }
+}
+
+/* ── Rack de estantería: tipografía que escala con el ancho de cada hueco ──
+   Cada hueco es un "container" (inline-size). Los textos usan cqi (1% del ancho
+   del hueco) con un mínimo legible en tablet y un tope para huecos muy anchos
+   (kiosko 1920px / filas URG a lo ancho). La primera declaración es el fallback
+   para navegadores sin container queries. */
+.rack-slot {
+    container-type: inline-size;
+}
+/* --len = nº de caracteres del código (inline). El tamaño es el menor entre el
+   "base" según ancho del hueco y el que hace caber el código en UNA línea
+   (monoespaciada ≈ 0,62em por carácter; 26px = paddings + borde del item).
+   Nunca baja del mínimo: si aun así no cabe, parte por guion/carácter. */
+.rack-art {
+    font-size: 13px;
+    font-size: max(11px, min(clamp(13px, 6.5cqi, 22px), calc((100cqi - 26px) / (var(--len, 8) * 0.62))));
+    font-variant-numeric: tabular-nums;
+}
+.rack-of {
+    font-size: 11px;
+    font-size: max(10px, min(clamp(11px, 4.8cqi, 16px), calc((100cqi - 26px) / (var(--len, 10) * 0.62))));
+    font-variant-numeric: tabular-nums;
+}
+.rack-meta {
+    font-size: 10px;
+    font-size: clamp(10px, 3.6cqi, 13px);
+    font-variant-numeric: tabular-nums;
+}
+.rack-badge {
+    font-size: 9px;
+    font-size: clamp(9px, 3cqi, 12px);
 }
 
 /* Custom Scrollbar for non-mobile */

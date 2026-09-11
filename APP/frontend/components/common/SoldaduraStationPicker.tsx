@@ -29,8 +29,8 @@ const SoldaduraStationPicker: React.FC<SoldaduraStationPickerProps> = ({
   if (!open) return null;
 
   const title = variant === 'origen'
-    ? '🔥 ¿De qué puesto de soldadura?'
-    : '🔥 ¿A qué puesto de soldadura?';
+    ? '¿De qué puesto de soldadura?'
+    : '¿A qué puesto de soldadura?';
 
   return (
     <div className="fixed inset-0 z-[70] flex flex-col bg-slate-950/95 backdrop-blur-sm">

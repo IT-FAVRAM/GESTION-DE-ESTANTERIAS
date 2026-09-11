@@ -155,7 +155,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ history }) => {
                     onClick={() => setFilterAction('ENVIAR_ALMACEN')}
                     className={`px-4 py-2 text-sm font-bold rounded-md transition-all whitespace-nowrap ${filterAction === 'ENVIAR_ALMACEN' ? 'bg-purple-600 text-white' : 'text-slate-500 hover:text-purple-600'}`}
                 >
-                    🏭 Almacén
+                    Almacén
                 </button>
             </div>
             

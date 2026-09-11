@@ -4,6 +4,7 @@ import { db } from '../legacy/firebaseCompat';
 import { ChatMessage, ChatConversation as ChatConversationType } from '../hooks/useChatSystem';
 import { ChevronLeftIcon, SendIcon, BoxIcon, LoadingIcon, PlusCircleIcon } from './Icons';
 import ManualEntryModal from './ManualEntryModal';
+import { ofLabel } from '../../lib/ofLabel';
 
 interface ChatConversationProps {
     chat: ChatConversationType;
@@ -86,7 +87,7 @@ const ChatConversation: React.FC<ChatConversationProps> = ({ chat, currentUid, o
                                             <span className="font-bold text-xs uppercase tracking-wide">Alerta de Artículo</span>
                                         </div>
                                         <p className="font-black text-lg">{msg.articleCode}</p>
-                                        <p className="font-mono text-xs opacity-80">OF: {msg.orderId}</p>
+                                        <p className="font-mono text-xs opacity-80">{ofLabel(msg.orderId)}</p>
                                     </div>
                                 ) : (
                                     <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">{msg.text}</p>

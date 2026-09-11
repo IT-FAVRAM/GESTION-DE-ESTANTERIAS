@@ -141,14 +141,14 @@ const QRScanner: React.FC<QRScannerProps> = ({
       <div className="px-4 py-4 space-y-3">
         {/* Barra informativa */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-          <p className="text-xs text-blue-900 font-bold">📱 Apunta el QR a la cámara</p>
+          <p className="text-xs text-blue-900 font-bold">Apunta el QR a la cámara</p>
           <p className="text-xs text-blue-700 mt-1">Formato: ARTICULO | OF26-XXXXX</p>
         </div>
 
         {/* Mensaje de error */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-            <p className="text-xs text-red-700 font-bold">❌ {error}</p>
+            <p className="text-xs text-red-700 font-bold">{error}</p>
           </div>
         )}
 
@@ -165,7 +165,7 @@ const QRScanner: React.FC<QRScannerProps> = ({
         {scanning && (
           <div className="bg-cyan-50 border border-cyan-200 rounded-lg px-3 py-2">
             <p className="text-xs text-cyan-700">
-              🔍 Buscando código QR...
+              Buscando código QR...
             </p>
           </div>
         )}

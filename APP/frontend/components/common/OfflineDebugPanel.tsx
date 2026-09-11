@@ -28,7 +28,7 @@ const OfflineDebugPanel: React.FC = () => {
         className="fixed bottom-4 right-4 z-[99] px-3 py-2 bg-purple-600 text-white text-xs font-bold rounded hover:bg-purple-500"
         title="Toggle offline debug panel"
       >
-        🔧 Offline Debug
+        Offline Debug
       </button>
 
       {showPanel && (
@@ -101,7 +101,7 @@ const OfflineDebugPanel: React.FC = () => {
                   <p>
                     Tamaño: <span className="text-white font-bold">{report.storage.totalSizeMB.toFixed(2)} MB</span> / 5 MB
                   </p>
-                  <p>Salud: {report.health === 'good' ? '✅' : report.health === 'warning' ? '⚠️' : '🔴'}</p>
+                  <p>Salud: {report.health === 'good' ? 'Buena' : report.health === 'warning' ? 'Aviso' : 'Crítica'}</p>
                   <p>Items en caché: {report.caches.items.exists ? '✓' : '✗'}</p>
                   <p>Estanterías en caché: {report.caches.shelves.exists ? '✓' : '✗'}</p>
                   <p>Config en caché: {report.caches.config.exists ? '✓' : '✗'}</p>
