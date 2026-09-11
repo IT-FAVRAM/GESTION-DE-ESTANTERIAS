@@ -2,7 +2,8 @@
  * useShelf - Hook para datos de una estanteria en tiempo real.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { computeShelfKpis } from '../lib/shelfKpis';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { inventoryApi } from '../lib/api/inventoryApi';
@@ -539,9 +540,11 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     }
   }, [shelfCode, validateShelfAccess, locations]);
 
-  const totalArticles = locations.reduce((sum, loc) => sum + loc.items.length, 0);
-  const totalOccupied = locations.filter((loc) => !loc.isEmpty).length;
-  const totalEmpty = locations.filter((loc) => loc.isEmpty).length;
+  // Mismo cálculo que la franja de KPIs y el grid (universo = layout de la estantería).
+  const { totalArticles, occupiedSlots: totalOccupied, emptySlots: totalEmpty } = useMemo(
+    () => computeShelfKpis(locations, shelfDef),
+    [locations, shelfDef],
+  );
 
   return {
     locations,

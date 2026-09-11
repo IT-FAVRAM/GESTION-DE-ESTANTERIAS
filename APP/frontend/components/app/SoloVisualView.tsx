@@ -154,8 +154,8 @@ const SoloVisualView: React.FC = () => {
 
               {/* Stats (compactos en móvil) */}
               <div className="ml-auto text-right text-[11px] sm:text-xs text-slate-500 flex-shrink-0 leading-tight">
-                <p><strong className="text-slate-900 text-sm sm:text-base">{totalOccupied}</strong>/{totalArticles} ocup.</p>
-                <p><strong className="text-slate-700">{totalEmpty}</strong> vacías</p>
+                <p><strong className="text-slate-900 text-sm sm:text-base">{totalOccupied}</strong>/{totalOccupied + totalEmpty} ocup.</p>
+                <p><strong className="text-slate-700">{totalEmpty}</strong> vacías · <strong className="text-slate-700">{totalArticles}</strong> art.</p>
               </div>
             </div>
 

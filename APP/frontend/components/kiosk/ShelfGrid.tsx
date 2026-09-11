@@ -16,6 +16,7 @@ import ShelfGridCell, { type CellDragData } from './ShelfGridCell';
 import ShelfGridLegend from './ShelfGridLegend';
 import ShelfGridStats from './ShelfGridStats';
 import ShelfRackView from './ShelfRackView';
+import { computeShelfKpis } from '../../lib/shelfKpis';
 
 interface ShelfGridProps {
   locations: ShelfLocationState[];
@@ -264,7 +265,6 @@ interface BlockProps {
   isCollapsed: boolean;
   onToggle: () => void;
   showReprocessCosts: boolean;
-  showVerticalStrip?: boolean;
   compactRack?: boolean;
   onCellDragStart?: (data: CellDragData) => void;
   onCellDragEnter?: (position: string) => void;
@@ -284,7 +284,6 @@ const Block = React.memo(({
   isCollapsed,
   onToggle,
   showReprocessCosts,
-  showVerticalStrip = true,
   compactRack = false,
   onCellDragStart,
   onCellDragEnter,
@@ -311,86 +310,23 @@ const Block = React.memo(({
     const loc = locationMap.get(toPos(p));
     return sum + (loc?.items.length ?? 0);
   }, 0);
-  const pct = allPos.length > 0 ? Math.round((occupiedCount / allPos.length) * 100) : 0;
-
-  const stripCls = isUrgent
-    ? 'bg-red-50 border-red-300 hover:bg-red-100/60'
-    : isTechReview
-    ? 'bg-amber-50 border-amber-300 hover:bg-amber-100/60'
-    : 'bg-white border-slate-200 hover:bg-sky-50/60';
-  const stripTitleCls = isUrgent ? 'text-red-800' : isTechReview ? 'text-amber-800' : 'text-slate-700';
-  const stripStatsCls = isUrgent ? 'text-red-600' : isTechReview ? 'text-amber-600' : 'text-slate-500';
-  const stripChevronCls = isUrgent
-    ? 'text-red-400 group-hover:text-red-600'
-    : isTechReview
-    ? 'text-amber-400 group-hover:text-amber-600'
-    : 'text-slate-400 group-hover:text-slate-600';
-  const stripAccentCls = isUrgent ? 'bg-red-500' : isTechReview ? 'bg-amber-500' : 'bg-sky-500';
-
+  // Colapso ÚNICO en toda la app (todos los roles, kiosko, móvil y PC): VERTICAL.
+  // La cabecera se queda y el contenido se pliega hacia arriba. No existe
+  // variante horizontal (antes en PC el bloque se encogía a una tira de 48px).
   return (
-    <div className="flex flex-col gap-2 min-w-0 w-full h-full">
-      {/* Normal header: on desktop, hidden when showing vertical strip instead */}
-      <div className={showVerticalStrip && isCollapsed ? 'md:hidden' : undefined}>
-        <SectionHeader
-          title={block.title}
-          subtitle={block.subtitle}
-          isUrgent={isUrgent}
-          isTechReview={isTechReview}
-          isAluminio={isAluminio}
-          occupiedCount={occupiedCount}
-          totalCount={allPos.length}
-          totalArticles={totalArticles}
-          isCollapsed={isCollapsed}
-          onToggle={onToggle}
-        />
-      </div>
-
-      {/* Vertical strip: desktop only, when collapsed and vertical strip mode active */}
-      {showVerticalStrip && isCollapsed && (
-        <button
-          type="button"
-          onClick={onToggle}
-          title={`Expandir: ${block.title}`}
-          className={`hidden md:flex flex-col items-center justify-between flex-1 w-full rounded-xl border
-            py-3 px-1 relative overflow-hidden
-            transition-colors duration-200 cursor-pointer group
-            active:scale-[0.97] animate-fade-in
-            ${stripCls}`}
-        >
-          {/* Occupancy fill rising from bottom — subtle background indicator */}
-          <div
-            className={`absolute inset-x-0 bottom-0 ${stripAccentCls} opacity-[0.08] rounded-b-xl transition-all duration-700`}
-            style={{ height: `${pct}%` }}
-          />
-
-          {/* Left-edge accent line */}
-          <div className={`absolute left-0 top-2 bottom-2 w-[2px] ${stripAccentCls} opacity-50 rounded-full`} />
-
-          {/* Expand chevron at top (← = "click to expand") */}
-          <svg
-            className={`w-4 h-4 -rotate-90 shrink-0 transition-transform duration-200 ${stripChevronCls}`}
-            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
-
-          {/* Title reading top → bottom */}
-          <span
-            className={`text-[11px] font-mono font-black tracking-widest uppercase flex-1 py-2 leading-none ${stripTitleCls}`}
-            style={{ writingMode: 'vertical-lr' }}
-          >
-            {block.title}
-          </span>
-
-          {/* Count + accent dot at bottom */}
-          <div className="flex flex-col items-center gap-1 shrink-0">
-            <span className={`text-[9px] font-mono tabular-nums leading-none ${stripStatsCls}`}>
-              {occupiedCount}/{allPos.length}
-            </span>
-            <div className={`w-1.5 h-1.5 rounded-full ${stripAccentCls} opacity-50`} />
-          </div>
-        </button>
-      )}
+    <div className="flex flex-col gap-2 min-w-0 w-full">
+      <SectionHeader
+        title={block.title}
+        subtitle={block.subtitle}
+        isUrgent={isUrgent}
+        isTechReview={isTechReview}
+        isAluminio={isAluminio}
+        occupiedCount={occupiedCount}
+        totalCount={allPos.length}
+        totalArticles={totalArticles}
+        isCollapsed={isCollapsed}
+        onToggle={onToggle}
+      />
 
       <CollapsibleContent isCollapsed={isCollapsed}>
         <div className="pt-1 pb-2 min-w-0">
@@ -553,10 +489,10 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
     return map;
   }, [locations]);
 
-  const totalSlots = shelfDef?.locationCount ?? locations.length;
-  const occupiedSlots = locations.filter((loc) => !loc.isEmpty).length;
-  const totalArticles = locations.reduce((sum, loc) => sum + (loc.items?.length ?? 0), 0);
-  const pct = totalSlots > 0 ? Math.round((occupiedSlots / totalSlots) * 100) : 0;
+  const { totalSlots, occupiedSlots, emptySlots, totalArticles, pct } = useMemo(
+    () => computeShelfKpis(locations, shelfDef),
+    [locations, shelfDef],
+  );
   const physicalBlocks = shelfDef?.layout.physicalBlocks ?? [];
   const regularBlocks = physicalBlocks.filter((b) => !b.fullWidth);
 
@@ -652,7 +588,7 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
          <>
            <div className="hidden sm:block">
              <ShelfGridStats
-               emptySlots={Math.max(totalSlots - occupiedSlots, 0)}
+               emptySlots={emptySlots}
                occupiedSlots={occupiedSlots}
                totalSlots={totalSlots}
                occupancy={pct}
@@ -696,13 +632,10 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
                const hiddenClass = isMobileInactive
                  ? (forceSingleBlock ? 'hidden' : 'hidden md:block')
                  : '';
-               const widthClass = block.fullWidth
+               // Mismo ancho recogido o desplegado: el colapso es solo vertical.
+               const widthClass = block.fullWidth || forceSingleBlock
                  ? 'w-full min-w-0'
-                 : forceSingleBlock
-                 ? 'w-full min-w-0'
-                 : isCollapsed
-                 ? 'flex-1 min-w-0 md:flex-none md:w-12 md:self-stretch md:transition-all md:duration-300'
-                 : 'flex-1 min-w-0 md:transition-all md:duration-300';
+                 : 'flex-1 min-w-0';
                return (
                  <div
                    key={block.id}
@@ -720,7 +653,6 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
                       isCollapsed={isCollapsed}
                       onToggle={() => toggleSection(block.id)}
                       showReprocessCosts={showReprocessCosts}
-                      showVerticalStrip={!forceSingleBlock}
                       compactRack={compactRack}
                       onCellDragStart={onCellDragStart}
                       onCellDragEnter={onCellDragEnter}

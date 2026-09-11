@@ -570,7 +570,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
           locations={locations}
           shelfDef={shelfDef}
           shelfName={shelfDef?.name ?? shelfCode}
-          urgentCount={urgentAlerts.length}
+          urgentAlerts={urgentAlerts}
         />
       )}
 

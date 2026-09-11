@@ -11,6 +11,20 @@ interface AdminSpecialLocationsTabProps {
   onSaveConfig: (updates: Partial<AppConfig>) => Promise<void>;
 }
 
+// Formato canónico "PLE-001". Además valen las posiciones de texto que existen en el
+// grid (p.ej. "URG MEC-PRE 001", compartida por Prensas/Mecanizado): el backend
+// (notifySpecialLocationOccupancy) casa contra ambos formatos.
+const CANONICAL_LOCATION = /^[A-Z]{2,3}-\d{1,3}$/;
+const TEXT_SLOTS = new Set(
+  SHELF_DEFINITIONS.flatMap(shelf =>
+    (shelf.layout.physicalBlocks ?? []).flatMap(block =>
+      block.rows.flat().filter((slot): slot is string => typeof slot === 'string'),
+    ),
+  ),
+);
+const normalizeLocation = (l: string) => l.trim().toUpperCase().replace(/\s+/g, ' ');
+const isValidLocation = (l: string) => CANONICAL_LOCATION.test(l) || TEXT_SLOTS.has(l);
+
 // Obtener todas las ubicaciones especiales desde código
 const getPredefinedLocations = (): { urgente: string[]; revision: string[]; aluminio: string[] } => {
   const urgente: string[] = [];
@@ -18,16 +32,24 @@ const getPredefinedLocations = (): { urgente: string[]; revision: string[]; alum
   const aluminio: string[] = [];
 
   SHELF_DEFINITIONS.forEach(shelf => {
+    // Posiciones de texto de los bloques de la zona (range [0,0] = zona sin numéricas)
+    const textSlotsOf = (zoneName: string) =>
+      (shelf.layout.physicalBlocks ?? [])
+        .filter(block => block.zoneName === zoneName)
+        .flatMap(block => block.rows.flat().filter((slot): slot is string => typeof slot === 'string'));
+
     shelf.layout.zones.forEach(zone => {
       if (zone.isUrgent) {
-        for (let i = zone.range[0]; i <= zone.range[1]; i++) {
+        for (let i = Math.max(1, zone.range[0]); i <= zone.range[1]; i++) {
           urgente.push(`${shelf.code}-${i.toString().padStart(3, '0')}`);
         }
+        urgente.push(...textSlotsOf(zone.name));
       }
       if (zone.isTechReview) {
-        for (let i = zone.range[0]; i <= zone.range[1]; i++) {
+        for (let i = Math.max(1, zone.range[0]); i <= zone.range[1]; i++) {
           revision.push(`${shelf.code}-${i.toString().padStart(3, '0')}`);
         }
+        revision.push(...textSlotsOf(zone.name));
       }
       if (zone.name === 'ALUMINIO') {
         for (let i = zone.range[0]; i <= zone.range[1]; i++) {
@@ -47,41 +69,27 @@ const AdminSpecialLocationsTab: React.FC<AdminSpecialLocationsTabProps> = ({ con
 
   const predefined = getPredefinedLocations();
 
-  // Inicializar: coaleszar config existente con predefinidas
+  // Inicializar con las del grid solo si la config está vacía
   useEffect(() => {
-    const parseAndMerge = (existing: string, predefined: string[]): string[] => {
-      const existingLocs = existing.split('\n')
-        .map(l => l.trim().toUpperCase())
-        .filter(l => l && /^[A-Z]{2,3}-\d{1,3}$/.test(l));
-      // Ya incluidas por defecto, solo añadir las que faltan
-      const all = [...new Set([...predefined, ...existingLocs])];
-      return all.sort((a, b) => {
-        const aCode = a.split('-')[0];
-        const bCode = b.split('-')[0];
-        return aCode.localeCompare(bCode) || a.localeCompare(b);
-      });
-    };
-
-    // Solo inicializar si está vacío o contiene datos
     if (!urgentDraft && !techDraft) {
       setUrgentDraft(predefined.urgente.join('\n'));
       setTechDraft(predefined.revision.join('\n'));
     }
   }, []);
 
+  // Sin filtrar por formato: guardar NUNCA debe descartar en silencio entradas que
+  // ya estaban en config (antes se perdían "URG MEC-PRE 00X" y PRE dejaba de avisar).
   const parseLocations = (text: string): string[] => {
-    return text.split('\n')
-      .map(l => l.trim().toUpperCase())
-      .filter(l => l && /^[A-Z]{2,3}-\d{1,3}$/.test(l));
+    return [...new Set(text.split('\n').map(normalizeLocation).filter(Boolean))];
   };
 
   const allUrgent = parseLocations(urgentDraft);
   const allTech = parseLocations(techDraft);
 
   const addLocation = (type: 'urgent' | 'tech') => {
-    const loc = newLocation.trim().toUpperCase();
+    const loc = normalizeLocation(newLocation);
     if (!loc) return;
-    if (!/^[A-Z]{2,3}-\d{1,3}$/.test(loc)) return;
+    if (!isValidLocation(loc)) return;
     
     if (type === 'urgent') {
       if (!allUrgent.includes(loc)) {
