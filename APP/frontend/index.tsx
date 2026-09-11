@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import './index.css';
 import AppV3 from './AppV3';
+import AppUpdateNotifier from './components/common/AppUpdateNotifier';
 
 class AppErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -60,6 +61,7 @@ root.render(
     <AppErrorBoundary>
       <BrowserRouter>
         <AppV3 />
+        <AppUpdateNotifier />
       </BrowserRouter>
     </AppErrorBoundary>
   </React.StrictMode>

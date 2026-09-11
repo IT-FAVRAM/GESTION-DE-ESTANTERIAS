@@ -9,4 +9,7 @@ interface ImportMeta {
     readonly env: ImportMetaEnv;
 }
 
+/** Id único de cada build (vite.config `define`); se publica también en /version.json. */
+declare const __BUILD_ID__: string;
+
 

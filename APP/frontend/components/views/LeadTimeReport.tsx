@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { FileSpreadsheet, FileText } from 'lucide-react';
+import { ChevronDown, ChevronUp, FileSpreadsheet, FileText } from 'lucide-react';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../lib/firebase';
 import { SECTION_DISPLAY_NAMES } from '../../lib/firestoreSchema';
@@ -349,7 +349,7 @@ export const LeadTimeReport: React.FC = () => {
       className={`px-4 py-3 cursor-pointer select-none hover:text-cyan-300 ${align || ''}`}
       onClick={() => toggleSort(k)}
     >
-      {children}{sortKey === k && <span className="ml-1">{sortDir === 'asc' ? '▲' : '▼'}</span>}
+      {children}{sortKey === k && <span className="ml-1 inline-flex align-middle">{sortDir === 'asc' ? <ChevronUp className="w-3.5 h-3.5" aria-hidden /> : <ChevronDown className="w-3.5 h-3.5" aria-hidden />}</span>}
     </th>
   );
 

@@ -24,8 +24,14 @@ function injectSwEnv(template: string, env: Record<string, string>): string {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   const swTemplatePath = path.resolve(__dirname, 'public/firebase-messaging-sw.js');
+  // Id único por build: se compila en la app y se publica en /version.json para
+  // que las sesiones abiertas (kioskos) detecten un deploy nuevo y se actualicen.
+  const buildId = new Date().toISOString();
 
   return {
+    define: {
+      __BUILD_ID__: JSON.stringify(buildId),
+    },
     server: {
       port: 3000,
       host: '0.0.0.0',
@@ -45,6 +51,10 @@ export default defineConfig(({ mode }) => {
           });
         },
         closeBundle() {
+          const distDir = path.resolve(__dirname, 'dist');
+          if (fs.existsSync(distDir)) {
+            fs.writeFileSync(path.join(distDir, 'version.json'), JSON.stringify({ build: buildId }));
+          }
           const distSw = path.resolve(__dirname, 'dist/firebase-messaging-sw.js');
           if (fs.existsSync(distSw)) {
             const content = injectSwEnv(fs.readFileSync(distSw, 'utf-8'), env);

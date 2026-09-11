@@ -9,7 +9,7 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { Camera } from 'lucide-react';
+import { Camera, Menu } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useShelf, type ShelfLocationState } from '../../hooks/useShelf';
 import { useDeviceConfig } from '../../hooks/useDeviceConfig';
@@ -155,7 +155,7 @@ const RecepcionesView: React.FC = () => {
                 className="hidden sm:block px-3 py-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors flex-shrink-0"
                 aria-label="Mostrar/ocultar estanterías"
               >
-                ☰
+                <Menu className="w-5 h-5" aria-hidden />
               </button>
 
               <div className="flex-1 sm:hidden">

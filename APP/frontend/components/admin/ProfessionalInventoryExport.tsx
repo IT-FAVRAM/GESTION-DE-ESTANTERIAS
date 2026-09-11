@@ -4,6 +4,7 @@
  */
 
 import React, { useCallback, useRef, useState } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { COLLECTIONS, SHELF_DEFINITIONS, type LocationDoc, type LocationItem } from '../../lib/firestoreSchema';
@@ -530,7 +531,7 @@ const ProfessionalInventoryExport: React.FC<ProfessionalInventoryExportProps> = 
             onClick={() => setShowInstructions(!showInstructions)}
             className="text-sm font-bold text-cyan-300 hover:text-cyan-200 transition"
           >
-            {showInstructions ? '▼ Ocultar' : '▶ Mostrar'} instrucciones
+            {showInstructions ? <ChevronDown className="inline w-4 h-4 mr-1" aria-hidden /> : <ChevronRight className="inline w-4 h-4 mr-1" aria-hidden />}{showInstructions ? 'Ocultar' : 'Mostrar'} instrucciones
           </button>
         </div>
       </div>

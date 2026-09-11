@@ -6,6 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { usePickupQueue, type PickupRequest, type GroupedPickups } from '../../hooks/usePickupQueue';
 import { useAuth } from '../../hooks/useAuth';
 import { inventoryApi } from '../../lib/api/inventoryApi';
@@ -455,7 +456,7 @@ const PickupQueue: React.FC<PickupQueueProps> = ({ currentShelf }) => {
             onClick={() => setShowCompleted(!showCompleted)}
             className="w-full text-center text-sm text-slate-500 font-bold py-2 hover:text-slate-400"
           >
-            {showCompleted ? '▲ Ocultar' : '▼ Mostrar'} completadas ({completedRequests.length})
+            {showCompleted ? <ChevronUp className="inline w-4 h-4 mr-1" aria-hidden /> : <ChevronDown className="inline w-4 h-4 mr-1" aria-hidden />}{showCompleted ? 'Ocultar' : 'Mostrar'} completadas ({completedRequests.length})
           </button>
           {showCompleted && (
             <div className="space-y-2 mt-2 opacity-50">

@@ -72,7 +72,7 @@ self.addEventListener('notificationclick', function (event) {
 });
 
 // ── App Shell Cache (Offline-First) ──────────────────────────────────────────
-const CACHE_VERSION = 'wms-app-v14';
+const CACHE_VERSION = 'wms-app-v15';
 
 const SKIP_HOSTNAMES = [
     'firestore.googleapis.com',
@@ -89,6 +89,8 @@ const SKIP_HOSTNAMES = [
 const shouldSkip = (url) => {
     if (url.protocol === 'chrome-extension:') return true;
     if (url.protocol === 'data:') return true;
+    // Aviso de versión nueva: siempre a la red, nunca desde caché.
+    if (url.pathname === '/version.json') return true;
     return SKIP_HOSTNAMES.some((h) => url.hostname.includes(h));
 };
 
