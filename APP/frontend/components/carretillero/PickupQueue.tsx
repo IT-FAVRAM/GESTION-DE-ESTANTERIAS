@@ -12,6 +12,66 @@ import { useAuth } from '../../hooks/useAuth';
 import { inventoryApi } from '../../lib/api/inventoryApi';
 import { getOperationalSession } from '../../lib/operationalSession';
 import { ofLabel } from '../../lib/ofLabel';
+import { parseCallableError } from '../../lib/callableError';
+import { SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
+import { parseLocationId } from '../../lib/schema/shelves';
+import { findArticleGlobal } from '../../lib/findArticleGlobal';
+import { SECTION_TO_SHELF, canonicalizeShelfCode } from '../../domain/auth/sectionShelf';
+
+interface OriginLocation { shelfCode: string; position: string }
+
+/**
+ * Ubicaciones reales de origen de un TRAER, tal como están en BD ("SOL" + "044").
+ * Las solicitudes nuevas guardan articleLocationIds. Las antiguas solo guardaban
+ * el nombre de la estantería ("Soldadura") y la posición sin ceros ("44").
+ */
+const resolveTraerOrigin = (req: PickupRequest): OriginLocation[] => {
+  if (req.articleLocationIds?.length) {
+    return req.articleLocationIds
+      .map(parseLocationId)
+      .filter((loc): loc is OriginLocation => loc !== null);
+  }
+  const shelfCode = req.articleShelfCode
+    || SHELF_DEFINITIONS.find((s) => s.name === req.articleShelfName)?.code
+    || req.articleShelfName
+    || '';
+  if (!shelfCode) return [];
+  return (req.articlePositions || []).map((p) => {
+    const raw = p.includes('_') ? p.slice(p.lastIndexOf('_') + 1) : p;
+    return { shelfCode, position: /^\d+$/.test(raw) ? raw.padStart(3, '0') : raw };
+  });
+};
+
+/**
+ * Huecos donde consta el artículo de un RECOGER dentro de su estantería de
+ * origen (la indicada en la solicitud o, si no, la de quien la pidió).
+ */
+const resolveRecogerOrigin = async (req: PickupRequest): Promise<OriginLocation[]> => {
+  if (!req.articleToPickCode) return [];
+  const hasExplicitPickup = !!(req.pickupSection || req.pickupShelfName);
+  const originShelf = hasExplicitPickup
+    ? (req.pickupSection ? SECTION_TO_SHELF[req.pickupSection] : undefined)
+      ?? SHELF_DEFINITIONS.find((s) => s.name === req.pickupShelfName)?.code
+    : req.shelfCode;
+  if (!originShelf) return [];
+  const canonicalOrigin = canonicalizeShelfCode(originShelf);
+  const locs = await findArticleGlobal(req.articleToPickCode, req.articleToPickOrderFab || '');
+  return locs
+    .filter((l) => canonicalizeShelfCode(l.shelfCode) === canonicalOrigin)
+    .map((l) => parseLocationId(l.locationId) ?? { shelfCode: l.shelfCode, position: l.position });
+};
+
+const originLabel = (loc: OriginLocation) => `${loc.shelfCode} ${loc.position}`;
+
+/** Ventana "¿quieres que lo retire?" al completar un TRAER o un RECOGER. */
+interface WithdrawalPrompt {
+  req: PickupRequest;
+  articleCode: string;
+  orderFab: string;
+  /** Nombre de la estantería de origen, para mostrar. */
+  shelfLabel: string;
+  origin: OriginLocation[];
+}
 
 const timeAgo = (dateStr: string): string => {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -233,8 +293,10 @@ const PickupQueue: React.FC<PickupQueueProps> = ({ currentShelf }) => {
   const [showCompleted, setShowCompleted] = useState(false);
   const [lastShelf, setLastShelf] = useState<string | undefined>(currentShelf);
   const [shelfChanged, setShelfChanged] = useState(false);
-  const [withdrawalModal, setWithdrawalModal] = useState<PickupRequest | null>(null);
+  const [withdrawalModal, setWithdrawalModal] = useState<WithdrawalPrompt | null>(null);
   const [withdrawalProcessing, setWithdrawalProcessing] = useState(false);
+  const [withdrawalError, setWithdrawalError] = useState<string | null>(null);
+  const [withdrawalNotice, setWithdrawalNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (currentShelf !== lastShelf && lastShelf !== undefined) {
@@ -256,15 +318,45 @@ const PickupQueue: React.FC<PickupQueueProps> = ({ currentShelf }) => {
     const req = groupedPending.flatMap(g => g.requests).find(r => r.id === requestId);
     if (!req) return;
 
-    // Si es TRAER, preguntar si quiere retirar el artículo
+    if (processingId || !firebaseUser) return;
+
+    // El carretillero se lleva la pieza de su estantería: preguntar si la retira
+    // de allí para que el sistema refleje lo que hay físicamente.
     if (req.requestType === 'TRAER') {
-      setWithdrawalModal(req);
+      setWithdrawalError(null);
+      setWithdrawalModal({
+        req,
+        articleCode: req.articleCode || '',
+        orderFab: req.articleOrderFab || '',
+        shelfLabel: req.articleShelfName || '',
+        origin: resolveTraerOrigin(req),
+      });
       return;
     }
 
-    // Si es RECOGER, simplemente completar
-    if (processingId || !firebaseUser) return;
     setProcessingId(requestId);
+    if (req.requestType === 'RECOGER' && req.articleToPickCode) {
+      // RECOGER no guarda huecos (el artículo puede ser texto libre): se busca si
+      // consta en la estantería de origen. Si no consta, se completa sin preguntar.
+      let origin: OriginLocation[] = [];
+      try {
+        origin = await resolveRecogerOrigin(req);
+      } catch {
+        // Sin poder comprobarlo, preguntar igualmente no aporta: se completa.
+      }
+      if (origin.length > 0) {
+        setProcessingId(null);
+        setWithdrawalError(null);
+        setWithdrawalModal({
+          req,
+          articleCode: req.articleToPickCode,
+          orderFab: req.articleToPickOrderFab || '',
+          shelfLabel: req.pickupShelfName || req.shelfName,
+          origin,
+        });
+        return;
+      }
+    }
     await completeRequest(requestId, firebaseUser.uid);
     setProcessingId(null);
   };
@@ -272,37 +364,54 @@ const PickupQueue: React.FC<PickupQueueProps> = ({ currentShelf }) => {
   const handleWithdrawalConfirm = async (shouldWithdraw: boolean) => {
     if (!withdrawalModal || !firebaseUser) return;
     setWithdrawalProcessing(true);
+    setWithdrawalError(null);
 
     try {
-      if (shouldWithdraw && withdrawalModal.articleCode && withdrawalModal.articleShelfName && withdrawalModal.articlePositions?.length) {
-        // Retirar el artículo
+      let notice: string | null = null;
+      if (shouldWithdraw && withdrawalModal.articleCode) {
+        const { origin } = withdrawalModal;
+        if (origin.length === 0) {
+          throw new Error('La solicitud no guarda de qué hueco sale el artículo. Retíralo a mano desde su estantería.');
+        }
         const session = getOperationalSession();
-        const withdrawResult = await inventoryApi.retirarDeUbicacion(
-          {
-            shelfCode: withdrawalModal.articleShelfName,
-            articleCode: withdrawalModal.articleCode,
-            orderFab: withdrawalModal.articleOrderFab || 'SIN-OF',
-            position: withdrawalModal.articlePositions[0],
-            operarioId: operarioId || firebaseUser.uid,
-            operarioName: displayName || 'Carretillero',
-          },
-          session
-        );
-
-        if (!withdrawResult?.ok) {
-          throw new Error('No se pudo retirar el artículo');
+        const retired: string[] = [];
+        const notThere: string[] = [];
+        for (const loc of origin) {
+          try {
+            const res = await inventoryApi.retirarDeUbicacion(
+              {
+                shelfCode: loc.shelfCode,
+                articleCode: withdrawalModal.articleCode,
+                orderFab: withdrawalModal.orderFab,
+                position: loc.position,
+                operarioId: operarioId || firebaseUser.uid,
+                operarioName: displayName || 'Carretillero',
+              },
+              session,
+            );
+            if (!res?.ok) throw new Error('El servidor rechazó la retirada');
+            retired.push(originLabel(loc));
+          } catch (err) {
+            const msg = parseCallableError(err);
+            // "No encontrado": ya no consta ahí (lo retiró otro). El objetivo, que
+            // no quede un fantasma en el origen, ya se cumple.
+            if (/no encontrad/i.test(msg)) { notThere.push(originLabel(loc)); continue; }
+            const done = retired.length > 0 ? ` Sí se retiró de ${retired.join(', ')}.` : '';
+            throw new Error(`No se pudo retirar de ${originLabel(loc)}: ${msg}.${done}`);
+          }
+        }
+        if (notThere.length > 0) {
+          notice = `${withdrawalModal.articleCode}: ${retired.length > 0 ? `retirado de ${retired.join(', ')}. ` : ''}No constaba en ${notThere.join(', ')}.`;
         }
       }
 
-      // Completar la solicitud
-      const result = await completeRequest(withdrawalModal.id, firebaseUser.uid);
-      if (result) {
-        setWithdrawalModal(null);
-      }
-    } catch (err: any) {
+      const result = await completeRequest(withdrawalModal.req.id, firebaseUser.uid);
+      if (!result) throw new Error('No se pudo marcar la solicitud como entregada. Inténtalo otra vez.');
+      setWithdrawalModal(null);
+      setWithdrawalNotice(notice);
+    } catch (err) {
       console.error('Error en entrega:', err);
-      // Mostrar error al usuario
-      alert(`Error: ${err.message || 'No se pudo completar la entrega'}`);
+      setWithdrawalError(err instanceof Error ? err.message : parseCallableError(err));
     } finally {
       setWithdrawalProcessing(false);
     }
@@ -342,6 +451,18 @@ const PickupQueue: React.FC<PickupQueueProps> = ({ currentShelf }) => {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {withdrawalNotice && (
+        <div className="bg-amber-950/50 border border-amber-500/50 rounded-xl p-3 flex items-start gap-3">
+          <p className="min-w-0 flex-1 text-sm font-bold text-amber-200">{withdrawalNotice}</p>
+          <button
+            onClick={() => setWithdrawalNotice(null)}
+            className="shrink-0 px-2 py-1 text-xs font-bold bg-amber-600 text-white rounded hover:bg-amber-500 transition-colors"
+          >
+            OK
+          </button>
         </div>
       )}
 
@@ -485,20 +606,32 @@ const PickupQueue: React.FC<PickupQueueProps> = ({ currentShelf }) => {
           <div className="w-full max-w-sm bg-gradient-to-br from-blue-950 to-slate-900 border-2 border-blue-500/40 rounded-2xl shadow-2xl p-6 space-y-6">
             <div className="space-y-2">
               <p className="text-sm font-bold text-blue-300 uppercase tracking-widest">El artículo sigue ubicado en:</p>
-              <p className="text-2xl font-black text-white">{withdrawalModal.articleShelfName}</p>
+              <p className="text-2xl font-black text-white">{withdrawalModal.shelfLabel}</p>
+              {withdrawalModal.origin.length > 0 && (
+                <p className="text-sm font-bold text-blue-200 font-mono">
+                  {withdrawalModal.origin.map(originLabel).join(' · ')}
+                </p>
+              )}
             </div>
 
             <div className="bg-blue-950/60 border border-blue-500/20 rounded-xl p-4">
               <p className="text-xs font-bold text-slate-400 uppercase mb-2">Artículo:</p>
               <p className="text-base font-mono font-bold text-white mb-3">{withdrawalModal.articleCode}</p>
-              {withdrawalModal.articleOrderFab && (
-                <p className="text-xs text-slate-400">{ofLabel(withdrawalModal.articleOrderFab)}</p>
+              {withdrawalModal.orderFab && (
+                <p className="text-xs text-slate-400">{ofLabel(withdrawalModal.orderFab)}</p>
               )}
             </div>
 
             <p className="text-center text-lg font-black text-white">
               ¿QUIERES QUE LO RETIRE?
             </p>
+
+            {withdrawalError && (
+              <div role="alert" className="bg-red-950/60 border border-red-500/50 rounded-xl p-3">
+                <p className="text-sm font-bold text-red-200">{withdrawalError}</p>
+                <p className="text-xs text-red-300/80 mt-1">Puedes volver a intentarlo o marcarla como entregada sin retirar.</p>
+              </div>
+            )}
 
             <div className="space-y-2">
               <button

@@ -20,6 +20,8 @@ export interface TraerSelection {
   articleShelfCode: string;
   articleShelfName: string;
   articlePositions: string[];
+  /** Ubicaciones reales de origen ("SOL-044"), para retirar al entregar. */
+  articleLocationIds: string[];
   destination: { code: string; name: string; section: RequestSection['section']; station: number | null };
 }
 
@@ -43,15 +45,19 @@ function formatPositionLabel(posStr: string): string {
   return `${shelfName}, posición ${Number.isNaN(num) ? posNum : num}`;
 }
 
+/** Número de la posición; NaN en huecos con nombre ("URG MEC-PRE 001", "SUELO"). */
 function positionNumber(posStr: string): number {
   const idx = posStr.lastIndexOf('_');
   const raw = idx >= 0 ? posStr.slice(idx + 1) : posStr;
-  const num = parseInt(raw, 10);
-  if (Number.isNaN(num)) {
-    console.warn(`[TraerArticuloModal] Invalid position number for "${posStr}"`);
-    return 0; // Fallback a 0 en lugar de NaN
-  }
-  return num;
+  return parseInt(raw, 10);
+}
+
+/** Posición legible: "44" o, en huecos con nombre, el nombre sin el prefijo de estantería. */
+function positionLabel(posStr: string): string {
+  const num = positionNumber(posStr);
+  if (!Number.isNaN(num)) return String(num);
+  const idx = posStr.lastIndexOf('_');
+  return idx >= 0 ? posStr.slice(idx + 1) : posStr;
 }
 
 function shelfNameFor(code: string): string {
@@ -166,10 +172,7 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
     if (!selected) return;
     const articleShelfName = shelfNameFor(selected.shelfCode);
     const humanPositions = selected.positions
-      .map((p) => {
-        const num = positionNumber(p);
-        return Number.isNaN(num) ? p : String(num);
-      })
+      .map(positionLabel)
       .filter((v, i, arr) => arr.indexOf(v) === i);
     onConfirm({
       articleCode: selected.articleCode,
@@ -177,6 +180,7 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
       articleShelfCode: selected.shelfCode,
       articleShelfName,
       articlePositions: humanPositions,
+      articleLocationIds: selected.locationIds,
       destination: { code: dest.code, name: dest.name, section: dest.section, station: destStation },
     });
   }, [selected, onConfirm]);
@@ -280,12 +284,8 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
         {!searching && results.map((result, idx) => {
           const shelf = shelfNameFor(result.shelfCode);
           const positions = result.positions
-            .map((p) => {
-              const num = positionNumber(p);
-              return Number.isNaN(num) ? p : num;
-            })
-            .filter((v, i, arr) => arr.indexOf(v) === i)
-            .sort((a, b) => Number(a) - Number(b));
+            .map(positionLabel)
+            .filter((v, i, arr) => arr.indexOf(v) === i);
 
           return (
             <button
@@ -350,14 +350,11 @@ const TraerArticuloModal: React.FC<TraerArticuloModalProps> = ({
             <div className="bg-slate-800/60 rounded-xl p-3">
               <p className="text-sm font-bold text-white">{shelfNameFor(selected.shelfCode)}</p>
               <div className="mt-1 flex flex-wrap gap-2">
-                {selected.positions.map((p, i) => {
-                  const num = positionNumber(p);
-                  return (
-                    <span key={i} className="text-xs bg-slate-700 text-slate-200 rounded-lg px-2 py-1 font-mono">
-                      Pos. {Number.isNaN(num) ? p : num}
-                    </span>
-                  );
-                })}
+                {selected.positions.map((p, i) => (
+                  <span key={i} className="text-xs bg-slate-700 text-slate-200 rounded-lg px-2 py-1 font-mono">
+                    Pos. {positionLabel(p)}
+                  </span>
+                ))}
               </div>
             </div>
           </div>

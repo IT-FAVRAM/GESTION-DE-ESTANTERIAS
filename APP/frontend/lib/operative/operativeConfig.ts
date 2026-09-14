@@ -144,7 +144,9 @@ export function buildOperativeConfig(
           ubicar: true,
           retirar: true,
           mover: true,
-          reubicar: false,
+          // El carretillero lleva piezas entre estanterías: al ubicar una que
+          // consta en otra, puede quitarla de allí ("la he traído de…").
+          reubicar: true,
           almacen: ALMACEN_FEATURE_ENABLED ? 'full' : 'none',
           // El carretillero ES la carretilla: no se avisa a sí mismo.
           avisar: 'none',

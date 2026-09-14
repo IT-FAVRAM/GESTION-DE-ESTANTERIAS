@@ -104,7 +104,7 @@ const positionNumber = (posStr: string): string => {
 const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config, setShelfCode, fullscreenGrid = true, forceSingleBlock = false, userSection = null, accessibleShelves = null, enableShelfSidebar = false, searchPortalTarget = null, fitHeight = false }) => {
   const {
     operarioId, displayName,
-    action, scanData, selectedPositions, scannerActive, processing, feedback,
+    action, scanData, selectedPositions, scannerActive, processing, feedback, dismissFeedback,
     shelfCode, shelfDef, locations, loading,
     selectedCell, setSelectedCell,
     confirmModal, setConfirmModal,
@@ -301,7 +301,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
     const target = traerCarretillero;
     resetTraerFlow();
     void requestDeliveryToSection(
-      { articleCode: result.articleCode, orderFab: result.orderFab, shelfCode: result.shelfCode, positions },
+      { articleCode: result.articleCode, orderFab: result.orderFab, shelfCode: result.shelfCode, positions, locationIds: result.locationIds },
       { code: dest.code, name: dest.name, section: dest.section, station },
       target,
     );
@@ -564,12 +564,24 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
       )}
 
       {/* ── Feedback ── */}
-      {feedback && (
-        <div className={`flex-shrink-0 mx-4 mt-2 p-3 rounded-xl text-center font-bold text-sm
-          ${feedback.type === 'success' ? 'bg-emerald-500/20 text-emerald-700' :
-            feedback.type === 'info' ? 'bg-blue-500/20 text-blue-700' :
-            'bg-red-500/20 text-red-700'}`}>
+      {feedback && feedback.type !== 'error' && (
+        <div className={`flex-shrink-0 mx-4 mt-2 p-3 rounded-xl text-center font-bold text-sm whitespace-pre-line
+          ${feedback.type === 'success' ? 'bg-emerald-500/20 text-emerald-700' : 'bg-blue-500/20 text-blue-700'}`}>
           {feedback.message}
+        </div>
+      )}
+      {/* Los errores no desaparecen solos: el operario tiene que poder leer el motivo. */}
+      {feedback?.type === 'error' && (
+        <div role="alert" className="flex-shrink-0 mx-4 mt-2 p-3 rounded-xl bg-red-500/20 border border-red-500/40 flex items-start gap-3">
+          <p className="flex-1 min-w-0 font-bold text-sm text-red-700 whitespace-pre-line max-h-40 overflow-y-auto">
+            {feedback.message}
+          </p>
+          <button
+            onClick={dismissFeedback}
+            className="shrink-0 min-h-11 px-4 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-black active:scale-95 transition-all"
+          >
+            Entendido
+          </button>
         </div>
       )}
 
@@ -600,7 +612,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             onOutOfShelfResult={(result) => {
               // Solo informativo cuando el rol NO puede navegar a esa estantería.
               if (!isShelfNavigable(result.shelfCode)) {
-                showToast('info', `Está en ${result.shelfCode} (pos. ${result.positions.map((p) => padPos(p)).join(', ')})`);
+                showToast('info', `Está en ${result.shelfCode} (pos. ${result.positions.map(positionNumber).join(', ')})`);
               }
             }}
           />

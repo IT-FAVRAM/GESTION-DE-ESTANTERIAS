@@ -296,7 +296,7 @@ const AdminShelfBrowser: React.FC<AdminShelfBrowserProps> = ({ onBack, onOpenCar
           setProcessing(false);
           if (globalLocs.length > 0) {
             const locationText = globalLocs
-              .map((l) => `• ${l.shelfName} — pos. ${parseInt(l.position, 10)}`)
+              .map((l) => `• ${l.shelfName} — pos. ${Number.isNaN(parseInt(l.position, 10)) ? l.position : parseInt(l.position, 10)}`)
               .join('\n');
             setConfirmModal({
               open: true,

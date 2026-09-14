@@ -95,6 +95,7 @@ const ManagerInfoView: React.FC<ManagerInfoViewProps> = ({ role, displayName, se
       shelfCode, shelfName: shelfDef.name,
       articleCode: selection.articleCode, articleOrderFab: selection.articleOrderFab,
       articleShelfName: selection.articleShelfName, articlePositions: selection.articlePositions,
+      articleShelfCode: selection.articleShelfCode, articleLocationIds: selection.articleLocationIds,
       destinationShelfCode: selection.destination.code, destinationShelfName: selection.destination.name,
       destinationSection: selection.destination.section, destinationStation: selection.destination.station,
       targetCarretilleroId: selectedCarretillero?.uid,

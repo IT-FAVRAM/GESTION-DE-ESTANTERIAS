@@ -14,6 +14,9 @@ const posOrder = (position: string): number => {
   return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER;
 };
 
+/** A partir de cuántos artículos se pide una segunda confirmación. */
+const CONFIRM_THRESHOLD = 3;
+
 interface RetirarItem {
   articleCode: string;
   orderFab: string;
@@ -126,10 +129,58 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
     else setSelected(new Set(items.map(makeKey)));
   }, [selected.size, items]);
 
+  // Retirar muchos de golpe (p. ej. "Seleccionar todo") pide una segunda
+  // confirmación con el recuento: un toque accidental vaciaba la estantería.
+  const [confirmingMany, setConfirmingMany] = useState(false);
+  const chosenItems = useMemo(() => items.filter((i) => selected.has(makeKey(i))), [items, selected]);
+
   const handleConfirm = () => {
-    const chosen = items.filter((i) => selected.has(makeKey(i)));
-    if (chosen.length > 0) onConfirm(chosen);
+    if (chosenItems.length === 0) return;
+    if (chosenItems.length > CONFIRM_THRESHOLD && !confirmingMany) {
+      setConfirmingMany(true);
+      return;
+    }
+    onConfirm(chosenItems);
   };
+
+  if (confirmingMany) {
+    const positions = new Set(chosenItems.map((i) => i.position)).size;
+    const all = chosenItems.length === items.length;
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col bg-slate-950/95 backdrop-blur-sm" role="alertdialog" aria-labelledby="retirar-many-title">
+        <div className="px-4 py-5 border-b border-slate-800 text-center">
+          <h2 id="retirar-many-title" className="text-2xl font-black text-white">
+            ¿Retirar {chosenItems.length} artículos?
+          </h2>
+          <p className="text-sm text-red-300 font-bold mt-1">
+            {all ? 'Es TODA la estantería' : `De ${positions} posicion${positions !== 1 ? 'es' : ''}`} · no se puede deshacer
+          </p>
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5">
+          {chosenItems.map((item) => (
+            <div key={makeKey(item)} className="flex items-baseline justify-between gap-3 rounded-xl bg-slate-900 border border-slate-800 px-3 py-2">
+              <span className="font-mono font-bold text-white truncate">{item.articleCode}</span>
+              <span className="shrink-0 text-xs text-slate-400 font-mono">pos. {item.position}</span>
+            </div>
+          ))}
+        </div>
+        <div className="px-4 py-4 border-t border-slate-800 bg-slate-950 grid gap-2">
+          <button
+            onClick={() => onConfirm(chosenItems)}
+            className="w-full h-14 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-lg transition-all active:scale-95"
+          >
+            SÍ, RETIRAR {chosenItems.length}
+          </button>
+          <button
+            onClick={() => setConfirmingMany(false)}
+            className="w-full h-12 rounded-2xl bg-slate-700 hover:bg-slate-600 text-white font-bold transition-all active:scale-95"
+          >
+            No, volver a la lista
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-950/95 backdrop-blur-sm">

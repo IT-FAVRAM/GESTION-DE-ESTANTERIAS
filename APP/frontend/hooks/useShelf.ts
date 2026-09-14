@@ -2,7 +2,7 @@
  * useShelf - Hook para datos de una estanteria en tiempo real.
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { computeShelfKpis } from '../lib/shelfKpis';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -50,6 +50,11 @@ export interface UseShelfReturn {
   findArticle: (articleCode: string, orderFab: string) => ShelfLocationState[];
   emptyShelf: (operarioId: string, operarioName: string) => Promise<boolean>;
   validateShelfAccess: (purpose: 'view' | 'operate') => Promise<{ ok: boolean }>;
+  /**
+   * Devuelve y limpia el motivo del último fallo. Síncrono: `error` es estado de
+   * React y justo después de `await ubicar(...)` todavía tiene el valor anterior.
+   */
+  takeLastError: () => string | null;
   totalArticles: number;
   totalOccupied: number;
   totalEmpty: number;
@@ -58,7 +63,17 @@ export interface UseShelfReturn {
 export const useShelf = (shelfCode: string): UseShelfReturn => {
   const [locations, setLocations] = useState<ShelfLocationState[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+  const lastErrorRef = useRef<string | null>(null);
+  const setError = useCallback((msg: string | null) => {
+    lastErrorRef.current = msg;
+    setErrorState(msg);
+  }, []);
+  const takeLastError = useCallback(() => {
+    const msg = lastErrorRef.current;
+    lastErrorRef.current = null;
+    return msg;
+  }, []);
 
   const shelfDef = getShelfDefinition(shelfCode);
 
@@ -560,6 +575,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     findArticle,
     emptyShelf,
     validateShelfAccess,
+    takeLastError,
     totalArticles,
     totalOccupied,
     totalEmpty,

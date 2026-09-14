@@ -840,9 +840,10 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
 
   if (op === 'reubicar') {
     // Reubicar = mover ENTRE secciones (espejo cross-estantería de `mover`).
-    // Solo ADMIN / SUPERADMIN.
-    if (!['ADMIN', 'SUPERADMIN'].includes(actor.role)) {
-      throw new functions.https.HttpsError('permission-denied', 'Solo admin puede reubicar entre secciones.');
+    // Regla de planta: cada kiosko solo cambia su estantería; entre estanterías
+    // mueven el carretillero (lleva las piezas) y ADMIN / SUPERADMIN.
+    if (!['CARRETILLERO', 'ADMIN', 'SUPERADMIN'].includes(actor.role)) {
+      throw new functions.https.HttpsError('permission-denied', 'Solo el carretillero o admin pueden reubicar entre secciones.');
     }
     const fromShelfCode = normalize(payload?.fromShelfCode || shelfCode);
     const toShelfCode = normalize(payload?.toShelfCode);
@@ -873,8 +874,11 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
       const oldLocData = activePresences.map((presence) => {
         const locationId = String(presence.data.locationIds?.[0] || '');
         const position = locationId.split('-').slice(1).join('-');
-        const locRef = db.collection('shelves').doc(fromShelfCode).collection('locations').doc(position);
-        return { presence, locationId, position, locRef };
+        // Estantería FÍSICA del hueco según el locationId ("MEC-031"): en la vista
+        // combinada PRE/MEC puede no coincidir con fromShelfCode.
+        const srcShelf = normalize(locationId.split('-')[0]) || fromShelfCode;
+        const locRef = db.collection('shelves').doc(srcShelf).collection('locations').doc(position);
+        return { presence, locationId, position, locRef, srcShelf };
       });
       const newLocData = newPositions.map((position: string, index: number) => ({
         position,
@@ -889,7 +893,7 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
       for (const d of newLocData) refByPath.set(d.locRef.path, d.locRef);
       // Refs gemelas: origen según fromShelfCode, destino según toShelfCode.
       for (const d of oldLocData) {
-        const twin = twinLocRefFor(db, fromShelfCode, d.position);
+        const twin = twinLocRefFor(db, d.srcShelf, d.position);
         if (twin) refByPath.set(twin.path, twin);
       }
       for (const d of newLocData) {
@@ -918,7 +922,7 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
       const pendingItemsByPath = new Map<string, any[]>();
 
       // Quitar de las posiciones de origen
-      for (const { presence, locationId, position, locRef } of oldLocData) {
+      for (const { presence, locationId, position, locRef, srcShelf } of oldLocData) {
         oldLocationIds.push(locationId);
         const locSnap = snapByPath.get(locRef.path);
         if (locSnap?.exists) {
@@ -934,7 +938,7 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
           tx.set(locRef, { position, items: updatedItems, isEmpty: updatedItems.length === 0 }, { merge: true });
         }
         // Espejo de la baja si el origen es urgente compartida.
-        const twinRef = twinLocRefFor(db, fromShelfCode, position);
+        const twinRef = twinLocRefFor(db, srcShelf, position);
         mirrorRemove(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, presence.data.presenceId, articleCode, orderFab, pendingItemsByPath);
       }
 

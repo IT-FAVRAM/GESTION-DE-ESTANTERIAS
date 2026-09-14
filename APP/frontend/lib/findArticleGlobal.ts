@@ -8,6 +8,8 @@ export interface GlobalArticleLocation {
   shelfCode: string;
   shelfName: string;
   position: string;
+  /** locationId físico ("MEC-031"): shelfCode está canonicalizado (MEC→PRE). */
+  locationId: string;
 }
 
 /**
@@ -59,6 +61,7 @@ export async function findArticleGlobal(
       shelfCode: def?.code ?? code,
       shelfName: def?.name ?? code,
       position,
+      locationId,
     });
   });
 

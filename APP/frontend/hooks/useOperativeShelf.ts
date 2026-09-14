@@ -108,6 +108,8 @@ export interface ScanTrayItem {
 
 const padPos = (p: string) => parseInt(p, 10);
 const displayPos = (p: string) => { const n = parseInt(p, 10); return Number.isNaN(n) ? p : String(n); };
+/** Mensaje de error con el motivo real (si lo hay) detrás. */
+const withReason = (base: string, reason: string | null) => (reason ? `${base}: ${reason}` : base);
 
 // Clave versionada para persistir un lote en curso (tolerancia a desconexión/recarga).
 const BATCH_STORAGE_KEY = 'wms.batch.v1';
@@ -139,7 +141,7 @@ export function useOperativeShelf({
   enableScanTray = false,
 }: UseOperativeShelfParams) {
   const shelf = useShelf(shelfCode);
-  const { locations, loading, shelfDef, ubicar, ubicarMulti, retirar, retirarDeUbicacion, mover, findArticle, validateShelfAccess, totalArticles, totalOccupied, totalEmpty } = shelf;
+  const { locations, loading, shelfDef, ubicar, ubicarMulti, retirar, retirarDeUbicacion, mover, findArticle, validateShelfAccess, takeLastError, totalArticles, totalOccupied, totalEmpty } = shelf;
   const { createPickupRequest, createDeliveryRequest } = usePickupQueue();
 
   // ── Estado de flujo ────────────────────────────────────────────────────────
@@ -268,11 +270,21 @@ export function useOperativeShelf({
 
   const showToast = useCallback((type: OperativeFeedback['type'], message: string, ms = 2500) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = null;
     setFeedback({ type, message });
+    // Los errores se quedan en pantalla hasta pulsar "Entendido": a los 2,5 s el
+    // operario no llegaba a leer el motivo.
+    if (type === 'error') return;
     toastTimerRef.current = setTimeout(() => {
       setFeedback(null);
       toastTimerRef.current = null;
     }, ms);
+  }, []);
+
+  const dismissFeedback = useCallback(() => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = null;
+    setFeedback(null);
   }, []);
 
   // BA6: Timeout para cellFirst — si el usuario no completa en 5 min, limpiar pendingCell
@@ -540,6 +552,8 @@ export function useOperativeShelf({
     setConfirmModal((p) => ({ ...p, open: false }));
     const session = getOperationalSession();
     let ok = 0;
+    const failures: string[] = [];
+    const failedKeys = new Set<string>();
     for (const op of ops) {
       try {
         const res = await inventoryApi.retirarDeUbicacion({
@@ -550,18 +564,25 @@ export function useOperativeShelf({
           operarioId,
           operarioName: displayName,
         }, session);
-        if (res?.ok) ok++;
-      } catch { /* contabilizar como fallo */ }
+        if (!res?.ok) throw new Error('El servidor rechazó la retirada');
+        ok++;
+      } catch (err) {
+        failedKeys.add(`${op.articleCode}|${op.orderFab}`);
+        failures.push(`${op.articleCode} (${op.shelfName} pos. ${displayPos(op.position)}): ${parseCallableError(err)}`);
+      }
     }
     processingRef.current = false;
     setProcessing(false);
-    // Quitar de la bandeja los artículos retirados (éxito total o parcial).
-    const retiredKeys = new Set(retiredItems.map((it) => `${it.articleCode}|${it.orderFab}`));
+    // Quitar de la bandeja solo los artículos retirados de todas sus ubicaciones:
+    // los que fallan se quedan para poder reintentar.
+    const retiredKeys = new Set(
+      retiredItems.map((it) => `${it.articleCode}|${it.orderFab}`).filter((k) => !failedKeys.has(k)),
+    );
     setTrayItems((prev) => prev.filter((it) => !retiredKeys.has(`${it.articleCode}|${it.orderFab}`)));
     if (ok === ops.length) {
       showToast('success', `${ops.length} artículo(s) retirado(s) correctamente`);
     } else {
-      showToast('error', `Parcial: ${ok}/${ops.length} retirados`);
+      showToast('error', `Retirados ${ok} de ${ops.length}. No se pudo retirar:\n${failures.join('\n')}`);
     }
   }, [operarioId, displayName, showToast]);
 
@@ -598,7 +619,7 @@ export function useOperativeShelf({
    * backend createDeliveryRequest (cola del carretillero, requestType TRAER).
    */
   const requestDeliveryToSection = useCallback(async (
-    article: { articleCode: string; orderFab: string; shelfCode: string; positions: string[] },
+    article: { articleCode: string; orderFab: string; shelfCode: string; positions: string[]; locationIds: string[] },
     destination: { code: string; name: string; section: WarehouseSection; station: number | null },
     target?: CarretilleroOption | null,
   ): Promise<boolean> => {
@@ -609,6 +630,7 @@ export function useOperativeShelf({
       shelfCode, shelfName: shelfDef?.name || shelfCode,
       articleCode: article.articleCode, articleOrderFab: article.orderFab,
       articleShelfName, articlePositions: article.positions,
+      articleShelfCode: article.shelfCode, articleLocationIds: article.locationIds,
       destinationShelfCode: destination.code,
       destinationShelfName: destination.name,
       destinationSection: destination.section,
@@ -889,6 +911,8 @@ export function useOperativeShelf({
       articleOrderFab: selection.articleOrderFab,
       articleShelfName: selection.articleShelfName,
       articlePositions: selection.articlePositions,
+      articleShelfCode: selection.articleShelfCode,
+      articleLocationIds: selection.articleLocationIds,
       destinationShelfCode: selection.destination.code,
       destinationShelfName: selection.destination.name,
       destinationSection: selection.destination.section as WarehouseSection,
@@ -1046,25 +1070,34 @@ export function useOperativeShelf({
       .map((l) => `• ${l.shelfName} — pos. ${displayPos(l.position)}`)
       .join('\n');
     // Reubicar solo tiene sentido si hay UNA única ubicación previa (si no, no
-    // sabríamos cuál de las varias mover). Si la ubicación previa está en OTRA
-    // estantería, el backend solo permite el movimiento cross-estantería a
-    // ADMIN/SUPERADMIN (op 'reubicar'); dentro de la misma estantería cualquier
-    // rol puede hacerlo (op 'mover'), así que ahí sí se ofrece siempre.
+    // sabríamos cuál de las varias mover). Regla de planta: cada tablet solo
+    // cambia SU estantería (el operario está delante de ella); quitar de OTRA
+    // estantería lo hace su propia tablet o el carretillero, que recorre la nave
+    // (config.actions.reubicar: carretillero y admin, op 'reubicar' en backend).
+    // Dentro de la misma estantería cualquier rol puede (op 'mover').
     const onlyPrevious = globalLocs[0];
     const sameShelf = onlyPrevious?.shelfCode === shelfCode;
     const canReubicar = allowReubicar && globalLocs.length === 1 && (sameShelf || config.actions.reubicar);
+    const reubicarText = sameShelf
+      ? 'Ya no está allí — reubicar aquí'
+      : `La he traído de ${onlyPrevious?.shelfName}: quitar de allí y ubicar aquí`;
+    // Tablet sin permiso para tocar la otra estantería: decir quién debe retirarla.
+    const otherShelves = [...new Set(globalLocs.filter((l) => l.shelfCode !== shelfCode).map((l) => l.shelfName))];
+    const otherShelfHint = !config.actions.reubicar && otherShelves.length > 0
+      ? `\n\nSi ya no está allí, hay que retirarlo en la tablet de ${otherShelves.join(' / ')} (o lo retira el carretillero).`
+      : '';
 
     return await new Promise((resolve) => {
       const close = () => setConfirmModal((p) => ({ ...p, open: false }));
       setConfirmModal({
         open: true,
         title: 'Ya está ubicado',
-        message: `${formatArticleDisplay(articleCode, orderFab)} ya está en:\n${locationText}`,
+        message: `${formatArticleDisplay(articleCode, orderFab)} ya está en:\n${locationText}${otherShelfHint}`,
         variant: 'info',
         confirmText: `Añadir aquí (Parcial ${nuevoParcial})`,
         onConfirm: () => { close(); resolve({ action: 'add' }); },
         extraButton: canReubicar
-          ? { text: 'Ya no está allí — reubicar aquí', onClick: () => { close(); resolve({ action: 'reubicar', from: globalLocs[0] }); } }
+          ? { text: reubicarText, onClick: () => { close(); resolve({ action: 'reubicar', from: globalLocs[0] }); } }
           : { text: 'Cancelar', onClick: () => { close(); resolve({ action: 'cancel' }); } },
         extraButton2: canReubicar
           ? { text: 'Cancelar', onClick: () => { close(); resolve({ action: 'cancel' }); } }
@@ -1084,22 +1117,24 @@ export function useOperativeShelf({
     orderFab: string,
     from: { shelfCode: string; position: string },
     positions: string[],
-  ): Promise<boolean> => {
+  ): Promise<{ ok: boolean; error?: string | null }> => {
     if (from.shelfCode === shelfCode) {
-      return await mover(articleCode, orderFab, positions, operarioId, displayName);
+      const ok = await mover(articleCode, orderFab, positions, operarioId, displayName);
+      return { ok, error: ok ? null : takeLastError() };
     }
     try {
       const access = await validateShelfAccess('operate');
-      if (!access.ok) return false;
+      if (!access.ok) return { ok: false, error: takeLastError() };
       const fn = httpsCallable(functions, 'shelfOperate');
       const result = await fn({
         op: 'reubicar',
         payload: { articleCode, orderFab, shelfCode: from.shelfCode, fromShelfCode: from.shelfCode, toShelfCode: shelfCode, newPositions: positions },
         session: { operarioId, operarioName: displayName },
       });
-      return !!(result.data as { ok?: boolean })?.ok;
-    } catch {
-      return false;
+      const ok = !!(result.data as { ok?: boolean })?.ok;
+      return { ok, error: ok ? null : 'El servidor rechazó la reubicación' };
+    } catch (err) {
+      return { ok: false, error: parseCallableError(err) };
     }
   };
 
@@ -1218,7 +1253,7 @@ export function useOperativeShelf({
       };
 
       if (globalLocs.length > 0) {
-        const locationText = globalLocs.map((l) => `• ${l.shelfName} — pos. ${padPos(l.position)}`).join('\n');
+        const locationText = globalLocs.map((l) => `• ${l.shelfName} — pos. ${displayPos(l.position)}`).join('\n');
         setConfirmModal({
           open: true,
           title: 'Enviar a Almacén',
@@ -1256,8 +1291,22 @@ export function useOperativeShelf({
           setProcessing(false);
           return;
         }
+        // MOVER solo cambia de hueco dentro de ESTA estantería. Si está en otra,
+        // decirlo ya (antes pedía el destino y fallaba al confirmar).
+        const here = globalLocs.filter((l) => l.shelfCode === shelfCode);
+        if (here.length === 0) {
+          const elsewhere = globalLocs.map((l) => `${l.shelfName} pos. ${displayPos(l.position)}`).join(', ');
+          const how = config.actions.reubicar
+            ? 'Para traerlo aquí usa UBICAR: te ofrecerá quitarlo de allí.'
+            : 'Para traerlo: retíralo en la tablet de esa estantería y ubícalo aquí, o avisa al carretillero.';
+          showToast('error', `${articleCode} no está en esta estantería, está en ${elsewhere}.\n${how}`);
+          setScanData(null);
+          setScannerActive(true);
+          setProcessing(false);
+          return;
+        }
         setSelectedPositions([]);
-        showToast('info', `Artículo encontrado en ${globalLocs.length} ubicación(es). Selecciona destino.`);
+        showToast('info', `Artículo encontrado en ${here.length} ubicación(es) de esta estantería. Selecciona destino.`);
       } catch (err) {
         showToast('error', `Error buscando artículo: ${err instanceof Error ? err.message : String(err)}`);
         setScanData(null);
@@ -1464,15 +1513,18 @@ export function useOperativeShelf({
     const reubicarFrom = pendingReubicarFrom;
     setPendingReubicarFrom(null);
 
-    const ok = reubicarFrom
+    const result = reubicarFrom
       ? await doReubicarFromWarning(articleCode, orderFab, reubicarFrom, positions)
-      : await doUbicarCurrentShelf(articleCode, orderFab, positions, importe, cantidad, subcontratacion);
+      : await doUbicarCurrentShelf(articleCode, orderFab, positions, importe, cantidad, subcontratacion)
+        .then((done) => ({ ok: done, error: done ? null : takeLastError() }));
+    const { ok } = result;
     const failedSections = ok && !reubicarFrom ? await ubicarAdditionalSections(articleCode, orderFab) : [];
     processingRef.current = false;
     setProcessing(false);
 
     if (!ok) {
-      finishAction('error', reubicarFrom ? `Error al reubicar ${articleCode}` : `Error al ubicar ${articleCode}`);
+      const base = reubicarFrom ? `No se pudo reubicar ${articleCode}` : `No se pudo ubicar ${articleCode}`;
+      finishAction('error', withReason(base, result.error ?? null));
       return;
     }
 
@@ -1493,7 +1545,11 @@ export function useOperativeShelf({
     // Homogeneización: SIN modal "¿ubicar otro?". Tras ubicar con éxito se vuelve
     // directamente a idle. Para ubicar otro, el usuario pulsa UBICAR de nuevo (o
     // usa la bandeja de escaneo). Ahorra 1 clic en cada operación.
-    finishAction('success', reubicarFrom ? `${articleCode} reubicado correctamente` : `${articleCode} ubicado correctamente`);
+    // Decir DÓNDE ha quedado, para que el operario compruebe que tocó el hueco correcto.
+    const where = `${shelfCode} · pos. ${positions.join(', ')}`;
+    finishAction('success', reubicarFrom
+      ? `${articleCode} quitado de ${reubicarFrom.shelfCode} · pos. ${reubicarFrom.position} y ubicado en ${where}`
+      : `${articleCode} ubicado en ${where}`);
     // SOLDADURA: al finalizar, abrir la celda ubicada para poder adjuntarle una foto
     // (la galería vive en el modal de celda). resetFlow() ya limpió selectedCell; este
     // setSelectedCell posterior gana en el mismo tick.
@@ -1534,11 +1590,14 @@ export function useOperativeShelf({
     setProcessing(false);
 
     if (failedAt === -1) {
-      finishAction('success', `${pending.length} artículo(s) ubicado(s) en ${selectedPositions.length} posición(es)`);
+      finishAction('success', `${pending.length} artículo(s) ubicado(s) en ${shelfCode} · pos. ${selectedPositions.join(', ')}`);
     } else {
       const remaining = pending.slice(failedAt);
       setBatchArticles(remaining);
-      showToast('error', `Ubicados ${successCount}. Quedan ${remaining.length} pendiente(s) — reintenta o pulsa Detener.`, 4000);
+      showToast('error', withReason(
+        `Ubicados ${successCount}. Falló ${remaining[0].articleCode}; quedan ${remaining.length} pendiente(s) — reintenta o pulsa Detener`,
+        takeLastError(),
+      ));
     }
   };
 
@@ -1640,15 +1699,17 @@ export function useOperativeShelf({
     }
 
     let successCount = 0;
+    const failures: string[] = [];
     for (const item of selectedItems) {
       const r = await retirarDeUbicacion(item.articleCode, item.orderFab, item.position, operarioId, displayName, item.presenceId);
       if (r.success) successCount++;
+      else failures.push(`${item.articleCode} (pos. ${item.position}): ${r.error || 'error desconocido'}`);
     }
     setProcessing(false);
     if (successCount === selectedItems.length) {
       finishAction('success', `${selectedItems.length} artículo(s) retirado(s) correctamente`);
     } else {
-      finishAction('error', `Parcial: ${successCount}/${selectedItems.length} retirados`);
+      finishAction('error', `Retirados ${successCount} de ${selectedItems.length}. No se pudo retirar:\n${failures.join('\n')}`);
     }
   };
 
@@ -1687,10 +1748,12 @@ export function useOperativeShelf({
     }
 
     let successCount = 0;
+    const failures: string[] = [];
     for (const queueItem of queue) {
       for (const item of queueItem.items) {
         const r = await retirarDeUbicacion(item.articleCode, item.orderFab, queueItem.position, operarioId, displayName, item.presenceId);
         if (r.success) successCount++;
+        else failures.push(`${item.articleCode} (pos. ${queueItem.position}): ${r.error || 'error desconocido'}`);
       }
     }
     setProcessing(false);
@@ -1698,7 +1761,7 @@ export function useOperativeShelf({
     if (successCount === totalItems) {
       finishAction('success', `${totalItems} artículo(s) retirado(s) correctamente`);
     } else {
-      finishAction('error', `Parcial: ${successCount}/${totalItems} artículos retirados`);
+      finishAction('error', `Retirados ${successCount} de ${totalItems}. No se pudo retirar:\n${failures.join('\n')}`);
     }
     setPendingRetirarQueue([]);
   };
@@ -1780,9 +1843,9 @@ export function useOperativeShelf({
     if (ok) {
       // Homogeneización: SIN modal "¿mover otro?". Tras mover con éxito se vuelve
       // directamente a idle (mismo criterio que UBICAR).
-      finishAction('success', `${articleCode} movido correctamente`);
+      finishAction('success', `${articleCode} movido a ${shelfCode} · pos. ${selectedPositions.join(', ')}`);
     } else {
-      finishAction('error', 'Error al mover el artículo');
+      finishAction('error', withReason(`No se pudo mover ${articleCode}`, takeLastError()));
     }
   };
 
@@ -1825,7 +1888,7 @@ export function useOperativeShelf({
     locations, loading, shelfDef, shelfCode,
     totalArticles, totalOccupied, totalEmpty,
     // estado
-    action, scanData, selectedPositions, scannerActive, processing, feedback,
+    action, scanData, selectedPositions, scannerActive, processing, feedback, dismissFeedback,
     selectedCell, setSelectedCell,
     confirmModal, setConfirmModal,
     scanMethodPickerOpen, pendingAction,

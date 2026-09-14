@@ -26,6 +26,10 @@ export interface PickupRequestDoc {
   articleOrderFab?: string;
   articleShelfName?: string;
   articlePositions?: string[];
+  /** Código real de la estantería de origen (las solicitudes antiguas no lo tienen). */
+  articleShelfCode?: string;
+  /** Ubicaciones reales de origen ("SOL-044"), para retirar al entregar. */
+  articleLocationIds?: string[];
   // Solo para requestType === 'RECOGER' con detalles:
   articleToPickCode?: string;
   articleToPickOrderFab?: string;

@@ -77,6 +77,10 @@ export interface CreateDeliveryParams extends RequestTarget, RequestDestination 
   articleOrderFab: string;
   articleShelfName: string;
   articlePositions: string[];
+  /** Código real de la estantería de origen. */
+  articleShelfCode?: string;
+  /** Ubicaciones reales de origen ("SOL-044"), para retirar al entregar. */
+  articleLocationIds?: string[];
 }
 
 // ─── Section display names ───
@@ -306,6 +310,8 @@ export const usePickupQueue = () => {
         articleOrderFab: params.articleOrderFab,
         articleShelfName: params.articleShelfName,
         articlePositions: params.articlePositions,
+        ...(params.articleShelfCode ? { articleShelfCode: params.articleShelfCode } : {}),
+        ...(params.articleLocationIds?.length ? { articleLocationIds: params.articleLocationIds } : {}),
         ...(params.targetCarretilleroId ? {
           targetCarretilleroId: params.targetCarretilleroId,
           targetCarretilleroName: params.targetCarretilleroName || '',
@@ -331,6 +337,8 @@ export const usePickupQueue = () => {
           articleOrderFab: params.articleOrderFab,
           articleShelfName: params.articleShelfName,
           articlePositions: params.articlePositions,
+          articleShelfCode: params.articleShelfCode,
+          articleLocationIds: params.articleLocationIds,
           destinationShelfCode: params.destinationShelfCode,
           destinationShelfName: params.destinationShelfName,
           destinationSection: params.destinationSection,

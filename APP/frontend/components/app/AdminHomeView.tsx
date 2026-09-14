@@ -105,6 +105,7 @@ const AdminHomeView: React.FC<AdminHomeViewProps> = ({ role, displayName, notifi
       shelfCode: selectedShelfCode, shelfName: shelfDef.name,
       articleCode: selection.articleCode, articleOrderFab: selection.articleOrderFab,
       articleShelfName: selection.articleShelfName, articlePositions: selection.articlePositions,
+      articleShelfCode: selection.articleShelfCode, articleLocationIds: selection.articleLocationIds,
       destinationShelfCode: selection.destination.code, destinationShelfName: selection.destination.name,
       destinationSection: selection.destination.section, destinationStation: selection.destination.station,
       targetCarretilleroId: selectedCarretillero?.uid,

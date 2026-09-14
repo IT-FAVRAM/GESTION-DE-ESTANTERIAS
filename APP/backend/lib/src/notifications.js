@@ -453,6 +453,17 @@ exports.pickupQueueOperate = functions.https.onCall(async (data, context) => {
             docData.articlePositions = Array.isArray(payload === null || payload === void 0 ? void 0 : payload.articlePositions)
                 ? payload.articlePositions.map((p) => String(p))
                 : [];
+            // Ubicación real de origen ("SOL-044"): la usa el carretillero al entregar
+            // para retirar el artículo de donde estaba. articleShelfName/articlePositions
+            // son solo para mostrar (nombre y posición sin ceros).
+            const articleShelfCode = normalize(payload === null || payload === void 0 ? void 0 : payload.articleShelfCode);
+            if (articleShelfCode)
+                docData.articleShelfCode = articleShelfCode;
+            const articleLocationIds = Array.isArray(payload === null || payload === void 0 ? void 0 : payload.articleLocationIds)
+                ? payload.articleLocationIds.map((id) => String(id).trim()).filter((id) => id.includes('-')).slice(0, 20)
+                : [];
+            if (articleLocationIds.length > 0)
+                docData.articleLocationIds = articleLocationIds;
         }
         else {
             // RECOGER / SE LLEVE — artículo puede ser texto libre (no ubicado) + origen.
