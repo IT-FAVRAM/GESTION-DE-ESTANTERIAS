@@ -6,6 +6,7 @@ import ShelfSelector from './ShelfSelector';
 import DeviceInfoModal from '../common/DeviceInfoModal';
 import KioskEmptyState from './KioskEmptyState';
 import KioskHeader from './KioskHeader';
+import KioskHelpModal from './KioskHelpModal';
 import { buildOperativeConfig } from '../../lib/operative/operativeConfig';
 import { useOperativeShelf } from '../../hooks/useOperativeShelf';
 import OperativeShelfArea from '../operative/OperativeShelfArea';
@@ -44,6 +45,7 @@ const KioskView: React.FC = () => {
   const shelfCode = currentShelf || assignedShelf || '';
 
   const [showDeviceInfo, setShowDeviceInfo] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [showCarts, setShowCarts] = useState(false);
   // Mostrar la estantería directamente al entrar (los kioskos de sección deben
   // ver su(s) estantería(s) sin pasar por la pantalla de acciones). Las acciones
@@ -103,6 +105,7 @@ const KioskView: React.FC = () => {
         deviceId={deviceId}
         onLogout={logout}
         onInfo={() => setShowDeviceInfo(true)}
+        onHelp={() => setShowHelp(true)}
         actionButtons={(!isTouch && showShelf && action === 'idle') ? (
           <OperativeActionButtons engine={engine} config={config} />
         ) : undefined}
@@ -170,6 +173,7 @@ const KioskView: React.FC = () => {
       {showDeviceInfo && (
         <DeviceInfoModal deviceId={deviceId} onClose={() => setShowDeviceInfo(false)} />
       )}
+      {showHelp && <KioskHelpModal onClose={() => setShowHelp(false)} />}
     </div>
   );
 };

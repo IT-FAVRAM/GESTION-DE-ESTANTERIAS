@@ -1,4 +1,5 @@
 import React from 'react';
+import { CircleHelp } from 'lucide-react';
 import AppHeader from '../common/AppHeader';
 
 interface KioskHeaderProps {
@@ -12,6 +13,8 @@ interface KioskHeaderProps {
   deviceId: string;
   onLogout: () => Promise<void> | void;
   onInfo?: () => void;
+  /** Abre la ayuda "¿Cómo funciona?". */
+  onHelp?: () => void;
   actionButtons?: React.ReactNode;
 }
 
@@ -23,11 +26,21 @@ const KioskHeader: React.FC<KioskHeaderProps> = ({
   displayName,
   onLogout,
   onInfo,
+  onHelp,
   actionButtons,
 }) => (
   <AppHeader
     title={shelfName || shelfCode}
     center={actionButtons}
+    right={onHelp && (
+      <button
+        onClick={onHelp}
+        className="min-h-11 px-4 flex items-center gap-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-900 text-sm font-black whitespace-nowrap active:scale-95 transition-all touch-manipulation"
+      >
+        <CircleHelp className="w-5 h-5" strokeWidth={2.5} aria-hidden />
+        ¿Cómo funciona?
+      </button>
+    )}
     onInfo={onInfo}
     onLogout={() => onLogout()}
   />
