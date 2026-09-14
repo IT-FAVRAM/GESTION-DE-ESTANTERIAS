@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import { Check } from 'lucide-react';
 import type { ChaperaItem } from '../../lib/schema/chapero';
+import { getMaterialStyle } from '../../lib/schema/chapero';
 
 interface ChaperoRetirarModalProps {
   positionId: string;
@@ -62,8 +64,9 @@ const ChaperoRetirarModal: React.FC<ChaperoRetirarModalProps> = ({ positionId, i
                 <div className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center ${
                   selected.has(item.id) ? 'bg-red-500 border-red-500' : 'border-slate-300'
                 }`}>
-                  {selected.has(item.id) && <span className="text-white text-[10px] font-black">✓</span>}
+                  {selected.has(item.id) && <Check className="w-3 h-3 text-white" strokeWidth={4} aria-hidden />}
                 </div>
+                <span className={`mt-0.5 w-2.5 h-2.5 rounded-full flex-shrink-0 ${getMaterialStyle(item.material).dot}`} aria-hidden />
                 <div className="min-w-0">
                   <p className="font-black text-slate-800 text-sm">
                     {item.material}

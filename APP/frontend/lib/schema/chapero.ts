@@ -46,18 +46,18 @@ export interface ChaperoMaterialStyle {
 }
 
 const MATERIAL_STYLES: Record<string, ChaperoMaterialStyle> = {
-  ACERO:       { cell: 'bg-slate-100 border-slate-400',   text: 'text-slate-700',   dot: 'bg-slate-500' },
-  ALUMINIO:    { cell: 'bg-sky-100 border-sky-400',        text: 'text-sky-800',     dot: 'bg-sky-500' },
-  INOX:        { cell: 'bg-blue-100 border-blue-500',      text: 'text-blue-800',    dot: 'bg-blue-600' },
-  GALVANIZADO: { cell: 'bg-teal-100 border-teal-400',      text: 'text-teal-800',    dot: 'bg-teal-500' },
-  COBRE:       { cell: 'bg-orange-100 border-orange-400',  text: 'text-orange-800',  dot: 'bg-orange-500' },
-  'LATÓN':     { cell: 'bg-amber-100 border-amber-500',    text: 'text-amber-800',   dot: 'bg-amber-500' },
+  ACERO:       { cell: 'bg-slate-300 border-slate-500',    text: 'text-slate-900',   dot: 'bg-slate-600' },
+  ALUMINIO:    { cell: 'bg-sky-200 border-sky-500',        text: 'text-sky-900',     dot: 'bg-sky-500' },
+  INOX:        { cell: 'bg-blue-200 border-blue-500',      text: 'text-blue-900',    dot: 'bg-blue-600' },
+  GALVANIZADO: { cell: 'bg-teal-200 border-teal-500',      text: 'text-teal-900',    dot: 'bg-teal-600' },
+  COBRE:       { cell: 'bg-orange-200 border-orange-500',  text: 'text-orange-900',  dot: 'bg-orange-500' },
+  'LATÓN':     { cell: 'bg-amber-200 border-amber-500',    text: 'text-amber-900',   dot: 'bg-amber-500' },
 };
 
 /** Estilo para materiales personalizados / desconocidos (OTRO). */
 const OTHER_MATERIAL_STYLE: ChaperoMaterialStyle = {
-  cell: 'bg-violet-100 border-violet-400',
-  text: 'text-violet-800',
+  cell: 'bg-violet-200 border-violet-500',
+  text: 'text-violet-900',
   dot: 'bg-violet-500',
 };
 

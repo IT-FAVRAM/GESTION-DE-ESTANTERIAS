@@ -139,7 +139,11 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
     else showFeedback('err', 'Error al mover');
   };
 
-  const occupiedCount = positions.filter((p) => !p.isEmpty).length;
+  const occupiedCount = positions.filter((p) => !p.isEmpty && p.items.length > 0).length;
+  const totalPositions = positions.length;
+  const freeCount = totalPositions - occupiedCount;
+  const sheetCount = positions.reduce((n, p) => n + p.items.length, 0);
+  const occupancyPct = totalPositions ? Math.round((occupiedCount / totalPositions) * 100) : 0;
 
   // Resumen por material — sirve de leyenda de colores + inventario rápido
   const materialSummary = useMemo(() => {
@@ -149,6 +153,7 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
     }
     return [...counts.entries()].sort((a, b) => b[1] - a[1]);
   }, [positions]);
+  const activeMaterialFilter = searchQuery.trim().toUpperCase();
   const moverConfirm = mode === 'mover' && !!moverOrigin && !!selectedPos;
   const modeHint = mode === 'mover' && moverOrigin
     ? `Paso 2 · Toca el DESTINO — origen: ${moverOrigin.positionId}`
@@ -160,20 +165,41 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
     <div className="h-dvh w-screen max-w-full bg-slate-50 flex flex-col overflow-hidden">
 
       {/* ── Header — Responsive ── */}
-      <header className="flex-shrink-0 bg-white border-b border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 shadow-sm">
-        {/* Línea 1: Título + Volver */}
-        <div className="flex items-center justify-between gap-2 mb-1.5">
+      <header className="flex-shrink-0 bg-white border-b border-slate-200 px-2 sm:px-3 py-1.5 sm:py-2 shadow-sm space-y-1.5">
+        {/* Línea 1: Título + ocupación + Volver */}
+        <div className="flex items-center gap-2 sm:gap-4">
           <div className="flex items-center gap-2 min-w-0">
             <span className="flex-shrink-0 grid place-items-center w-9 h-9 rounded-xl bg-slate-900 text-white">
               <Layers className="w-5 h-5" aria-hidden />
             </span>
-            <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight leading-none">Chapero</h1>
-              <p className="text-[11px] text-slate-500 leading-none mt-1 tabular-nums">
-                {occupiedCount} ocupadas · {positions.length - occupiedCount} libres
-              </p>
-            </div>
+            <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight leading-none">Chapero</h1>
           </div>
+
+          {/* Ocupación — mismo lenguaje que la tarjeta de las estanterías */}
+          <div className="flex-1 min-w-0 flex items-center gap-3">
+            <div className="flex-1 min-w-[4rem] max-w-xs">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-base sm:text-lg font-black text-emerald-600 tabular-nums leading-none">{occupancyPct}%</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">ocupación</span>
+              </div>
+              <div className="mt-1 h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                <div className="h-full rounded-full bg-emerald-500 transition-[width] duration-500" style={{ width: `${occupancyPct}%` }} />
+              </div>
+            </div>
+            <dl className="hidden sm:flex items-center gap-1.5 text-[11px]">
+              {[
+                { label: 'Libres', value: freeCount },
+                { label: 'Ocupadas', value: occupiedCount },
+                { label: 'Chapas', value: sheetCount },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex items-baseline gap-1 rounded-lg bg-slate-100 px-2 py-1">
+                  <dt className="font-bold uppercase tracking-wide text-slate-500">{label}</dt>
+                  <dd className="font-black text-slate-900 tabular-nums text-sm leading-none">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+
           {onClose && (
             <button onClick={onClose} className="inline-flex items-center gap-1 px-3 py-2 text-xs font-bold bg-slate-100 text-slate-700 rounded-xl flex-shrink-0 whitespace-nowrap hover:bg-slate-200 transition-colors">
               <ChevronLeft className="w-4 h-4" aria-hidden /> Volver
@@ -181,39 +207,41 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
           )}
         </div>
 
-        {/* Línea 2: Botones de acción */}
-        <div className="flex gap-1.5 mb-1.5">
-          {ACTION_BUTTONS.map(({ mode: m, label, Icon, activeClass, idleClass }) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => toggleMode(m)}
-              className={`flex-1 min-h-11 py-2 rounded-xl font-bold transition-all active:scale-[0.97] inline-flex items-center justify-center gap-2 ${mode === m ? activeClass : idleClass}`}
-            >
-              <Icon className="w-5 h-5" />
-              <span className="text-xs sm:text-sm tracking-wide">{label}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Línea 3: Búsqueda + Hint */}
-        {mode !== 'ubicar' && (
-          <div className="relative flex items-center mb-1">
-            <Search className="absolute left-2.5 w-4 h-4 text-slate-400 pointer-events-none" aria-hidden />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar material o espesor…"
-              className="flex-1 rounded-lg border border-slate-200 bg-slate-50 pl-8 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
-            />
-            {searchQuery && (
-              <button type="button" onClick={() => setSearchQuery('')} className="absolute right-2 text-slate-400 hover:text-slate-600 shrink-0">
-                <X className="w-4 h-4" aria-hidden />
+        {/* Línea 2: Botones de acción + búsqueda (en PC comparten línea) */}
+        <div className="flex flex-col lg:flex-row gap-1.5">
+          <div className="flex gap-1.5 lg:w-[30rem] lg:flex-shrink-0">
+            {ACTION_BUTTONS.map(({ mode: m, label, Icon, activeClass, idleClass }) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => toggleMode(m)}
+                aria-pressed={mode === m}
+                className={`flex-1 min-h-11 py-2 rounded-xl font-bold transition-all active:scale-[0.97] inline-flex items-center justify-center gap-2 ${mode === m ? activeClass : idleClass}`}
+              >
+                <Icon className="w-5 h-5" />
+                <span className="text-xs sm:text-sm tracking-wide">{label}</span>
               </button>
-            )}
+            ))}
           </div>
-        )}
+
+          {mode !== 'ubicar' && (
+            <div className="relative flex-1 flex items-center">
+              <Search className="absolute left-2.5 w-4 h-4 text-slate-400 pointer-events-none" aria-hidden />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar material, espesor o especificación…"
+                className="w-full min-h-11 rounded-xl border border-slate-200 bg-slate-50 pl-8 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+              />
+              {searchQuery && (
+                <button type="button" onClick={() => setSearchQuery('')} aria-label="Borrar búsqueda" className="absolute right-2 p-1 text-slate-400 hover:text-slate-600 shrink-0">
+                  <X className="w-4 h-4" aria-hidden />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Hint para retirar/mover */}
         {(mode === 'retirar' || mode === 'mover') && (
@@ -248,7 +276,7 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
             {/* Material */}
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-1">Material</p>
-              <div className="grid grid-cols-3 gap-1 w-full">
+              <div className="grid grid-cols-3 lg:grid-cols-4 gap-1 w-full">
                 {CHAPERO_MATERIALS.map((m) => {
                   const style = getMaterialStyle(m);
                   const selected = pendingMaterial === m;
@@ -284,7 +312,7 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
             {/* Espesor */}
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-1">Espesor (mm)</p>
-              <div className="grid grid-cols-4 gap-1 w-full">
+              <div className="grid grid-cols-4 lg:grid-cols-7 gap-1 w-full">
                 {CHAPERO_ESPESORES.map((e) => (
                   <button
                     key={e}
@@ -325,23 +353,23 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
             </div>
           </div>
 
-          {/* Nº de albarán — obligatorio */}
-          <input
-            type="text"
-            value={pendingAlbaran}
-            onChange={(e) => setPendingAlbaran(e.target.value)}
-            placeholder="Nº de albarán (obligatorio)…"
-            className="w-full rounded-lg border border-emerald-300 bg-white px-2.5 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-          />
-
-          {/* Especificación — fila completa, discreta */}
-          <input
-            type="text"
-            value={pendingSpec}
-            onChange={(e) => setPendingSpec(e.target.value)}
-            placeholder="Especificación opcional (ej: DC11, S235JR)…"
-            className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-          />
+          {/* Nº de albarán (obligatorio) + especificación (opcional) — en PC, en la misma línea */}
+          <div className="flex flex-col sm:flex-row gap-1 sm:gap-1.5">
+            <input
+              type="text"
+              value={pendingAlbaran}
+              onChange={(e) => setPendingAlbaran(e.target.value)}
+              placeholder="Nº de albarán (obligatorio)…"
+              className="w-full sm:flex-1 rounded-lg border border-emerald-300 bg-white px-2.5 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+            />
+            <input
+              type="text"
+              value={pendingSpec}
+              onChange={(e) => setPendingSpec(e.target.value)}
+              placeholder="Especificación opcional (ej: DC11, S235JR)…"
+              className="w-full sm:flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+            />
+          </div>
         </div>
       )}
 
@@ -362,36 +390,42 @@ const ChaperoView: React.FC<ChaperoViewProps> = ({ onClose }) => {
         </div>
       )}
 
-      {/* ── Resultado búsqueda ── */}
-      {searchQuery && highlightedIds && (
-        <div className="flex-shrink-0 px-3 py-1.5 text-xs font-bold bg-amber-50 border-b border-amber-200 text-amber-700">
-          {highlightedIds.size > 0
-            ? `${highlightedIds.size} posición(es) con "${searchQuery}"`
-            : `Sin resultados para "${searchQuery}"`}
-        </div>
-      )}
-
-      {/* ── Leyenda / resumen por material ── */}
-      {mode !== 'ubicar' && materialSummary.length > 0 && (
-        <div className="flex-shrink-0 flex items-center gap-2 overflow-x-auto px-3 py-1.5 bg-white border-b border-slate-200 [scrollbar-width:thin]">
+      {/* ── Leyenda / resumen por material — cada chip filtra por su material ── */}
+      {mode !== 'ubicar' && (materialSummary.length > 0 || searchQuery) && (
+        <div className="flex-shrink-0 flex items-center gap-1.5 overflow-x-auto px-2 sm:px-3 py-1.5 bg-white border-b border-slate-200 [scrollbar-width:thin]">
           {materialSummary.map(([material, count]) => {
             const style = getMaterialStyle(material);
+            const active = activeMaterialFilter === material.toUpperCase();
             return (
-              <span
+              <button
                 key={material}
-                className="flex items-center gap-1 whitespace-nowrap text-[10px] sm:text-[11px] font-bold text-slate-600"
+                type="button"
+                onClick={() => setSearchQuery(active ? '' : material)}
+                aria-pressed={active}
+                className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-bold transition-colors ${
+                  active
+                    ? `${style.cell} ${style.text} ring-2 ring-amber-400`
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
               >
-                <span className={`w-2.5 h-2.5 rounded-full ${style.dot}`} />
+                <span className={`w-2.5 h-2.5 rounded-full ${style.dot}`} aria-hidden />
                 {material}
-                <span className="text-slate-400 font-black">{count}</span>
-              </span>
+                <span className="tabular-nums font-black opacity-60">{count}</span>
+              </button>
             );
           })}
+          {searchQuery && highlightedIds && (
+            <span className={`ml-auto pl-2 whitespace-nowrap text-[11px] font-bold ${highlightedIds.size > 0 ? 'text-amber-700' : 'text-red-600'}`}>
+              {highlightedIds.size > 0
+                ? `${highlightedIds.size} posición${highlightedIds.size === 1 ? '' : 'es'} con «${searchQuery}»`
+                : `Sin resultados para «${searchQuery}»`}
+            </span>
+          )}
         </div>
       )}
 
       {/* ── Grid ── */}
-      <main className="flex-1 min-h-0 overflow-y-auto">
+      <main className="flex-1 min-h-0 overflow-y-auto bg-slate-100">
         {loading ? (
           <div className="flex items-center justify-center h-40 text-slate-400 text-sm">Cargando chapero…</div>
         ) : (
