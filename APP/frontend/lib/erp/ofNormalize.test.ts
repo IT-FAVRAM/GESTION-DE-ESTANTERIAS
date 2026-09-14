@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeOf, isLookupableOf } from './ofNormalize';
+import { normalizeOf, isLookupableOf, canonicalOrderFab, isBareOfPrefix, isOverlongOf } from './ofNormalize';
 
 describe('normalizeOf', () => {
   it('deja intacta una OF ya canónica', () => {
@@ -49,6 +49,42 @@ describe('normalizeOf', () => {
     expect(normalizeOf('OF26-000000')).toBeNull(); // 6 dígitos: fuera de formato
     expect(normalizeOf('OF26-00000')).toBeNull();
     expect(normalizeOf('CL34712023')).toBeNull();
+  });
+});
+
+describe('canonicalOrderFab', () => {
+  it('unifica las OFs mal tecleadas que partían la identidad de la pieza (casos reales)', () => {
+    expect(canonicalOrderFab('OF26-0461 9')).toBe('OF26-04619');
+    expect(canonicalOrderFab('OF26--03910')).toBe('OF26-03910');
+    expect(canonicalOrderFab('of26-5315')).toBe('OF26-05315');
+    expect(canonicalOrderFab('OF26-04619')).toBe('OF26-04619');
+  });
+
+  it('deja tal cual el texto libre que se usa como nota y los centinelas', () => {
+    expect(canonicalOrderFab('OF- RECHAZO SEDECAL')).toBe('OF- RECHAZO SEDECAL');
+    expect(canonicalOrderFab('OF26-VARIOS')).toBe('OF26-VARIOS');
+    expect(canonicalOrderFab('of parado')).toBe('OF PARADO');
+    expect(canonicalOrderFab('SIN-OF')).toBe('SIN-OF');
+    expect(canonicalOrderFab('')).toBe('');
+  });
+});
+
+describe('isBareOfPrefix', () => {
+  it('detecta el prefijo del año sin número detrás', () => {
+    expect(isBareOfPrefix('OF26')).toBe(true);
+    expect(isBareOfPrefix('OF26-')).toBe(true);
+    expect(isBareOfPrefix('of26 - ')).toBe(true);
+    expect(isBareOfPrefix('OF26-1')).toBe(false);
+    expect(isBareOfPrefix('OF26-VARIOS')).toBe(false);
+  });
+});
+
+describe('isOverlongOf', () => {
+  it('detecta el artículo pegado detrás de la OF (casos reales)', () => {
+    expect(isOverlongOf('OF26-0556524165')).toBe(true);
+    expect(isOverlongOf('OF26-085931')).toBe(true);
+    expect(isOverlongOf('OF26-05565')).toBe(false);
+    expect(isOverlongOf('OF26-VARIOS')).toBe(false);
   });
 });
 

@@ -6,6 +6,7 @@ import {
   requireAllowedRoles,
   resolveOperationalActor,
 } from './authz';
+import { canonicalOrderFab, isBareOfPrefix, isOverlongOf } from './ofNormalize';
 
 const normalize = (value?: string | null) => (value || '').trim().toUpperCase();
 
@@ -344,7 +345,18 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
   const payload = data?.payload || {};
   const shelfCode = normalize(payload?.shelfCode || actor.assignedShelf);
   const articleCode = String(payload?.articleCode || '').trim();
-  const orderFab = String(payload?.orderFab || '').trim();
+  const rawOrderFab = String(payload?.orderFab || '').trim();
+  // Al CREAR una presencia la OF se guarda en forma canónica. En el resto de
+  // operaciones se usa tal cual llega: el frontend manda la OF guardada del ítem
+  // y las piezas antiguas mal escritas tienen que seguir pudiéndose retirar.
+  const createsPresence = op === 'ubicar' || op === 'ubicarMulti';
+  if (createsPresence && isBareOfPrefix(rawOrderFab)) {
+    throw new functions.https.HttpsError('invalid-argument', `Falta el número de la OF (solo se ha escrito "${rawOrderFab}").`);
+  }
+  if (createsPresence && isOverlongOf(rawOrderFab)) {
+    throw new functions.https.HttpsError('invalid-argument', `La OF "${rawOrderFab}" tiene más de 5 dígitos. ¿Se ha pegado el artículo detrás?`);
+  }
+  const orderFab = createsPresence ? canonicalOrderFab(rawOrderFab) : rawOrderFab;
   // SUBCONTRATACIÓN: artículo de etiqueta de subcontratación (código amarillo, sin OF).
   // Cuando es true se permite OF vacía y se marca el ítem para trazabilidad.
   const subcontratacion = payload?.subcontratacion === true;

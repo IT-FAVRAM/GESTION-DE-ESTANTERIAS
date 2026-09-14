@@ -7,7 +7,12 @@
  *   → orderFab: "OF25-07221"
  * 
  * La pistola USB estándar emula un teclado y envía Enter al final.
+ *
+ * La OF se devuelve siempre en forma canónica (OFyy-nnnnn), la misma con la que
+ * se guarda la pieza, para que "ya está ubicado" y retirar la encuentren.
  */
+
+import { canonicalOrderFab } from './erp/ofNormalize';
 
 // ─── Types ───
 
@@ -128,7 +133,7 @@ export const parseScanInput = (rawInput: string): ScanParseResult => {
     success: true,
     data: {
       articleCode,
-      orderFab,
+      orderFab: canonicalOrderFab(orderFab),
     },
   };
 };
@@ -252,7 +257,7 @@ export const parseScanInputLenient = (rawInput: string): ScanParseResult => {
 
   return {
     success: true,
-    data: { articleCode, orderFab },
+    data: { articleCode, orderFab: canonicalOrderFab(orderFab) },
   };
 };
 
@@ -280,14 +285,14 @@ export const parseScanFromLines = (lines: string[]): ScanParseResult => {
     // Si la propia línea de la OF ya trae el artículo, úsalo.
     const sameLine = extractArticleCode(norm[i].replace(of, ''));
     if (sameLine) {
-      return { success: true, data: { articleCode: sameLine, orderFab: of } };
+      return { success: true, data: { articleCode: sameLine, orderFab: canonicalOrderFab(of) } };
     }
 
     // Si no, el artículo casi siempre está en la línea inmediatamente inferior.
     if (i + 1 < norm.length) {
       const below = extractArticleCode(norm[i + 1]);
       if (below) {
-        return { success: true, data: { articleCode: below, orderFab: of } };
+        return { success: true, data: { articleCode: below, orderFab: canonicalOrderFab(of) } };
       }
     }
 
@@ -426,7 +431,7 @@ export const parseHojaDeRuta = (input: string[] | string): ScanParseResult => {
   }
 
   if (orderFab && articleCode) {
-    return { success: true, data: { articleCode, orderFab } };
+    return { success: true, data: { articleCode, orderFab: canonicalOrderFab(orderFab) } };
   }
   return {
     success: false,

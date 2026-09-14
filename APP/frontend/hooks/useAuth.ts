@@ -96,8 +96,31 @@ type GuestSession = {
   confirmedKiosk?: boolean; // set to true only by detectMode after backend confirmation
 };
 
-const buildGuestSession = (role: UserRole, section?: WarehouseSection, kioskId?: string | null, deviceAssignedShelf?: string | null): GuestSession => {
+/** Kiosko registrado: su nombre firma las operaciones ("Kiosko Soldadura"). */
+interface KioskDeviceIdentity { deviceId: string; name: string }
+
+const buildGuestSession = (
+  role: UserRole,
+  section?: WarehouseSection,
+  kioskId?: string | null,
+  deviceAssignedShelf?: string | null,
+  kioskDevice?: KioskDeviceIdentity | null,
+): GuestSession => {
   const assignedShelf = resolveAssignedShelfForRole(role, section, kioskId, deviceAssignedShelf);
+  // Los kioskos no identifican al operario: al menos queda en el historial QUÉ
+  // kiosko hizo cada movimiento (antes todo salía como "Operario Desarrollo").
+  if (role === 'OPERARIO' && kioskDevice?.name) {
+    return {
+      operarioId: `kiosk-${kioskDevice.deviceId}`,
+      operario: { id: kioskDevice.deviceId, name: kioskDevice.name, department: section || 'MECANIZADO', active: true },
+      role,
+      section,
+      guest: true,
+      assignedShelf,
+      kioskId: kioskId || null,
+      displayName: kioskDevice.name,
+    };
+  }
   const displayNameByRole: Record<UserRole, string> = {
     OPERARIO: 'Operario Desarrollo',
     CARRETILLERO: 'Carretillero Desarrollo',
@@ -302,8 +325,15 @@ export const useAuth = () => {
         if (potentialShelf) {
           // Build or migrate to a confirmed session
           let confirmedSession: GuestSession;
-          if (!existingSession || existingSession.role !== 'OPERARIO' || existingSession.assignedShelf !== potentialShelf) {
-            const session = buildGuestSession('OPERARIO', undefined, deviceConfig.kioskId, deviceConfig.assignedShelf);
+          const kioskDevice = deviceConfig.name ? { deviceId, name: deviceConfig.name } : null;
+          if (
+            !existingSession
+            || existingSession.role !== 'OPERARIO'
+            || existingSession.assignedShelf !== potentialShelf
+            // Sesiones antiguas firmadas "Operario Desarrollo" o kiosko renombrado.
+            || (kioskDevice && existingSession.displayName !== kioskDevice.name)
+          ) {
+            const session = buildGuestSession('OPERARIO', undefined, deviceConfig.kioskId, deviceConfig.assignedShelf, kioskDevice);
             confirmedSession = { ...session, confirmedKiosk: true };
           } else {
             confirmedSession = { ...existingSession, confirmedKiosk: true };

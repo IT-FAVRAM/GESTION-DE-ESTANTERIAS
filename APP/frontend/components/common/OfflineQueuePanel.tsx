@@ -20,6 +20,8 @@ interface OfflineQueuePanelProps {
   lastSyncError: string | null;
   onClose: () => void;
   onSyncNow: () => void;
+  /** Solo administración puede descartar operaciones de la cola. */
+  canDiscard: boolean;
 }
 
 const formatTime = (value?: string | null) => {
@@ -29,7 +31,11 @@ const formatTime = (value?: string | null) => {
   return date.toLocaleString('es-ES');
 };
 
-const ConflictEntry: React.FC<{ entry: OfflineQueueEntry }> = ({ entry }) => {
+/**
+ * La cola offline solo existe en ESTE dispositivo: descartar una operación la
+ * pierde para siempre. Por eso solo administración puede hacerlo.
+ */
+const ConflictEntry: React.FC<{ entry: OfflineQueueEntry; canDiscard: boolean }> = ({ entry, canDiscard }) => {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<Awaited<ReturnType<typeof analyzeConflict>> | null>(null);
 
@@ -97,12 +103,14 @@ const ConflictEntry: React.FC<{ entry: OfflineQueueEntry }> = ({ entry }) => {
         >
           Reponer en cola
         </button>
-        <button
-          onClick={() => discardOfflineEntry(entry.id)}
-          className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-950"
-        >
-          Descartar
-        </button>
+        {canDiscard && (
+          <button
+            onClick={() => discardOfflineEntry(entry.id)}
+            className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-950"
+          >
+            Descartar
+          </button>
+        )}
       </div>
     </div>
   );
@@ -116,6 +124,7 @@ const OfflineQueuePanel: React.FC<OfflineQueuePanelProps> = ({
   lastSyncError,
   onClose,
   onSyncNow,
+  canDiscard,
 }) => {
   const [tab, setTab] = React.useState<'queue' | 'audit'>('queue');
   const stats = getStorageStats();
@@ -211,6 +220,11 @@ const OfflineQueuePanel: React.FC<OfflineQueuePanelProps> = ({
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-4">
+              {!canDiscard && entries.length > 0 && (
+                <p className="mb-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200">
+                  Estos cambios solo están guardados en este dispositivo. Si alguno no se puede enviar, avisa a administración.
+                </p>
+              )}
               {entries.length === 0 ? (
                 <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 text-center text-slate-500">
                   No hay operaciones offline pendientes.
@@ -220,7 +234,7 @@ const OfflineQueuePanel: React.FC<OfflineQueuePanelProps> = ({
                   {entries
                     .filter((e) => e.status === 'conflict')
                     .map((entry) => (
-                      <ConflictEntry key={entry.id} entry={entry} />
+                      <ConflictEntry key={entry.id} entry={entry} canDiscard={canDiscard} />
                     ))}
 
                   {entries
@@ -263,12 +277,14 @@ const OfflineQueuePanel: React.FC<OfflineQueuePanelProps> = ({
                               Reintentar
                             </button>
                           )}
-                          <button
-                            onClick={() => discardOfflineEntry(entry.id)}
-                            className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-950"
-                          >
-                            Descartar
-                          </button>
+                          {canDiscard && (
+                            <button
+                              onClick={() => discardOfflineEntry(entry.id)}
+                              className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-950"
+                            >
+                              Descartar
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}

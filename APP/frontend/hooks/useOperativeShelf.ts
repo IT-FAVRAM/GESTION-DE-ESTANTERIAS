@@ -30,6 +30,7 @@ import { findArticleGlobal, type GlobalArticleLocation } from '../lib/findArticl
 import { inventoryApi } from '../lib/api/inventoryApi';
 import { getOperationalSession } from '../lib/operationalSession';
 import { parseCallableError } from '../lib/callableError';
+import { canonicalOrderFab } from '../lib/erp/ofNormalize';
 import { isReprocesosLocation, getShelfDefinition } from '../lib/firestoreSchema';
 import { validateContiguity } from '../lib/contiguityValidator';
 import type { LocationItem } from '../lib/schema/locations';
@@ -370,7 +371,13 @@ export function useOperativeShelf({
   }, [resetFlow, batchMode, batchArticles, pendingRetirarQueue, showToast]);
 
   const finishAction = useCallback((type: OperativeFeedback['type'], message: string) => {
-    showToast(type, message, 2800);
+    // Sin conexión las operaciones solo quedan en la cola local de ESTE
+    // dispositivo: no decir "correctamente" como si ya estuviera en el sistema.
+    if (type === 'success' && !navigator.onLine) {
+      showToast('info', `${message.replace(/ correctamente$/, '')}\nSIN CONEXIÓN: guardado en esta tablet, se enviará al volver la red.`, 6000);
+    } else {
+      showToast(type, message, 2800);
+    }
     resetFlow();
   }, [showToast, resetFlow]);
 
@@ -509,6 +516,14 @@ export function useOperativeShelf({
     setTrayItems((prev) => [...prev, { articleCode, orderFab }]);
     showToast('success', `${articleCode} añadido (${trayItems.length + 1} en bandeja)`);
   }, [trayItems, showToast]);
+
+  /** Quita del lote un artículo escaneado por error (antes solo se podía cancelar el lote entero). */
+  const removeBatchArticle = useCallback((index: number) => {
+    const removed = batchArticles[index];
+    if (!removed) return;
+    setBatchArticles((prev) => prev.filter((_, i) => i !== index));
+    showToast('info', `${removed.articleCode} quitado del lote (${batchArticles.length - 1} en lote)`);
+  }, [batchArticles, showToast]);
 
   const removeFromTray = useCallback((index: number) => {
     setTrayItems((prev) => prev.filter((_, i) => i !== index));
@@ -1145,7 +1160,10 @@ export function useOperativeShelf({
       setScannerActive(true);
       return;
     }
-    const { articleCode, orderFab, subcontratacion } = result.data;
+    const { articleCode, subcontratacion } = result.data;
+    // Misma OF con la que se guardará (backend también la canoniza al ubicar):
+    // así "ya está ubicado", el lote y retirar/mover buscan la misma pieza.
+    const orderFab = canonicalOrderFab(result.data.orderFab);
 
     // Lote: acumular artículos
     if (action === 'ubicar' && batchMode) {
@@ -1934,7 +1952,7 @@ export function useOperativeShelf({
     handleRecogidaConfirm, handleTraerConfirm,
     addAdditionalShelf,
     // bandeja de escaneo (scan-first)
-    addToTray, removeFromTray, clearTray, ubicarTray, retirarTray, requestDeliveryToSection,
+    addToTray, removeFromTray, clearTray, removeBatchArticle, ubicarTray, retirarTray, requestDeliveryToSection,
     setShowRetirarArticleList, setShowRetirarCellModal, setShowMoverArticleList,
     setSectionPicker, setScanMethodPickerOpen, setPendingAction,
     setShowReprocesosUbicacionModal,

@@ -14,7 +14,7 @@ import { FEATURE_CAMERA_QR_SCAN } from '../../lib/featureFlags';
 import { useOfLookup } from '../../hooks/useOfLookup';
 import OfLookupIndicator from '../erp/OfLookupIndicator';
 import type { ErpOfArticle } from '../../lib/erp/ofLookupApi';
-import { defaultOfPrefix } from '../../lib/erp/ofNormalize';
+import { canonicalOrderFab, defaultOfPrefix, isBareOfPrefix, isOverlongOf } from '../../lib/erp/ofNormalize';
 
 interface ScannerInputProps {
   onScan: (result: ScanParseResult) => void;
@@ -72,6 +72,10 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
   // Modo dual-field
   const [articleInput, setArticleInput] = useState('');
   const [ofInput, setOfInput] = useState(() => (ofOptional ? '' : defaultOfPrefix()));
+  // Error de validación del propio formulario. En kiosko el formulario es un
+  // modal que tapa el aviso general de la pantalla: sin esto el operario no veía
+  // por qué no se aceptaba lo que había escrito.
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Modo texto libre
   const [freeTextMode, setFreeTextMode] = useState(false);
@@ -138,6 +142,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
       setArticleInput('');
       setOfInput(ofOptional ? '' : defaultOfPrefix());
       lastAutoFilledRef.current = null;
+      setFormError(null);
       setFreeTextMode(false);
       setFreeTextArticle('');
       setFreeTextReference('');
@@ -163,8 +168,9 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
   const handleDualSubmit = () => {
     const article = articleInput.trim().toUpperCase();
     const ofRaw = ofInput.trim().toUpperCase();
-    // El prefijo precargado ("OF26-") sin dígitos detrás cuenta como vacío.
-    const of = ofRaw === defaultOfPrefix() ? '' : ofRaw;
+    // El prefijo del año sin número detrás ("OF26-", "OF26") cuenta como vacío.
+    // Lo demás se guarda canónico: "OF26-0461 9" → "OF26-04619".
+    const of = isBareOfPrefix(ofRaw) ? '' : canonicalOrderFab(ofRaw);
 
     // Fallback: la pistola escaneó el código completo con "//" de una vez.
     // Puede caer en cualquiera de los dos campos según cuál tuviera el foco
@@ -181,15 +187,27 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
       return;
     }
 
+    const reject = (error: string) => {
+      setFormError(error);
+      onScan({ success: false, error, rawInput: article });
+    };
+
     if (!article) {
-      onScan({ success: false, error: 'El código del artículo es obligatorio', rawInput: '' });
+      reject('El código del artículo es obligatorio');
       return;
     }
 
     if (!of && !ofOptional) {
-      onScan({ success: false, error: 'El campo Nº OF es obligatorio', rawInput: article });
+      reject('Falta el número de la OF');
       return;
     }
+
+    if (isOverlongOf(of)) {
+      reject(`La OF "${of}" tiene más de 5 dígitos. ¿Se ha pegado el artículo detrás?`);
+      return;
+    }
+
+    setFormError(null);
 
     onScan({
       success: true,
@@ -371,7 +389,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
                   ref={ofRef}
                   type="text"
                   value={ofInput}
-                  onChange={(e) => setOfInput(e.target.value)}
+                  onChange={(e) => { setOfInput(e.target.value); setFormError(null); }}
                   onKeyDown={handleOfKeyDown}
                   onFocus={handleOfFocus}
                   placeholder={ofOptional ? 'Sin OF (opcional)' : 'OF25-1234'}
@@ -401,7 +419,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
                   ref={inputRef}
                   type="text"
                   value={articleInput}
-                  onChange={(e) => setArticleInput(e.target.value)}
+                  onChange={(e) => { setArticleInput(e.target.value); setFormError(null); }}
                   onKeyDown={handleArticleKeyDown}
                   placeholder="Se rellena solo al escribir la OF"
                   disabled={disabled}
@@ -413,6 +431,11 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
                 />
               </div>
             </div>
+            {formError && (
+              <p role="alert" className="mb-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-bold text-red-700">
+                {formError}
+              </p>
+            )}
             <div className="flex gap-2">
               {onCancel && (
                 <button
@@ -444,7 +467,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
               ref={ofRef}
               type="text"
               value={ofInput}
-              onChange={(e) => setOfInput(e.target.value)}
+              onChange={(e) => { setOfInput(e.target.value); setFormError(null); }}
               onKeyDown={handleOfKeyDown}
               onFocus={handleOfFocus}
               placeholder={ofOptional ? "Sin OF (opcional)" : "Nº OF (ej: OF25-1234)"}
@@ -469,7 +492,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({
               ref={inputRef}
               type="text"
               value={articleInput}
-              onChange={(e) => setArticleInput(e.target.value)}
+              onChange={(e) => { setArticleInput(e.target.value); setFormError(null); }}
               onKeyDown={handleArticleKeyDown}
               placeholder="Código artículo (se rellena solo)"
               disabled={disabled}

@@ -18,6 +18,7 @@ const CameraOCRScanner = React.lazy(() => import('../common/CameraOCRScanner'));
 import ScanMethodPicker from '../common/ScanMethodPicker';
 import type { ScanMethod } from '../../lib/types/scan';
 import { parseCallableError } from '../../lib/callableError';
+import { canonicalOrderFab } from '../../lib/erp/ofNormalize';
 import ConfirmationModal from '../common/ConfirmationModal';
 import { ALL_SHELVES, SHELF_DEFINITIONS } from '../../lib/firestoreSchema';
 import { formatArticleDisplay, type ScanParseResult, parseScanInput, parseScanInputLenient } from '../../lib/qrParser';
@@ -235,7 +236,9 @@ const ShelfNavigator: React.FC<ShelfNavigatorProps> = ({ shelfCode: lockedShelf,
       setScannerActive(true);
       return;
     }
-    const { articleCode, orderFab } = result.data;
+    const { articleCode } = result.data;
+    // Misma OF con la que se guarda la pieza (ver canonicalOrderFab).
+    const orderFab = canonicalOrderFab(result.data.orderFab);
 
     // Batch mode: add article to list
     if (action === 'ubicar' && batchMode) {

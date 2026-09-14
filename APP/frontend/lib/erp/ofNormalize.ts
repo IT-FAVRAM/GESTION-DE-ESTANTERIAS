@@ -53,6 +53,32 @@ export function normalizeOf(raw: string | null | undefined): string | null {
 }
 
 /**
+ * OF para GUARDAR y buscar la pieza: si lo tecleado parece un número de OF se
+ * deja canónico (`OF26-0461 9` → `OF26-04619`, `OF26--03910` → `OF26-03910`);
+ * si es texto libre (`OF- RECHAZO SEDECAL`, `OF26-VARIOS`) o un centinela
+ * (`SIN-OF`) se deja tal cual, en mayúsculas. La OF forma parte de la identidad
+ * de la pieza: sin esto, un espacio de más creaba una pieza distinta.
+ * Espejo del backend (backend/src/ofNormalize.ts).
+ */
+export function canonicalOrderFab(raw: string | null | undefined): string {
+  const upper = String(raw ?? '').trim().toUpperCase();
+  return normalizeOf(upper) ?? upper;
+}
+
+/**
+ * Número de OF con más de 5 dígitos (`OF26-0556524165`): casi siempre el
+ * artículo pegado detrás de la OF. Una OF real nunca los tiene.
+ */
+export function isOverlongOf(raw: string | null | undefined): boolean {
+  return /^OF\d{2}[-_]*\d{6,}$/.test(String(raw ?? '').trim().toUpperCase().replace(/\s+/g, ''));
+}
+
+/** Solo el prefijo del año (`OF26`, `OF26-`): falta el número de la OF. */
+export function isBareOfPrefix(raw: string | null | undefined): boolean {
+  return /^OF\d{2}[-_\s]*$/.test(String(raw ?? '').trim().toUpperCase());
+}
+
+/**
  * ¿Merece la pena consultar el ERP con este texto? Útil para no disparar la
  * búsqueda mientras el operario aún está tecleando.
  */

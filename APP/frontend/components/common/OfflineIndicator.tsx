@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { useOfflineStatus } from '../../hooks/useOfflineStatus';
+import { useAuth } from '../../hooks/useAuth';
 import OfflineQueuePanel from './OfflineQueuePanel';
 
 const OfflineIndicator: React.FC = () => {
@@ -21,6 +22,7 @@ const OfflineIndicator: React.FC = () => {
     entries,
     syncNow,
   } = useOfflineStatus();
+  const { role } = useAuth();
 
   if (
     !isOffline &&
@@ -89,6 +91,7 @@ const OfflineIndicator: React.FC = () => {
         lastSyncError={lastSyncError}
         onClose={() => setPanelOpen(false)}
         onSyncNow={() => void syncNow()}
+        canDiscard={role === 'ADMIN' || role === 'SUPERADMIN'}
       />
     </>
   );

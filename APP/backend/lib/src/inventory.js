@@ -4,6 +4,7 @@ exports.updateReproceso = exports.cartOperate = exports.shelfOperate = exports.i
 const functions = require("firebase-functions");
 const firebaseAdmin_1 = require("./firebaseAdmin");
 const authz_1 = require("./authz");
+const ofNormalize_1 = require("./ofNormalize");
 const normalize = (value) => (value || '').trim().toUpperCase();
 /** Normaliza shelfCode para búsqueda: MEC/PME → PRE (consolidación PRE+MEC) */
 const normalizeShelfCodeForSearch = (shelfCode) => {
@@ -328,7 +329,18 @@ exports.shelfOperate = functions.https.onCall(async (data, context) => {
     const payload = (data === null || data === void 0 ? void 0 : data.payload) || {};
     const shelfCode = normalize((payload === null || payload === void 0 ? void 0 : payload.shelfCode) || actor.assignedShelf);
     const articleCode = String((payload === null || payload === void 0 ? void 0 : payload.articleCode) || '').trim();
-    const orderFab = String((payload === null || payload === void 0 ? void 0 : payload.orderFab) || '').trim();
+    const rawOrderFab = String((payload === null || payload === void 0 ? void 0 : payload.orderFab) || '').trim();
+    // Al CREAR una presencia la OF se guarda en forma canónica. En el resto de
+    // operaciones se usa tal cual llega: el frontend manda la OF guardada del ítem
+    // y las piezas antiguas mal escritas tienen que seguir pudiéndose retirar.
+    const createsPresence = op === 'ubicar' || op === 'ubicarMulti';
+    if (createsPresence && (0, ofNormalize_1.isBareOfPrefix)(rawOrderFab)) {
+        throw new functions.https.HttpsError('invalid-argument', `Falta el número de la OF (solo se ha escrito "${rawOrderFab}").`);
+    }
+    if (createsPresence && (0, ofNormalize_1.isOverlongOf)(rawOrderFab)) {
+        throw new functions.https.HttpsError('invalid-argument', `La OF "${rawOrderFab}" tiene más de 5 dígitos. ¿Se ha pegado el artículo detrás?`);
+    }
+    const orderFab = createsPresence ? (0, ofNormalize_1.canonicalOrderFab)(rawOrderFab) : rawOrderFab;
     // SUBCONTRATACIÓN: artículo de etiqueta de subcontratación (código amarillo, sin OF).
     // Cuando es true se permite OF vacía y se marca el ítem para trazabilidad.
     const subcontratacion = (payload === null || payload === void 0 ? void 0 : payload.subcontratacion) === true;

@@ -1,5 +1,7 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import { Check } from 'lucide-react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { Check, Search } from 'lucide-react';
+import { parseScanInput } from '../../lib/qrParser';
+import { canonicalOrderFab } from '../../lib/erp/ofNormalize';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import { isUrgentLocation } from '../../lib/firestoreSchema';
 import type { UrgentAlert } from '../../lib/firestoreSchema';
@@ -124,10 +126,71 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
     });
   }, []);
 
+  // ── Buscador / escaneo ─────────────────────────────────────────────────────
+  // En estanterías grandes (Zincado ~350 filas) buscar a ojo era inviable.
+  // Escribir filtra la lista; escanear la etiqueta (pistola: texto + Enter)
+  // marca directamente la pieza.
+  const [query, setQuery] = useState('');
+  const [scanMsg, setScanMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const q = query.trim().toUpperCase().replace(/\s+/g, '');
+  const matchesQuery = useCallback((item: RetirarItem) =>
+    !q
+    || item.articleCode.toUpperCase().replace(/\s+/g, '').includes(q)
+    || item.orderFab.toUpperCase().replace(/\s+/g, '').includes(q),
+  [q]);
+  const visibleItems = useMemo(() => items.filter(matchesQuery), [items, matchesQuery]);
+  const visibleGroups = useMemo(
+    () => groupedItems
+      .map((g) => ({ ...g, items: g.items.filter(matchesQuery) }))
+      .filter((g) => g.items.length > 0),
+    [groupedItems, matchesQuery],
+  );
+
+  // Con pistola el campo tiene que tener el foco; en tablet táctil no, para no
+  // sacar el teclado en pantalla nada más abrir.
+  useEffect(() => {
+    if (window.matchMedia?.('(pointer: fine)').matches) searchRef.current?.focus();
+  }, []);
+
+  const selectKeys = (keys: string[]) =>
+    setSelected((prev) => new Set([...prev, ...keys]));
+
+  const handleSearchEnter = () => {
+    const raw = query.trim();
+    if (!raw) return;
+    const parsed = parseScanInput(raw);
+    if (parsed.success) {
+      const { articleCode, orderFab } = parsed.data;
+      const hits = items.filter((i) =>
+        i.articleCode.toUpperCase() === articleCode && canonicalOrderFab(i.orderFab) === orderFab);
+      if (hits.length > 0) {
+        selectKeys(hits.map(makeKey));
+        setScanMsg({ ok: true, text: `${articleCode} marcado${hits.length > 1 ? ` (${hits.length} filas)` : ''}` });
+      } else {
+        setScanMsg({ ok: false, text: `${articleCode} ${orderFab} no está en esta estantería` });
+      }
+      setQuery('');
+      return;
+    }
+    // Texto normal: si el filtro deja una sola pieza, Enter la marca.
+    if (visibleItems.length === 1) {
+      selectKeys([makeKey(visibleItems[0])]);
+      setScanMsg({ ok: true, text: `${visibleItems[0].articleCode} marcado` });
+      setQuery('');
+    }
+  };
+
+  // "Seleccionar todo" actúa sobre lo que se ve (la lista filtrada, si hay filtro).
+  const allVisibleSelected = visibleItems.length > 0 && visibleItems.every((i) => selected.has(makeKey(i)));
   const toggleAll = useCallback(() => {
-    if (selected.size === items.length) setSelected(new Set());
-    else setSelected(new Set(items.map(makeKey)));
-  }, [selected.size, items]);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) visibleItems.forEach((i) => next.delete(makeKey(i)));
+      else visibleItems.forEach((i) => next.add(makeKey(i)));
+      return next;
+    });
+  }, [allVisibleSelected, visibleItems]);
 
   // Retirar muchos de golpe (p. ej. "Seleccionar todo") pide una segunda
   // confirmación con el recuento: un toque accidental vaciaba la estantería.
@@ -198,20 +261,59 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
         </div>
       ) : (
         <>
-          <div className="px-4 py-2 bg-slate-900/50 border-b border-slate-800 flex items-center justify-between">
+          <div className="px-4 pt-3 pb-2 border-b border-slate-800 space-y-1.5">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" aria-hidden />
+              <input
+                ref={searchRef}
+                type="text"
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); setScanMsg(null); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearchEnter(); } }}
+                placeholder="Buscar artículo u OF, o escanear la etiqueta"
+                aria-label="Buscar artículo u OF, o escanear la etiqueta"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="characters"
+                spellCheck={false}
+                className="w-full h-12 pl-10 pr-10 bg-slate-800 border border-slate-600 rounded-xl text-base text-white placeholder-slate-500 font-mono focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
+              />
+              {query && (
+                <button
+                  onClick={() => { setQuery(''); setScanMsg(null); searchRef.current?.focus(); }}
+                  aria-label="Borrar búsqueda"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 text-slate-400 hover:text-white text-lg"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            {scanMsg && (
+              <p role="status" className={`text-sm font-bold ${scanMsg.ok ? 'text-emerald-400' : 'text-amber-300'}`}>{scanMsg.text}</p>
+            )}
+          </div>
+
+          <div className="px-4 py-2 bg-slate-900/50 border-b border-slate-800 flex items-center justify-between gap-3">
             <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">
-              {items.length} artículo{items.length !== 1 ? 's' : ''} — toca para seleccionar
+              {q
+                ? `${visibleItems.length} de ${items.length} artículos`
+                : `${items.length} artículo${items.length !== 1 ? 's' : ''} — toca para seleccionar`}
+              {selected.size > 0 && <span className="text-red-300"> · {selected.size} marcado{selected.size !== 1 ? 's' : ''}</span>}
             </p>
             <button
               onClick={toggleAll}
-              className="shrink-0 min-h-10 px-3 rounded-xl border border-red-500/50 text-sm text-red-300 font-bold hover:bg-red-500/10 active:scale-95 transition-all"
+              disabled={visibleItems.length === 0}
+              className="shrink-0 min-h-10 px-3 rounded-xl border border-red-500/50 text-sm text-red-300 font-bold hover:bg-red-500/10 active:scale-95 transition-all disabled:opacity-40"
             >
-              {selected.size === items.length ? 'Deseleccionar todo' : 'Seleccionar todo'}
+              {allVisibleSelected ? 'Deseleccionar' : 'Seleccionar'} {q ? 'estos' : 'todo'}
             </button>
           </div>
 
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
-            {groupedItems.map((group) => (
+            {visibleGroups.length === 0 && (
+              <p className="text-center text-slate-400 py-10">Ningún artículo coincide con «{query}»</p>
+            )}
+            {visibleGroups.map((group) => (
               <div key={group.position}>
                 {/* Encabezado de ubicación */}
                 <div className="mb-2 px-2 py-1 flex items-center gap-2">

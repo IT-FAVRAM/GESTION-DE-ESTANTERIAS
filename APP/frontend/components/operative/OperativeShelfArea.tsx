@@ -138,7 +138,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
     addAdditionalShelf,
     setShowRetirarArticleList, setShowMoverArticleList, setSectionPicker, setScanMethodPickerOpen,
     scanArticleOnly,
-    enableScanTray, trayItems, addToTray, removeFromTray, clearTray, ubicarTray, retirarTray,
+    enableScanTray, trayItems, addToTray, removeFromTray, clearTray, ubicarTray, retirarTray, removeBatchArticle,
     requestDeliveryToSection,
   } = engine;
 
@@ -523,13 +523,21 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             </div>
           </div>
           {batchArticles.length > 0 && (
-            <div className="max-h-20 overflow-y-auto bg-slate-50 rounded-lg p-2 mb-2">
+            <div className="max-h-40 overflow-y-auto bg-slate-50 rounded-lg px-2 py-1 mb-2">
               {batchArticles.map((a, i) => (
-                <div key={i} className="flex items-center justify-between text-xs py-0.5">
-                  <span className="text-slate-700 font-mono truncate">
+                <div key={`${a.articleCode}|${a.orderFab}`} className="flex items-center gap-2 text-xs">
+                  <span className="flex-1 min-w-0 text-slate-700 font-mono truncate">
                     <span className="text-cyan-600 font-bold">{i + 1}.</span> {a.articleCode}
                   </span>
                   <span className="text-slate-500 font-mono text-[10px]">{a.orderFab}</span>
+                  <button
+                    onClick={() => removeBatchArticle(i)}
+                    disabled={processing}
+                    aria-label={`Quitar ${a.articleCode} del lote`}
+                    className="shrink-0 w-10 h-10 -my-1 flex items-center justify-center rounded-lg text-rose-500 hover:bg-rose-50 active:scale-90 transition-all disabled:opacity-40"
+                  >
+                    ✕
+                  </button>
                 </div>
               ))}
             </div>
