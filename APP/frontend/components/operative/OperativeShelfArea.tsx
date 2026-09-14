@@ -31,6 +31,7 @@ import RetirarArticleList from '../kiosk/RetirarArticleList';
 import RetirarCellModal from '../kiosk/RetirarCellModal';
 import HistoryModal from '../kiosk/HistoryModal';
 import MoverArticleList from '../kiosk/MoverArticleList';
+import MoverPresencePicker from './MoverPresencePicker';
 import ReprocesosUbicacionModal from '../kiosk/ReprocesosUbicacionModal';
 import ReprocesosEditor from '../kiosk/ReprocesosEditor';
 import RecogidaModal from '../kiosk/RecogidaModal';
@@ -125,6 +126,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
     successModal, dismissSuccess,
     utilSoldaduraModalOpen, setUtilSoldaduraModalOpen, utilSoldaduraPosition,
     moverNeeded, highlightedPositions,
+    moverPicker, chooseMoverAll, chooseMoverPresence,
     setScannerActive, setHighlightedSearch,
     cancelAction, applyScanMethod, beginBatchMode, showToast,
     prepareChangeMethod, scanMore, handleScanMethodPickerClose,
@@ -805,6 +807,16 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
           shelfCode={shelfCode}
           onSelect={handleMoverSelectArticle}
           onClose={() => { setShowMoverArticleList(false); cancelAction(); }}
+        />
+      )}
+
+      {moverPicker && scanData && (
+        <MoverPresencePicker
+          articleCode={scanData.articleCode}
+          options={moverPicker}
+          onAll={chooseMoverAll}
+          onPick={chooseMoverPresence}
+          onCancel={cancelAction}
         />
       )}
 

@@ -46,7 +46,8 @@ export interface UseShelfReturn {
   ubicarMulti: (articleCode: string, orderFab: string, positions: string[], operarioId: string, operarioName: string, importe?: number, cantidad?: number, subcontratacion?: boolean) => Promise<boolean>;
   retirar: (articleCode: string, orderFab: string, operarioId: string, operarioName: string) => Promise<{ success: boolean; positions: string[]; error?: string }>;
   retirarDeUbicacion: (articleCode: string, orderFab: string, position: string, operarioId: string, operarioName: string, presenceId?: string) => Promise<{ success: boolean; position: string; error?: string }>;
-  mover: (articleCode: string, orderFab: string, newPositions: string[], operarioId: string, operarioName: string) => Promise<boolean>;
+  /** presenceIds: mover solo esas presencias (un parcial); si no, todas las de la estantería. */
+  mover: (articleCode: string, orderFab: string, newPositions: string[], operarioId: string, operarioName: string, presenceIds?: string[]) => Promise<boolean>;
   findArticle: (articleCode: string, orderFab: string) => ShelfLocationState[];
   emptyShelf: (operarioId: string, operarioName: string) => Promise<boolean>;
   validateShelfAccess: (purpose: 'view' | 'operate') => Promise<{ ok: boolean }>;
@@ -450,6 +451,7 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
     newPositions: string[],
     operarioId: string,
     operarioName: string,
+    presenceIds?: string[],
   ): Promise<boolean> => {
     const previousLocations = JSON.parse(JSON.stringify(locations));
     try {
@@ -468,9 +470,13 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
         setError('No se puede mover un articulo a posiciones destino repetidas.');
         return false;
       }
-      const activePresences = locations.filter((loc) =>
-        loc.items.some((item) => sameItem(item, articleCode, orderFab)),
+      // Presencias (no huecos): un hueco puede tener dos parciales de la misma pieza.
+      const allPresences = locations.flatMap((loc) =>
+        loc.items.filter((item) => sameItem(item, articleCode, orderFab)).map((item) => ({ position: loc.position, presenceId: item.presenceId })),
       );
+      const activePresences = presenceIds?.length
+        ? allPresences.filter((p) => p.presenceId && presenceIds.includes(p.presenceId))
+        : allPresences;
       if (activePresences.length === 0) {
         setError('Articulo no encontrado o ya retirado');
         return false;
@@ -478,31 +484,24 @@ export const useShelf = (shelfCode: string): UseShelfReturn => {
       // Destinos válidos: tantos como presencias (1:1) o UN único destino,
       // que apila todas las presencias en la misma posición.
       if (activePresences.length !== normalizedPositions.length && normalizedPositions.length !== 1) {
-        setError('Selecciona un hueco por presencia activa, o un único hueco para apilarlas todas.');
+        setError('Elige un hueco de destino por cada hueco que ocupa la pieza, o uno solo para juntarlas.');
         return false;
       }
-      // Vista combinada PRE+MEC: el shelfCode FÍSICO real depende de la posición
-      // (014-046 → MEC), no del shelfCode de la vista (siempre 'PRE'). Resolver
-      // origen y destino reales y bloquear si cruzan PRE↔MEC — el backend de
-      // 'mover' asume una sola estantería física; cruzar requiere REUBICAR
-      // (admin). Sin esta resolución, mover a/desde un hueco de Mecanizado
-      // escribía en un documento huérfano bajo PRE (bug detectado en pruebas).
-      const sourceShelf = getTargetShelf(activePresences[0].position);
-      const destShelves = normalizedPositions.map((p) => getTargetShelf(p));
-      const realShelfCode = destShelves.find((s) => s !== sourceShelf) ? null : sourceShelf;
-      if (!realShelfCode) {
-        setError('No se puede mover entre Prensas y Mecanizado con esta acción; usa REUBICAR (admin).');
-        return false;
-      }
+      // Vista combinada PRE+MEC: la estantería FÍSICA depende de la posición
+      // (014-046 → MEC). Se manda la de cada destino; el backend mueve entre PRE
+      // y MEC porque son la misma estantería (antes se bloqueaba y, además, mover
+      // dentro de Mecanizado fallaba siempre).
+      const newLocations = normalizedPositions.map((p) => ({ shelfCode: getTargetShelf(p), position: p }));
+      const payloadExtra = { newLocations, ...(presenceIds?.length ? { presenceIds } : {}) };
       const session = getOperationalSession();
       if (!navigator.onLine) {
-        enqueueOfflineOperation('MOVER', { shelfCode: realShelfCode, articleCode, orderFab, newPositions: normalizedPositions, operarioId, operarioName }, session);
-        setLocations((prev) => applyMover(prev, realShelfCode, articleCode, orderFab, normalizedPositions, operarioId, operarioName));
+        enqueueOfflineOperation('MOVER', { shelfCode, articleCode, orderFab, newPositions: normalizedPositions, ...payloadExtra, operarioId, operarioName }, session);
+        setLocations((prev) => applyMover(prev, shelfCode, articleCode, orderFab, normalizedPositions, operarioId, operarioName));
         return true;
       }
 
       // Online: NO optimistic update — onSnapshot fires automatically and is the single source of truth.
-      const moverResult = await inventoryApi.mover({ shelfCode: realShelfCode, articleCode, orderFab, newPositions: normalizedPositions, operarioId, operarioName }, session);
+      const moverResult = await inventoryApi.mover({ shelfCode, articleCode, orderFab, newPositions: normalizedPositions, ...payloadExtra, operarioId, operarioName }, session);
       if (!moverResult?.ok) {
         throw new Error(`Fallo al mover artículo en Firestore: ${moverResult?.ok === false ? 'backend rechazó la operación' : 'sin respuesta del servidor'}`);
       }

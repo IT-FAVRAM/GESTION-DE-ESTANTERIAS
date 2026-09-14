@@ -24,8 +24,22 @@ interface RetirarItem {
   orderFab: string;
   position: string;
   presenceId?: string;
+  /** Fecha de llegada: presencias con la misma son UNA pieza en varios huecos. */
+  locatedAt?: string;
   /** Índice único dentro del array de items (garantiza clave única aunque haya duplicados) */
   itemIndex: number;
+}
+
+/**
+ * Una fila de la lista = una PIEZA. Una pieza grande ubicada a la vez en varios
+ * huecos (mismo artículo+OF+locatedAt) sale una sola vez y se retira de todos
+ * sus huecos; antes salía repetida y retirar solo una fila dejaba la otra
+ * mitad como fantasma.
+ */
+interface RetirarRow {
+  key: string;
+  lead: RetirarItem;
+  members: RetirarItem[];
 }
 
 interface RetirarArticleListProps {
@@ -36,9 +50,9 @@ interface RetirarArticleListProps {
   urgentAlerts?: UrgentAlert[];
 }
 
-interface ItemGroup {
+interface RowGroup {
   position: string;
-  items: RetirarItem[];
+  rows: RetirarRow[];
 }
 
 const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shelfCode, onConfirm, onClose, urgentAlerts = [] }) => {
@@ -53,6 +67,7 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
           orderFab: item.orderFab,
           position: loc.position,
           presenceId: item.presenceId,
+          locatedAt: item.locatedAt,
           itemIndex: globalIndex++,
         });
       }
@@ -71,31 +86,53 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
     return isUrgentLocation(shelfCode, n);
   }, [shelfCode]);
 
-  // Agrupar por ubicación y ordenar los grupos:
+  // La clave incluye itemIndex para garantizar unicidad aunque dos ítems tengan
+  // el mismo artículo/OF/posición/presenceId (p.ej. tras duplicación en Firestore).
+  const makeKey = (item: RetirarItem) =>
+    `${item.articleCode}__${item.orderFab}__${item.position}__${item.presenceId ?? ''}__${item.itemIndex}`;
+
+  // Piezas: presencias del mismo artículo+OF con el mismo locatedAt = una pieza.
+  const rows = useMemo<RetirarRow[]>(() => {
+    const byPiece = new Map<string, RetirarItem[]>();
+    for (const item of items) {
+      const pieceKey = item.locatedAt
+        ? `${item.articleCode}__${item.orderFab}__${item.locatedAt}`
+        : makeKey(item);
+      if (!byPiece.has(pieceKey)) byPiece.set(pieceKey, []);
+      byPiece.get(pieceKey)!.push(item);
+    }
+    return [...byPiece.values()].map((members) => {
+      const sorted = [...members].sort((a, b) => posOrder(a.position) - posOrder(b.position));
+      return { key: makeKey(sorted[0]), lead: sorted[0], members: sorted };
+    });
+  }, [items]);
+
+  // Agrupar por ubicación (la del primer hueco de cada pieza) y ordenar:
   //   1) artículos con alerta urgente (si los hay),
   //   2) ubicaciones URGENTES de la sección,
   //   3) resto.
   // Dentro de cada nivel, en orden numérico de posición.
-  const groupedItems = useMemo<ItemGroup[]>(() => {
-    const groups: Record<string, RetirarItem[]> = {};
-    for (const item of items) {
-      if (!groups[item.position]) groups[item.position] = [];
-      groups[item.position].push(item);
+  const groupedRows = useMemo<RowGroup[]>(() => {
+    const groups: Record<string, RetirarRow[]> = {};
+    for (const row of rows) {
+      const pos = row.lead.position;
+      if (!groups[pos]) groups[pos] = [];
+      groups[pos].push(row);
     }
-    const tier = (g: ItemGroup): number => {
-      if (g.items.some((it) => urgentCodes.has(it.articleCode))) return 0;
+    const tier = (g: RowGroup): number => {
+      if (g.rows.some((r) => urgentCodes.has(r.lead.articleCode))) return 0;
       if (isUrgentPos(g.position)) return 1;
       return 2;
     };
     return Object.entries(groups)
-      .map(([position, groupItems]) => ({ position, items: groupItems }))
+      .map(([position, groupRows]) => ({ position, rows: groupRows }))
       .sort((a, b) => {
         const ta = tier(a);
         const tb = tier(b);
         if (ta !== tb) return ta - tb;
         return posOrder(a.position) - posOrder(b.position);
       });
-  }, [items, urgentCodes, isUrgentPos]);
+  }, [rows, urgentCodes, isUrgentPos]);
 
   // Parciales: orden de llegada de cada artículo+OF en toda la nave (Parcial N de M).
   const [parciales, setParciales] = useState<Map<string, ParcialInfo>>(new Map());
@@ -108,13 +145,9 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
     return () => { cancelled = true; };
   }, [items]);
 
-  // La clave incluye itemIndex para garantizar unicidad aunque dos ítems tengan
-  // el mismo artículo/OF/posición/presenceId (p.ej. tras duplicación en Firestore).
-  const makeKey = (item: RetirarItem) =>
-    `${item.articleCode}__${item.orderFab}__${item.position}__${item.presenceId ?? ''}__${item.itemIndex}`;
-
+  // Selección por PIEZA (clave de la fila).
   const [selected, setSelected] = useState<Set<string>>(() =>
-    items.length === 1 ? new Set([makeKey(items[0])]) : new Set()
+    rows.length === 1 ? new Set([rows[0].key]) : new Set()
   );
 
   const toggle = useCallback((key: string) => {
@@ -134,17 +167,17 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
   const [scanMsg, setScanMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const q = query.trim().toUpperCase().replace(/\s+/g, '');
-  const matchesQuery = useCallback((item: RetirarItem) =>
+  const matchesQuery = useCallback((row: RetirarRow) =>
     !q
-    || item.articleCode.toUpperCase().replace(/\s+/g, '').includes(q)
-    || item.orderFab.toUpperCase().replace(/\s+/g, '').includes(q),
+    || row.lead.articleCode.toUpperCase().replace(/\s+/g, '').includes(q)
+    || row.lead.orderFab.toUpperCase().replace(/\s+/g, '').includes(q),
   [q]);
-  const visibleItems = useMemo(() => items.filter(matchesQuery), [items, matchesQuery]);
+  const visibleRows = useMemo(() => rows.filter(matchesQuery), [rows, matchesQuery]);
   const visibleGroups = useMemo(
-    () => groupedItems
-      .map((g) => ({ ...g, items: g.items.filter(matchesQuery) }))
-      .filter((g) => g.items.length > 0),
-    [groupedItems, matchesQuery],
+    () => groupedRows
+      .map((g) => ({ ...g, rows: g.rows.filter(matchesQuery) }))
+      .filter((g) => g.rows.length > 0),
+    [groupedRows, matchesQuery],
   );
 
   // Con pistola el campo tiene que tener el foco; en tablet táctil no, para no
@@ -162,11 +195,11 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
     const parsed = parseScanInput(raw);
     if (parsed.success) {
       const { articleCode, orderFab } = parsed.data;
-      const hits = items.filter((i) =>
-        i.articleCode.toUpperCase() === articleCode && canonicalOrderFab(i.orderFab) === orderFab);
+      const hits = rows.filter((r) =>
+        r.lead.articleCode.toUpperCase() === articleCode && canonicalOrderFab(r.lead.orderFab) === orderFab);
       if (hits.length > 0) {
-        selectKeys(hits.map(makeKey));
-        setScanMsg({ ok: true, text: `${articleCode} marcado${hits.length > 1 ? ` (${hits.length} filas)` : ''}` });
+        selectKeys(hits.map((r) => r.key));
+        setScanMsg({ ok: true, text: `${articleCode} marcado${hits.length > 1 ? ` (${hits.length} parciales)` : ''}` });
       } else {
         setScanMsg({ ok: false, text: `${articleCode} ${orderFab} no está en esta estantería` });
       }
@@ -174,32 +207,34 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
       return;
     }
     // Texto normal: si el filtro deja una sola pieza, Enter la marca.
-    if (visibleItems.length === 1) {
-      selectKeys([makeKey(visibleItems[0])]);
-      setScanMsg({ ok: true, text: `${visibleItems[0].articleCode} marcado` });
+    if (visibleRows.length === 1) {
+      selectKeys([visibleRows[0].key]);
+      setScanMsg({ ok: true, text: `${visibleRows[0].lead.articleCode} marcado` });
       setQuery('');
     }
   };
 
   // "Seleccionar todo" actúa sobre lo que se ve (la lista filtrada, si hay filtro).
-  const allVisibleSelected = visibleItems.length > 0 && visibleItems.every((i) => selected.has(makeKey(i)));
+  const allVisibleSelected = visibleRows.length > 0 && visibleRows.every((r) => selected.has(r.key));
   const toggleAll = useCallback(() => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (allVisibleSelected) visibleItems.forEach((i) => next.delete(makeKey(i)));
-      else visibleItems.forEach((i) => next.add(makeKey(i)));
+      if (allVisibleSelected) visibleRows.forEach((r) => next.delete(r.key));
+      else visibleRows.forEach((r) => next.add(r.key));
       return next;
     });
-  }, [allVisibleSelected, visibleItems]);
+  }, [allVisibleSelected, visibleRows]);
 
   // Retirar muchos de golpe (p. ej. "Seleccionar todo") pide una segunda
   // confirmación con el recuento: un toque accidental vaciaba la estantería.
   const [confirmingMany, setConfirmingMany] = useState(false);
-  const chosenItems = useMemo(() => items.filter((i) => selected.has(makeKey(i))), [items, selected]);
+  const chosenRows = useMemo(() => rows.filter((r) => selected.has(r.key)), [rows, selected]);
+  // Se retira cada presencia (todos los huecos de cada pieza elegida).
+  const chosenItems = useMemo(() => chosenRows.flatMap((r) => r.members), [chosenRows]);
 
   const handleConfirm = () => {
     if (chosenItems.length === 0) return;
-    if (chosenItems.length > CONFIRM_THRESHOLD && !confirmingMany) {
+    if (chosenRows.length > CONFIRM_THRESHOLD && !confirmingMany) {
       setConfirmingMany(true);
       return;
     }
@@ -208,22 +243,22 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
 
   if (confirmingMany) {
     const positions = new Set(chosenItems.map((i) => i.position)).size;
-    const all = chosenItems.length === items.length;
+    const all = chosenRows.length === rows.length;
     return (
       <div className="fixed inset-0 z-50 flex flex-col bg-slate-950/95 backdrop-blur-sm" role="alertdialog" aria-labelledby="retirar-many-title">
         <div className="px-4 py-5 border-b border-slate-800 text-center">
           <h2 id="retirar-many-title" className="text-2xl font-black text-white">
-            ¿Retirar {chosenItems.length} artículos?
+            ¿Retirar {chosenRows.length} artículos?
           </h2>
           <p className="text-sm text-red-300 font-bold mt-1">
             {all ? 'Es TODA la estantería' : `De ${positions} posicion${positions !== 1 ? 'es' : ''}`} · no se puede deshacer
           </p>
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5">
-          {chosenItems.map((item) => (
-            <div key={makeKey(item)} className="flex items-baseline justify-between gap-3 rounded-xl bg-slate-900 border border-slate-800 px-3 py-2">
-              <span className="font-mono font-bold text-white truncate">{item.articleCode}</span>
-              <span className="shrink-0 text-xs text-slate-400 font-mono">pos. {item.position}</span>
+          {chosenRows.map((row) => (
+            <div key={row.key} className="flex items-baseline justify-between gap-3 rounded-xl bg-slate-900 border border-slate-800 px-3 py-2">
+              <span className="font-mono font-bold text-white truncate">{row.lead.articleCode}</span>
+              <span className="shrink-0 text-xs text-slate-400 font-mono">pos. {row.members.map((m) => m.position).join(' + ')}</span>
             </div>
           ))}
         </div>
@@ -232,7 +267,7 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
             onClick={() => onConfirm(chosenItems)}
             className="w-full h-14 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-lg transition-all active:scale-95"
           >
-            SÍ, RETIRAR {chosenItems.length}
+            SÍ, RETIRAR {chosenRows.length}
           </button>
           <button
             onClick={() => setConfirmingMany(false)}
@@ -296,13 +331,13 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
           <div className="px-4 py-2 bg-slate-900/50 border-b border-slate-800 flex items-center justify-between gap-3">
             <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">
               {q
-                ? `${visibleItems.length} de ${items.length} artículos`
-                : `${items.length} artículo${items.length !== 1 ? 's' : ''} — toca para seleccionar`}
+                ? `${visibleRows.length} de ${rows.length} artículos`
+                : `${rows.length} artículo${rows.length !== 1 ? 's' : ''} — toca para seleccionar`}
               {selected.size > 0 && <span className="text-red-300"> · {selected.size} marcado{selected.size !== 1 ? 's' : ''}</span>}
             </p>
             <button
               onClick={toggleAll}
-              disabled={visibleItems.length === 0}
+              disabled={visibleRows.length === 0}
               className="shrink-0 min-h-10 px-3 rounded-xl border border-red-500/50 text-sm text-red-300 font-bold hover:bg-red-500/10 active:scale-95 transition-all disabled:opacity-40"
             >
               {allVisibleSelected ? 'Deseleccionar' : 'Seleccionar'} {q ? 'estos' : 'todo'}
@@ -328,8 +363,8 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
                 </div>
                 {/* Artículos en esta ubicación */}
                 <div className="space-y-2">
-                  {group.items.map((item) => {
-                    const key = makeKey(item);
+                  {group.rows.map((row) => {
+                    const { key, lead: item } = row;
                     const isSelected = selected.has(key);
                     return (
                       <button
@@ -363,6 +398,11 @@ const RetirarArticleList: React.FC<RetirarArticleListProps> = ({ locations, shel
                               })()}
                             </div>
                             <p className="text-sm text-slate-400 font-mono mt-0.5">{ofLabel(item.orderFab)}</p>
+                            {row.members.length > 1 && (
+                              <p className="text-xs font-bold text-sky-300 mt-1">
+                                Ocupa {row.members.length} huecos: pos. {row.members.map((m) => m.position).join(' + ')} · se retira de todos
+                              </p>
+                            )}
                           </div>
                         </div>
                       </button>

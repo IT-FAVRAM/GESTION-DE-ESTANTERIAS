@@ -52,6 +52,13 @@ export type OperativeAction =
 // ScanData ahora usa ParsedScan del módulo centralizado
 export type ScanData = ParsedScan;
 
+/** Una presencia (hueco) de la pieza que se va a mover. */
+export interface MoverPresenceOption {
+  presenceId: string;
+  position: string;
+  locatedAt?: string;
+}
+
 export interface OperativeFeedback {
   type: 'success' | 'error' | 'info';
   message: string;
@@ -189,6 +196,11 @@ export function useOperativeShelf({
 
   // Bandeja de escaneo (scan-first) — solo si enableScanTray.
   const [trayItems, setTrayItems] = useState<ScanTrayItem[]>([]);
+
+  // MOVER un solo parcial: presencias elegidas (null = todas las de la estantería)
+  // y selector "¿todo o solo uno?" cuando la pieza ocupa varios huecos.
+  const [moverPresenceIds, setMoverPresenceIds] = useState<string[] | null>(null);
+  const [moverPicker, setMoverPicker] = useState<MoverPresenceOption[] | null>(null);
 
   // Multi-sección (artículo grande)
   const [additionalShelfPositions, setAdditionalShelfPositions] = useState<AdditionalShelfPosition[]>([]);
@@ -344,6 +356,8 @@ export function useOperativeShelf({
     setScanArticleOnly(false);
     setSectionPicker((p) => ({ ...p, open: false }));
     setReubicarCtx(null);
+    setMoverPresenceIds(null);
+    setMoverPicker(null);
     setShowRecogidaModal(false);
     setShowTraerModal(false);
     setShowCarretilleroPicker(false);
@@ -1078,11 +1092,18 @@ export function useOperativeShelf({
     setProcessing(false);
     if (globalLocs.length === 0) return { action: 'add' };
 
-    // Cada ubicación previa del mismo artículo+OF es un "parcial" ya existente.
-    const parcialesActuales = globalLocs.length;
+    // Cada LLEGADA previa del mismo artículo+OF es un "parcial" ya existente: una
+    // pieza ubicada a la vez en varios huecos (mismo locatedAt) cuenta como uno.
+    const parcialesActuales = new Set(globalLocs.map((l) => l.locatedAt || l.locationId)).size;
     const nuevoParcial = parcialesActuales + 1;
-    const locationText = globalLocs
-      .map((l) => `• ${l.shelfName} — pos. ${displayPos(l.position)}`)
+    // Una línea por hueco (antes salía repetida por cada parcial del mismo hueco).
+    const perSlot = new Map<string, number>();
+    for (const l of globalLocs) {
+      const line = `• ${l.shelfName} — pos. ${displayPos(l.position)}`;
+      perSlot.set(line, (perSlot.get(line) ?? 0) + 1);
+    }
+    const locationText = [...perSlot.entries()]
+      .map(([line, n]) => (n > 1 ? `${line} (×${n})` : line))
       .join('\n');
     // Reubicar solo tiene sentido si hay UNA única ubicación previa (si no, no
     // sabríamos cuál de las varias mover). Regla de planta: cada tablet solo
@@ -1325,6 +1346,7 @@ export function useOperativeShelf({
         }
         setSelectedPositions([]);
         showToast('info', `Artículo encontrado en ${here.length} ubicación(es) de esta estantería. Selecciona destino.`);
+        offerMoverPresencePicker(articleCode, orderFab);
       } catch (err) {
         showToast('error', `Error buscando artículo: ${err instanceof Error ? err.message : String(err)}`);
         setScanData(null);
@@ -1443,8 +1465,7 @@ export function useOperativeShelf({
 
     // MOVER: confirmar destino con modal
     if (action === 'mover' && scanData) {
-      const found = findArticle(scanData.articleCode, scanData.orderFab);
-      const needed = found.length || 1;
+      const needed = moverPresenceIds?.length || moverPresencesOf(scanData.articleCode, scanData.orderFab).length || 1;
       const position = loc.position;
 
       // Mostrar confirmación: "¿Mover a posición X?"
@@ -1812,10 +1833,39 @@ export function useOperativeShelf({
   };
 
   // ── MOVER ─────────────────────────────────────────────────────────────────
+  /** Presencias (huecos) de la pieza en esta estantería, en orden de posición. */
+  const moverPresencesOf = (articleCode: string, orderFab: string): MoverPresenceOption[] =>
+    findArticle(articleCode, orderFab).flatMap((loc) =>
+      loc.items
+        .filter((it) => it.articleCode === articleCode && it.orderFab === orderFab && it.presenceId)
+        .map((it) => ({ presenceId: it.presenceId as string, position: loc.position, locatedAt: it.locatedAt })));
+
+  /** Si la pieza ocupa varios huecos, preguntar si se mueve todo o solo uno. */
+  const offerMoverPresencePicker = (articleCode: string, orderFab: string) => {
+    setMoverPresenceIds(null);
+    const presences = moverPresencesOf(articleCode, orderFab);
+    if (presences.length > 1) setMoverPicker(presences);
+  };
+
+  const chooseMoverAll = useCallback(() => {
+    const n = moverPicker?.length ?? 1;
+    setMoverPicker(null);
+    setMoverPresenceIds(null);
+    showToast('info', `Toca ${n} huecos de destino, o uno solo para juntarlo todo`);
+  }, [moverPicker, showToast]);
+
+  const chooseMoverPresence = useCallback((presenceId: string) => {
+    const opt = moverPicker?.find((p) => p.presenceId === presenceId);
+    setMoverPicker(null);
+    setMoverPresenceIds([presenceId]);
+    showToast('info', `Mover solo el de pos. ${opt ? displayPos(opt.position) : ''}: toca el hueco de destino`);
+  }, [moverPicker, showToast]);
+
   const handleMoverSelectArticle = (articleCode: string, orderFab: string) => {
     setShowMoverArticleList(false);
     setScanData({ articleCode, orderFab });
     setSelectedPositions([]);
+    if (action === 'mover') offerMoverPresencePicker(articleCode, orderFab);
 
     // En reubicar, capturamos cuántas presencias ocupa en ORIGEN antes de cambiar
     // a la sección destino (donde findArticle ya no lo encontraría).
@@ -1854,7 +1904,7 @@ export function useOperativeShelf({
     if (!scanData || selectedPositions.length === 0 || processingRef.current) return;
     processingRef.current = true;
     setProcessing(true);
-    const ok = await mover(scanData.articleCode, scanData.orderFab, selectedPositions, operarioId, displayName);
+    const ok = await mover(scanData.articleCode, scanData.orderFab, selectedPositions, operarioId, displayName, moverPresenceIds ?? undefined);
     processingRef.current = false;
     setProcessing(false);
     const { articleCode } = scanData;
@@ -1887,9 +1937,9 @@ export function useOperativeShelf({
   // ── Derivados ────────────────────────────────────────────────────────────────
   const moverNeeded = useMemo(() => {
     if (action !== 'mover' || !scanData) return 1;
-    return findArticle(scanData.articleCode, scanData.orderFab).length || 1;
+    return moverPresenceIds?.length || moverPresencesOf(scanData.articleCode, scanData.orderFab).length || 1;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [action, scanData, locations]);
+  }, [action, scanData, locations, moverPresenceIds]);
 
   const reubicarNeeded = reubicarCtx?.needed ?? 1;
 
@@ -1936,6 +1986,7 @@ export function useOperativeShelf({
     utilSoldaduraModalOpen, setUtilSoldaduraModalOpen,
     utilSoldaduraPosition, setUtilSoldaduraPosition,
     moverNeeded, highlightedPositions,
+    moverPicker, chooseMoverAll, chooseMoverPresence,
     // setters/handlers de búsqueda y escáner
     setScannerActive, setHighlightedSearch,
     // handlers de flujo

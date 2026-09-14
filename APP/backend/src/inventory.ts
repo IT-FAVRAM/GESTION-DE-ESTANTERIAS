@@ -707,26 +707,56 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
   }
 
   if (op === 'mover') {
+    // Cambiar de hueco DENTRO de la misma estantería. PRE (Prensas) y MEC
+    // (Mecanizado) son la misma estantería física: se puede mover entre ellas.
+    // - payload.newLocations [{shelfCode, position}] indica la estantería FÍSICA
+    //   de cada destino (vista combinada PRE: 014-046 → MEC). Si no llega (clientes
+    //   antiguos), todos los destinos son de `shelfCode`.
+    // - payload.presenceIds (opcional): mover solo esas presencias (un parcial).
+    // Las presencias se buscan por su hueco físico (locationIds), no por
+    // items.shelfCode: las de Mecanizado se guardan con shelfCode 'PRE' y la
+    // consulta antigua (shelfCode == 'MEC') no las encontraba nunca.
     const rawPositions = Array.isArray(payload?.newPositions) ? payload.newPositions : [];
-    const newPositions = rawPositions.map((value: unknown) => String(value).trim()).filter(Boolean);
-    if (!articleCode || !orderFab || newPositions.length === 0) {
+    const rawLocations: Array<{ shelfCode?: unknown; position?: unknown }> = Array.isArray(payload?.newLocations)
+      ? payload.newLocations
+      : rawPositions.map((position: unknown) => ({ shelfCode, position }));
+    const newLocations = rawLocations
+      .map((l) => ({ shelfCode: normalize(String(l?.shelfCode || shelfCode)), position: String(l?.position ?? '').trim() }))
+      .filter((l) => l.position);
+    const onlyPresenceIds: string[] | null = Array.isArray(payload?.presenceIds)
+      ? payload.presenceIds.map((id: unknown) => String(id)).filter(Boolean)
+      : null;
+    if (!articleCode || !orderFab || newLocations.length === 0) {
       throw new functions.https.HttpsError('invalid-argument', 'Datos incompletos para mover.');
     }
+    const viewShelf = normalizeShelfCodeForSearch(shelfCode);
+    for (const dest of newLocations) {
+      if (normalizeShelfCodeForSearch(dest.shelfCode) !== viewShelf) {
+        throw new functions.https.HttpsError('invalid-argument', 'MOVER solo cambia de hueco dentro de la misma estantería.');
+      }
+      assertActorMayOperateShelf(actor, dest.shelfCode);
+    }
+    const physShelfOf = (data: any) => normalize(String(data?.locationIds?.[0] || '').split('-')[0]);
     const aggregateKey = `${normalize(articleCode)}__${normalize(orderFab)}`;
     const aggregateRef = db.collection('itemAggregates').doc(aggregateKey);
     const presenceSnapshot = await db.collection('items')
       .where('aggregateKey', '==', aggregateKey)
       .where('active', '==', true)
-      .where('shelfCode', '==', shelfCode)
       .get();
-    const activePresences = presenceSnapshot.docs.map((snap) => ({ ref: snap.ref, data: snap.data() as any }));
+    const activePresences = presenceSnapshot.docs
+      .map((snap) => ({ ref: snap.ref, data: snap.data() as any }))
+      .filter((p) => normalizeShelfCodeForSearch(physShelfOf(p.data) || String(p.data.shelfCode || '')) === viewShelf)
+      .filter((p) => !onlyPresenceIds || onlyPresenceIds.includes(p.ref.id) || onlyPresenceIds.includes(String(p.data.presenceId || '')));
+    if (onlyPresenceIds && activePresences.length !== onlyPresenceIds.length) {
+      throw new functions.https.HttpsError('failed-precondition', 'La pieza elegida ya no está en ese hueco. Vuelve a intentarlo.');
+    }
     // Apilado: un único destino acepta todas las presencias (todas se mueven a
     // la misma posición). Si hay varios destinos, deben coincidir 1:1.
-    const targetPositions: string[] = newPositions.length === 1 && activePresences.length > 1
-      ? activePresences.map(() => newPositions[0])
-      : newPositions;
-    if (activePresences.length === 0 || activePresences.length !== targetPositions.length) {
-      throw new functions.https.HttpsError('failed-precondition', 'Las presencias activas no coinciden con los destinos.');
+    const targets = newLocations.length === 1 && activePresences.length > 1
+      ? activePresences.map(() => newLocations[0])
+      : newLocations;
+    if (activePresences.length === 0 || activePresences.length !== targets.length) {
+      throw new functions.https.HttpsError('failed-precondition', 'Elige un hueco de destino por cada hueco que ocupa la pieza, o uno solo para juntarlas.');
     }
     await db.runTransaction(async (tx) => {
       // Pre-compute all old and new location refs
@@ -736,13 +766,15 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
         if (!position) {
           throw new functions.https.HttpsError('failed-precondition', `Presencia ${presence.ref.id} tiene locationId invalido: '${locationId}'.`);
         }
-        const locRef = db.collection('shelves').doc(shelfCode).collection('locations').doc(position);
-        return { presence, locationId, position, locRef };
+        const srcShelf = physShelfOf(presence.data) || shelfCode;
+        const locRef = db.collection('shelves').doc(srcShelf).collection('locations').doc(position);
+        return { presence, locationId, position, locRef, srcShelf };
       });
-      const newLocData = targetPositions.map((position: string, index: number) => ({
-        position,
-        locationId: `${shelfCode}-${position}`,
-        locRef: db.collection('shelves').doc(shelfCode).collection('locations').doc(position),
+      const newLocData = targets.map((dest, index: number) => ({
+        position: dest.position,
+        destShelf: dest.shelfCode,
+        locationId: `${dest.shelfCode}-${dest.position}`,
+        locRef: db.collection('shelves').doc(dest.shelfCode).collection('locations').doc(dest.position),
         presence: activePresences[index],
       }));
 
@@ -755,11 +787,11 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
       for (const d of newLocData) refByPath.set(d.locRef.path, d.locRef);
       for (const p of activePresences) refByPath.set(p.ref.path, p.ref);
       for (const d of oldLocData) {
-        const twin = twinLocRefFor(db, shelfCode, d.position);
+        const twin = twinLocRefFor(db, d.srcShelf, d.position);
         if (twin) refByPath.set(twin.path, twin);
       }
       for (const d of newLocData) {
-        const twin = twinLocRefFor(db, shelfCode, d.position);
+        const twin = twinLocRefFor(db, d.destShelf, d.position);
         if (twin) refByPath.set(twin.path, twin);
       }
       const refEntries = [...refByPath.entries()];
@@ -779,20 +811,21 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
       const oldLocationIds: string[] = [];
       const newLocationIds: string[] = [];
 
-      // Capture preserved fields (unitCost/quantity) from the source location items
-      const preservedFields = new Map<string, { unitCost?: number; quantity?: number }>();
+      // El ítem se mueve ENTERO (fecha de llegada, importe, cantidad,
+      // subcontratación…): mover de hueco no convierte la pieza en "nueva".
+      const sourceItems = new Map<string, any>();
       for (const { presence, locRef } of oldLocData) {
         const locSnap = snapByPath.get(locRef.path);
         if (locSnap?.exists) {
           const srcItem = (locSnap.data()?.items || []).find((i: any) => samePresence(i, presence.data.presenceId, articleCode, orderFab));
-          if (srcItem) preservedFields.set(presence.ref.id, { unitCost: srcItem.unitCost, quantity: srcItem.quantity });
+          if (srcItem) sourceItems.set(presence.ref.id, srcItem);
         }
       }
 
       const pendingItemsByPath = new Map<string, any[]>();
 
       // Remove article from old positions
-      for (const { presence, locationId, position, locRef } of oldLocData) {
+      for (const { presence, locationId, position, locRef, srcShelf } of oldLocData) {
         oldLocationIds.push(locationId);
         const locSnap = snapByPath.get(locRef.path);
         if (locSnap?.exists) {
@@ -801,44 +834,53 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
           if (pendingItemsByPath.has(locRef.path)) {
             currentItems = pendingItemsByPath.get(locRef.path)!;
           }
-          
+
           const updatedItems = currentItems.filter((item: any) => !samePresence(item, presence.data.presenceId, articleCode, orderFab));
           pendingItemsByPath.set(locRef.path, updatedItems);
-          
+
           tx.set(locRef, { position, items: updatedItems, isEmpty: updatedItems.length === 0 }, { merge: true });
         }
         // Espejo de la baja si la posición de origen es urgente compartida.
-        const twinRef = twinLocRefFor(db, shelfCode, position);
+        const twinRef = twinLocRefFor(db, srcShelf, position);
         mirrorRemove(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, presence.data.presenceId, articleCode, orderFab, pendingItemsByPath);
       }
 
       // Add article to new positions
-      for (const { position, locationId, locRef, presence } of newLocData) {
+      for (const { position, destShelf, locationId, locRef, presence } of newLocData) {
         newLocationIds.push(locationId);
         const locSnap = snapByPath.get(locRef.path);
-        
+
         let currentItems = locSnap?.exists ? ((locSnap.data()?.items || []) as any[]) : [];
         if (pendingItemsByPath.has(locRef.path)) {
           currentItems = pendingItemsByPath.get(locRef.path)!;
         }
 
-        const pf = preservedFields.get(presence.ref.id) ?? {};
-        const movedItem: Record<string, unknown> = { presenceId: presence.data.presenceId, articleCode, orderFab, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now };
-        if (pf.unitCost !== undefined) movedItem.unitCost = pf.unitCost;
-        if (pf.quantity !== undefined) movedItem.quantity = pf.quantity;
-        
+        const src = sourceItems.get(presence.ref.id);
+        const movedItem: Record<string, unknown> = {
+          ...(src ?? {
+            presenceId: presence.data.presenceId,
+            articleCode,
+            orderFab,
+            locatedBy: presence.data.locatedBy ?? operarioId,
+            locatedByName: presence.data.locatedByName ?? operarioName,
+            locatedAt: presence.data.locatedAt ?? now,
+          }),
+          movedBy: operarioId,
+          movedByName: operarioName,
+          movedAt: now,
+        };
+
         const newItems = [...currentItems, movedItem];
         pendingItemsByPath.set(locRef.path, newItems);
 
         tx.set(locRef, { position, items: newItems, isEmpty: false }, { merge: true });
         // Espejo del alta si la posición de destino es urgente compartida.
-        const twinRef = twinLocRefFor(db, shelfCode, position);
+        const twinRef = twinLocRefFor(db, destShelf, position);
         mirrorAppend(tx, twinRef, twinRef ? snapByPath.get(twinRef.path) : undefined, position, movedItem, pendingItemsByPath);
-        
+
         // ✅ FIX #6: Usar shelfCodes array para soportar ubicaciones compartidas
-        const shelfCodes = getShelfCodesForPosition(shelfCode, position);
-        const normalizedShelfCode = normalizeShelfCodeForSearch(shelfCode);
-        tx.update(presence.ref, { locationIds: [locationId], shelfCode: normalizedShelfCode, shelfCodes, locatedBy: operarioId, locatedByName: operarioName, locatedAt: now });
+        const shelfCodes = getShelfCodesForPosition(destShelf, position);
+        tx.update(presence.ref, { locationIds: [locationId], shelfCode: normalizeShelfCodeForSearch(destShelf), shelfCodes, movedBy: operarioId, movedByName: operarioName, movedAt: now });
       }
 
       if (aggregateSnap?.exists) {
@@ -846,7 +888,7 @@ export const shelfOperate = functions.https.onCall(async (data: any, context: an
       }
       writeHistory(tx, { action: 'MOVER', articleCode, orderFab, fromLocation: oldLocationIds.join(', '), toLocation: newLocationIds.join(', '), shelfCode, operarioId, operarioName });
     });
-    console.log(`[shelfOperate] mover SUCCESS: ${articleCode} ${orderFab} → ${newPositions.join(', ')} (en ${shelfCode})`);
+    console.log(`[shelfOperate] mover SUCCESS: ${articleCode} ${orderFab} → ${newLocations.map((l) => `${l.shelfCode}-${l.position}`).join(', ')}`);
     return { ok: true };
   }
 

@@ -10,6 +10,8 @@ export interface GlobalArticleLocation {
   position: string;
   /** locationId físico ("MEC-031"): shelfCode está canonicalizado (MEC→PRE). */
   locationId: string;
+  /** Llegada de la presencia: las que la comparten son una pieza en varios huecos. */
+  locatedAt?: string;
 }
 
 /**
@@ -46,7 +48,7 @@ export async function findArticleGlobal(
 
   const results: GlobalArticleLocation[] = [];
   snap.forEach((docSnap) => {
-    const data = docSnap.data() as { active?: boolean; shelfCode?: string; locationIds?: string[] };
+    const data = docSnap.data() as { active?: boolean; shelfCode?: string; locationIds?: string[]; locatedAt?: string };
     // Presencias activas únicamente (filtro en cliente: evita índice compuesto).
     if (data.active === false) return;
     const locationId = String(data.locationIds?.[0] || '');
@@ -62,6 +64,7 @@ export async function findArticleGlobal(
       shelfName: def?.name ?? code,
       position,
       locationId,
+      locatedAt: data.locatedAt,
     });
   });
 

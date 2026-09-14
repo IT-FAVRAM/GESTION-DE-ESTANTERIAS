@@ -2,13 +2,9 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from './firebase';
 import { COLLECTIONS } from './schema/collections';
 import { getItemAggregateId } from './schema/locations';
+import { computeParciales, type ParcialInfo } from './parcialesCompute';
 
-export interface ParcialInfo {
-  /** Nº de parcial (1 = el primero que se ubicó por orden de llegada). */
-  index: number;
-  /** Total de parciales activos del mismo artículo+OF en toda la nave. */
-  total: number;
-}
+export type { ParcialInfo };
 
 /**
  * Calcula el nº de "parcial" de cada presencia activa para los artículos dados.
@@ -50,11 +46,9 @@ export async function fetchParcialesByPresence(
   );
 
   for (const [, list] of byKey) {
-    // Orden de llegada: locatedAt es ISO 8601, comparable como string.
-    list.sort((a, b) => a.locatedAt.localeCompare(b.locatedAt));
-    const total = list.length;
-    list.forEach((p, i) => result.set(p.presenceId, { index: i + 1, total }));
+    for (const [presenceId, info] of computeParciales(list)) result.set(presenceId, info);
   }
 
   return result;
 }
+
