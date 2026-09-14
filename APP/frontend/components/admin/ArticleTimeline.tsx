@@ -36,6 +36,7 @@ const ROLE_LABELS: Record<string, string> = {
 const ACTION_ICONS: Record<string, LucideIcon> = {
   UBICAR: PackagePlus, RETIRAR: PackageMinus, MOVER: ArrowRightLeft,
   ENVIAR_ALMACEN: Warehouse, AVISAR_CARRETILLERO: BellRing,
+  LIMPIEZA_INVENTARIO: PackageMinus,
 };
 
 const ACTION_COLORS: Record<string, string> = {
@@ -44,6 +45,7 @@ const ACTION_COLORS: Record<string, string> = {
   MOVER: 'border-blue-500 bg-blue-500/10',
   ENVIAR_ALMACEN: 'border-amber-500 bg-amber-500/10',
   AVISAR_CARRETILLERO: 'border-orange-500 bg-orange-500/10',
+  LIMPIEZA_INVENTARIO: 'border-slate-500 bg-slate-500/10',
 };
 
 const PAGE_SIZE = 50;

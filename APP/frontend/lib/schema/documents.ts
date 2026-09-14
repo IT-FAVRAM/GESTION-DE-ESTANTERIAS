@@ -51,7 +51,9 @@ export type HistoryAction =
   | 'RETIRAR_DE_UBICACION'
   | 'MOVER'
   | 'AVISAR_CARRETILLERO'
-  | 'ENVIAR_ALMACEN';
+  | 'ENVIAR_ALMACEN'
+  /** Quitado por administración al poner al día una estantería (scripts/limpiar-estanteria.cjs). */
+  | 'LIMPIEZA_INVENTARIO';
 
 export interface HistoryEntryDoc {
   action: HistoryAction;

@@ -34,6 +34,8 @@ const actionLabels: Record<string, { icon: LucideIcon; iconCls: string; label: s
   'RETIRAR': { icon: LogOut, iconCls: 'text-red-600', label: 'Retirar', color: 'bg-red-50 border-red-200' },
   'RETIRAR_DE_UBICACION': { icon: LogOut, iconCls: 'text-red-600', label: 'Retirar', color: 'bg-red-50 border-red-200' },
   'MOVER': { icon: ArrowRightLeft, iconCls: 'text-blue-600', label: 'Mover', color: 'bg-blue-50 border-blue-200' },
+  // Quitado por administración al poner al día la estantería (no fue una salida real).
+  'LIMPIEZA_INVENTARIO': { icon: LogOut, iconCls: 'text-slate-500', label: 'Limpieza de inventario', color: 'bg-slate-50 border-slate-200' },
 };
 
 const HistoryModal: React.FC<HistoryModalProps> = ({ open, articleCode, orderFab, onClose }) => {
