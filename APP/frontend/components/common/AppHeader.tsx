@@ -19,6 +19,11 @@ export interface AppHeaderProps {
   title: string;
   /** Slot central inline — típicamente <OperativeActionButtons />. */
   center?: React.ReactNode;
+  /**
+   * Slot central sin recorte (overflow visible), p.ej. el buscador del kiosko
+   * cuyos resultados se despliegan por debajo de la cabecera.
+   */
+  centerOverflowVisible?: boolean;
   /** Botones extra a la derecha, antes de Salir (p.ej. RECOGIDAS). */
   right?: React.ReactNode;
   /** Botón de chat inline (roles autorizados). */
@@ -36,6 +41,7 @@ export interface AppHeaderProps {
 const AppHeader: React.FC<AppHeaderProps> = ({
   title,
   center,
+  centerOverflowVisible = false,
   right,
   chatButton,
   onInfo,
@@ -58,7 +64,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 
       {/* Slot central (acciones inline) */}
       {center && (
-        <div className="flex-1 flex items-center justify-center gap-1 overflow-hidden min-w-0">
+        <div className={`flex-1 flex items-center justify-center gap-1 min-w-0 ${centerOverflowVisible ? '' : 'overflow-hidden'}`}>
           {center}
         </div>
       )}

@@ -13,9 +13,30 @@ import OperativeShelfArea from '../operative/OperativeShelfArea';
 import OperativeActionButtons from '../operative/OperativeActionButtons';
 import OperativeActionBar from '../operative/OperativeActionBar';
 import { useFormFactor } from '../../hooks/useFormFactor';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { getCartsForSection, type WarehouseSection } from '../../lib/firestoreSchema';
 import CarrosView from '../carretillero/CarrosView';
 import { ArrowLeftRight, Bell, Package, PackageMinus, ShoppingCart, Warehouse } from 'lucide-react';
+
+const LAYOUT_KEY = 'kioskLayout';
+type KioskLayoutOverride = 'pc' | 'tablet' | null;
+
+/**
+ * Forzado manual de la vista del kiosko por si la detección automática falla
+ * en algún equipo: abrir una vez con `?vista=pc` o `?vista=tablet` (queda
+ * guardado en el equipo); `?vista=auto` vuelve a la detección automática.
+ */
+const readKioskLayoutOverride = (): KioskLayoutOverride => {
+  try {
+    const param = new URLSearchParams(window.location.search).get('vista')?.toLowerCase();
+    if (param === 'pc' || param === 'tablet') localStorage.setItem(LAYOUT_KEY, param);
+    else if (param === 'auto') localStorage.removeItem(LAYOUT_KEY);
+    const stored = localStorage.getItem(LAYOUT_KEY);
+    return stored === 'pc' || stored === 'tablet' ? stored : null;
+  } catch {
+    return null;
+  }
+};
 
 /**
  * KioskView — Vista del kiosko (rol OPERARIO).
@@ -52,6 +73,19 @@ const KioskView: React.FC = () => {
   // (UBICAR/RETIRAR/...) quedan accesibles en la cabecera vía OperativeActionButtons.
   const [showShelf, setShowShelf] = useState(true);
   const isTouch = useFormFactor() !== 'desktop';
+  // Tablet en horizontal (kioskos de 10"): el alto es lo escaso y el ancho sobra.
+  // Estanterías pasan a un raíl izquierdo, las acciones a uno derecho, el
+  // buscador a la cabecera y los bloques a pestañas, para que la estantería
+  // ocupe todo el alto.
+  // Solo en tablets reales: el puntero principal es el dedo. Un PC —aunque su
+  // monitor sea táctil— tiene ratón o touchpad como puntero principal y
+  // conserva siempre la vista clásica.
+  const isWideLandscape = useMediaQuery('(orientation: landscape) and (min-width: 900px)');
+  const isCoarsePointer = useMediaQuery('(pointer: coarse)');
+  const [layoutOverride] = useState(readKioskLayoutOverride);
+  const railLayout = layoutOverride === 'tablet'
+    || (layoutOverride !== 'pc' && isCoarsePointer && isWideLandscape);
+  const [searchHost, setSearchHost] = useState<HTMLDivElement | null>(null);
 
   // Carros disponibles para esta sección, excluyendo los configurados para el dispositivo
   const availableCarts = useMemo(
@@ -91,6 +125,81 @@ const KioskView: React.FC = () => {
   if (!shelfCode) return <KioskEmptyState />;
 
   const showArea = showShelf || action !== 'idle';
+  const selectShelf = (s: string) => {
+    if (action !== 'idle') cancelAction();
+    setCurrentShelf(s);
+  };
+  const setShelfFromArea = (code: string, force?: boolean) => {
+    if (action !== 'idle') cancelAction();
+    setCurrentShelf(code, force);
+  };
+  // Carros de la sección que no están ya en la lista de estanterías: en el
+  // layout de raíles no hay pantalla de acciones, así que van en el raíl.
+  const hasExtraCarts = availableCarts.some((c) => !effectiveShelves.includes(c));
+  const showLeftRail = effectiveShelves.length > 1 || hasExtraCarts;
+
+  if (railLayout) {
+    return (
+      <div className="h-dvh w-full bg-sky-50 flex flex-col relative overflow-hidden">
+        <KioskHeader
+          shelfName={shelfDef?.name || ''}
+          shelfCode={shelfCode}
+          totalOccupied={totalOccupied}
+          totalEmpty={totalEmpty}
+          totalArticles={totalArticles}
+          displayName={displayName}
+          operarioId={operarioId}
+          deviceId={deviceId}
+          onLogout={logout}
+          onInfo={() => setShowDeviceInfo(true)}
+          onHelp={() => setShowHelp(true)}
+          searchSlotRef={setSearchHost}
+        />
+
+        <div className="flex-1 min-h-0 flex">
+          {showLeftRail && (
+            <aside className="w-44 shrink-0 overflow-y-auto overscroll-contain border-r border-slate-200 bg-slate-100/70 p-2 flex flex-col gap-3 [scrollbar-width:thin]">
+              <ShelfSelector variant="rail" shelves={effectiveShelves} currentShelf={shelfCode} onSelectShelf={selectShelf} />
+              {hasExtraCarts && (
+                <button
+                  onClick={() => setShowCarts(true)}
+                  className="mt-auto w-full min-h-12 px-3 rounded-xl bg-orange-600 text-white text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition-all touch-manipulation"
+                >
+                  <ShoppingCart className="w-5 h-5" aria-hidden />
+                  CARROS
+                </button>
+              )}
+            </aside>
+          )}
+
+          <div className="flex-1 min-w-0 flex flex-col">
+            <OperativeShelfArea
+              engine={engine}
+              config={config}
+              fullscreenGrid
+              forceSingleBlock
+              fitHeight
+              searchPortalTarget={searchHost}
+              userSection={null}
+              setShelfCode={setShelfFromArea}
+              accessibleShelves={effectiveShelves}
+            />
+          </div>
+
+          {action === 'idle' && (
+            <aside className="w-36 shrink-0 border-l border-slate-200 bg-white p-2">
+              <OperativeActionButtons engine={engine} config={config} size="rail" />
+            </aside>
+          )}
+        </div>
+
+        {showDeviceInfo && (
+          <DeviceInfoModal deviceId={deviceId} onClose={() => setShowDeviceInfo(false)} />
+        )}
+        {showHelp && <KioskHelpModal onClose={() => setShowHelp(false)} />}
+      </div>
+    );
+  }
 
   return (
     <div className="h-dvh w-full bg-sky-50 flex flex-col relative overflow-hidden">
@@ -116,12 +225,7 @@ const KioskView: React.FC = () => {
           <ShelfSelector
             shelves={effectiveShelves}
             currentShelf={currentShelf}
-            onSelectShelf={(s) => {
-              if (action !== 'idle') {
-                cancelAction();
-              }
-              setCurrentShelf(s);
-            }}
+            onSelectShelf={selectShelf}
           />
         </div>
       )}
@@ -160,7 +264,7 @@ const KioskView: React.FC = () => {
             fullscreenGrid
             forceSingleBlock
             userSection={null}
-            setShelfCode={(code, force) => { if (action !== 'idle') cancelAction(); setCurrentShelf(code, force); }}
+            setShelfCode={setShelfFromArea}
             accessibleShelves={effectiveShelves}
           />
         </div>

@@ -16,6 +16,11 @@ interface KioskHeaderProps {
   /** Abre la ayuda "¿Cómo funciona?". */
   onHelp?: () => void;
   actionButtons?: React.ReactNode;
+  /**
+   * Nodo donde se monta (portal) el buscador en tablet horizontal. Si se pasa,
+   * ocupa el centro de la cabecera en lugar de `actionButtons`.
+   */
+  searchSlotRef?: (el: HTMLDivElement | null) => void;
 }
 
 // Delega en la cabecera única compartida (AppHeader) para mantener una sola
@@ -23,15 +28,16 @@ interface KioskHeaderProps {
 const KioskHeader: React.FC<KioskHeaderProps> = ({
   shelfName,
   shelfCode,
-  displayName,
   onLogout,
   onInfo,
   onHelp,
   actionButtons,
+  searchSlotRef,
 }) => (
   <AppHeader
     title={shelfName || shelfCode}
-    center={actionButtons}
+    center={searchSlotRef ? <div ref={searchSlotRef} className="w-full max-w-2xl px-2" /> : actionButtons}
+    centerOverflowVisible={!!searchSlotRef}
     right={onHelp && (
       <button
         onClick={onHelp}

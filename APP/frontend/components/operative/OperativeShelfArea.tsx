@@ -11,6 +11,7 @@
  */
 
 import React, { useCallback, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Camera, ScanLine } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
@@ -81,6 +82,13 @@ interface OperativeShelfAreaProps {
    * lateral (p.ej. JEFE_SECCION). Carretillero/Admin tienen aside propio.
    */
   enableShelfSidebar?: boolean;
+  /**
+   * Kiosko tablet horizontal: el buscador se pinta (portal) en este nodo de la
+   * cabecera en lugar de ocupar una fila propia encima del grid.
+   */
+  searchPortalTarget?: HTMLElement | null;
+  /** Kiosko tablet horizontal: la estantería se estira al alto disponible. */
+  fitHeight?: boolean;
 }
 
 const padPos = (p: string) => parseInt(p, 10);
@@ -93,7 +101,7 @@ const positionNumber = (posStr: string): string => {
   return Number.isNaN(n) ? raw : String(n);
 };
 
-const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config, setShelfCode, fullscreenGrid = true, forceSingleBlock = false, userSection = null, accessibleShelves = null, enableShelfSidebar = false }) => {
+const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config, setShelfCode, fullscreenGrid = true, forceSingleBlock = false, userSection = null, accessibleShelves = null, enableShelfSidebar = false, searchPortalTarget = null, fitHeight = false }) => {
   const {
     operarioId, displayName,
     action, scanData, selectedPositions, scannerActive, processing, feedback,
@@ -576,9 +584,10 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
       )}
 
       {/* ── Buscador (idle) ── */}
-      {action === 'idle' && (
-        <div className="flex-shrink-0" data-op-search>
+      {action === 'idle' && (() => {
+        const searchBar = (
           <KioskSearchBar
+            floating={!!searchPortalTarget}
             locations={locations}
             onHighlight={handleSearchHighlight}
             global
@@ -595,8 +604,11 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
               }
             }}
           />
-        </div>
-      )}
+        );
+        return searchPortalTarget
+          ? createPortal(searchBar, searchPortalTarget)
+          : <div className="flex-shrink-0" data-op-search>{searchBar}</div>;
+      })()}
 
       {/* ── Bandeja de escaneo (scan-first, idle) ── */}
       {action === 'idle' && enableScanTray && (
@@ -611,7 +623,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
       )}
 
       {/* ── Grid ── */}
-      <div className="flex-1 min-h-0 min-w-0 w-full overflow-y-auto overscroll-contain p-2 sm:p-4 [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent] flex flex-col gap-4">
+      <div className={`flex-1 min-h-0 min-w-0 w-full overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:rgba(30,41,59,0.8)_transparent] flex flex-col ${fitHeight ? 'p-1.5 gap-1.5' : 'p-2 sm:p-4 gap-4'}`}>
         {loading ? (
           // Skeleton del grid: transmite "cargando" sin salto de layout ni spinner.
           <div className="animate-pulse" aria-busy="true" aria-label="Cargando estantería">
@@ -633,6 +645,7 @@ const OperativeShelfArea: React.FC<OperativeShelfAreaProps> = ({ engine, config,
             showReprocessCosts={reprocesosCosts}
             fullscreenMode={fullscreenGrid}
             forceSingleBlock={forceSingleBlock}
+            fitHeight={fitHeight}
           />
         )}
       </div>

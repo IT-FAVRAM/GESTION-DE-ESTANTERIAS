@@ -8,7 +8,7 @@ import React from 'react';
 import { Camera } from 'lucide-react';
 import type { ShelfLocationState } from '../../hooks/useShelf';
 import type { ShelfPhysicalBlock } from '../../lib/firestoreSchema';
-import type { CellDragData } from './ShelfGridCell';
+import type { CellDragData } from './ShelfGridCell';
 import { formatDecimal } from '../../lib/numberFormat';
 import {
   isUrgentLocation,
@@ -93,6 +93,8 @@ interface RackSlotProps {
   onCellDrop?: (targetPosition: string) => void;
   /** "articleCode|orderFab" del artículo buscado, para resaltarlo más oscuro entre varios de la misma celda. */
   highlightedItemKey?: string | null;
+  /** Hueco compacto (kiosko tablet): artículo y OF en una línea si caben, márgenes mínimos. */
+  dense?: boolean;
 }
 
 const RackSlot: React.FC<RackSlotProps> = ({
@@ -100,6 +102,7 @@ const RackSlot: React.FC<RackSlotProps> = ({
   isUrgent, isTechReview, isAluminio, isSelected, isHighlighted, isDragOver,
   showReprocessCosts, onPress, createEmpty, minHeight, shelfSurface,
   onCellDragStart, onCellDragEnter, onCellDragLeave, onCellDrop, highlightedItemKey,
+  dense = false,
 }) => {
   const items = location?.items ?? [];
   const photos = location?.photos ?? [];
@@ -251,7 +254,7 @@ const RackSlot: React.FC<RackSlotProps> = ({
       {...dropProps}
     >
       {/* Posición + badge */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 5px 2px', gap: 3, flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: dense ? '2px 5px 0' : '4px 5px 2px', gap: 3, flexShrink: 0 }}>
         <span style={{ fontSize: 14, fontWeight: 900, fontFamily: 'monospace', color: posColor, lineHeight: 1, letterSpacing: '0.05em' }}>
           {position}
         </span>
@@ -269,16 +272,18 @@ const RackSlot: React.FC<RackSlotProps> = ({
       {/* Cuerpo del hueco */}
       {isEmpty ? (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 3 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, opacity: 0.4 }}>
-            <div style={{ width: 22, height: 2, background: emptyColor, borderRadius: 1 }} />
-            <div style={{ width: 14, height: 2, background: emptyColor, borderRadius: 1 }} />
-          </div>
+          {!dense && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, opacity: 0.4 }}>
+              <div style={{ width: 22, height: 2, background: emptyColor, borderRadius: 1 }} />
+              <div style={{ width: 14, height: 2, background: emptyColor, borderRadius: 1 }} />
+            </div>
+          )}
           <span className="rack-meta" style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: emptyColor }}>
             vacío
           </span>
         </div>
       ) : (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '3px 4px 2px', gap: 2, minHeight: 0 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: dense ? '1px 4px 2px' : '3px 4px 2px', gap: 2, minHeight: 0 }}>
           {items.map((item, i) => {
             const isSearchedItem = !!highlightedItemKey && `${item.articleCode}|${item.orderFab}` === highlightedItemKey;
             return (
@@ -287,10 +292,14 @@ const RackSlot: React.FC<RackSlotProps> = ({
               style={{
                 background: isSearchedItem ? 'rgba(219,39,119,0.32)' : itemBg,
                 borderRadius: 3,
-                padding: '4px 6px',
+                padding: dense ? '2px 6px' : '4px 6px',
                 display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
+                // dense: OF a la derecha del artículo si cabe; si no, salta debajo.
+                flexDirection: dense ? 'row' : 'column',
+                flexWrap: dense ? 'wrap' : undefined,
+                alignItems: dense ? 'baseline' : undefined,
+                columnGap: dense ? 8 : undefined,
+                justifyContent: dense ? 'flex-start' : 'center',
                 borderLeft: `3px solid ${isSearchedItem ? '#831843' : artColor}`,
                 boxShadow: isSearchedItem ? '0 0 0 1.5px rgba(190,24,93,0.85)' : undefined,
                 overflow: 'hidden',
@@ -300,7 +309,7 @@ const RackSlot: React.FC<RackSlotProps> = ({
               <p className="rack-art" style={{ ['--len' as string]: Math.max(item.articleCode.length, 4), fontWeight: 900, fontFamily: 'monospace', color: artColor, lineHeight: 1.15, overflowWrap: 'anywhere', margin: 0 }}>
                 {item.articleCode}
               </p>
-              <p className="rack-of" style={{ ['--len' as string]: Math.max((item.orderFab || '').length, 6), fontWeight: 700, fontFamily: 'monospace', color: ofColor, lineHeight: 1.15, overflowWrap: 'anywhere', margin: '2px 0 0' }}>
+              <p className="rack-of" style={{ ['--len' as string]: Math.max((item.orderFab || '').length, 6), fontWeight: 700, fontFamily: 'monospace', color: ofColor, lineHeight: 1.15, overflowWrap: 'anywhere', margin: dense ? 0 : '2px 0 0' }}>
                 {item.orderFab}
               </p>
               {showReprocessCosts && item.unitCost != null && item.unitCost > 0 && (
@@ -314,8 +323,8 @@ const RackSlot: React.FC<RackSlotProps> = ({
         </div>
       )}
 
-      {/* Indicador de carga */}
-      <div style={{ height: 3, margin: '0 4px 3px', background: 'rgba(0,0,0,0.1)', borderRadius: 2, flexShrink: 0, overflow: 'hidden' }}>
+      {/* Indicador de carga (dense: se omite; los artículos ya se ven en el hueco) */}
+      {!dense && <div style={{ height: 3, margin: '0 4px 3px', background: 'rgba(0,0,0,0.1)', borderRadius: 2, flexShrink: 0, overflow: 'hidden' }}>
         <div
           style={{
             height: '100%',
@@ -331,10 +340,10 @@ const RackSlot: React.FC<RackSlotProps> = ({
             transition: 'width 0.4s ease',
           }}
         />
-      </div>
+      </div>}
 
       {/* Balda / superficie de la estantería */}
-      <div style={{ height: 5, background: shelfSurface, flexShrink: 0, borderRadius: '0 0 3px 3px' }} />
+      <div style={{ height: dense ? 2 : 5, background: shelfSurface, flexShrink: 0, borderRadius: '0 0 3px 3px' }} />
     </div>
   );
 };
@@ -351,6 +360,17 @@ export interface ShelfRackViewProps {
   onCellPress?: (location: ShelfLocationState) => void;
   showReprocessCosts: boolean;
   compact?: boolean;
+  /**
+   * Kiosko tablet horizontal: huecos compactos (artículo y OF en una línea si
+   * caben) y estructura fina (marcos finos, sin patas).
+   */
+  dense?: boolean;
+  /**
+   * Con `dense`: el rack crece hasta llenar el alto del contenedor (las filas se
+   * reparten el espacio). Si el contenido no cabe, las filas no se encogen: el
+   * contenedor desplaza.
+   */
+  fill?: boolean;
   createEmptyLocation: (position: string, shelfCode?: string) => ShelfLocationState;
   onCellDragStart?: (data: CellDragData) => void;
   onCellDragEnter?: (position: string) => void;
@@ -369,6 +389,8 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
   onCellPress,
   showReprocessCosts,
   compact = false,
+  dense = false,
+  fill = false,
   createEmptyLocation,
   onCellDragStart,
   onCellDragEnter,
@@ -379,14 +401,16 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
   const pk = getPaletteKey(shelfCode, block.zoneName);
   const palette = PALETTES[pk];
   const rowCount = block.rows.length;
-  const slotMinH = getSlotMinH(rowCount, compact);
+  const grow = dense && fill;
+  // En dense el alto lo reparte el flex; el mínimo solo evita filas ilegibles.
+  const slotMinH = dense ? 46 : getSlotMinH(rowCount, compact);
 
   // Dimensiones estructurales del rack
-  const POST_W = compact ? 10 : 14;   // ancho de los postes verticales (px)
-  const BEAM_H = compact ? 7 : 10;    // alto de los largueros horizontales (px)
-  const TOP_H = compact ? 12 : 16;    // marco superior del rack (px)
-  const BASE_H = compact ? 14 : 20;   // placa base inferior (px)
-  const FOOT_H = compact ? 6 : 8;     // patas del rack (px)
+  const POST_W = dense ? 10 : compact ? 10 : 14;   // ancho de los postes verticales (px)
+  const BEAM_H = dense ? 4 : compact ? 7 : 10;     // alto de los largueros horizontales (px)
+  const TOP_H = dense ? 5 : compact ? 12 : 16;     // marco superior del rack (px)
+  const BASE_H = dense ? 5 : compact ? 14 : 20;    // placa base inferior (px)
+  const FOOT_H = dense ? 0 : compact ? 6 : 8;      // patas del rack (px)
 
   // Calcular ancho mínimo: slots × ancho + gaps + postes + padding interno
   const maxCols = Math.max(...block.rows.map((r) => r.length), 1);
@@ -403,6 +427,7 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
         display: 'flex',
         flexDirection: 'column',
         gap: compact ? 3 : 4,
+        ...(grow ? { flex: '1 0 auto' } : {}),
       }}
     >
       {/* ── Rack (postes + cuerpo) ────────────────────────────────────────── */}
@@ -410,6 +435,7 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
         style={{
           width: '100%',
           display: 'flex',
+          ...(grow ? { flex: '1 0 auto' } : {}),
           borderRadius: 10,
           overflow: 'hidden',
           boxShadow: '0 4px 24px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.08)',
@@ -460,9 +486,10 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
               style={{
                 display: 'flex',
                 gap: slotGap,
-                padding: compact ? '4px 4px' : '6px 6px',
+                padding: dense ? '2px 4px' : compact ? '4px 4px' : '6px 6px',
                 minHeight: slotMinH,
                 alignItems: 'stretch',
+                ...(grow ? { flex: '1 0 auto' } : {}),
               }}
             >
               {row.map((posNum, colIdx) => {
@@ -494,7 +521,8 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
                     showReprocessCosts={showReprocessCosts}
                     onPress={onCellPress}
                     createEmpty={createEmptyLocation}
-                    minHeight={slotMinH - 12}
+                    minHeight={slotMinH - (dense ? 4 : 12)}
+                    dense={dense}
                     shelfSurface={palette.shelfSurface}
                     onCellDragStart={onCellDragStart}
                     onCellDragEnter={onCellDragEnter}
@@ -570,7 +598,8 @@ const ShelfRackView: React.FC<ShelfRackViewProps> = ({
             showReprocessCosts={showReprocessCosts}
             onPress={onCellPress}
             createEmpty={createEmptyLocation}
-            minHeight={compact ? 48 : 66}
+            minHeight={dense ? 44 : compact ? 48 : 66}
+            dense={dense}
             shelfSurface={palette.shelfSurface}
             onCellDragStart={onCellDragStart}
             onCellDragEnter={onCellDragEnter}

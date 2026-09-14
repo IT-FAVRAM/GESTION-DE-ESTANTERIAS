@@ -16,9 +16,11 @@ interface OperativeActionButtonsProps {
   config: RoleOperativeConfig;
   /**
    * 'compact' para headers de escritorio, 'large' para landings,
-   * 'bar' para la barra de acciones táctil inferior (móvil/tablet, ≥48px).
+   * 'bar' para la barra de acciones táctil inferior (móvil/tablet, ≥48px),
+   * 'rail' para la columna lateral del kiosko en tablet horizontal (botones
+   * altos que se reparten todo el alto).
    */
-  size?: 'compact' | 'large' | 'bar';
+  size?: 'compact' | 'large' | 'bar' | 'rail';
 }
 
 const BTN = {
@@ -39,15 +41,19 @@ const OperativeActionButtons: React.FC<OperativeActionButtonsProps> = ({ engine,
       : size === 'bar'
         // Barra táctil inferior: columnas equitativas, altura ≥48px.
         ? 'min-h-12 px-3 rounded-xl text-white text-[13px] font-black active:scale-95 transition-all touch-manipulation whitespace-nowrap shadow-md flex items-center justify-center gap-1.5'
-        : 'px-4 py-3 rounded-2xl text-white text-base font-black active:scale-95 transition-all touch-manipulation whitespace-nowrap shadow-lg inline-flex items-center justify-center gap-2';
+        : size === 'rail'
+          ? 'flex-1 min-h-20 px-2 rounded-2xl text-white text-lg font-black active:scale-95 transition-all touch-manipulation shadow-md flex flex-col items-center justify-center gap-2'
+          : 'px-4 py-3 rounded-2xl text-white text-base font-black active:scale-95 transition-all touch-manipulation whitespace-nowrap shadow-lg inline-flex items-center justify-center gap-2';
 
   // Tamaño de icono Lucide acorde al tamaño del botón.
-  const iconCls = size === 'compact' ? 'w-3.5 h-3.5' : size === 'bar' ? 'w-4 h-4' : 'w-5 h-5';
+  const iconCls = size === 'compact' ? 'w-3.5 h-3.5' : size === 'bar' ? 'w-4 h-4' : size === 'rail' ? 'w-9 h-9' : 'w-5 h-5';
 
   const container =
     size === 'bar'
       ? 'grid grid-cols-[repeat(auto-fit,minmax(5rem,1fr))] gap-2 w-full'
-      : 'flex items-center gap-1 flex-wrap justify-center';
+      : size === 'rail'
+        ? 'flex flex-col gap-2 h-full w-full'
+        : 'flex items-center gap-1 flex-wrap justify-center';
 
   const a = config.actions;
 

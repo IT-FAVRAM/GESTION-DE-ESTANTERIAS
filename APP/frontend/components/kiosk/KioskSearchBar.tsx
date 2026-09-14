@@ -39,6 +39,8 @@ interface KioskSearchBarProps {
   onSolicitarTraer?: (result: GlobalSearchResult) => void;
   /** Callback para abrir historial de movimientos */
   onOpenHistory?: (articleCode: string, orderFab: string) => void;
+  /** Buscador dentro de la cabecera: resultados y ficha flotan sobre el contenido. */
+  floating?: boolean;
 }
 
 function shelfNameFor(code: string): string {
@@ -91,6 +93,7 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
   onOutOfShelfResult,
   onOpenHistory,
   onSolicitarTraer,
+  floating = false,
 }) => {
   const [query, setQuery] = useState('');
   const [resultCount, setResultCount] = useState(0);
@@ -228,7 +231,7 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
   const showDropdown = global && hasQuery && !loading && !selectedResult;
 
   return (
-    <div className="px-4 pt-2 pb-1">
+    <div className={floating ? 'relative w-full' : 'px-4 pt-2 pb-1'}>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" aria-hidden />
         <input
@@ -257,6 +260,9 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
         )}
       </div>
 
+      {/* En modo flotante (buscador en la cabecera del kiosko) todo lo que va
+          bajo el input se superpone a la estantería en vez de empujarla. */}
+      <div className={floating ? 'absolute left-0 right-0 top-full z-50 max-h-[75dvh] overflow-y-auto' : ''}>
       {/* Solo avisa si los datos guardados tienen cierta antigüedad (≥ 5 min). */}
       {isCached && cacheInfo && cacheInfo.age !== null && cacheInfo.age >= 5 / 60 && (
         <div className="mt-1 text-xs text-amber-700 flex items-center gap-1">
@@ -508,12 +514,13 @@ const KioskSearchBar: React.FC<KioskSearchBarProps> = ({
       )}
 
       {(!global || !hasQuery || loading) && query.trim() && !selectedResult && (
-        <p className="text-xs mt-1 ml-1 text-slate-500">
+        <p className={`text-xs mt-1 ml-1 text-slate-500 ${floating ? 'bg-white rounded-lg px-2 py-1 shadow w-fit' : ''}`}>
           {resultCount === 0
             ? 'Sin resultados'
             : `${resultCount} ubicación${resultCount === 1 ? '' : 'es'} encontrada${resultCount === 1 ? '' : 's'}`}
         </p>
       )}
+      </div>
     </div>
   );
 };

@@ -36,6 +36,12 @@ interface ShelfGridProps {
   onCellDrop?: (targetPosition: string) => void;
   /** Kiosk mode: always show one block at a time with navigation (ignores screen size) */
   forceSingleBlock?: boolean;
+  /**
+   * Kiosko tablet horizontal: la estantería activa se estira al alto disponible
+   * (sin cabecera de sección ni filas totalmente vacías en los extremos) y los
+   * bloques se eligen con pestañas en vez de ◀ ▶.
+   */
+  fitHeight?: boolean;
 }
 
 const createEmptyLocation = (position: string, shelfCode?: string): ShelfLocationState => ({
@@ -251,6 +257,57 @@ const MobileBlockNav = React.memo(({ blocks, activeIdx, onSelect, alwaysShow = f
   );
 });
 
+// ─── Block tabs (kiosko tablet horizontal) ────────────────────────────────────
+
+interface BlockTabsProps {
+  blocks: Array<{ id: string; title: string; articles: number }>;
+  activeIdx: number;
+  onSelect: (idx: number) => void;
+}
+
+/**
+ * Pestañas de bloque a lo ancho, encima de la estantería: sustituyen al
+ * navegador ◀ ▶ + cabecera de sección. Cada pestaña lleva el nº de artículos
+ * del bloque para saber dónde hay material sin entrar.
+ */
+const BlockTabs = React.memo(({ blocks, activeIdx, onSelect }: BlockTabsProps) => (
+  <div className="flex gap-1.5 shrink-0" role="tablist">
+    {blocks.map((b, i) => (
+      <button
+        key={b.id}
+        type="button"
+        role="tab"
+        aria-selected={i === activeIdx}
+        onClick={() => onSelect(i)}
+        className={`flex-1 min-w-0 min-h-10 px-3 rounded-xl text-sm font-black leading-tight flex items-center justify-center gap-2 transition-colors touch-manipulation ${
+          i === activeIdx
+            ? 'bg-sky-600 text-white shadow-md'
+            : 'bg-white text-slate-600 border border-slate-300 active:bg-sky-50'
+        }`}
+      >
+        <span className="truncate">{b.title}</span>
+        {b.articles > 0 && (
+          <span className={`shrink-0 min-w-6 h-6 px-1.5 rounded-full text-xs font-black flex items-center justify-center tabular-nums ${
+            i === activeIdx ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-600'
+          }`}>
+            {b.articles}
+          </span>
+        )}
+      </button>
+    ))}
+  </div>
+));
+
+/** Quita las filas totalmente vacías (null) de arriba y de abajo del bloque. */
+const trimEmptyEdgeRows = (block: ShelfPhysicalBlock): ShelfPhysicalBlock => {
+  const hasSlot = (row: Array<number | string | null>) => row.some((p) => p !== null);
+  let start = 0;
+  let end = block.rows.length;
+  while (start < end && !hasSlot(block.rows[start])) start++;
+  while (end > start && !hasSlot(block.rows[end - 1])) end--;
+  return start === 0 && end === block.rows.length ? block : { ...block, rows: block.rows.slice(start, end) };
+};
+
 // ─── Block (physical layout) ──────────────────────────────────────────────────
 
 interface BlockProps {
@@ -270,6 +327,11 @@ interface BlockProps {
   onCellDragEnter?: (position: string) => void;
   onCellDragLeave?: () => void;
   onCellDrop?: (targetPosition: string) => void;
+  /**
+   * Kiosko tablet horizontal: sin cabecera de sección y huecos compactos.
+   * 'fill' = el rack se estira al alto disponible; 'natural' = alto justo.
+   */
+  fit?: 'fill' | 'natural';
 }
 
 const Block = React.memo(({
@@ -289,7 +351,37 @@ const Block = React.memo(({
   onCellDragEnter,
   onCellDragLeave,
   onCellDrop,
+  fit,
 }: BlockProps) => {
+  // Kiosko tablet horizontal: la cabecera de sección (título + ocupación +
+  // plegar) sobra — el bloque se elige en las pestañas y los huecos URG ya
+  // llevan su etiqueta — y cada píxel de alto es para los huecos.
+  if (fit) {
+    return (
+      <div className={`flex flex-col min-w-0 w-full overflow-x-auto overscroll-x-contain [scrollbar-width:thin] ${fit === 'fill' ? 'flex-[1_0_auto]' : ''}`}>
+        <ShelfRackView
+          block={trimEmptyEdgeRows(block)}
+          shelfCode={shelfDef.code}
+          locationMap={locationMap}
+          selectedPositions={selectedPositions}
+          highlightedPositions={highlightedPositions}
+          highlightedItemKey={highlightedItemKey}
+          dragOverPosition={dragOverPosition}
+          onCellPress={onCellPress}
+          showReprocessCosts={showReprocessCosts}
+          compact={compactRack}
+          dense
+          fill={fit === 'fill'}
+          createEmptyLocation={createEmptyLocation}
+          onCellDragStart={onCellDragStart}
+          onCellDragEnter={onCellDragEnter}
+          onCellDragLeave={onCellDragLeave}
+          onCellDrop={onCellDrop}
+        />
+      </div>
+    );
+  }
+
   const zone = shelfDef.layout.zones.find((z) => z.name === block.zoneName);
   const isUrgent = zone?.isUrgent ?? false;
   const isTechReview = zone?.isTechReview ?? false;
@@ -370,6 +462,7 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
   showReprocessCosts = false,
   fullscreenMode = false,
   forceSingleBlock = false,
+  fitHeight = false,
   onCellDragStart,
   onCellDragEnter,
   onCellDragLeave,
@@ -494,7 +587,21 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
     [locations, shelfDef],
   );
   const physicalBlocks = shelfDef?.layout.physicalBlocks ?? [];
-  const regularBlocks = physicalBlocks.filter((b) => !b.fullWidth);
+  const regularBlocks = useMemo(
+    () => (shelfDef?.layout.physicalBlocks ?? []).filter((b) => !b.fullWidth),
+    [shelfDef],
+  );
+
+  // Nº de artículos por bloque, para el badge de las pestañas de bloque.
+  const tabBlocks = useMemo(() => {
+    if (!fitHeight) return [];
+    const toPos = (p: number | string) => typeof p === 'string' ? p : p.toString().padStart(3, '0');
+    return regularBlocks.map((b) => {
+      const all = [...b.rows.flat(), b.floorPosition ?? null].filter((p): p is number | string => p !== null);
+      const articles = all.reduce<number>((sum, p) => sum + (locationMap.get(toPos(p))?.items.length ?? 0), 0);
+      return { id: b.id, title: b.title, articles };
+    });
+  }, [fitHeight, regularBlocks, locationMap]);
 
   // CAL y REP usan rack compacto para ahorrar espacio horizontal
   const compactRack = shelfDef?.code === 'CAL' || shelfDef?.code === 'REP';
@@ -583,7 +690,7 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
 
    // ── Full mode ───────────────────────────────────────────────────────────────
    return (
-      <div ref={gridContainerRef} className="w-full min-w-0">
+      <div ref={gridContainerRef} className={`w-full min-w-0 ${fitHeight ? 'flex flex-col flex-[1_0_auto]' : ''}`}>
         {!fullscreenMode && (
          <>
            <div className="hidden sm:block">
@@ -614,16 +721,20 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
        )}
 
        {physicalBlocks.length > 0 ? (
-         <div className="w-full min-w-0">
+         <div className={`w-full min-w-0 ${fitHeight ? 'flex flex-col flex-[1_0_auto]' : ''}`}>
            {regularBlocks.length > 1 && (
-             <MobileBlockNav
-               blocks={regularBlocks}
-               activeIdx={activeMobileBlockIdx}
-               onSelect={setActiveMobileBlockIdx}
-               alwaysShow={forceSingleBlock}
-             />
+             fitHeight
+               ? <div className="mb-1.5"><BlockTabs blocks={tabBlocks} activeIdx={activeMobileBlockIdx} onSelect={setActiveMobileBlockIdx} /></div>
+               : (
+                 <MobileBlockNav
+                   blocks={regularBlocks}
+                   activeIdx={activeMobileBlockIdx}
+                   onSelect={setActiveMobileBlockIdx}
+                   alwaysShow={forceSingleBlock}
+                 />
+               )
            )}
-           <div className={`flex ${forceSingleBlock ? 'flex-col' : 'flex-wrap'} pb-4 ${fullscreenMode ? 'gap-2' : 'gap-3'} w-full min-w-0`}>
+           <div className={`flex ${forceSingleBlock ? 'flex-col' : 'flex-wrap'} ${fitHeight ? 'flex-[1_0_auto]' : 'pb-4'} ${fullscreenMode ? 'gap-2' : 'gap-3'} w-full min-w-0`}>
              {physicalBlocks.map((block) => {
                const isCollapsed = collapsedSections.has(block.id);
                const regularIdx = regularBlocks.findIndex((b) => b.id === block.id);
@@ -636,10 +747,14 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
                const widthClass = block.fullWidth || forceSingleBlock
                  ? 'w-full min-w-0'
                  : 'flex-1 min-w-0';
+               // Solo el bloque normal activo se estira; los de ancho completo
+               // (filas URG de PRE) van compactos con su alto justo.
+               const fitThis: 'fill' | 'natural' | undefined = !fitHeight ? undefined : isRegular ? 'fill' : 'natural';
+               const fitClass = fitThis === 'fill' && !isMobileInactive ? 'flex flex-col flex-[1_0_auto]' : '';
                return (
                  <div
                    key={block.id}
-                   className={[hiddenClass, widthClass].filter(Boolean).join(' ')}
+                   className={[hiddenClass, widthClass, fitClass].filter(Boolean).join(' ')}
                  >
                     <Block
                       block={block}
@@ -658,6 +773,7 @@ const ShelfGrid: React.FC<ShelfGridProps> = ({
                       onCellDragEnter={onCellDragEnter}
                       onCellDragLeave={onCellDragLeave}
                       onCellDrop={onCellDrop}
+                      fit={fitThis}
                     />
                  </div>
                );
