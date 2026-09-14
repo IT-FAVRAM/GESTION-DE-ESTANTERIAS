@@ -16,9 +16,10 @@ import { useFormFactor } from '../../hooks/useFormFactor';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { getCartsForSection, type WarehouseSection } from '../../lib/firestoreSchema';
 import CarrosView from '../carretillero/CarrosView';
-import { ArrowLeftRight, Bell, Package, PackageMinus, ShoppingCart, Warehouse } from 'lucide-react';
+import { ArrowLeftRight, Bell, Package, PackageMinus, PanelLeftClose, PanelLeftOpen, ShoppingCart, Warehouse } from 'lucide-react';
 
 const LAYOUT_KEY = 'kioskLayout';
+const RAIL_COLLAPSED_KEY = 'kioskShelfRailCollapsed';
 type KioskLayoutOverride = 'pc' | 'tablet' | null;
 
 /**
@@ -86,6 +87,14 @@ const KioskView: React.FC = () => {
   const railLayout = layoutOverride === 'tablet'
     || (layoutOverride !== 'pc' && isCoarsePointer && isWideLandscape);
   const [searchHost, setSearchHost] = useState<HTMLDivElement | null>(null);
+  // Raíl de estanterías plegable (se recuerda en el equipo).
+  const [railCollapsed, setRailCollapsed] = useState(() => {
+    try { return localStorage.getItem(RAIL_COLLAPSED_KEY) === '1'; } catch { return false; }
+  });
+  const toggleRail = (collapsed: boolean) => {
+    setRailCollapsed(collapsed);
+    try { localStorage.setItem(RAIL_COLLAPSED_KEY, collapsed ? '1' : '0'); } catch { /* sin almacenamiento */ }
+  };
 
   // Carros disponibles para esta sección, excluyendo los configurados para el dispositivo
   const availableCarts = useMemo(
@@ -157,8 +166,27 @@ const KioskView: React.FC = () => {
         />
 
         <div className="flex-1 min-h-0 flex">
-          {showLeftRail && (
+          {showLeftRail && railCollapsed && (
+            <aside className="w-11 shrink-0 border-r border-slate-200 bg-slate-100/70 p-1 flex flex-col">
+              <button
+                onClick={() => toggleRail(false)}
+                aria-label="Mostrar estanterías"
+                className="flex-1 max-h-72 w-full rounded-lg bg-white border border-slate-300 text-slate-600 flex flex-col items-center justify-center gap-3 active:bg-slate-100 touch-manipulation"
+              >
+                <PanelLeftOpen className="w-5 h-5 shrink-0" aria-hidden />
+                <span className="text-xs font-black tracking-widest [writing-mode:vertical-rl] rotate-180">ESTANTERÍAS</span>
+              </button>
+            </aside>
+          )}
+          {showLeftRail && !railCollapsed && (
             <aside className="w-44 shrink-0 overflow-y-auto overscroll-contain border-r border-slate-200 bg-slate-100/70 p-2 flex flex-col gap-3 [scrollbar-width:thin]">
+              <button
+                onClick={() => toggleRail(true)}
+                className="w-full min-h-10 px-3 rounded-lg text-slate-500 text-xs font-bold flex items-center gap-2 active:bg-slate-200 touch-manipulation"
+              >
+                <PanelLeftClose className="w-5 h-5 shrink-0" aria-hidden />
+                Ocultar
+              </button>
               <ShelfSelector variant="rail" shelves={effectiveShelves} currentShelf={shelfCode} onSelectShelf={selectShelf} />
               {hasExtraCarts && (
                 <button
@@ -187,7 +215,7 @@ const KioskView: React.FC = () => {
           </div>
 
           {action === 'idle' && (
-            <aside className="w-36 shrink-0 border-l border-slate-200 bg-white p-2">
+            <aside className="w-24 shrink-0 border-l border-slate-200 bg-white p-1.5">
               <OperativeActionButtons engine={engine} config={config} size="rail" />
             </aside>
           )}
