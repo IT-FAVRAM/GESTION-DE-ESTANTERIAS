@@ -174,6 +174,12 @@ const normalizeOcrText = (rawInput: string): string => {
     .replace(/\bOF(\d{2})-([0O])(\d{4,})/g, (_, yr, _z, rest) => `OF${yr}-0${rest}`)
     // Dígitos separados en el año de OF: OF 2 5-07221 → OF25-07221
     .replace(/\bOF\s*(\d)\s*(\d)\s*[-]\s*(\d{3,})/g, 'OF$1$2-$3')
+    // El guion interno de un código de artículo (p.ej. "3EH000227-4487C") a
+    // veces sale del OCR con espacios alrededor: "3EH000227 - 4487C". Sin este
+    // refuerzo, extractArticleCode() lo trocea en dos tokens y solo se queda
+    // con el primero. Se reagrupa, salvo cuando lo que sigue es una OF (para
+    // no comerse el separador " - OFxx-nnnnn" del patrón alternativo).
+    .replace(/([A-Z0-9]+)\s+-\s+(?!OF\d)(?=[A-Z0-9])/g, '$1-')
     // Correcciones de caracteres individuales
     .replace(/[|!¡]/g, 'I')                             // | ! ¡ → I
     .replace(/©/g, 'C')                                 // © → C

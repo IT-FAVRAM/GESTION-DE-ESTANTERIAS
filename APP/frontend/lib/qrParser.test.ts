@@ -44,6 +44,24 @@ describe('parseScanInputLenient', () => {
     const r = parseScanInputLenient('SOLO TEXTO SIN OF');
     expect(r.success).toBe(false);
   });
+
+  it('keeps the full article code when OCR splits the internal dash with spaces (3EH...)', () => {
+    const r = parseScanInputLenient('3EH000227 - 4487C OF25-07221');
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data).toEqual({ articleCode: '3EH000227-4487C', orderFab: 'OF25-07221' });
+  });
+
+  it('keeps the full article code when OCR splits the internal dash with spaces (3EK...)', () => {
+    const r = parseScanInputLenient('3EK000227-4487C // OF25-07221');
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data).toEqual({ articleCode: '3EK000227-4487C', orderFab: 'OF25-07221' });
+  });
+
+  it('does not swallow the " - OFxx-nnnnn" separator when merging dashes', () => {
+    const r = parseScanInputLenient('3EH000227 - OF25-07221');
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data).toEqual({ articleCode: '3EH000227', orderFab: 'OF25-07221' });
+  });
 });
 
 describe('parseScanFromLines', () => {
@@ -180,6 +198,18 @@ describe('parseHojaDeRuta', () => {
     const r = parseHojaDeRuta(['O.F. Nº: OF26-05481', 'Artículo: X9-PLUS']);
     expect(r.success).toBe(true);
     if (r.success) expect(r.data.articleCode).toBe('X9-PLUS');
+  });
+
+  it('reassembles a 3EH/3EK article code whose dash got split with spaces by Vision', () => {
+    const r = parseHojaDeRuta(['O.F. Nº: OF26-05481', 'Artículo: 3EH000227 - 4487C']);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.articleCode).toBe('3EH000227-4487C');
+  });
+
+  it('still works for 3EH/3EK codes without a dash', () => {
+    const r = parseHojaDeRuta(['O.F. Nº: OF26-05481', 'Artículo: 3EK0002274487']);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.articleCode).toBe('3EK0002274487');
   });
 
   it('finds alphanumeric article in lines after a split label', () => {
