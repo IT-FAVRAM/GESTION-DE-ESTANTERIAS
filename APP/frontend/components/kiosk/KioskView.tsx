@@ -16,10 +16,11 @@ import { useFormFactor } from '../../hooks/useFormFactor';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { getCartsForSection, type WarehouseSection } from '../../lib/firestoreSchema';
 import CarrosView from '../carretillero/CarrosView';
-import { ArrowLeftRight, Bell, Package, PackageMinus, PanelLeftClose, PanelLeftOpen, ShoppingCart, Warehouse } from 'lucide-react';
+import { ArrowLeftRight, Bell, Eye, EyeOff, Package, PackageMinus, PanelLeftClose, PanelLeftOpen, ShoppingCart, Warehouse } from 'lucide-react';
 
 const LAYOUT_KEY = 'kioskLayout';
 const RAIL_COLLAPSED_KEY = 'kioskShelfRailCollapsed';
+const SHOW_SHELF_KEY = 'kioskShowShelf';
 type KioskLayoutOverride = 'pc' | 'tablet' | null;
 
 /**
@@ -72,7 +73,15 @@ const KioskView: React.FC = () => {
   // Mostrar la estantería directamente al entrar (los kioskos de sección deben
   // ver su(s) estantería(s) sin pasar por la pantalla de acciones). Las acciones
   // (UBICAR/RETIRAR/...) quedan accesibles en la cabecera vía OperativeActionButtons.
-  const [showShelf, setShowShelf] = useState(true);
+  // El operario puede ocultarla y dejar solo los botones grandes de acción (pantalla
+  // "landing" clásica); la preferencia se recuerda por equipo (persiste al recargar).
+  const [showShelf, setShowShelfState] = useState(() => {
+    try { return localStorage.getItem(SHOW_SHELF_KEY) !== '0'; } catch { return true; }
+  });
+  const setShowShelf = (value: boolean) => {
+    setShowShelfState(value);
+    try { localStorage.setItem(SHOW_SHELF_KEY, value ? '1' : '0'); } catch { /* sin almacenamiento */ }
+  };
   const isTouch = useFormFactor() !== 'desktop';
   // Tablet en horizontal (kioskos de 10"): el alto es lo escaso y el ancho sobra.
   // Estanterías pasan a un raíl izquierdo, las acciones a uno derecho, el
@@ -147,6 +156,58 @@ const KioskView: React.FC = () => {
   const hasExtraCarts = availableCarts.some((c) => !effectiveShelves.includes(c));
   const showLeftRail = effectiveShelves.length > 1 || hasExtraCarts;
 
+  // Pantalla "solo botones": los mismos botones grandes de acción, sin rejilla de
+  // estantería ni raíles. Se usa tanto en la vista clásica como en el layout de
+  // raíles de tablet cuando el operario oculta la estantería.
+  const actionLanding = (
+    <>
+      <div className="grid grid-cols-2 gap-4 w-full max-w-6xl">
+        <button disabled={visualOnly} onClick={() => startAction('ubicar')} className={`h-32 rounded-3xl border border-emerald-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-emerald-100 text-emerald-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-emerald-500 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 active:scale-95 text-white shadow-emerald-950/40'}`}><Package className="w-10 h-10" strokeWidth={2.25} aria-hidden />UBICAR</button>
+        <button disabled={visualOnly} onClick={() => startAction('retirar')} className={`h-32 rounded-3xl border border-red-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-red-100 text-red-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-red-500 to-red-700 hover:from-red-400 hover:to-red-600 active:scale-95 text-white shadow-red-950/40'}`}><PackageMinus className="w-10 h-10" strokeWidth={2.25} aria-hidden />RETIRAR</button>
+        <button disabled={visualOnly} onClick={() => startAction('mover')} className={`h-32 rounded-3xl border border-blue-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-blue-100 text-blue-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-blue-500 to-blue-700 hover:from-blue-400 hover:to-blue-600 active:scale-95 text-white shadow-blue-950/40'}`}><ArrowLeftRight className="w-10 h-10" strokeWidth={2.25} aria-hidden />MOVER</button>
+        {config.actions.almacen !== 'none' ? (
+          <button disabled={visualOnly} onClick={() => startAction('almacen')} className={`h-32 rounded-3xl border border-purple-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-purple-100 text-purple-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-purple-500 to-purple-700 hover:from-purple-400 hover:to-purple-600 active:scale-95 text-white shadow-purple-950/40'}`}><Warehouse className="w-10 h-10" strokeWidth={2.25} aria-hidden />ALMACÉN</button>
+        ) : config.actions.avisar !== 'none' ? (
+          <button disabled={visualOnly} onClick={() => startAction('avisar')} className={`h-32 rounded-3xl border border-amber-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-amber-100 text-amber-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 active:scale-95 text-white shadow-amber-950/40'}`}><Bell className="w-10 h-10" strokeWidth={2.25} aria-hidden />CARRETILLERO</button>
+        ) : <div />}
+        {availableCarts.length > 0 && (
+          <button disabled={visualOnly} onClick={() => setShowCarts(true)} className={`h-32 rounded-3xl border border-orange-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-orange-100 text-orange-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-orange-500 to-orange-700 hover:from-orange-400 hover:to-orange-600 active:scale-95 text-white shadow-orange-950/40'}`}><ShoppingCart className="w-10 h-10" strokeWidth={2.25} aria-hidden />CARROS</button>
+        )}
+      </div>
+      <button onClick={() => setShowShelf(true)} className="mt-8 px-6 py-3 rounded-full bg-white border border-slate-300 text-slate-600 font-bold hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-2">
+        <Eye className="w-4 h-4" aria-hidden />
+        Mostrar estantería
+      </button>
+    </>
+  );
+
+  if (railLayout && !showShelf && action === 'idle') {
+    return (
+      <div className="h-dvh w-full bg-sky-50 flex flex-col relative overflow-hidden">
+        <KioskHeader
+          shelfName={shelfDef?.name || ''}
+          shelfCode={shelfCode}
+          totalOccupied={totalOccupied}
+          totalEmpty={totalEmpty}
+          totalArticles={totalArticles}
+          displayName={displayName}
+          operarioId={operarioId}
+          deviceId={deviceId}
+          onLogout={logout}
+          onInfo={() => setShowDeviceInfo(true)}
+          onHelp={() => setShowHelp(true)}
+        />
+        <main className="flex-1 flex flex-col items-center justify-center p-4 w-full">
+          {actionLanding}
+        </main>
+        {showDeviceInfo && (
+          <DeviceInfoModal deviceId={deviceId} onClose={() => setShowDeviceInfo(false)} />
+        )}
+        {showHelp && <KioskHelpModal onClose={() => setShowHelp(false)} />}
+      </div>
+    );
+  }
+
   if (railLayout) {
     return (
       <div className="h-dvh w-full bg-sky-50 flex flex-col relative overflow-hidden">
@@ -215,7 +276,14 @@ const KioskView: React.FC = () => {
           </div>
 
           {action === 'idle' && (
-            <aside className="w-24 shrink-0 border-l border-slate-200 bg-white p-1.5">
+            <aside className="w-24 shrink-0 border-l border-slate-200 bg-white p-1.5 flex flex-col gap-1.5">
+              <button
+                onClick={() => setShowShelf(false)}
+                aria-label="Ocultar estantería, ver solo los botones"
+                className="w-full min-h-9 rounded-lg border border-slate-200 text-slate-400 flex items-center justify-center active:bg-slate-100 touch-manipulation"
+              >
+                <EyeOff className="w-4 h-4" aria-hidden />
+              </button>
               <OperativeActionButtons engine={engine} config={config} size="rail" />
             </aside>
           )}
@@ -260,22 +328,7 @@ const KioskView: React.FC = () => {
 
       {!showArea ? (
         <main className="flex-1 flex flex-col items-center justify-center p-4 w-full">
-          <div className="grid grid-cols-2 gap-4 w-full max-w-6xl">
-            <button disabled={visualOnly} onClick={() => startAction('ubicar')} className={`h-32 rounded-3xl border border-emerald-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-emerald-100 text-emerald-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-emerald-500 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 active:scale-95 text-white shadow-emerald-950/40'}`}><Package className="w-10 h-10" strokeWidth={2.25} aria-hidden />UBICAR</button>
-            <button disabled={visualOnly} onClick={() => startAction('retirar')} className={`h-32 rounded-3xl border border-red-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-red-100 text-red-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-red-500 to-red-700 hover:from-red-400 hover:to-red-600 active:scale-95 text-white shadow-red-950/40'}`}><PackageMinus className="w-10 h-10" strokeWidth={2.25} aria-hidden />RETIRAR</button>
-            <button disabled={visualOnly} onClick={() => startAction('mover')} className={`h-32 rounded-3xl border border-blue-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-blue-100 text-blue-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-blue-500 to-blue-700 hover:from-blue-400 hover:to-blue-600 active:scale-95 text-white shadow-blue-950/40'}`}><ArrowLeftRight className="w-10 h-10" strokeWidth={2.25} aria-hidden />MOVER</button>
-            {config.actions.almacen !== 'none' ? (
-              <button disabled={visualOnly} onClick={() => startAction('almacen')} className={`h-32 rounded-3xl border border-purple-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-purple-100 text-purple-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-purple-500 to-purple-700 hover:from-purple-400 hover:to-purple-600 active:scale-95 text-white shadow-purple-950/40'}`}><Warehouse className="w-10 h-10" strokeWidth={2.25} aria-hidden />ALMACÉN</button>
-            ) : config.actions.avisar !== 'none' ? (
-              <button disabled={visualOnly} onClick={() => startAction('avisar')} className={`h-32 rounded-3xl border border-amber-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-amber-100 text-amber-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 active:scale-95 text-white shadow-amber-950/40'}`}><Bell className="w-10 h-10" strokeWidth={2.25} aria-hidden />CARRETILLERO</button>
-            ) : <div />}
-            {availableCarts.length > 0 && (
-              <button disabled={visualOnly} onClick={() => setShowCarts(true)} className={`h-32 rounded-3xl border border-orange-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-orange-100 text-orange-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-orange-500 to-orange-700 hover:from-orange-400 hover:to-orange-600 active:scale-95 text-white shadow-orange-950/40'}`}><ShoppingCart className="w-10 h-10" strokeWidth={2.25} aria-hidden />CARROS</button>
-            )}
-          </div>
-          <button onClick={() => setShowShelf(true)} className="mt-8 px-6 py-3 rounded-full bg-white border border-slate-300 text-slate-600 font-bold hover:bg-slate-50 transition-colors shadow-sm">
-            Mostrar estantería
-          </button>
+          {actionLanding}
         </main>
       ) : (
         <div className="flex-1 min-h-0 min-w-0 w-full flex flex-col">
