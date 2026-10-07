@@ -15,6 +15,7 @@ export const SHELF_DISPLAY_NAMES: Record<string, string> = {
   'SOL': 'Soldadura',
   'CS': 'Carro Soldadura',
   'REP': 'Repasado',
+  'BOM': 'Bombo',
   'PIN': 'Pintura',
   'CAL': 'Calidad',
 };

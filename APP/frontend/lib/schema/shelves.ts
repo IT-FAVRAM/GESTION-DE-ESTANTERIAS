@@ -120,7 +120,7 @@ export const SHELF_DEFINITIONS: Shelf[] = [
         {
           id: 'ple-punz',
           title: 'Punzonadora Derecha',
-          subtitle: '031-059 · 7 filas · 3 columnas',
+          subtitle: '034-051 + AMADA 1-3 · 7 filas · 3 columnas',
           zoneName: 'PUNZONADORA',
           rows: [
             [49, 50, 51],
@@ -129,7 +129,8 @@ export const SHELF_DEFINITIONS: Shelf[] = [
             [40, 41, 42],
             [37, 38, 39],
             [34, 35, 36],
-            [31, 32, 33],
+            // Antes 031-033: ahora son las posiciones AMADA (mismo hueco físico).
+            ['AMADA 1', 'AMADA 2', 'AMADA 3'],
           ],
         },
         {
@@ -267,6 +268,25 @@ export const SHELF_DEFINITIONS: Shelf[] = [
           zoneName: 'DENTRO',
           fullWidth: true,
           rows: [[49, 50, 51], [46, 47, 48], [43, 44, 45], [40, 41, 42]],
+        },
+      ],
+    },
+  },
+  {
+    code: 'BOM',
+    name: 'Bombo',
+    section: 'REPASADO',
+    type: 'shelf',
+    locationCount: 2,
+    layout: {
+      zones: [{ name: 'BOMBO', range: [1, 2], color: '#0ea5e9' }],
+      physicalBlocks: [
+        {
+          id: 'bom-main',
+          title: 'Bombo',
+          subtitle: '2 filas',
+          zoneName: 'BOMBO',
+          rows: [['BOMBO 1'], ['BOMBO 2']],
         },
       ],
     },

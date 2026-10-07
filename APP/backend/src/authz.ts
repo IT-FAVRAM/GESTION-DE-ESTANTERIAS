@@ -65,6 +65,7 @@ const WMS_SHELF_SECTION: Record<string, string> = {
   UTS: 'SOLDADURA',
   SXP: 'SXP',
   REP: 'REPASADO',
+  BOM: 'REPASADO',
   PIN: 'PINTURA',
   ZIN: 'ZINCADO',
   CAL: 'CALIDAD',
