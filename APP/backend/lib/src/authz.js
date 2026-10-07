@@ -49,6 +49,7 @@ const WMS_SHELF_SECTION = {
     UTS: 'SOLDADURA',
     SXP: 'SXP',
     REP: 'REPASADO',
+    BOM: 'REPASADO',
     PIN: 'PINTURA',
     ZIN: 'ZINCADO',
     CAL: 'CALIDAD',
