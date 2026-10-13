@@ -93,7 +93,7 @@ firestore_data.json
 # Informes generados con datos reales de produccion (nombres, emails, UIDs) — NUNCA subir
 ESTUDIO_WIFI.docx
 ESTUDIO WIFI.docx
-docs/BASE_DE_DATOS.docx
+documentacion/BASE_DE_DATOS.docx
 DOCUMENTACION_PARA_INFORMATICO.docx
 
 # Config local de Claude Code (permisos por maquina, no compartir)
@@ -111,7 +111,7 @@ __pycache__/
 aplicacion/.agents/
 
 # Importacion de usuarios con contrasenas (NUNCA subir)
-config/users_import.json
+base-de-datos/users_import.json
 
 # Clave de servicio de Firebase usada por scripts (NUNCA subir)
 **/serviceAccountKey.json

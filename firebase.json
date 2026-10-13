@@ -45,10 +45,10 @@
     ]
   },
   "firestore": {
-    "rules": "config/firestore.rules",
-    "indexes": "config/firestore.indexes.json"
+    "rules": "base-de-datos/firestore.rules",
+    "indexes": "base-de-datos/firestore.indexes.json"
   },
   "storage": {
-    "rules": "config/storage.rules"
+    "rules": "base-de-datos/storage.rules"
   }
 }

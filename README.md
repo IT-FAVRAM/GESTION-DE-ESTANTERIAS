@@ -56,8 +56,8 @@ Para preparar un PC nuevo desde cero está `herramientas\scripts\setup-nuevo-pc.
 Los `.bat` que empiezan por `KIOSKO_` configuran, lanzan y detienen el kiosko de una sección en Windows.
 Se han dejado en esta carpeta a propósito: Windows guarda su ruta en una tarea programada, y si se
 movieran dejarían de arrancar solos. La guía completa está en
-[`docs/guias/KIOSK_SETUP_GUIDE.md`](docs/guias/KIOSK_SETUP_GUIDE.md) y el manual en
-[`docs/guias/MANUAL_KIOSKO_WMS.pdf`](docs/guias/MANUAL_KIOSKO_WMS.pdf).
+[`documentacion/guias/KIOSK_SETUP_GUIDE.md`](documentacion/guias/KIOSK_SETUP_GUIDE.md) y el manual en
+[`documentacion/guias/MANUAL_KIOSKO_WMS.pdf`](documentacion/guias/MANUAL_KIOSKO_WMS.pdf).
 
 ### Conexión con el ERP
 
@@ -80,8 +80,8 @@ permitido. Antes de cualquier despliegue, leer [`.claude/project/DEPLOY_CHECKLIS
 | `INICIAR.bat` | Arranca la app en este ordenador para probarla. |
 | `aplicacion` | La aplicación que ven los usuarios (React + TypeScript). |
 | `servidor` | Las funciones de servidor en Firebase (Cloud Functions). |
-| `config/` | Reglas de seguridad e índices de la base de datos (Firestore). |
-| `docs/` | Toda la documentación: [ver el índice](docs/README.md). |
+| `base-de-datos/` | Reglas de seguridad e índices de la base de datos (Firestore). |
+| `documentacion/` | Toda la documentación: [ver el índice](documentacion/README.md). |
 | `herramientas/` | Scripts de apoyo, copias de seguridad antiguas y utilidades. |
 | `bridge/` | Servicio que conecta la app con el ERP. |
 | `KIOSKO_*.bat` | Configurar, lanzar y detener los kioskos. |

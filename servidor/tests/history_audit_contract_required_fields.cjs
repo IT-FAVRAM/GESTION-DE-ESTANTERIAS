@@ -1,6 +1,6 @@
 const fs = require('fs');
 
-const rules = fs.readFileSync(require('path').join(__dirname, '../../config/firestore.rules'), 'utf8');
+const rules = fs.readFileSync(require('path').join(__dirname, '../../base-de-datos/firestore.rules'), 'utf8');
 const fn = fs.readFileSync(require('path').join(__dirname, '../src/inventory.ts'), 'utf8');
 
 if (!/match \/history\/\{document=\*\*\}[\s\S]*?allow write: if false;/.test(rules)) {

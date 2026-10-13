@@ -1,6 +1,6 @@
 const fs = require('fs');
 
-const src = fs.readFileSync(require('path').join(__dirname, '../../config/firestore.rules'), 'utf8');
+const src = fs.readFileSync(require('path').join(__dirname, '../../base-de-datos/firestore.rules'), 'utf8');
 if (!/match \/shelves\/\{shelfCode\}\s*\{[\s\S]*?allow write: if false;/.test(src)) {
   throw new Error('shelves collection no longer routes writes through backend-only gate');
 }

@@ -107,8 +107,8 @@
 - `app/web/components/kiosk/ReprocessCostBadge.tsx` - presentacion aislada del bloque de importe si se mantiene visible.
 - `app/web/tailwind.config.ts` - configuracion Tailwind local para build.
 - `app/web/postcss.config.cjs` - pipeline PostCSS de Tailwind.
-- `docs/arquitectura/auth-v3.md` - contrato tecnico de sesion y capacidades.
-- `docs/arquitectura/calidad-v3.md` - reglas de acceso y visualizacion para CALIDAD.
+- `documentacion/arquitectura/auth-v3.md` - contrato tecnico de sesion y capacidades.
+- `documentacion/arquitectura/calidad-v3.md` - reglas de acceso y visualizacion para CALIDAD.
 
 ### Modificar
 
@@ -147,7 +147,7 @@
 
 **Archivos:**
 - Revisar: `app/web/AppV3.tsx`, `app/web/hooks/useAuth.ts`, `app/web/hooks/useRoles.ts`, `app/web/components/auth/UnifiedLogin.tsx`, `app/web/components/app/CalidadView.tsx`, `app/web/components/kiosk/KioskView.tsx`, `app/web/components/kiosk/ShelfGridCell.tsx`, `app/web/lib/firebaseV3.ts`
-- Documentar: `docs/arquitectura/auth-v3.md`, `docs/arquitectura/calidad-v3.md`
+- Documentar: `documentacion/arquitectura/auth-v3.md`, `documentacion/arquitectura/calidad-v3.md`
 
 - [ ] Inventariar todos los caminos de entrada reales a la app y marcar cuales estan activos, legacy, muertos o intermedios.
 - [ ] Congelar el vocabulario canonico: `role`, `section`, `authMethod`, `sessionKind`, `capabilities`, `assignedShelf`.

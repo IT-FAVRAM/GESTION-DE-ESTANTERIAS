@@ -2,7 +2,7 @@ const fs = require('fs');
 
 const viewSrc = fs.readFileSync(require('path').join(__dirname, '../../aplicacion/components/views/CarretilleroRequestsView.tsx'), 'utf8');
 const pickupSrc = fs.readFileSync(require('path').join(__dirname, '../../aplicacion/hooks/usePickupQueue.ts'), 'utf8');
-const rulesSrc = fs.readFileSync(require('path').join(__dirname, '../../config/firestore.rules'), 'utf8');
+const rulesSrc = fs.readFileSync(require('path').join(__dirname, '../../base-de-datos/firestore.rules'), 'utf8');
 
 if (!viewSrc.includes("status: 'COMPLETED'")) {
   throw new Error('Carretillero request completion does not write global status');
