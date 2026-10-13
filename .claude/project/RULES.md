@@ -209,7 +209,7 @@ firestore.rules → read/write permissions
 useOperativeShelf → callOperateLocationApi → Cloud Functions
 → shelves/ + items/ + itemAggregates/ + history/
 ```
-**Si cambias Cloud Function signature**: Actualiza `callOperateLocationApi` en frontend
+**Si cambias Cloud Function signature**: Actualiza `callInventoryOperate` en `aplicacion/lib/api/inventoryApi.ts`
 
 ---
 
@@ -277,10 +277,10 @@ FCM token (usuarios/{uid}/devices)
 | Permisos por rol | `domain/auth/authCapabilities.ts` |
 | Definición de shelves | `lib/schema/shelves.ts` |
 | Estructura Firestore | `lib/schema/collections.ts` |
-| Validación ubicación | `lib/operativeShelfLogic.ts` |
-| Cloud Functions | `servidor/` |
+| Validación ubicación | `lib/operativeShelfLogic.ts` (no existe en el repositorio) |
+| Cloud Functions | `servidor/src/` |
 | Firestore rules | `/firestore.rules` |
-| FCM triggers | `servidor/functions/` |
+| FCM triggers | `servidor/src/` |
 | Componentes views | `aplicacion/components/{role}/` |
 
 ---

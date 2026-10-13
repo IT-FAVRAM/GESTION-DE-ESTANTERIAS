@@ -409,21 +409,21 @@ const alerts = await db.collection('urgent_alerts')
 ### Backfill itemAggregates
 ```bash
 # After bulk import or fix:
-node scripts/backfill-aggregates.js
+# script retirado: ya no existe en el repositorio
 # Recalculates: cantidad, shelves[], byShelf from items/
 ```
 
 ### Archive history (> 1 year)
 ```bash
 # Keep only recent history
-node scripts/archive-history.js --before=2025-06-10
+# script retirado: ya no existe en el repositorio
 # Moves old entries to history_archive/ collection
 ```
 
 ### Cleanup deprecated fields
 ```bash
 # Remove old fcmTokens from usuarios/ root
-node scripts/cleanup-deprecated-fcmtokens.js
+# script retirado: ya no existe en el repositorio
 # (already migrated to devices/ subcollection)
 ```
 
@@ -431,7 +431,7 @@ node scripts/cleanup-deprecated-fcmtokens.js
 ```bash
 firebase firestore:shell
 # Run integrity checks
-include('scripts/validate-schema.js')
+// script retirado: ya no existe en el repositorio
 validateSchema()
 ```
 

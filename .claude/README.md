@@ -27,7 +27,7 @@ Esta carpeta contiene **documentación base + memoria** de la app WMS para que t
     ├─ 6️⃣ FIRESTORE_SCHEMA.md   ← 13 colecciones, relaciones, queries
     └─ 7️⃣ DEPLOY_CHECKLIST.md   ← Pre/post deploy + rollback plan
     
-└── memory/                      ← 📖 Memoria histórica
+└── memory/                      ← 📖 Memoria histórica (ya no existe en el repositorio)
     ├── MEMORY.md                ← Índice de memorias
     ├── auditoria_*.md           ← Auditorías completadas
     ├── feature_*.md             ← Features implementadas
@@ -71,12 +71,12 @@ Esta carpeta contiene **documentación base + memoria** de la app WMS para que t
 Ejemplo: "¿Cómo funciona UBICAR?"
 - Busca en CLAUDE_GUIDE → "Ubicar"
 - Te dice: `ARCHITECTURE.md` → "Flujos Clave → UBICAR"
-- También: `hooks/useOperativeShelf.ts` + `servidor/functions/operateLocation.ts`
+- También: `hooks/useOperativeShelf.ts` + `servidor/src/inventory.ts` (shelfOperate)
 
 ---
 
 ### 5️⃣ Necesito **verificar qué pasó antes**
-→ Lee `memory/MEMORY.md` — Índice de auditorías + features
+→ Lee `memory/MEMORY.md` (no existe en el repositorio) — Índice de auditorías + features
 
 ---
 
@@ -321,7 +321,7 @@ Si documento y código dicen cosas diferentes → El código gana, actualiza el 
 | Debuggear un bug | DEBUGGING_GUIDE.md |
 | Entender colecciones Firestore | FIRESTORE_SCHEMA.md |
 | Antes de hacer deploy | DEPLOY_CHECKLIST.md |
-| Buscar historia de cambios | memory/MEMORY.md |
+| Buscar historia de cambios | memory/MEMORY.md (no existe en el repositorio) |
 
 ---
 

@@ -112,7 +112,7 @@ Ubicación rechazada
 
 ```bash
 # 1. Verificar validación en frontend
-# Archivo: lib/operativeShelfLogic.ts
+# Archivo: lib/operativeShelfLogic.ts (no existe en el repositorio)
 # Función: validateLocation(shelf, slot)
 # Debe retornar: { valid: true, error?: null }
 
@@ -122,7 +122,7 @@ firebase functions:log
 # Revisar: qué validation falla?
 
 # 3. Revisar Cloud Function completo
-# Archivo: servidor/functions/operateLocation.ts
+# Archivo: servidor/src/inventory.ts
 # Checklista:
 #   ✅ shelf existe en config
 #   ✅ location/slot válido
@@ -156,7 +156,7 @@ itemAggregates desincronizado
   │  └─ Revisar: hooks/useOperativeShelf.ts → callOperateLocationApi
   │  └─ Problema: writeBatch no es atomic
   │  └─ Solución: Transaction en Cloud Function
-  │  └─ Archivo: servidor/functions/operateMultiple.ts
+  │  └─ Archivo: servidor/src/inventory.ts
   │
   ├─ ¿Es single item?
   │  └─ Revisar: itemAggregates update logic
@@ -192,11 +192,10 @@ firebase firestore:shell
 # Contar docs, verificar cantidad === sum(items[])
 
 # 3. Si no coincide, ejecutar script de backfill
-# Archivo: scripts/backfill-aggregates.js
-# Comando: node scripts/backfill-aggregates.js
+# Script retirado: ya no existe en el repositorio
 
 # 4. Revisar Cloud Function
-# Archivo: servidor/functions/operateLocation.ts
+# Archivo: servidor/src/inventory.ts
 # Verificar: ¿updatea itemAggregates después de items?
 
 # 5. Test manual
@@ -301,16 +300,15 @@ FCM no llega
   │  └─ Revisar: hooks/useAuth.ts → registerFCMToken()
   │
   ├─ ¿Cloud Function no dispara?
-  │  └─ Revisar: servidor/functions/ triggers
-  │  └─ Buscar: sendFCMMessage() calls
+  │  └─ Revisar: servidor/src/inventory.ts (triggers onShelfLocationWrite, onAssignmentWrite)
+  │  └─ Buscar: sendPushToUsers() calls (servidor/src/push.ts)
   │  └─ Comando: firebase functions:log
   │  └─ Buscar: "FCM" o "messaging"
   │  └─ Si no aparece → trigger no se ejecutó
   │
   ├─ ¿FCM service account inválido?
-  │  └─ Revisar: servidor/config/serviceAccount.json
+  │  └─ Revisar: serviceAccount.json (raíz del repo)
   │  └─ Debe tener: "type": "service_account", valid keys
-  │  └─ Comando: npm run deploy:functions
   │  └─ Si error → regenerar service account en Firebase Console
   │
   ├─ ¿Firestore rules bloquean lectura de tokens?
@@ -456,7 +454,7 @@ Data loss offline
   │
   ├─ ¿Cloud Function rechaza por validación?
   │  └─ Ej: location inválida, quantity <= 0
-  │  └─ Revisar: servidor/functions/operateLocation.ts
+  │  └─ Revisar: servidor/src/inventory.ts
   │  └─ Debe retornar: { success: false, error: "reason" }
   │  └─ Frontend debe: revertir optimistic update si error
   │
@@ -485,7 +483,7 @@ Data loss offline
 #   5. SI success → keep update
 
 # 2. Revisar validación pre-update
-# Archivo: lib/operativeShelfLogic.ts
+# Archivo: lib/operativeShelfLogic.ts (no existe en el repositorio)
 # Función: validateLocation()
 # Debe retornar: { valid: boolean, error?: string }
 

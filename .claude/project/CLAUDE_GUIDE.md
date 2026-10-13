@@ -18,7 +18,7 @@ metadata:
 | ¿Qué permisos tiene cada rol? | `domain/auth/authCapabilities.ts` | 14-58 |
 | ¿Cómo se resuelven capabilities? | `domain/auth/authCapabilities.ts` | resolveCapabilities() |
 | ¿Qué diferencia hay entre KIOSK_ROLES y AUTH_ROLES? | `lib/schema/roles.ts` | 1-14 |
-| ¿Cómo se valida acceso a una estantería? | `domain/shelves/shelfAccess.ts` | canAccessShelf() |
+| ¿Cómo se valida acceso a una estantería? | `domain/shelves/shelfAccess.ts` (no existe en el repositorio) | canAccessShelf() |
 | ¿Dónde se guardan/cargan sesiones? | `domain/auth/authStorage.ts` | - |
 | ¿Cómo funciona login OPERARIO? | `hooks/useKiosk.ts` | - |
 | ¿Cómo funciona login CALIDAD/ADMIN? | `hooks/useAuth.ts` | - |
@@ -47,24 +47,24 @@ metadata:
 | Pregunta | Ve a |
 |----------|------|
 | ¿Cuál es el flujo completo de UBICAR? | `ARCHITECTURE.md` → "Flujos Clave → UBICAR" |
-| ¿Cómo se valida una ubicación? | `lib/operativeShelfLogic.ts` |
-| ¿Cuál es la Cloud Function para ubicar? | `servidor/functions/operateLocation.ts` |
+| ¿Cómo se valida una ubicación? | `lib/operativeShelfLogic.ts` (no existe en el repositorio) |
+| ¿Cuál es la Cloud Function para ubicar? | `servidor/src/inventory.ts` (shelfOperate) |
 | ¿Cómo se hace optimistic update? | `hooks/useOperativeShelf.ts` |
-| ¿Cuál es la estructura de callOperateLocationApi? | `hooks/useOperativeShelf.ts` |
+| ¿Cuál es la estructura de callInventoryOperate? | `aplicacion/lib/api/inventoryApi.ts` |
 
 ### Retirar (Quitar artículo)
 | Pregunta | Ve a |
 |----------|------|
 | ¿Cuál es el flujo completo de RETIRAR? | `ARCHITECTURE.md` → "Flujos Clave → RETIRAR" |
-| ¿Cómo funciona RetirarCellModal? | `components/RetirarCellModal.tsx` |
-| ¿Cómo se hace multi-select? | `components/RetirarCellModal.tsx` |
+| ¿Cómo funciona RetirarCellModal? | `components/kiosk/RetirarCellModal.tsx` |
+| ¿Cómo se hace multi-select? | `components/kiosk/RetirarCellModal.tsx` |
 | ¿Cómo se dispara Cloud Function de retirar? | `hooks/useOperativeShelf.ts` → callRetireItems |
 
 ### Compra/Entrega (CARRETILLERO)
 | Pregunta | Ve a |
 |----------|------|
 | ¿Cómo funciona pickupQueue? | `hooks/usePickupQueue.ts` |
-| ¿Dónde ve CARRETILLERO sus órdenes? | `components/CarrosView.tsx` |
+| ¿Dónde ve CARRETILLERO sus órdenes? | `components/carretillero/CarrosView.tsx` |
 | ¿Cómo se completa una orden? | `hooks/usePickupQueue.ts` → completeOrder |
 
 ---
@@ -76,12 +76,12 @@ metadata:
 | ¿Cómo funciona FCM? | `ARCHITECTURE.md` → "Notificaciones" |
 | ¿Cuáles son los 5 triggers de FCM? | `notifications_system_analysis.md` |
 | ¿Dónde se guardan fcmTokens? | `usuarios/{uid}/devices/` |
-| ¿Cómo se disparan push notifications? | `servidor/functions/` → sendFCMMessage |
+| ¿Cómo se disparan push notifications? | `servidor/src/push.ts` → sendPushToUsers |
 | ¿Cómo funcionan alertas urgentes? | `hooks/useUrgentAlerts.ts` |
 | ¿Cuál es urgent_alerts collection? | `lib/schema/collections.ts` → URGENT_ALERTS |
-| ¿Cómo funciona sticky banner (Teams)? | `components/UrgentBanner.tsx` |
+| ¿Cómo funciona sticky banner (Teams)? | `components/UrgentBanner.tsx` (no existe en el repositorio) |
 | ¿Cómo se resuelven alertas? | `hooks/useUrgentAlerts.ts` → resolveAlert |
-| ¿Cómo funciona chat multicanal? | `hooks/useChat.ts` + `hooks/useChatSystem.ts` |
+| ¿Cómo funciona chat multicanal? | `hooks/useChat.ts` + `hooks/useChatSystem.ts` (no existe en el repositorio) |
 | ¿Qué es conversations/ vs chat/? | `Chat Multicanal + Alertas Urgencia.md` |
 
 ---
@@ -91,28 +91,28 @@ metadata:
 ### Kiosk (OPERARIO, CARRETILLERO)
 | Pregunta | Ve a |
 |----------|------|
-| ¿Dónde es KioskView? | `components/KioskView.tsx` |
-| ¿Dónde es CarrosView? | `components/CarrosView.tsx` |
+| ¿Dónde es KioskView? | `components/kiosk/KioskView.tsx` |
+| ¿Dónde es CarrosView? | `components/carretillero/CarrosView.tsx` |
 | ¿Cómo se autentican en kiosk? | `hooks/useKiosk.ts` |
-| ¿Dónde está el grid de ubicaciones? | `components/ShelfGrid.tsx` |
-| ¿Cómo funciona QR scanner? | `lib/qrProcessing.ts` |
+| ¿Dónde está el grid de ubicaciones? | `components/kiosk/ShelfGrid.tsx` |
+| ¿Cómo funciona QR scanner? | `lib/qrParser.ts` |
 
 ### Calidad (CALIDAD)
 | Pregunta | Ve a |
 |----------|------|
-| ¿Dónde es CalidadView? | `components/CalidadView.tsx` |
+| ¿Dónde es CalidadView? | `components/app/CalidadView.tsx` |
 | ¿Qué shelves ve CALIDAD? | `ROLES.md` → CAL-001 a CAL-022 |
-| ¿Cómo ve costos en reprocesos? | `components/CalidadView.tsx` → costDisplay |
+| ¿Cómo ve costos en reprocesos? | `components/app/CalidadView.tsx` → costDisplay |
 | ¿Cómo edita reprocesos? | `hooks/useOperativeShelf.ts` → editReprocess |
 
 ### Consola (JEFE_SECCION, ADMIN)
 | Pregunta | Ve a |
 |----------|------|
-| ¿Dónde es ConsoleView? | `components/ConsoleView.tsx` |
-| ¿Dónde es AdminConsole? | `components/AdminConsole.tsx` |
+| ¿Dónde es ConsoleView? | `components/ConsoleView.tsx` (no existe en el repositorio) |
+| ¿Dónde es AdminConsole? | `components/AdminConsole.tsx` (no existe en el repositorio) |
 | ¿Qué ve JEFE_SECCION? | `ROLES.md` → Su sección solamente |
 | ¿Qué ve ADMIN? | `ROLES.md` → Todo |
-| ¿Dónde está el dashboard de conexión? | `components/AdminConsole.tsx` → ConnectionMonitor |
+| ¿Dónde está el dashboard de conexión? | `components/AdminConsole.tsx` (no existe en el repositorio) → ConnectionMonitor |
 
 ---
 
@@ -126,12 +126,12 @@ metadata:
 | `useKiosk` | Kiosk login | `hooks/useKiosk.ts` |
 | `usePickupQueue` | Compras/entregas | `hooks/usePickupQueue.ts` |
 | `useUrgentAlerts` | Alertas urgentes | `hooks/useUrgentAlerts.ts` |
-| `usePinnedUrgencies` | Avisos fijados (sticky) | `hooks/usePinnedUrgencies.ts` |
+| `usePinnedUrgencies` | Avisos fijados (sticky) | `hooks/usePinnedUrgencies.ts` (no existe en el repositorio) |
 | `useChat` | Mensajes real-time | `hooks/useChat.ts` |
-| `useHistory` | Auditoría de ops | `hooks/useHistory.ts` |
+| `useHistory` | Auditoría de ops | `hooks/useHistory.ts` (no existe en el repositorio) |
 | `useConnectionMonitor` | WiFi status | `hooks/useConnectionMonitor.ts` |
-| `useInventoryOperations` | Excel export/import | `hooks/useInventoryOperations.ts` |
-| `useCarts` | Estado carros (CARRETILLERO) | `hooks/useCarts.ts` |
+| `useInventoryOperations` | Excel export/import | `hooks/useInventoryOperations.ts` (no existe en el repositorio) |
+| `useCarts` | Estado carros (CARRETILLERO) | `hooks/useCarts.ts` (no existe en el repositorio) |
 
 ---
 
@@ -140,12 +140,12 @@ metadata:
 | Problema | Sospecha | Ve a | Comando |
 |----------|----------|------|---------|
 | Usuario no ve opción de ubicar | Permisos incorrectos | `domain/auth/authCapabilities.ts` | Revisar `canOperateShelf` |
-| Ubicación rechazada | Validación fallida | `lib/operativeShelfLogic.ts` | Logs en Cloud Function |
+| Ubicación rechazada | Validación fallida | `lib/operativeShelfLogic.ts` (no existe en el repositorio) | Logs en Cloud Function |
 | itemAggregates desincronizado | Batch operation rota | `hooks/useOperativeShelf.ts` | Verificar Firestore listeners |
 | FCM no llega | fcmToken vacío o rules bloqueadas | `hooks/useAuth.ts` + `firestore.rules` | `adb logcat Firebase` |
 | Datos pierden al recargar | Optimistic update sin validación | `hooks/useOperativeShelf.ts` + `RULES.md` | Offline test |
 | Chat no aparece | Listeners no inician | `hooks/useChat.ts` | Revisar `useChatSystem` |
-| CARRETILLERO no ve todas las estanterías | assignedShelf demasiado restrictivo | `domain/shelves/shelfAccess.ts` | Revisar: `canBrowseAllShelves` |
+| CARRETILLERO no ve todas las estanterías | assignedShelf demasiado restrictivo | `domain/shelves/shelfAccess.ts` (no existe en el repositorio) | Revisar: `canBrowseAllShelves` |
 | PRE/MEC zonas confundidas | URG compartida mal usada | `lib/schema/shelves.ts` | Revisar SHELF_DEFINITIONS |
 
 ---
@@ -167,11 +167,11 @@ metadata:
 
 | Función | Para | Dónde | Parámetros |
 |---------|------|-------|-----------|
-| `operateLocation` | Ubicar artículo | `servidor/functions/operateLocation.ts` | shelf, location, items[], action |
-| `operateMultiple` | Batch ubicar/retirar | `servidor/functions/operateMultiple.ts` | operations[] |
-| `ocrImage` | Procesar QR/OCR | `servidor/functions/ocrImage.ts` | imageData, method |
-| `sendFCMMessage` | Push notification | `servidor/functions/fcm.ts` | topic, title, message |
-| `logHistory` | Auditoría | `servidor/functions/history.ts` | action, user, article, shelf |
+| `shelfOperate` | Ubicar artículo | `servidor/src/inventory.ts` | shelf, location, items[], action |
+| `shelfOperate` | Batch ubicar/retirar (`ubicarMulti`) | `servidor/src/inventory.ts` | operations[] |
+| `ocrImage` | Procesar QR/OCR | `servidor/src/ocr.ts` | imageData, method |
+| `sendPushToUsers` | Push notification | `servidor/src/push.ts` | topic, title, message |
+| (dentro de `shelfOperate`) | Auditoría (colección `history`) | `servidor/src/inventory.ts` | action, user, article, shelf |
 
 ---
 
@@ -193,8 +193,8 @@ metadata:
 |-------|-------------|------|
 | **Soldadura siempre notifica** | Cuando se ubica en sección SOLDADURA → FCM | `hooks/useOperativeShelf.ts` → checkWeldingNotification |
 | **Dual-field campos separados** | Algunos artículos tienen field1 + field2 | `lib/schema/` → Item fields |
-| **Excel export profesional** | 4 hojas (portada, resumen, global, por sección) | `components/ProfessionalInventoryExport.tsx` |
-| **Excel import con validación** | Carga + valida + resumen previo | `hooks/useInventoryOperations.ts` → importExcel |
+| **Excel export profesional** | 4 hojas (portada, resumen, global, por sección) | `components/admin/ProfessionalInventoryExport.tsx` |
+| **Excel import con validación** | Carga + valida + resumen previo | `hooks/useInventoryOperations.ts` (no existe en el repositorio) → importExcel |
 | **Reubicar diferido** | Cambiar ubicación sin retirar | `useOperativeShelf.ts` → moveItemDifferent |
 | **Almacén global** | Ubicaciones que no pertenecen a shelf | `lib/schema/shelves.ts` → WAREHOUSE section |
 
@@ -204,47 +204,30 @@ metadata:
 
 ```
 aplicacion/
-├── components/           ← Componentes React por view
-│   ├── KioskView.tsx
-│   ├── CalidadView.tsx
-│   ├── ConsoleView.tsx
-│   ├── AdminConsole.tsx
-│   ├── ShelfGrid.tsx
-│   ├── RetirarCellModal.tsx
-│   └── ...
-├── domain/              ← Lógica de dominio (auth, shelves)
-│   ├── auth/
-│   │   ├── authCapabilities.ts    ← PERMISOS
-│   │   ├── authTypes.ts
-│   │   └── ...
-│   ├── shelves/
-│   │   └── shelfAccess.ts
-│   └── ...
-├── hooks/               ← Custom React hooks
-│   ├── useAuth.ts       ← AUTENTICACIÓN
-│   ├── useShelf.ts      ← SHELF STATE
-│   ├── useOperativeShelf.ts  ← UBICAR/RETIRAR
-│   ├── useKiosk.ts
-│   └── ...
-├── lib/                 ← Utilities + schema
-│   ├── schema/          ← TypeScript interfaces
-│   │   ├── roles.ts
-│   │   ├── collections.ts
-│   │   ├── shelves.ts   ← SHELF_DEFINITIONS
-│   │   └── ...
-│   ├── firestoreSchema.ts  ← Barrel export
-│   ├── operativeShelfLogic.ts  ← VALIDACIÓN
-│   └── ...
+├── components/           ← Componentes React, agrupados por vista
+│   ├── kiosk/            ← KioskView, ShelfGrid, RetirarCellModal…
+│   ├── carretillero/     ← CarrosView, PickupQueue…
+│   ├── app/              ← CalidadView, AdminHomeView, UrgentAlertsBar…
+│   ├── admin/            ← AdminUsersTab, ProfessionalInventoryExport…
+│   ├── auth/             ← UnifiedLogin, CarretilleroLogin
+│   └── common/           ← Escáneres, modales de confirmación…
+├── hooks/                ← Hooks (useAuth, useShelf, useOperativeShelf, useKiosk, usePickupQueue…)
+├── domain/               ← Lógica de dominio
+│   ├── auth/             ← authCapabilities.ts (PERMISOS), authTypes.ts, authStorage.ts
+│   └── reprocesos/
+├── lib/                  ← Utilidades y esquema
+│   ├── schema/           ← Tipos (roles.ts, collections.ts, shelves.ts…)
+│   ├── api/              ← Llamadas a las Cloud Functions
+│   └── offline/, optimistic/, firebase/
 └── public/              ← Assets estáticos
 
 servidor/
-├── functions/           ← Cloud Functions
-│   ├── operateLocation.ts    ← UBICAR
-│   ├── operateMultiple.ts
-│   ├── ocrImage.ts
-│   ├── fcm.ts
+├── src/                 ← Cloud Functions (TypeScript)
+│   ├── inventory.ts     ← UBICAR, RETIRAR, MOVER (shelfOperate)
+│   ├── ocr.ts           ← ocrImage
+│   ├── push.ts          ← notificaciones push
 │   └── ...
-└── config/              ← Firebase config
+└── lib/                 ← Código compilado (no va a git)
 ```
 
 ---
@@ -259,10 +242,10 @@ grep -r "canAccessShelf" aplicacion/src
 grep -r "interface Shelf" aplicacion/src
 
 # Buscar por función
-grep -r "operateLocation" aplicacion/ servidor/
+grep -r "shelfOperate" aplicacion/lib servidor/src
 
 # Buscar referencias de Cloud Function
-grep -r "callOperateLocationApi" aplicacion/src
+grep -r "callInventoryOperate" aplicacion/lib
 ```
 
 ---

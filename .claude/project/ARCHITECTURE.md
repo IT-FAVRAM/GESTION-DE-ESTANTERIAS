@@ -138,7 +138,7 @@ validateLocation() → shelfAccess check
   ↓
 optimisticUpdate() → UI feedback inmediato
   ↓
-callOperateLocationApi() → Cloud Function
+callInventoryOperate() → Cloud Function shelfOperate (servidor/src/inventory.ts)
   ↓
 Firestore update:
   - items/ add

@@ -63,7 +63,7 @@ grep -r "TODO\|FIXME\|XXX" src/ --include="*.ts" --include="*.tsx"
 ### 2️⃣ Code Quality (Backend)
 
 ```bash
-# En servidor/ y functions/
+# En servidor/
 
 # Type check
 npm run typecheck
@@ -441,7 +441,7 @@ firebase deploy
 firebase functions:log | grep ERROR
 
 # 2. Revert esa función
-git log --oneline servidor/functions/
+git log --oneline servidor/src/
 git revert --no-edit {COMMIT_SHA}
 
 # 3. Redeploy solo functions
