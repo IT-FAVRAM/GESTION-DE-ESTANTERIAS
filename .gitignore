@@ -74,7 +74,7 @@ APP/backend/fix_h_like_mario.js
 **/scripts/update_password_*
 **/scripts/migrate_passwords_and_create_mario.*
 **/scripts/revert_passwords_to_original.*
-scripts/setup-users.ts
+**/scripts/setup-users.ts
 APP/frontend/SETUP_INSTRUCTIONS.md
 devices nuevas tablets.txt
 .claude/projects/*/memory/equipos_configuracion_2026-06-19.md
