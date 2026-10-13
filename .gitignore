@@ -112,3 +112,6 @@ APP/frontend/.agents/
 
 # Importacion de usuarios con contrasenas (NUNCA subir)
 config/users_import.json
+
+# Clave de servicio de Firebase usada por scripts (NUNCA subir)
+**/serviceAccountKey.json

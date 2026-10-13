@@ -1,4 +1,4 @@
-# Prepara un PC nuevo para trabajar con GESTOR-ESTANTERIAS.
+# Prepara un PC nuevo para trabajar con GESTION-DE-ESTANTERIAS.
 # Uso: doble clic en setup-nuevo-pc.bat  (o .\setup-nuevo-pc.ps1 -Destino C:\WMS)
 # Requisitos: Git y Node.js (LTS) instalados.
 param([string]$Destino = 'C:\WMS')
@@ -11,7 +11,7 @@ try {
 
   if (Test-Path $Destino) { throw "$Destino ya existe. Elige otro destino o borralo." }
   Write-Host "Clonando en $Destino ..."
-  git clone https://github.com/Daniel123456139/GESTOR-ESTANTERIAS $Destino
+  git clone https://github.com/IT-FAVRAM/GESTION-DE-ESTANTERIAS $Destino
   if ($LASTEXITCODE -ne 0) { throw 'git clone fallo (revisa conexion / acceso al repo).' }
 
   foreach ($d in 'APP\frontend', 'APP\backend') {

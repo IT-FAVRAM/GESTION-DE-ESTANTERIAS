@@ -1,7 +1,7 @@
-const admin = require('../APP/backend/node_modules/firebase-admin');
+const admin = require('../../APP/backend/node_modules/firebase-admin');
 
 admin.initializeApp({
-  credential: admin.credential.cert(require('../serviceAccount.json'))
+  credential: admin.credential.cert(require('../../serviceAccount.json'))
 });
 
 async function checkDevices() {

@@ -4,7 +4,7 @@
  * ── El problema que resuelve ────────────────────────────────────────────────
  * El ERP escucha en http://10.0.0.19:8000, una IP privada. Las Cloud Functions
  * están en la nube y no ven la LAN; el navegador tampoco puede llamarla porque
- * la app es HTTPS (Mixed Content). El intento anterior (scripts/proxy-server.js)
+ * la app es HTTPS (Mixed Content). El intento anterior (herramientas/scripts/proxy-server.js)
  * exigía un proxy en localhost de CADA tablet y kiosko.
  *
  * ── Cómo funciona ───────────────────────────────────────────────────────────

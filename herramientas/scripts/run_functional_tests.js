@@ -1,14 +1,14 @@
-const admin = require('../APP/backend/node_modules/firebase-admin');
+const admin = require('../../APP/backend/node_modules/firebase-admin');
 const fs = require('fs');
 const path = require('path');
 
 admin.initializeApp({
-  credential: admin.credential.cert(require('../serviceAccount.json'))
+  credential: admin.credential.cert(require('../../serviceAccount.json'))
 });
 
-const { shelfOperate } = require('../APP/backend/lib/src/index.js');
+const { shelfOperate } = require('../../APP/backend/lib/src/index.js');
 
-const CSV_PATH = path.join(__dirname, '../resultados_pruebas_QA.csv');
+const CSV_PATH = path.join(__dirname, '../../resultados_pruebas_QA.csv');
 const ARTICLE = 'TEST-QA-001';
 const ORDER = 'OF-TEST-999';
 
