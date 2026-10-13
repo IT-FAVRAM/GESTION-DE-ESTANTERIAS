@@ -120,3 +120,6 @@ base-de-datos/users_import.json
 # Solo se conserva index.js, que es el punto de entrada (main) y no lo genera tsc.
 servidor/lib/*
 !servidor/lib/index.js
+
+# Capturas y YAML de pruebas del navegador (generados, no versionar)
+herramientas/capturas-mcp/
