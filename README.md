@@ -51,6 +51,10 @@ Cada kiosko arranca ya en la estantería de su sección.
 
 Para preparar un PC nuevo desde cero está `herramientas\scripts\setup-nuevo-pc.bat`.
 
+**El código compilado del servidor (`servidor\lib`) no se guarda en git.** Tras clonar el repositorio hay
+que ejecutar `npm install` y `npm run build` en `servidor` (el script de PC nuevo ya lo hace).
+Al publicar, Firebase lo compila solo.
+
 ### Kioskos
 
 Los `.bat` que empiezan por `KIOSKO_` configuran, lanzan y detienen el kiosko de una sección en Windows.

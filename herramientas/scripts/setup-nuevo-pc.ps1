@@ -18,6 +18,10 @@ try {
     Write-Host "npm install en $d ..."
     Push-Location (Join-Path $Destino $d)
     npm install
+    if ($d -eq 'servidor') {
+      Write-Host "Compilando el servidor (npm run build) ..."
+      npm run build
+    }
     Pop-Location
   }
 

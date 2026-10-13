@@ -115,3 +115,8 @@ base-de-datos/users_import.json
 
 # Clave de servicio de Firebase usada por scripts (NUNCA subir)
 **/serviceAccountKey.json
+
+# Salida compilada del servidor: se genera con "npm run build" en servidor/.
+# Solo se conserva index.js, que es el punto de entrada (main) y no lo genera tsc.
+servidor/lib/*
+!servidor/lib/index.js

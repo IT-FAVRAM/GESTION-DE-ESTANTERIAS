@@ -343,6 +343,10 @@ firebase deploy --only hosting
 
 ### Opción 3: Deploy Solo Backend/Functions
 
+> `servidor/lib` (código compilado) **no está en git**: se genera con `npm run build`.
+> `firebase.json` tiene un `predeploy` que compila solo antes de publicar las functions,
+> pero conviene compilar antes a mano para ver los errores. Recuerda: solo con permiso expreso.
+
 ```bash
 cd servidor
 npm run build
