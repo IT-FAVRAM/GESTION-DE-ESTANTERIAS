@@ -74,4 +74,4 @@ Los roles de oficina (`JEFE_SECCION`, `CALIDAD`, `ADMIN`, `SUPERADMIN`) usan `au
 - **Capacidades:** `app/web/domain/auth/authCapabilities.ts`
 - **Hook:** `app/web/hooks/useAuth.ts` (fachada del dominio)
 
-El hook legacy `useRoles.ts` y `permissionMatrix.ts` están en retirada y no deben usarse en código nuevo.
+El hook legacy `useRoles.ts` y la carpeta `aplicacion/legacy/` ya se han retirado del repositorio (octubre 2026). `permissionMatrix.ts` está en retirada y no debe usarse en código nuevo.
