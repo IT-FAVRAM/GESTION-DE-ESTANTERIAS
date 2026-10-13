@@ -23,6 +23,7 @@ Qué debe hacer la app, explicado desde el punto de vista del usuario.
 | [KIOSK_SETUP_GUIDE.md](guias/KIOSK_SETUP_GUIDE.md) | Cómo configurar un kiosko |
 | [MOBILE_FEATURES_GUIDE.md](guias/MOBILE_FEATURES_GUIDE.md) | Funciones pensadas para el móvil |
 | [OFFLINE_GUIDE.md](guias/OFFLINE_GUIDE.md) | Funcionamiento sin conexión |
+| [ACTUALIZAR_KIOSKOS_Y_BRIDGE.md](guias/ACTUALIZAR_KIOSKOS_Y_BRIDGE.md) | Qué hacer en kioskos y en el PC del bridge tras la reorganización del repositorio |
 
 ## Técnica (para quien programa)
 
