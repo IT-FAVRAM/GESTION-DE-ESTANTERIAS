@@ -98,3 +98,17 @@ DOCUMENTACION_PARA_INFORMATICO.docx
 
 # Config local de Claude Code (permisos por maquina, no compartir)
 .claude/settings.local.json
+
+# Ruido local que no es parte del producto (Visual Studio, Windows, Python)
+.vs/
+desktop.ini
+__pycache__/
+*.pyc
+
+# Herramientas de IA y de pruebas locales (se quedan en el disco, no se versionan)
+.claude/skills/
+.opencode/
+APP/frontend/.agents/
+
+# Importacion de usuarios con contrasenas (NUNCA subir)
+config/users_import.json

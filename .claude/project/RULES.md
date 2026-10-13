@@ -5,6 +5,15 @@ metadata:
   type: feedback
 ---
 
+# REGLA INAMOVIBLE: nada se despliega sin permiso de Dani
+
+**Nunca** se ejecuta `firebase deploy` (hosting, functions, firestore:rules, storage ni ninguna variante), ni se publica
+nada en Firebase o en producción, sin que Dani lo haya autorizado de forma expresa para ese despliegue concreto.
+Una autorización anterior no vale para otro despliegue. Preparar, compilar y probar en local sí está permitido.
+Aplica a personas y a agentes de IA. Ante la duda, no se despliega y se pregunta.
+
+---
+
 # Reglas de Cambios (Impact Matrix)
 
 **Propósito**: Cuando hagas cambios, revisa esta matriz para saber qué más puede romperse.
