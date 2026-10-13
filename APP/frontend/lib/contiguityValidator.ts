@@ -15,14 +15,19 @@ export interface ContiguityResult {
  * Encuentra la posición (fila, columna) de un número de posición en los physicalBlocks
  */
 function findPositionInGrid(
-  position: number,
+  position: string,
   shelfDef: Shelf
 ): { row: number; col: number; blockId: string } | null {
   if (!shelfDef.layout.physicalBlocks) return null;
-  
+
+  // Los huecos pueden ser numéricos (031) o de texto ('AMADA 1', 'BOMBO 2').
+  const asNumber = /^\d+$/.test(position) ? parseInt(position, 10) : null;
+
   for (const block of shelfDef.layout.physicalBlocks) {
     for (let row = 0; row < block.rows.length; row++) {
-      const col = block.rows[row].indexOf(position);
+      const col = block.rows[row].findIndex((slot) =>
+        typeof slot === 'string' ? slot === position : slot !== null && slot === asNumber,
+      );
       if (col !== -1) {
         return { row, col, blockId: block.id };
       }
@@ -49,9 +54,9 @@ export function validateContiguity(
   // Convertir a números y encontrar sus posiciones en la cuadrícula
   const numericPositions = positions.map(p => parseInt(p, 10));
   const gridPositions = numericPositions
-    .map(pos => ({
+    .map((pos, idx) => ({
       numeric: pos,
-      grid: findPositionInGrid(pos, shelfDef),
+      grid: findPositionInGrid(positions[idx], shelfDef),
     }))
     .filter(p => p.grid !== null);
   
