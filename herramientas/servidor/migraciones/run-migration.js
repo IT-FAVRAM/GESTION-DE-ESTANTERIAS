@@ -3,8 +3,8 @@
  * Llama a la Cloud Function migratPreToPme
  */
 
-const admin = require('firebase-admin');
-const serviceAccount = require('../serviceAccount.json');
+const admin = require('../../../servidor/node_modules/firebase-admin');
+const serviceAccount = require('../../../serviceAccount.json');
 
 // Inicializar Firebase Admin SDK
 admin.initializeApp({

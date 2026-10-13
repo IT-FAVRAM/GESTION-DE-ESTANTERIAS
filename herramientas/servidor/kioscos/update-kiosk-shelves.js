@@ -1,8 +1,8 @@
-const admin = require('firebase-admin');
+const admin = require('../../../servidor/node_modules/firebase-admin');
 const path = require('path');
 
 // Load service account from root
-const serviceAccountPath = path.join(__dirname, '..', '..', 'serviceAccount.json');
+const serviceAccountPath = path.join(__dirname, '..', '..', '..', 'serviceAccount.json');
 const serviceAccount = require(serviceAccountPath);
 
 admin.initializeApp({

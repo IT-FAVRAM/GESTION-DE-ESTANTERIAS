@@ -4,7 +4,7 @@ const path = require('path');
 console.log('=== DEPLOYMENT VERIFICATION ===\n');
 
 // Check main bundle exists
-const bundlePath = path.join(__dirname, '../../aplicacion/dist/assets');
+const bundlePath = path.join(__dirname, '../../../aplicacion/dist/assets');
 const files = fs.readdirSync(bundlePath);
 const mainBundle = files.find(f => f.startsWith('index-') && f.endsWith('.js'));
 
@@ -44,7 +44,7 @@ if (bundleContent.includes('Cannot read properties of undefined')) {
 }
 
 console.log('\n=== DEVICE API IMPORT FIX ===');
-const deviceApiPath = path.join(__dirname, '../../aplicacion/lib/api/deviceApi.ts');
+const deviceApiPath = path.join(__dirname, '../../../aplicacion/lib/api/deviceApi.ts');
 const deviceApiContent = fs.readFileSync(deviceApiPath, 'utf-8');
 
 if (deviceApiContent.includes("from '../firebase/index.js'")) {

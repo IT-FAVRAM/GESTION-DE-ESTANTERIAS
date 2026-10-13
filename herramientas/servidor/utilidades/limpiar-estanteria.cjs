@@ -14,14 +14,14 @@
  * Antes de escribir guarda una copia completa en servidor/backup_*.json
  * (ignorado por git) con la que se puede deshacer con --restore.
  *
- * Uso (desde servidor):
- *   node scripts/limpiar-estanteria.cjs --shelf ZIN --desde 2026-09-01            → SOLO INFORME
- *   node scripts/limpiar-estanteria.cjs --shelf ZIN --desde 2026-09-01 --apply    → aplica
- *   node scripts/limpiar-estanteria.cjs --restore backup_limpieza-ZIN-....json    → deshace
+ * Uso (desde la raiz del repo):
+ *   node herramientas/servidor/utilidades/limpiar-estanteria.cjs --shelf ZIN --desde 2026-09-01            → SOLO INFORME
+ *   node herramientas/servidor/utilidades/limpiar-estanteria.cjs --shelf ZIN --desde 2026-09-01 --apply    → aplica
+ *   node herramientas/servidor/utilidades/limpiar-estanteria.cjs --restore backup_limpieza-ZIN-....json    → deshace
  */
 const path = require('path');
 const fs = require('fs');
-const admin = require('firebase-admin');
+const admin = require('../../../servidor/node_modules/firebase-admin');
 
 const arg = (name) => {
   const i = process.argv.indexOf(name);
@@ -33,7 +33,7 @@ const SHELF = String(arg('--shelf') || '').trim().toUpperCase();
 const DESDE = String(arg('--desde') || '').trim();
 
 const saPath = [
-  path.resolve(__dirname, '../../serviceAccount.json'),
+  path.resolve(__dirname, '../../../serviceAccount.json'),
   path.resolve(process.cwd(), 'serviceAccount.json'),
 ].find((p) => fs.existsSync(p));
 admin.initializeApp(saPath ? { credential: admin.credential.cert(require(saPath)) } : undefined);
@@ -97,7 +97,7 @@ async function clean() {
     aggBackup[k] = s.exists ? s.data() : null;
   }
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const backupFile = path.resolve(__dirname, `../backup_limpieza-${SHELF}-${stamp}.json`);
+  const backupFile = path.resolve(__dirname, `../../../servidor/backup_limpieza-${SHELF}-${stamp}.json`);
   fs.writeFileSync(backupFile, JSON.stringify({
     shelf: SHELF, desde: DESDE, cutoff: cutoff.toISOString(), createdAt: new Date().toISOString(),
     presences: toRemove.map((p) => ({ id: p.id, data: p.data })),

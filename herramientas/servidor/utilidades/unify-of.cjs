@@ -16,18 +16,18 @@
  *     de las urgentes compartidas): orderFab del ítem
  *   - itemAggregates: la saca del agregado viejo y la mete en el nuevo
  *
- * Uso (desde servidor):
- *   node scripts/unify-of.cjs            → SOLO INFORME, no escribe nada
- *   node scripts/unify-of.cjs --apply    → aplica los cambios
+ * Uso (desde la raiz del repo):
+ *   node herramientas/servidor/utilidades/unify-of.cjs            → SOLO INFORME, no escribe nada
+ *   node herramientas/servidor/utilidades/unify-of.cjs --apply    → aplica los cambios
  */
 const path = require('path');
 const fs = require('fs');
-const admin = require('firebase-admin');
+const admin = require('../../../servidor/node_modules/firebase-admin');
 
 const APPLY = process.argv.includes('--apply');
 
 const saPath = [
-  path.resolve(__dirname, '../../serviceAccount.json'),
+  path.resolve(__dirname, '../../../serviceAccount.json'),
   path.resolve(process.cwd(), 'serviceAccount.json'),
 ].find((p) => fs.existsSync(p));
 admin.initializeApp(saPath ? { credential: admin.credential.cert(require(saPath)) } : undefined);

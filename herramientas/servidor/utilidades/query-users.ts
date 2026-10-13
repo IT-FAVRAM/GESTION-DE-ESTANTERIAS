@@ -1,8 +1,8 @@
-import { initializeApp, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { initializeApp, cert } from '../../../servidor/node_modules/firebase-admin/app';
+import { getFirestore } from '../../../servidor/node_modules/firebase-admin/firestore';
 import * as fs from 'fs';
 
-const serviceAccountPath = '../serviceAccount.json';
+const serviceAccountPath = require('path').resolve(__dirname, '../../../serviceAccount.json');
 
 let serviceAccount: any;
 try {

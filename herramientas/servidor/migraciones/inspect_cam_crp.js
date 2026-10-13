@@ -1,6 +1,6 @@
 // Inspección de contenido de carros CAM y CRP antes de migrar
-const admin = require('firebase-admin');
-const serviceAccount = require('../serviceAccount.json');
+const admin = require('../../../servidor/node_modules/firebase-admin');
+const serviceAccount = require('../../../serviceAccount.json');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),

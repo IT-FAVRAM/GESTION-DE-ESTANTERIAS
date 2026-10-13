@@ -9,8 +9,8 @@
 // Uso: node migrate_cam_to_crp.js          (dry-run, solo muestra)
 //      node migrate_cam_to_crp.js --apply  (ejecuta)
 const fs = require('fs');
-const admin = require('firebase-admin');
-const serviceAccount = require('../serviceAccount.json');
+const admin = require('../../../servidor/node_modules/firebase-admin');
+const serviceAccount = require('../../../serviceAccount.json');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),

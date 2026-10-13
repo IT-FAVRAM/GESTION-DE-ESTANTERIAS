@@ -3,8 +3,8 @@
 //
 // Uso: node add_bom_to_repasado_kiosks.js          (dry-run)
 //      node add_bom_to_repasado_kiosks.js --apply  (ejecuta)
-const admin = require('firebase-admin');
-const serviceAccount = require('../serviceAccount.json');
+const admin = require('../../../servidor/node_modules/firebase-admin');
+const serviceAccount = require('../../../serviceAccount.json');
 
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 

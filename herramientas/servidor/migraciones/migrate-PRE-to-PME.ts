@@ -14,9 +14,7 @@ import * as admin from 'firebase-admin';
 import * as fs from 'fs';
 
 // Inicializar Firebase Admin SDK
-const SA_PATH = process.cwd().includes('scripts')
-  ? '../../serviceAccount.json'
-  : './serviceAccount.json';
+const SA_PATH = require('path').resolve(__dirname, '../../../serviceAccount.json');
 const serviceAccount = JSON.parse(fs.readFileSync(SA_PATH, 'utf-8'));
 
 admin.initializeApp({

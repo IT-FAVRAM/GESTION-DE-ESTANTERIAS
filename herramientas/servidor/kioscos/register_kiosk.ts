@@ -1,4 +1,4 @@
-import { admin } from './src/firebaseAdmin';
+import { admin } from '../../../servidor/src/firebaseAdmin';
 
 const registerKiosk = async () => {
   const db = admin.firestore();
