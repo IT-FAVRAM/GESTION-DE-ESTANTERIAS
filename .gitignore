@@ -62,11 +62,11 @@ plano nabe*.png
 
 # Scripts one-off y docs con contraseñas reales hardcodeadas (NUNCA subir)
 # Siguen en disco para uso local; ver CONTRASEÑAS.txt como fuente de verdad.
-APP/backend/APP/
-APP/backend/call_setupUser.js
-APP/backend/setup_auth_user.js
-APP/backend/setup_jefe.js
-APP/backend/fix_h_like_mario.js
+servidor/APP/
+servidor/call_setupUser.js
+servidor/setup_auth_user.js
+servidor/setup_jefe.js
+servidor/fix_h_like_mario.js
 **/scripts/create_user.*
 **/scripts/create_user_h.*
 **/scripts/create_a_escribano.*
@@ -75,7 +75,7 @@ APP/backend/fix_h_like_mario.js
 **/scripts/migrate_passwords_and_create_mario.*
 **/scripts/revert_passwords_to_original.*
 **/scripts/setup-users.ts
-APP/frontend/SETUP_INSTRUCTIONS.md
+aplicacion/SETUP_INSTRUCTIONS.md
 devices nuevas tablets.txt
 .claude/projects/*/memory/equipos_configuracion_2026-06-19.md
 .claude/projects/*/memory/feature_usuario_login_carretillero.md
@@ -84,7 +84,7 @@ devices nuevas tablets.txt
 kiosko-data/
 
 # Backups de migraciones Firestore (datos de produccion, solo local)
-APP/backend/backup_*.json
+servidor/backup_*.json
 
 # Salida de scripts de diagnostico (datos de conexion/dispositivos, solo local)
 firestore_data.json
@@ -108,7 +108,7 @@ __pycache__/
 # Herramientas de IA y de pruebas locales (se quedan en el disco, no se versionan)
 .claude/skills/
 .opencode/
-APP/frontend/.agents/
+aplicacion/.agents/
 
 # Importacion de usuarios con contrasenas (NUNCA subir)
 config/users_import.json

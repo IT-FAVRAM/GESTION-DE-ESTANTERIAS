@@ -209,7 +209,7 @@ const createDocument = () => {
         new Paragraph({
           children: [
             new TextRun({
-              text: "├── APP/frontend/ (157 componentes React + 147 modulos TS = 54.666 LOC)",
+              text: "├── aplicacion/ (157 componentes React + 147 modulos TS = 54.666 LOC)",
               size: 24,
             }),
           ],
@@ -254,7 +254,7 @@ const createDocument = () => {
         new Paragraph({
           children: [
             new TextRun({
-              text: "├── APP/backend/ (20 modulos TypeScript = 4.868 LOC)",
+              text: "├── servidor/ (20 modulos TypeScript = 4.868 LOC)",
               size: 24,
             }),
           ],

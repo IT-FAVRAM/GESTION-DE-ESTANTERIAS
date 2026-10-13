@@ -167,7 +167,7 @@ Después de cambios, **siempre** ejecuta:
 
 ```bash
 # Frontend
-cd APP/frontend
+cd aplicacion
 npm run typecheck
 npm run build
 npm run test  # si existen tests
@@ -278,10 +278,10 @@ FCM token (usuarios/{uid}/devices)
 | Definición de shelves | `lib/schema/shelves.ts` |
 | Estructura Firestore | `lib/schema/collections.ts` |
 | Validación ubicación | `lib/operativeShelfLogic.ts` |
-| Cloud Functions | `APP/backend/` |
+| Cloud Functions | `servidor/` |
 | Firestore rules | `/firestore.rules` |
-| FCM triggers | `APP/backend/functions/` |
-| Componentes views | `APP/frontend/components/{role}/` |
+| FCM triggers | `servidor/functions/` |
+| Componentes views | `aplicacion/components/{role}/` |
 
 ---
 

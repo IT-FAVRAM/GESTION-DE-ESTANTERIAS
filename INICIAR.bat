@@ -13,7 +13,7 @@ echo.
 echo  Pulsa Ctrl+C para detener el servidor.
 echo.
 
-cd /d "%~dp0APP\frontend"
+cd /d "%~dp0aplicacion"
 
 :: Espera 3 segundos y abre el navegador en segundo plano
 start "" cmd /c "timeout /t 3 /nobreak >nul && start https://localhost:3000"

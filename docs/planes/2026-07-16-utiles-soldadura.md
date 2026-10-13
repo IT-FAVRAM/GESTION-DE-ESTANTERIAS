@@ -13,15 +13,15 @@
 ## File Structure
 
 ### Archivos a modificar:
-- `APP/frontend/lib/schema/shelves.ts` - Añadir definición UTS
-- `APP/frontend/lib/schema/sections.ts` - Actualizar mapeo de estanterías
-- `APP/frontend/components/kiosk/ShelfGridCell.tsx` - Soporte para modo texto
-- `APP/frontend/hooks/useOperativeShelf.ts` - Lógica simplificada para UTS
-- `APP/frontend/components/operative/OperativeShelfArea.tsx` - UI específica
+- `aplicacion/lib/schema/shelves.ts` - Añadir definición UTS
+- `aplicacion/lib/schema/sections.ts` - Actualizar mapeo de estanterías
+- `aplicacion/components/kiosk/ShelfGridCell.tsx` - Soporte para modo texto
+- `aplicacion/hooks/useOperativeShelf.ts` - Lógica simplificada para UTS
+- `aplicacion/components/operative/OperativeShelfArea.tsx` - UI específica
 
 ### Archivos a crear:
-- `APP/frontend/components/operative/UtilesSoldaduraModal.tsx` - Modal para añadir/editar texto
-- `APP/frontend/hooks/useUtilesSoldadura.ts` - Hook para manejo de texto
+- `aplicacion/components/operative/UtilesSoldaduraModal.tsx` - Modal para añadir/editar texto
+- `aplicacion/hooks/useUtilesSoldadura.ts` - Hook para manejo de texto
 
 ---
 
@@ -30,8 +30,8 @@
 ### Task 1: Definición de Estantería UTS
 
 **Files:**
-- Modify: `APP/frontend/lib/schema/shelves.ts:43-442`
-- Modify: `APP/frontend/lib/schema/sections.ts:32-50`
+- Modify: `aplicacion/lib/schema/shelves.ts:43-442`
+- Modify: `aplicacion/lib/schema/sections.ts:32-50`
 
 - [ ] **Step 1: Añadir UTS a SHELF_DEFINITIONS**
 
@@ -78,7 +78,7 @@ UTS: 'SOLDADURA',
 ### Task 2: Hook para Manejo de Texto
 
 **Files:**
-- Create: `APP/frontend/hooks/useUtilesSoldadura.ts`
+- Create: `aplicacion/hooks/useUtilesSoldadura.ts`
 
 - [ ] **Step 1: Crear interfaz para ubicaciones de texto**
 
@@ -112,7 +112,7 @@ export interface UseUtilesSoldaduraReturn {
 ### Task 3: Componente Modal para Texto
 
 **Files:**
-- Create: `APP/frontend/components/operative/UtilesSoldaduraModal.tsx`
+- Create: `aplicacion/components/operative/UtilesSoldaduraModal.tsx`
 
 - [ ] **Step 1: Crear modal con campo de texto simple**
 
@@ -125,7 +125,7 @@ export interface UseUtilesSoldaduraReturn {
 ### Task 4: Modificar ShelfGridCell para Texto
 
 **Files:**
-- Modify: `APP/frontend/components/kiosk/ShelfGridCell.tsx:17-431`
+- Modify: `aplicacion/components/kiosk/ShelfGridCell.tsx:17-431`
 
 - [ ] **Step 1: Añadir prop isTextOnly**
 
@@ -138,7 +138,7 @@ export interface UseUtilesSoldaduraReturn {
 ### Task 5: Integrar en UseOperativeShelf
 
 **Files:**
-- Modify: `APP/frontend/hooks/useOperativeShelf.ts:1559-1654`
+- Modify: `aplicacion/hooks/useOperativeShelf.ts:1559-1654`
 
 - [ ] **Step 1: Detectar si es estantería UTS**
 
@@ -151,7 +151,7 @@ export interface UseUtilesSoldaduraReturn {
 ### Task 6: Actualizar OperativeShelfArea
 
 **Files:**
-- Modify: `APP/frontend/components/operative/OperativeShelfArea.tsx`
+- Modify: `aplicacion/components/operative/OperativeShelfArea.tsx`
 
 - [ ] **Step 1: Importar UtilesSoldaduraModal**
 
@@ -164,7 +164,7 @@ export interface UseUtilesSoldaduraReturn {
 ### Task 7: Pruebas y Verificación
 
 **Files:**
-- Create: `APP/frontend/components/operative/UtilesSoldaduraModal.test.tsx`
+- Create: `aplicacion/components/operative/UtilesSoldaduraModal.test.tsx`
 
 - [ ] **Step 1: Crear tests para el modal de texto**
 

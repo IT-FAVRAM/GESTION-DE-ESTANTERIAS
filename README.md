@@ -43,8 +43,8 @@ Cada kiosko arranca ya en la estantería de su sección.
 ### Arrancar la app en un ordenador de pruebas
 
 1. Instalar [Node.js](https://nodejs.org/) (versión LTS).
-2. Abrir una consola en `APP\frontend` y ejecutar `npm install` (solo la primera vez).
-3. Copiar `APP\frontend\.env.example` a `APP\frontend\.env.local` y rellenar los datos de Firebase.
+2. Abrir una consola en `aplicacion` y ejecutar `npm install` (solo la primera vez).
+3. Copiar `aplicacion\.env.example` a `aplicacion\.env.local` y rellenar los datos de Firebase.
    Ese fichero **no se sube al repositorio**; lo entrega informática.
 4. Hacer doble clic en **`INICIAR.bat`**. Se abre <https://localhost:3000>; si el navegador avisa del
    certificado, aceptarlo.
@@ -78,8 +78,8 @@ permitido. Antes de cualquier despliegue, leer [`.claude/project/DEPLOY_CHECKLIS
 | Carpeta o fichero | Qué contiene |
 |---|---|
 | `INICIAR.bat` | Arranca la app en este ordenador para probarla. |
-| `APP/frontend` | La aplicación que ven los usuarios (React + TypeScript). |
-| `APP/backend` | Las funciones de servidor en Firebase (Cloud Functions). |
+| `aplicacion` | La aplicación que ven los usuarios (React + TypeScript). |
+| `servidor` | Las funciones de servidor en Firebase (Cloud Functions). |
 | `config/` | Reglas de seguridad e índices de la base de datos (Firestore). |
 | `docs/` | Toda la documentación: [ver el índice](docs/README.md). |
 | `herramientas/` | Scripts de apoyo, copias de seguridad antiguas y utilidades. |

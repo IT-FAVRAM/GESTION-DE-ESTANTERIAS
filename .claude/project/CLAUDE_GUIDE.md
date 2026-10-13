@@ -48,7 +48,7 @@ metadata:
 |----------|------|
 | ¿Cuál es el flujo completo de UBICAR? | `ARCHITECTURE.md` → "Flujos Clave → UBICAR" |
 | ¿Cómo se valida una ubicación? | `lib/operativeShelfLogic.ts` |
-| ¿Cuál es la Cloud Function para ubicar? | `APP/backend/functions/operateLocation.ts` |
+| ¿Cuál es la Cloud Function para ubicar? | `servidor/functions/operateLocation.ts` |
 | ¿Cómo se hace optimistic update? | `hooks/useOperativeShelf.ts` |
 | ¿Cuál es la estructura de callOperateLocationApi? | `hooks/useOperativeShelf.ts` |
 
@@ -76,7 +76,7 @@ metadata:
 | ¿Cómo funciona FCM? | `ARCHITECTURE.md` → "Notificaciones" |
 | ¿Cuáles son los 5 triggers de FCM? | `notifications_system_analysis.md` |
 | ¿Dónde se guardan fcmTokens? | `usuarios/{uid}/devices/` |
-| ¿Cómo se disparan push notifications? | `APP/backend/functions/` → sendFCMMessage |
+| ¿Cómo se disparan push notifications? | `servidor/functions/` → sendFCMMessage |
 | ¿Cómo funcionan alertas urgentes? | `hooks/useUrgentAlerts.ts` |
 | ¿Cuál es urgent_alerts collection? | `lib/schema/collections.ts` → URGENT_ALERTS |
 | ¿Cómo funciona sticky banner (Teams)? | `components/UrgentBanner.tsx` |
@@ -167,11 +167,11 @@ metadata:
 
 | Función | Para | Dónde | Parámetros |
 |---------|------|-------|-----------|
-| `operateLocation` | Ubicar artículo | `APP/backend/functions/operateLocation.ts` | shelf, location, items[], action |
-| `operateMultiple` | Batch ubicar/retirar | `APP/backend/functions/operateMultiple.ts` | operations[] |
-| `ocrImage` | Procesar QR/OCR | `APP/backend/functions/ocrImage.ts` | imageData, method |
-| `sendFCMMessage` | Push notification | `APP/backend/functions/fcm.ts` | topic, title, message |
-| `logHistory` | Auditoría | `APP/backend/functions/history.ts` | action, user, article, shelf |
+| `operateLocation` | Ubicar artículo | `servidor/functions/operateLocation.ts` | shelf, location, items[], action |
+| `operateMultiple` | Batch ubicar/retirar | `servidor/functions/operateMultiple.ts` | operations[] |
+| `ocrImage` | Procesar QR/OCR | `servidor/functions/ocrImage.ts` | imageData, method |
+| `sendFCMMessage` | Push notification | `servidor/functions/fcm.ts` | topic, title, message |
+| `logHistory` | Auditoría | `servidor/functions/history.ts` | action, user, article, shelf |
 
 ---
 
@@ -203,7 +203,7 @@ metadata:
 ## 🏗️ Estructura de Carpetas Rápida
 
 ```
-APP/frontend/
+aplicacion/
 ├── components/           ← Componentes React por view
 │   ├── KioskView.tsx
 │   ├── CalidadView.tsx
@@ -237,7 +237,7 @@ APP/frontend/
 │   └── ...
 └── public/              ← Assets estáticos
 
-APP/backend/
+servidor/
 ├── functions/           ← Cloud Functions
 │   ├── operateLocation.ts    ← UBICAR
 │   ├── operateMultiple.ts
@@ -253,16 +253,16 @@ APP/backend/
 
 ```bash
 # Buscar por palabra clave
-grep -r "canAccessShelf" APP/frontend/src
+grep -r "canAccessShelf" aplicacion/src
 
 # Buscar por tipo
-grep -r "interface Shelf" APP/frontend/src
+grep -r "interface Shelf" aplicacion/src
 
 # Buscar por función
-grep -r "operateLocation" APP/
+grep -r "operateLocation" aplicacion/ servidor/
 
 # Buscar referencias de Cloud Function
-grep -r "callOperateLocationApi" APP/frontend/src
+grep -r "callOperateLocationApi" aplicacion/src
 ```
 
 ---

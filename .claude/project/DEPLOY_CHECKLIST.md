@@ -30,7 +30,7 @@ Si respondiste NO a alguna → **NO DEPLOYS**, lee primero.
 ### 1️⃣ Code Quality (Frontend)
 
 ```bash
-# En APP/frontend/
+# En aplicacion/
 
 # Type check
 npm run typecheck
@@ -63,7 +63,7 @@ grep -r "TODO\|FIXME\|XXX" src/ --include="*.ts" --include="*.tsx"
 ### 2️⃣ Code Quality (Backend)
 
 ```bash
-# En APP/backend/ y functions/
+# En servidor/ y functions/
 
 # Type check
 npm run typecheck
@@ -117,11 +117,11 @@ firebase deploy --only firestore:rules --dry-run
 
 ```bash
 # Revisar variables de entorno
-cat APP/backend/.env.keys.json
+cat servidor/.env.keys.json
 # ✅ Debe contener: serviceAccount completo
 # ❌ NUNCA comitear en git (debe estar en .gitignore)
 
-cat APP/frontend/.env.local
+cat aplicacion/.env.local
 # ✅ Firebase config presente
 # ❌ NO tokens, NO secretos
 
@@ -140,7 +140,7 @@ firebase functions:config:get
 
 ```bash
 # Frontend
-cd APP/frontend
+cd aplicacion
 npm audit
 # ✅ Idealmente: 0 vulnerabilities
 # ⚠️ Si hay: evalúa severidad
@@ -151,7 +151,7 @@ npm list --depth=0
 # ✅ Versiones conocidas (no cambios inesperados)
 
 # Backend
-cd APP/backend
+cd servidor
 npm audit
 # ✅ Idealmente: 0 vulnerabilities
 
@@ -334,7 +334,7 @@ echo "✅ Deploy completado"
 ### Opción 2: Deploy Solo Frontend
 
 ```bash
-cd APP/frontend
+cd aplicacion
 npm run build
 
 firebase deploy --only hosting
@@ -344,7 +344,7 @@ firebase deploy --only hosting
 ### Opción 3: Deploy Solo Backend/Functions
 
 ```bash
-cd APP/backend
+cd servidor
 npm run build
 
 firebase deploy --only functions
@@ -437,7 +437,7 @@ firebase deploy
 firebase functions:log | grep ERROR
 
 # 2. Revert esa función
-git log --oneline APP/backend/functions/
+git log --oneline servidor/functions/
 git revert --no-edit {COMMIT_SHA}
 
 # 3. Redeploy solo functions

@@ -133,5 +133,5 @@ Mira el documento `erp_lookups/{OF}` en Firestore:
 
 El ERP es estricto: exige `OFyy-nnnnn` con 5 dígitos. `OF26-5315` devuelve
 **cero filas**; `OF26-05315` funciona. La app ya normaliza esto automáticamente
-(`APP/frontend/lib/erp/ofNormalize.ts`), incluido el relleno de ceros y el año.
+(`aplicacion/lib/erp/ofNormalize.ts`), incluido el relleno de ceros y el año.
 Si tocas esa lógica, mantén el bridge en sintonía.

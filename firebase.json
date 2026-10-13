@@ -1,10 +1,10 @@
 {
   "functions": {
-    "source": "APP/backend",
+    "source": "servidor",
     "runtime": "nodejs22"
   },
   "hosting": {
-    "public": "APP/frontend/dist",
+    "public": "aplicacion/dist",
     "ignore": [
       "firebase.json",
       "**/.*",

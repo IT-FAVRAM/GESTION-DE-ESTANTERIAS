@@ -54,7 +54,7 @@ const CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000; // cada 6 h
 /**
  * Formato exacto que exige el ERP: `OFyy-nnnnn`, 5 dígitos con ceros.
  * Verificado contra el ERP real: `OF26-5315` devuelve 0 filas, `OF26-05315` → 10.
- * Debe mantenerse en sintonía con APP/frontend/lib/erp/ofNormalize.ts
+ * Debe mantenerse en sintonía con aplicacion/lib/erp/ofNormalize.ts
  */
 const OF_CANONICAL = /^OF\d{2}-\d{5}$/;
 

@@ -71,7 +71,7 @@ Esta carpeta contiene **documentación base + memoria** de la app WMS para que t
 Ejemplo: "¿Cómo funciona UBICAR?"
 - Busca en CLAUDE_GUIDE → "Ubicar"
 - Te dice: `ARCHITECTURE.md` → "Flujos Clave → UBICAR"
-- También: `hooks/useOperativeShelf.ts` + `APP/backend/functions/operateLocation.ts`
+- También: `hooks/useOperativeShelf.ts` + `servidor/functions/operateLocation.ts`
 
 ---
 

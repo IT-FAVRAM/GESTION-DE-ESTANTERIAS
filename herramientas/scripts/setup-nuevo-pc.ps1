@@ -14,7 +14,7 @@ try {
   git clone https://github.com/IT-FAVRAM/GESTION-DE-ESTANTERIAS $Destino
   if ($LASTEXITCODE -ne 0) { throw 'git clone fallo (revisa conexion / acceso al repo).' }
 
-  foreach ($d in 'APP\frontend', 'APP\backend') {
+  foreach ($d in 'aplicacion', 'servidor') {
     Write-Host "npm install en $d ..."
     Push-Location (Join-Path $Destino $d)
     npm install
@@ -26,8 +26,8 @@ try {
   Write-Host ''
   Write-Host 'LISTO. Falta copiar a mano (USB, NUNCA por git ni correo):'
   Write-Host "  $Destino\serviceAccount.json"
-  Write-Host "  $Destino\APP\.env.keys.json"
-  Write-Host "  $Destino\APP\frontend\.env.local"
+  Write-Host "  $Destino\servidor\.env.keys.json"
+  Write-Host "  $Destino\aplicacion\.env.local"
   Write-Host "  $Destino\bridge\.env   (solo si este PC ejecuta el bridge ERP)"
   Write-Host 'Despues ejecuta:  firebase login'
 }

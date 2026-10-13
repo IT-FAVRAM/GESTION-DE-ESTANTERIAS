@@ -1,1 +1,1 @@
-npm --prefix APP/frontend run typecheck
+npm --prefix aplicacion run typecheck

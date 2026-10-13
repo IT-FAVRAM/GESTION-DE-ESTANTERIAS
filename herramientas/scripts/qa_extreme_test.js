@@ -1,11 +1,11 @@
-const admin = require('../../APP/backend/node_modules/firebase-admin');
+const admin = require('../../servidor/node_modules/firebase-admin');
 const assert = require('assert');
 
 admin.initializeApp({
   credential: admin.credential.cert(require('../../serviceAccount.json'))
 });
 
-const { shelfOperate } = require('../../APP/backend/lib/src/index.js');
+const { shelfOperate } = require('../../servidor/lib/src/index.js');
 
 const ARTICLE = 'QA-EXTREME-X';
 const ORDER = 'OF-EXTREME-1';

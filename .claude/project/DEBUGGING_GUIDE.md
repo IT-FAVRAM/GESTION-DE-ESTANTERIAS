@@ -122,7 +122,7 @@ firebase functions:log
 # Revisar: qué validation falla?
 
 # 3. Revisar Cloud Function completo
-# Archivo: APP/backend/functions/operateLocation.ts
+# Archivo: servidor/functions/operateLocation.ts
 # Checklista:
 #   ✅ shelf existe en config
 #   ✅ location/slot válido
@@ -156,7 +156,7 @@ itemAggregates desincronizado
   │  └─ Revisar: hooks/useOperativeShelf.ts → callOperateLocationApi
   │  └─ Problema: writeBatch no es atomic
   │  └─ Solución: Transaction en Cloud Function
-  │  └─ Archivo: APP/backend/functions/operateMultiple.ts
+  │  └─ Archivo: servidor/functions/operateMultiple.ts
   │
   ├─ ¿Es single item?
   │  └─ Revisar: itemAggregates update logic
@@ -196,7 +196,7 @@ firebase firestore:shell
 # Comando: node scripts/backfill-aggregates.js
 
 # 4. Revisar Cloud Function
-# Archivo: APP/backend/functions/operateLocation.ts
+# Archivo: servidor/functions/operateLocation.ts
 # Verificar: ¿updatea itemAggregates después de items?
 
 # 5. Test manual
@@ -301,14 +301,14 @@ FCM no llega
   │  └─ Revisar: hooks/useAuth.ts → registerFCMToken()
   │
   ├─ ¿Cloud Function no dispara?
-  │  └─ Revisar: APP/backend/functions/ triggers
+  │  └─ Revisar: servidor/functions/ triggers
   │  └─ Buscar: sendFCMMessage() calls
   │  └─ Comando: firebase functions:log
   │  └─ Buscar: "FCM" o "messaging"
   │  └─ Si no aparece → trigger no se ejecutó
   │
   ├─ ¿FCM service account inválido?
-  │  └─ Revisar: APP/backend/config/serviceAccount.json
+  │  └─ Revisar: servidor/config/serviceAccount.json
   │  └─ Debe tener: "type": "service_account", valid keys
   │  └─ Comando: npm run deploy:functions
   │  └─ Si error → regenerar service account en Firebase Console
@@ -456,7 +456,7 @@ Data loss offline
   │
   ├─ ¿Cloud Function rechaza por validación?
   │  └─ Ej: location inválida, quantity <= 0
-  │  └─ Revisar: APP/backend/functions/operateLocation.ts
+  │  └─ Revisar: servidor/functions/operateLocation.ts
   │  └─ Debe retornar: { success: false, error: "reason" }
   │  └─ Frontend debe: revertir optimistic update si error
   │

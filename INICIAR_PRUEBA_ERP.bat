@@ -36,7 +36,7 @@ start "ERP Bridge" cmd /k "cd /d "%~dp0bridge" && npm start"
 start "" cmd /c "timeout /t 6 /nobreak >nul && start https://localhost:3000"
 
 :: Esta ventana se queda con el servidor de la app
-cd /d "%~dp0APP\frontend"
+cd /d "%~dp0aplicacion"
 npm run dev
 
 pause
