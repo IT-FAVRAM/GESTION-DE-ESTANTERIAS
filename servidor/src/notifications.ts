@@ -141,6 +141,10 @@ export const notifyPickupQueueCreated = functions.firestore
       title = `Material en Recepciones`;
       body = `${operarioName} avisa: hay material recepcionado. Ve a Recepciones a recogerlo.`;
       notifType = 'RECEPCION_REQUEST';
+    } else if (requestType === 'BAJAR_MATERIAL') {
+      title = `Bajar material a Soldadura`;
+      body = `${operarioName} (${shelfName}) avisa: hay que bajar material a Soldadura.`;
+      notifType = 'BAJAR_MATERIAL_REQUEST';
     } else if (requestType === 'TRAER') {
       const articleCode = String(data.articleCode || 'Artículo');
       const articleOrderFab = String(data.articleOrderFab || '');
@@ -482,7 +486,9 @@ export const pickupQueueOperate = functions.https.onCall(async (data: any, conte
       docData.destinationSection = String(payload?.destinationSection || '').trim() || getWmsSectionForShelf(destinationShelfCode);
       docData.destinationStation = toStation(payload?.destinationStation);
     }
-    if (requestType === 'RECEPCION') {
+    if (requestType === 'BAJAR_MATERIAL') {
+      // BAJAR MATERIAL — sin datos que indicar: el carretillero baja material a Soldadura.
+    } else if (requestType === 'RECEPCION') {
       // RECEPCIÓN — sin datos que indicar: el carretillero solo va a Recepciones a
       // por el material recepcionado. No lleva artículo, origen ni destino.
     } else if (requestType === 'TRAER') {

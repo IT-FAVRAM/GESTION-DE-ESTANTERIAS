@@ -113,6 +113,39 @@ const RequestCard: React.FC<RequestCardProps> = ({ req, onComplete, processingId
   const isRecepcion = req.requestType === 'RECEPCION';
   const destText = `${req.destinationShelfName || req.shelfName}${stationLabel(req.destinationStation)}`;
 
+  // BAJAR MATERIAL — sin datos que indicar: bajar material a Soldadura.
+  if (req.requestType === 'BAJAR_MATERIAL') {
+    return (
+      <div className="bg-gradient-to-br from-amber-950 to-slate-900 border-2 border-amber-500/40 rounded-2xl p-4 shadow-lg hover:border-amber-500/60 transition-colors">
+        <div className="mb-3">
+          <p className="text-xs font-bold text-amber-300 uppercase tracking-widest">Aviso de {req.operarioName}</p>
+          <p className="text-sm text-slate-400 mt-0.5">{timeAgo(req.createdAt)}</p>
+        </div>
+
+        <div className="flex items-start gap-2.5 bg-amber-950/60 border border-amber-500/20 rounded-xl p-3 mb-4">
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Bajar material a</p>
+            <p className="text-base font-black text-amber-200">{req.shelfName || 'Soldadura'}</p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => onComplete(req.id)}
+          disabled={processingId === req.id}
+          className="w-full px-4 py-3 bg-amber-600 hover:bg-amber-500 text-white text-sm font-black
+            rounded-xl active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg"
+        >
+          {processingId === req.id ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : <span>✓</span>}
+          {processingId === req.id ? 'Procesando...' : 'MARCAR COMO HECHO'}
+        </button>
+
+        <MetaBadges req={req} />
+      </div>
+    );
+  }
+
   // RECEPCIÓN — sin datos que indicar: solo ir a Recepciones a por material recepcionado.
   if (isRecepcion) {
     return (
@@ -307,7 +340,7 @@ const PickupQueue: React.FC<PickupQueueProps> = ({ currentShelf }) => {
 
   // Derivar dos arrays filtrados: Recogidas (RECOGER + RECEPCIÓN) y Traídas (TRAER)
   const recogidasPending = groupedPending
-    .map(g => ({ ...g, requests: g.requests.filter(r => r.requestType === 'RECOGER' || r.requestType === 'RECEPCION') }))
+    .map(g => ({ ...g, requests: g.requests.filter(r => r.requestType === 'RECOGER' || r.requestType === 'RECEPCION' || r.requestType === 'BAJAR_MATERIAL') }))
     .filter(g => g.requests.length > 0);
 
   const trairadasPending = groupedPending
