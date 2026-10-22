@@ -120,7 +120,7 @@ export const SHELF_DEFINITIONS: Shelf[] = [
         {
           id: 'ple-punz',
           title: 'Punzonadora Derecha',
-          subtitle: '034-051 + AMADA 1-3 · 7 filas · 3 columnas',
+          subtitle: '031-051 · 7 filas · 3 columnas',
           zoneName: 'PUNZONADORA',
           rows: [
             [49, 50, 51],
@@ -129,8 +129,7 @@ export const SHELF_DEFINITIONS: Shelf[] = [
             [40, 41, 42],
             [37, 38, 39],
             [34, 35, 36],
-            // Antes 031-033: ahora son las posiciones AMADA (mismo hueco físico).
-            ['AMADA 1', 'AMADA 2', 'AMADA 3'],
+            [31, 32, 33],
           ],
         },
         {
