@@ -32,6 +32,7 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({ requests, o
 
   const isTraer = req.requestType === 'TRAER';
   const isRecepcion = req.requestType === 'RECEPCION';
+  const isBajar = req.requestType === 'BAJAR_MATERIAL';
   const remaining = requests.length - 1;
 
   const articleCode = isTraer ? req.articleCode : req.articleToPickCode;
@@ -50,13 +51,13 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({ requests, o
     setProcessing(false);
   };
 
-  // RECEPCIÓN — popup simple: solo ir a Recepciones a por el material recepcionado.
-  if (isRecepcion) {
+  // RECEPCIÓN / BAJAR MATERIAL — popup simple, sin datos que indicar.
+  if (isRecepcion || isBajar) {
     return (
       <div className="fixed inset-0 z-[100] flex flex-col bg-slate-950/98 backdrop-blur-md">
-        <div className="px-5 py-4 bg-teal-600 animate-pulse">
+        <div className={`px-5 py-4 ${isBajar ? 'bg-amber-600' : 'bg-teal-600'} animate-pulse`}>
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-black text-white">MATERIAL EN RECEPCIONES</h2>
+            <h2 className="text-xl font-black text-white">{isBajar ? 'BAJAR MATERIAL' : 'MATERIAL EN RECEPCIONES'}</h2>
             {remaining > 0 && (
               <span className="px-2.5 py-1 rounded-full bg-white/25 text-white text-sm font-black">
                 +{remaining} más
@@ -67,8 +68,10 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({ requests, o
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-6 flex flex-col items-center justify-center text-center gap-5">
-          <p className="text-3xl font-black text-white leading-tight">Ve a Recepciones</p>
-          <p className="text-lg text-slate-300 font-bold max-w-xs">Hay material recepcionado para recoger.</p>
+          <p className="text-3xl font-black text-white leading-tight">{isBajar ? 'Baja material a Soldadura' : 'Ve a Recepciones'}</p>
+          <p className="text-lg text-slate-300 font-bold max-w-xs">
+            {isBajar ? `Te avisan desde ${req.shelfName || 'Soldadura'}.` : 'Hay material recepcionado para recoger.'}
+          </p>
         </div>
 
         <div className="px-5 pb-safe pt-3 border-t border-slate-800">

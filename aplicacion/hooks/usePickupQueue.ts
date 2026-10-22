@@ -407,6 +407,44 @@ export const usePickupQueue = () => {
     }
   }, []);
 
+  // ─── Create bajar-material request (kiosko de Soldadura → "baja material") ───
+  // Sin datos que indicar: el carretillero solo tiene que bajar material a Soldadura.
+  const createBajarMaterialRequest = useCallback(async (params: {
+    operarioId: string;
+    operarioName: string;
+    shelfCode: string;
+    shelfName: string;
+    targetCarretilleroId: string;
+    targetCarretilleroName: string;
+  }): Promise<boolean> => {
+    try {
+      const session = getOperationalSession();
+      const payload: Record<string, unknown> = {
+        requestType: 'BAJAR_MATERIAL',
+        operarioId: params.operarioId,
+        operarioName: params.operarioName,
+        shelfCode: params.shelfCode,
+        shelfName: params.shelfName,
+        targetCarretilleroId: params.targetCarretilleroId,
+        targetCarretilleroName: params.targetCarretilleroName,
+      };
+
+      if (!navigator.onLine) {
+        enqueueOfflineOperation('AVISAR_CARRETILLERO', payload, session);
+        return true;
+      }
+
+      const result = await pickupQueueApi.create(payload, session);
+      if (!result?.ok) throw new Error('El servidor rechazó el aviso de bajar material');
+      return true;
+    } catch (err: unknown) {
+      const msg = parseCallableError(err);
+      console.error('[usePickupQueue] Create bajar material error:', msg);
+      setError(msg);
+      return false;
+    }
+  }, []);
+
   // ─── Acknowledge ("Recibido" en el popup bloqueante) ───
   const acknowledgeRequest = useCallback(async (requestId: string): Promise<boolean> => {
     // Optimista: marcar como confirmada localmente para cerrar el popup ya.
@@ -482,6 +520,7 @@ export const usePickupQueue = () => {
     createPickupRequest,
     createDeliveryRequest,
     createRecepcionRequest,
+    createBajarMaterialRequest,
     acknowledgeRequest,
     completeRequest,
   };

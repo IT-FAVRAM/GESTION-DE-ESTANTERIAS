@@ -16,7 +16,7 @@ import { useFormFactor } from '../../hooks/useFormFactor';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { getCartsForSection, type WarehouseSection } from '../../lib/firestoreSchema';
 import CarrosView from '../carretillero/CarrosView';
-import { ArrowLeftRight, Bell, Eye, EyeOff, Package, PackageMinus, PanelLeftClose, PanelLeftOpen, ShoppingCart, Warehouse } from 'lucide-react';
+import { ArrowDownToLine, ArrowLeftRight, Bell, Eye, EyeOff, Package, PackageMinus, PanelLeftClose, PanelLeftOpen, ShoppingCart, Warehouse } from 'lucide-react';
 
 const LAYOUT_KEY = 'kioskLayout';
 const RAIL_COLLAPSED_KEY = 'kioskShelfRailCollapsed';
@@ -172,6 +172,9 @@ const KioskView: React.FC = () => {
         ) : <div />}
         {availableCarts.length > 0 && (
           <button disabled={visualOnly} onClick={() => setShowCarts(true)} className={`h-32 rounded-3xl border border-orange-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-orange-100 text-orange-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-orange-500 to-orange-700 hover:from-orange-400 hover:to-orange-600 active:scale-95 text-white shadow-orange-950/40'}`}><ShoppingCart className="w-10 h-10" strokeWidth={2.25} aria-hidden />CARROS</button>
+        )}
+        {config.actions.bajarMaterial && (
+          <button disabled={visualOnly} onClick={() => engine.startBajarMaterial()} className={`h-32 rounded-3xl border border-amber-400/20 font-black text-2xl flex flex-col items-center justify-center gap-2 shadow-xl transition-all ${visualOnly ? 'bg-amber-100 text-amber-400 cursor-not-allowed opacity-50' : 'bg-gradient-to-br from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 active:scale-95 text-white shadow-amber-950/40'}`}><ArrowDownToLine className="w-10 h-10" strokeWidth={2.25} aria-hidden />BAJAR MATERIAL</button>
         )}
       </div>
       <button onClick={() => setShowShelf(true)} className="mt-8 px-6 py-3 rounded-full bg-white border border-slate-300 text-slate-600 font-bold hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-2">
