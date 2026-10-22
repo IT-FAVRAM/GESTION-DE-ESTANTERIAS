@@ -17,7 +17,7 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from '../lib/firebase';
 import { useShelf, type ShelfLocationState } from './useShelf';
 import { usePickupQueue } from './usePickupQueue';
-import { pickupQueueApi, type CarretilleroOption } from '../lib/api/pickupQueueApi';
+import type { CarretilleroOption } from '../lib/api/pickupQueueApi';
 import type { WarehouseSection } from '../lib/schema/sections';
 import type { RecogidaSelection } from '../components/kiosk/RecogidaModal';
 import type { TraerSelection } from '../components/kiosk/TraerArticuloModal';
@@ -150,7 +150,7 @@ export function useOperativeShelf({
 }: UseOperativeShelfParams) {
   const shelf = useShelf(shelfCode);
   const { locations, loading, shelfDef, ubicar, ubicarMulti, retirar, retirarDeUbicacion, mover, findArticle, validateShelfAccess, takeLastError, totalArticles, totalOccupied, totalEmpty } = shelf;
-  const { createPickupRequest, createDeliveryRequest, createBajarMaterialRequest } = usePickupQueue();
+  const { createPickupRequest, createDeliveryRequest } = usePickupQueue();
 
   // ── Estado de flujo ────────────────────────────────────────────────────────
   const [action, setAction] = useState<OperativeAction>('idle');
@@ -895,50 +895,6 @@ export function useOperativeShelf({
       onClose: cancelAction,
     });
   }, [config.actions.avisar, cancelAction]);
-
-  // ── Bajar material (kioskos de Soldadura) ──────────────────────────────────
-  // Un solo toque + confirmación: el aviso va siempre a Óscar, sin más datos.
-  const BAJAR_MATERIAL_CARRETILLERO = 'oscar';
-  const startBajarMaterial = useCallback(() => {
-    setConfirmModal({
-      open: true,
-      title: 'Avisar a Óscar',
-      message: '¿Avisar a Óscar para que baje material a Soldadura?',
-      variant: 'warning',
-      confirmText: 'SÍ, AVISAR',
-      onConfirm: async () => {
-        setConfirmModal((p) => ({ ...p, open: false }));
-        setProcessing(true);
-        try {
-          const { carretilleros } = await pickupQueueApi.listCarretilleros(getOperationalSession());
-          const oscar = (carretilleros || []).find(
-            (c) => c.name.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase()
-              .startsWith(BAJAR_MATERIAL_CARRETILLERO),
-          );
-          if (!oscar) {
-            showToast('error', 'No se encuentra al carretillero Óscar');
-            return;
-          }
-          const ok = await createBajarMaterialRequest({
-            operarioId, operarioName: displayName,
-            shelfCode, shelfName: shelfDef?.name || shelfCode,
-            targetCarretilleroId: oscar.uid,
-            targetCarretilleroName: oscar.name,
-          });
-          if (ok) {
-            setSuccessModal({ title: 'Aviso enviado', message: `${oscar.name} avisado: baja material a Soldadura.` });
-          } else {
-            showToast('error', 'Error al enviar el aviso');
-          }
-        } catch {
-          showToast('error', 'Error al enviar el aviso');
-        } finally {
-          setProcessing(false);
-        }
-      },
-      onClose: () => setConfirmModal((p) => ({ ...p, open: false })),
-    });
-  }, [createBajarMaterialRequest, operarioId, displayName, shelfCode, shelfDef, showToast]);
 
   const targetFields = useCallback(() => ({
     targetCarretilleroId: selectedCarretillero?.uid,
@@ -2044,7 +2000,7 @@ export function useOperativeShelf({
     handleMoverSelectArticle, handleMoverConfirm, chooseMoverFromList,
     handleReubicarConfirm,
     handleSectionPicked,
-    handleRecogidaConfirm, handleTraerConfirm, startBajarMaterial,
+    handleRecogidaConfirm, handleTraerConfirm,
     addAdditionalShelf,
     // bandeja de escaneo (scan-first)
     addToTray, removeFromTray, clearTray, removeBatchArticle, ubicarTray, retirarTray, requestDeliveryToSection,

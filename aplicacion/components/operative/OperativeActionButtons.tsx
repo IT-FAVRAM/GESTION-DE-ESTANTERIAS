@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { Package, PackageMinus, ArrowLeftRight, Shuffle, Warehouse, Bell, ArrowDownToLine } from 'lucide-react';
+import { Package, PackageMinus, ArrowLeftRight, Shuffle, Warehouse, Bell } from 'lucide-react';
 import type { RoleOperativeConfig } from '../../lib/operative/operativeConfig';
 import type { UseOperativeShelfReturn } from '../../hooks/useOperativeShelf';
 
@@ -30,7 +30,6 @@ const BTN = {
   reubicar: { label: 'REUBICAR', Icon: Shuffle, cls: 'bg-indigo-600' },
   almacen: { label: 'ALMACÉN', Icon: Warehouse, cls: 'bg-purple-600' },
   avisar: { label: 'AVISAR', Icon: Bell, cls: 'bg-amber-600' },
-  bajarMaterial: { label: 'BAJAR MATERIAL', Icon: ArrowDownToLine, cls: 'bg-amber-600' },
 } as const;
 
 const OperativeActionButtons: React.FC<OperativeActionButtonsProps> = ({ engine, config, size = 'compact' }) => {
@@ -88,11 +87,6 @@ const OperativeActionButtons: React.FC<OperativeActionButtonsProps> = ({ engine,
       {a.avisar !== 'none' && (
         <button onClick={() => engine.startAction('avisar')} className={`${base} ${BTN.avisar.cls}`}>
           <BTN.avisar.Icon className={iconCls} aria-hidden /> {BTN.avisar.label}
-        </button>
-      )}
-      {a.bajarMaterial && (
-        <button onClick={() => engine.startBajarMaterial()} className={`${base} ${BTN.bajarMaterial.cls}`}>
-          <BTN.bajarMaterial.Icon className={iconCls} aria-hidden /> {BTN.bajarMaterial.label}
         </button>
       )}
     </div>

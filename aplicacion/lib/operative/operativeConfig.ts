@@ -34,8 +34,6 @@ export interface RoleOperativeConfig {
     reubicar: boolean;
     almacen: AlmacenMode;
     avisar: AvisarMode;
-    /** Botón "BAJAR MATERIAL": avisa a Óscar (kioskos de Soldadura y Plegadora). */
-    bajarMaterial?: boolean;
   };
   ubicar: {
     /** Pregunta previa "¿vas a ubicar varios artículos en la misma posición?" */
@@ -132,7 +130,6 @@ export function buildOperativeConfig(
           almacen: ALMACEN_FEATURE_ENABLED && isPintura(lockedShelfCode, section) ? 'pintura' : 'none',
           // Kioskos (OPERARIO): sin botón AVISAR — solo UBICAR / RETIRAR / MOVER.
           avisar: 'none',
-          bajarMaterial: ['SOLDADURA', 'PLEGADORA'].includes(String(section || '').toUpperCase()),
         },
         ubicar: { askMultiArticle: true, allowMultiSection: false },
         retirar: { askSectionFirst: false },

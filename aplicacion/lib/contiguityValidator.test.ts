@@ -8,9 +8,9 @@ describe('validateContiguity con huecos de texto', () => {
     expect(validateContiguity(['BOMBO 1', 'BOMBO 2'], bom).isContiguous).toBe(true);
   });
 
-  it('031-033 en PLE son contiguos en fila', () => {
+  it('AMADA 1-3 en PLE son contiguos en fila', () => {
     const ple = getShelfDefinition('PLE')!;
-    expect(validateContiguity(['031', '032', '033'], ple).isContiguous).toBe(true);
+    expect(validateContiguity(['AMADA 1', 'AMADA 2', 'AMADA 3'], ple).isContiguous).toBe(true);
   });
 
   it('hueco de texto inexistente se rechaza', () => {
