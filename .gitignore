@@ -82,7 +82,6 @@ devices nuevas tablets.txt
 
 # Datos de perfil Chrome de los kioskos (generados por KIOSKO_LANZAR.bat)
 kiosko-data/
-kiosko-data-soldadura/
 
 # Backups de migraciones Firestore (datos de produccion, solo local)
 servidor/backup_*.json
